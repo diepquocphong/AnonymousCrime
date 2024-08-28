@@ -1,0 +1,92 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 940df1a5021160d42b896ca3c766993a, type: 3}
+  m_Name: MobileAdsDataRuntime
+  m_EditorClassIdentifier: 
+  consentCanvas: {fileID: 0}
+  consentPopup: {fileID: 0}
+  androidAdvertiser:
+    advertiser: 30
+    platformSettings:
+      platform: 0
+      enabled: 1
+      appId:
+        id: ArdMxTOMzAagq3L8EhwTHlyMVhRMlyfJfVb8ELTSoA9rVIx9psanq8Oy48H3iukzHBTU6eIC_RyHeDp6bsLEO3
+        displayName: SDK key
+        required: 1
+      idBanner:
+        id: a
+        displayName: Banner ID
+        required: 1
+      idMRec:
+        id: a
+        displayName: MRec ID
+        required: 1
+      idInterstitial:
+        id: a
+        displayName: Interstitial ID
+        required: 1
+      idRewarded:
+        id: a
+        displayName: Rewarded ID
+        required: 1
+      idRewardedInterstitial:
+        id: 
+        displayName: 
+        required: 0
+      idOpenApp:
+        id: a
+        displayName: App Open ID
+        required: 1
+      testMode: 0
+      testDevice: 
+    directedForChildren: 0
+  iOSAdvertiser:
+    advertiser: 30
+    platformSettings:
+      platform: 1
+      enabled: 1
+      appId:
+        id: ArdMxTOMzAagq3L8EhwTHlyMVhRMlyfJfVb8ELTSoA9rVIx9psanq8Oy48H3iukzHBTU6eIC_RyHeDp6bsLEO3
+        displayName: SDK key
+        required: 1
+      idBanner:
+        id: aa
+        displayName: Banner ID
+        required: 1
+      idMRec:
+        id: a
+        displayName: MRec ID
+        required: 1
+      idInterstitial:
+        id: a
+        displayName: Interstitial ID
+        required: 1
+      idRewarded:
+        id: a
+        displayName: Rewarded ID
+        required: 1
+      idRewardedInterstitial:
+        id: 
+        displayName: 
+        required: 0
+      idOpenApp:
+        id: a
+        displayName: App Open ID
+        required: 1
+      testMode: 0
+      testDevice: 
+    directedForChildren: 0
+  debugMode: 0
+  enableATT: 1
+  nativePopupText: We will use your data to provide a better and personalized ad
+    experience.
