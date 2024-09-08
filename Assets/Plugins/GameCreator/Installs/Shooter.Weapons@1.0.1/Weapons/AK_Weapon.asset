@@ -267,7 +267,8 @@ MonoBehaviour:
     version: 2
     RefIds:
     - rid: 1903938855789396098
-      type: {class: InstructionCameraShakeBurst, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      type: {class: InstructionCameraShakeBurst, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
@@ -284,7 +285,8 @@ MonoBehaviour:
           m_Transform: {fileID: 0}
           m_Radius: 0.5
     - rid: 1903938855789396100
-      type: {class: InstructionLogicCheckConditions, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      type: {class: InstructionLogicCheckConditions, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
@@ -292,7 +294,8 @@ MonoBehaviour:
           m_Conditions:
           - rid: 1903938855789396101
     - rid: 1903938855789396101
-      type: {class: ConditionCharacterIsPlayer, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      type: {class: ConditionCharacterIsPlayer, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
@@ -340,10 +343,12 @@ MonoBehaviour:
       type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 3428531543345201252
-      type: {class: GetDecimalConstantOnePointFive, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      type: {class: GetDecimalConstantOnePointFive, ns: GameCreator.Runtime.Common,
+        asm: GameCreator.Runtime.Core}
       data: 
     - rid: 3428531703245439905
-      type: {class: InstructionShooterEjectShell, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
+      type: {class: InstructionShooterEjectShell, ns: GameCreator.Runtime.Shooter,
+        asm: GameCreator.Runtime.Shooter}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
@@ -361,7 +366,8 @@ MonoBehaviour:
       data:
         m_Weapon: {fileID: 11400000}
     - rid: 3428531703245439911
-      type: {class: InstructionCommonDebugText, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      type: {class: InstructionCommonDebugText, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
@@ -391,7 +397,8 @@ MonoBehaviour:
       type: {class: GetGameObjectTarget, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 3428531703245439919
-      type: {class: InstructionAnimatorBlendShape, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      type: {class: InstructionAnimatorBlendShape, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
@@ -420,7 +427,8 @@ MonoBehaviour:
       data:
         m_Value: 0
     - rid: 3428531703245439924
-      type: {class: InstructionAnimatorBlendShape, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      type: {class: InstructionAnimatorBlendShape, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
@@ -449,7 +457,8 @@ MonoBehaviour:
       data:
         m_Value: 100
     - rid: 3428531703245439928
-      type: {class: InstructionAnimatorBlendShape, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      type: {class: InstructionAnimatorBlendShape, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
@@ -636,7 +645,8 @@ MonoBehaviour:
       data:
         m_Value: 0.25
     - rid: 8814677138683199551
-      type: {class: GetBoolCharacterIsPlayer, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
+      type: {class: GetBoolCharacterIsPlayer, ns: GameCreator.Runtime.Characters,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Character:
           m_Property:
@@ -669,7 +679,8 @@ MonoBehaviour:
     - rid: 8814677138683199556
       type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
-        m_GameObject: {fileID: 3599771330249854657, guid: 0207cb9bd8448480996129a3dea4b8a2, type: 3}
+        m_GameObject: {fileID: 3599771330249854657, guid: 0207cb9bd8448480996129a3dea4b8a2,
+          type: 3}
     - rid: 8814677138683199557
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
@@ -809,7 +820,8 @@ MonoBehaviour:
     - rid: 8814677336433098940
       type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
-        m_GameObject: {fileID: 2310562118795845251, guid: 8b1f5e7ba8be14992a9eff217d053d35, type: 3}
+        m_GameObject: {fileID: 2310562118795845251, guid: 8b1f5e7ba8be14992a9eff217d053d35,
+          type: 3}
 --- !u!221 &7759106725447088132
 AnimatorOverrideController:
   m_ObjectHideFlags: 1
