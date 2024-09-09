@@ -38,24 +38,72 @@ MonoBehaviour:
         m_Breakpoint: 0
         m_IsEnabled: 1
         m_Value: 130
-    - rid: 8453198294428942340
-      type: {class: NameList, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
-      data:
-        m_Source:
-        - rid: 8453198294428942341
-        - rid: 6909870023434567915
-    - rid: 8453198294428942341
+    - rid: 6909870037770699064
       type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
         m_Value:
-          rid: 8453198294428942342
+          rid: 6909870037770699066
         m_Name:
-          m_String: my-variable
-    - rid: 8453198294428942342
+          m_String: NPC_AoundPlayer
+    - rid: 6909870037770699066
       type: {class: ValueNumber, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
-        m_Value: 5
+        m_Value: 10
+    - rid: 6909870040392663252
+      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value:
+          rid: 6909870040392663253
+        m_Name:
+          m_String: NPC_Spawn
+    - rid: 6909870040392663253
+      type: {class: ValueNumber, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value: 0
+    - rid: 6909870043677589508
+      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value:
+          rid: 6909870043677589509
+        m_Name:
+          m_String: Sensitivity
+    - rid: 6909870043677589509
+      type: {class: ValueNumber, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value: 4
+    - rid: 6909870043677589510
+      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value:
+          rid: 6909870043677589511
+        m_Name:
+          m_String: SmoothTime
+    - rid: 6909870043677589511
+      type: {class: ValueNumber, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value: 0.1
+    - rid: 8453198294428942340
+      type: {class: NameList, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Source:
+        - rid: 6909870043677589508
+        - rid: 6909870043677589510
+        - rid: 6909870023434567915
+        - rid: 6909870037770699064
+        - rid: 6909870040392663252
