@@ -251,8 +251,10 @@ MonoBehaviour:
     m_JamEnter: {fileID: 7400000, guid: fa02fed255f1e43a787ea84f42f6b359, type: 2}
     m_JamExit: {fileID: 7400000, guid: fa02fed255f1e43a787ea84f42f6b359, type: 2}
     m_Jammed: {fileID: 7400000, guid: fa02fed255f1e43a787ea84f42f6b359, type: 2}
-    m_ChargeProgressMin: {fileID: 7400000, guid: fa02fed255f1e43a787ea84f42f6b359, type: 2}
-    m_ChargeProgressMax: {fileID: 7400000, guid: 7083d602641f8448299588a7302aa193, type: 2}
+    m_ChargeProgressMin: {fileID: 7400000, guid: fa02fed255f1e43a787ea84f42f6b359,
+      type: 2}
+    m_ChargeProgressMax: {fileID: 7400000, guid: 7083d602641f8448299588a7302aa193,
+      type: 2}
   m_Controller: {fileID: 225541220088878242}
   <EditorModelPath>k__BackingField: Assets/Plugins/GameCreator/Installs/Shooter.Weapons@1.0.1/Prefabs/Bow_Weapon.prefab
   references:
@@ -271,7 +273,8 @@ MonoBehaviour:
       type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 3428531543345201243
-      type: {class: GetDecimalConstantOnePointFive, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      type: {class: GetDecimalConstantOnePointFive, ns: GameCreator.Runtime.Common,
+        asm: GameCreator.Runtime.Core}
       data: 
     - rid: 3428531799317020703
       type: {class: GetAudioNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
@@ -323,9 +326,11 @@ MonoBehaviour:
     - rid: 3428531799317020767
       type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
-        m_GameObject: {fileID: 2967442607341954768, guid: 2efa8054df8334ac2839b9d71c258e38, type: 3}
+        m_GameObject: {fileID: 2967442607341954768, guid: 2efa8054df8334ac2839b9d71c258e38,
+          type: 3}
     - rid: 3428531799317020769
-      type: {class: GetDecimalPhysicsGravityEarth, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      type: {class: GetDecimalPhysicsGravityEarth, ns: GameCreator.Runtime.Common,
+        asm: GameCreator.Runtime.Core}
       data: 
     - rid: 3428531799317020770
       type: {class: GetDecimalConstantZero, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
@@ -376,7 +381,8 @@ MonoBehaviour:
       data:
         m_Weapon: {fileID: 11400000}
     - rid: 3428531800870223883
-      type: {class: InstructionCommonDebugText, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      type: {class: InstructionCommonDebugText, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
@@ -474,7 +480,8 @@ MonoBehaviour:
       data:
         m_Value: 0.25
     - rid: 8814677141419721050
-      type: {class: GetBoolCharacterIsPlayer, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
+      type: {class: GetBoolCharacterIsPlayer, ns: GameCreator.Runtime.Characters,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Character:
           m_Property:
@@ -612,7 +619,8 @@ MonoBehaviour:
       data:
         m_Value: {fileID: 7400000, guid: 4c1d0f7107e0b49f79b9be08c70373dd, type: 2}
     - rid: 8814677185152155661
-      type: {class: InstructionGameObjectDestroy, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      type: {class: InstructionGameObjectDestroy, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
@@ -620,7 +628,8 @@ MonoBehaviour:
           m_Property:
             rid: 8814677185152155663
     - rid: 8814677185152155663
-      type: {class: GetGameObjectReloadingCurrentMagazine, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
+      type: {class: GetGameObjectReloadingCurrentMagazine, ns: GameCreator.Runtime.Shooter,
+        asm: GameCreator.Runtime.Shooter}
       data:
         m_Character:
           m_Property:
@@ -639,7 +648,8 @@ MonoBehaviour:
     - rid: 8814677336433098942
       type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
-        m_GameObject: {fileID: 2310562118795845251, guid: 820910a6da23b45998dc1f7d0d755cd8, type: 3}
+        m_GameObject: {fileID: 2310562118795845251, guid: 820910a6da23b45998dc1f7d0d755cd8,
+          type: 3}
 --- !u!221 &225541220088878242
 AnimatorOverrideController:
   m_ObjectHideFlags: 1

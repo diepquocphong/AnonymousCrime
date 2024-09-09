@@ -80,6 +80,9 @@ MonoBehaviour:
         rid: 8814677138683199760
     m_TextureMode: 0
     m_TextureAlign: 0
+    m_PrefabDot:
+      m_Property:
+        rid: 6909870037182709761
   m_Crosshair:
     m_UseCrosshair:
       m_Property:
@@ -94,7 +97,7 @@ MonoBehaviour:
       m_IsEnabled: 1
       m_Value:
         serializedVersion: 2
-        m_Bits: 4294967291
+        m_Bits: 499
     m_MaxDistance:
       m_Property:
         rid: 8814677138683199763
@@ -129,6 +132,10 @@ MonoBehaviour:
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: -2
+    - rid: 6909870037182709761
+      type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_GameObject: {fileID: 0}
     - rid: 8814677138683199746
       type: {class: GetBoolTrue, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
@@ -272,7 +279,8 @@ MonoBehaviour:
       type: {class: GetDecimalConstantPointOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 8814677138683199761
-      type: {class: GetBoolCharacterIsPlayer, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
+      type: {class: GetBoolCharacterIsPlayer, ns: GameCreator.Runtime.Characters,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Character:
           m_Property:
@@ -307,7 +315,8 @@ MonoBehaviour:
       data:
         m_Value: 10
     - rid: 8814677138683199770
-      type: {class: GetPositionCharacterBone, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
+      type: {class: GetPositionCharacterBone, ns: GameCreator.Runtime.Characters,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Character:
           m_Property:
@@ -350,7 +359,8 @@ MonoBehaviour:
       data:
         m_Position: {x: -0.04, y: -0.03, z: 0.25}
     - rid: 8814677138683199783
-      type: {class: GetRotationConstantEulerVector, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      type: {class: GetRotationConstantEulerVector, ns: GameCreator.Runtime.Common,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Angles: {x: -70, y: 130, z: 80}
     - rid: 8814677138683199784
@@ -375,7 +385,8 @@ MonoBehaviour:
       type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 8814677141419720908
-      type: {class: InstructionCameraFOV, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      type: {class: InstructionCameraFOV, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
