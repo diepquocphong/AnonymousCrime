@@ -920,13 +920,20 @@ MonoBehaviour:
           m_Option: 1
           m_GameObject:
             m_Property:
-              rid: 6909870041232310924
-    - rid: 6909870041232310924
-      type: {class: GetGameObjectPlayer, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
-      data: 
+              rid: 6909870068658864394
     - rid: 6909870062764556377
       type: {class: SetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
+    - rid: 6909870068658864394
+      type: {class: GetGameObjectByTag, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Tag:
+          m_Property:
+            rid: 6909870068658864395
+    - rid: 6909870068658864395
+      type: {class: GetStringString, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: Player
 --- !u!65 &2829498509201302105
 BoxCollider:
   m_ObjectHideFlags: 0
