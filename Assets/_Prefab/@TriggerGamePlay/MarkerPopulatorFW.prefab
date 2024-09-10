@@ -773,7 +773,7 @@ Transform:
   m_GameObject: {fileID: 8714850541744788786}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.96, z: 0}
+  m_LocalPosition: {x: 0, y: 1, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -844,8 +844,8 @@ MonoBehaviour:
         m_GameObject:
           m_Property:
             rid: 6909870037770699073
-          usePooling: 1
-          size: 30
+          usePooling: 0
+          size: 10
           hasDuration: 0
           duration: 10
         m_Position:
@@ -859,7 +859,7 @@ MonoBehaviour:
             rid: 6909870037770699076
         m_Save:
           m_Property:
-            rid: 6909870037770699077
+            rid: 6909870062764556377
     - rid: 6909870037770699073
       type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
@@ -867,9 +867,6 @@ MonoBehaviour:
           type: 3}
     - rid: 6909870037770699076
       type: {class: GetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 6909870037770699077
-      type: {class: SetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 6909870037770699078
       type: {class: GetPositionSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
@@ -926,6 +923,9 @@ MonoBehaviour:
               rid: 6909870041232310924
     - rid: 6909870041232310924
       type: {class: GetGameObjectPlayer, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 6909870062764556377
+      type: {class: SetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
 --- !u!65 &2829498509201302105
 BoxCollider:

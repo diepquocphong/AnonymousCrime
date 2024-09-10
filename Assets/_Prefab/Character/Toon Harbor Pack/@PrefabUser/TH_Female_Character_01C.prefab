@@ -2288,6 +2288,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7177441795921134234}
   - component: {fileID: 7177441795913887036}
+  - component: {fileID: -6901800646128984392}
   m_Layer: 6
   m_Name: TH_Female_Character_01C
   m_TagString: Untagged
@@ -2350,6 +2351,54 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &-6901800646128984392
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7177441795921174202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6fe2b16044a04efba6795e323236dc60, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_SaveUniqueID:
+    m_Save:
+      m_Save: 0
+    m_UniqueID:
+      m_SerializedID:
+        m_String: e10f3abd-251c-4664-af37-381909e402a8
+  m_Runtime:
+    rid: 6909870060961792474
+  references:
+    version: 2
+    RefIds:
+    - rid: 6909870060961792474
+      type: {class: NameVariableRuntime, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_List:
+          rid: 6909870060961792475
+    - rid: 6909870060961792475
+      type: {class: NameList, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Source:
+        - rid: 6909870060961792516
+    - rid: 6909870060961792516
+      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value:
+          rid: 6909870060961792518
+        m_Name:
+          m_String: Female
+    - rid: 6909870060961792518
+      type: {class: ValueBool, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value: 1
 --- !u!1 &7177441795921174204
 GameObject:
   m_ObjectHideFlags: 0
