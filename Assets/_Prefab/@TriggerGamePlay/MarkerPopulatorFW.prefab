@@ -56,21 +56,10 @@ MonoBehaviour:
     - rid: 6909870087546863877
     - rid: 6909870087546863879
   m_TriggerEvent:
-    rid: 6909870037770698925
+    rid: 6909870091870667010
   references:
     version: 2
     RefIds:
-    - rid: 6909870037770698925
-      type: {class: EventTriggerEnter, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
-      data:
-        m_Collider:
-          m_Option: 0
-          m_GameObject:
-            m_Property:
-              rid: 6909870037770698927
-    - rid: 6909870037770698927
-      type: {class: GetGameObjectTarget, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
     - rid: 6909870037770698930
       type: {class: InstructionGameObjectSetGameObject, ns: GameCreator.Runtime.VisualScripting,
         asm: GameCreator.Runtime.Core}
@@ -252,6 +241,12 @@ MonoBehaviour:
     - rid: 6909870087546863881
       type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
+    - rid: 6909870091870667010
+      type: {class: EventTriggerEnterTag, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
+      data:
+        m_Tag:
+          m_Value: NPC
 --- !u!65 &4968285762064674477
 BoxCollider:
   m_ObjectHideFlags: 0

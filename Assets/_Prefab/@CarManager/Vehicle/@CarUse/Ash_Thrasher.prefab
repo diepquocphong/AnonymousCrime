@@ -240,6 +240,7 @@ GameObject:
   - component: {fileID: 4326112947870137113}
   - component: {fileID: 5838828263223163822}
   - component: {fileID: 3480138214596558740}
+  - component: {fileID: 427725626658942503}
   m_Layer: 10
   m_Name: Ash_Thrasher
   m_TagString: Untagged
@@ -1658,23 +1659,10 @@ MonoBehaviour:
         m_IsEnabled: 1
         m_GameObject:
           m_Property:
-            rid: 6909870068658864373
+            rid: 6909870091870667193
         m_Tag:
           m_Value: Player
-    - rid: 6909870068658864373
-      type: {class: GetGameObjectChildByIndex, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Transform:
-          m_Property:
-            rid: 6909870068658864376
-        m_Index:
-          m_Property:
-            rid: 6909870068658864375
-    - rid: 6909870068658864375
-      type: {class: GetDecimalInteger, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 0
-    - rid: 6909870068658864376
+    - rid: 6909870091870667193
       type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
 --- !u!114 &3480138214596558740
@@ -2233,25 +2221,33 @@ MonoBehaviour:
         m_IsEnabled: 1
         m_GameObject:
           m_Property:
-            rid: 6909870068658864378
+            rid: 6909870091870667192
         m_Tag:
           m_Value: Untagged
-    - rid: 6909870068658864378
-      type: {class: GetGameObjectChildByIndex, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Transform:
-          m_Property:
-            rid: 6909870068658864379
-        m_Index:
-          m_Property:
-            rid: 6909870068658864380
-    - rid: 6909870068658864379
+    - rid: 6909870091870667192
       type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 6909870068658864380
-      type: {class: GetDecimalInteger, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 0
+--- !u!65 &427725626658942503
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 612735588307235028}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &1509742544233161866
 GameObject:
   m_ObjectHideFlags: 0
@@ -2866,10 +2862,10 @@ BoxCollider:
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 192
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 1847
   m_LayerOverridePriority: 0
   m_IsTrigger: 1
   m_ProvidesContacts: 0
