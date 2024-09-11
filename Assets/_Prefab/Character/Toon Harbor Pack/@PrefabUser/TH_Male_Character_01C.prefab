@@ -822,7 +822,7 @@ GameObject:
   m_Component:
   - component: {fileID: 9218406719574083122}
   - component: {fileID: 9218406719583906200}
-  - component: {fileID: 8803570868682763337}
+  - component: {fileID: 27171804833986197}
   m_Layer: 6
   m_Name: TH_Male_Character_01C
   m_TagString: Untagged
@@ -882,7 +882,7 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &8803570868682763337
+--- !u!114 &27171804833986197
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -891,45 +891,67 @@ MonoBehaviour:
   m_GameObject: {fileID: 9218406719574383122}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6fe2b16044a04efba6795e323236dc60, type: 3}
+  m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_SaveUniqueID:
-    m_Save:
-      m_Save: 0
-    m_UniqueID:
-      m_SerializedID:
-        m_String: 6bca1b5d-b8ee-454c-b660-a409bebdb820
-  m_Runtime:
-    rid: 6909870060961792484
+  m_Instructions:
+    m_Instructions:
+    - rid: 6909870087546863620
+  m_TriggerEvent:
+    rid: 6909870087546863619
   references:
     version: 2
     RefIds:
-    - rid: 6909870060961792484
-      type: {class: NameVariableRuntime, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
-      data:
-        m_List:
-          rid: 6909870060961792485
-    - rid: 6909870060961792485
-      type: {class: NameList, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
-      data:
-        m_Source:
-        - rid: 6909870060961792541
-    - rid: 6909870060961792541
-      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+    - rid: 6909870087546863619
+      type: {class: EventOnEnable, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 6909870087546863620
+      type: {class: InstructionBooleanSetBool, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
-        m_Value:
-          rid: 6909870060961792543
-        m_Name:
-          m_String: Male
-    - rid: 6909870060961792543
-      type: {class: ValueBool, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+        m_Set:
+          m_Property:
+            rid: 6909870087546863623
+        m_From:
+          m_Property:
+            rid: 6909870087546863622
+    - rid: 6909870087546863622
+      type: {class: GetBoolValue, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
         m_Value: 1
+    - rid: 6909870087546863623
+      type: {class: SetBoolLocalName, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Variable:
+          m_TypeID:
+            m_String: boolean
+          m_Variable:
+            rid: 6909870087546863624
+          m_Name:
+            m_String: Male
+            m_ID: -172011625
+    - rid: 6909870087546863624
+      type: {class: PropertyGetGameObject, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Property:
+          rid: 6909870087546863626
+    - rid: 6909870087546863626
+      type: {class: GetGameObjectParent, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Transform:
+          m_Property:
+            rid: 6909870087546863628
+    - rid: 6909870087546863628
+      type: {class: GetGameObjectParent, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Transform:
+          m_Property:
+            rid: 6909870087546863630
+    - rid: 6909870087546863630
+      type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
 --- !u!1 &9218406719574383124
 GameObject:
   m_ObjectHideFlags: 0

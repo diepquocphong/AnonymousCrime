@@ -4396,7 +4396,7 @@ MonoBehaviour:
     - rid: 6909870060630180741
     - rid: 6909870059134387176
     - rid: 6909870059938120633
-    - rid: 6909870060459786263
+    - rid: 6909870071903682677
   m_TriggerEvent:
     rid: 6909870059134386793
   references:
@@ -4490,19 +4490,6 @@ MonoBehaviour:
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 7
-    - rid: 6909870060459786263
-      type: {class: InstructionGameObjectPoolDestroy, ns: GameCreator.Runtime.VisualScripting,
-        asm: GameCreator.Runtime.Core}
-      data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
-        m_GameObject:
-          m_Property:
-            rid: 6909870060459786264
-    - rid: 6909870060459786264
-      type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_GameObject: {fileID: 8948930346453162337}
     - rid: 6909870060459786311
       type: {class: InstructionGameObjectInstantiate, ns: GameCreator.Runtime.VisualScripting,
         asm: GameCreator.Runtime.Core}
@@ -4621,6 +4608,19 @@ MonoBehaviour:
     - rid: 6909870062602290048
       type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
+    - rid: 6909870071903682677
+      type: {class: InstructionGameObjectDestroy, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_GameObject:
+          m_Property:
+            rid: 6909870071903682678
+    - rid: 6909870071903682678
+      type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_GameObject: {fileID: 8948930346453162337}
 --- !u!114 &8812619369862666088
 MonoBehaviour:
   m_ObjectHideFlags: 0
