@@ -247,7 +247,8 @@ MonoBehaviour:
       m_Instructions: []
   m_CanHit:
     m_Conditions:
-      m_Conditions: []
+      m_Conditions:
+      - rid: 6909870353880187681
   m_OnHit:
     m_Instructions:
       m_Instructions:
@@ -684,6 +685,35 @@ MonoBehaviour:
       data:
         m_Value: 10
     - rid: 6909870059938120475
+      type: {class: GetGameObjectTarget, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 6909870353880187681
+      type: {class: ConditionCompareAttribute, ns: GameCreator.Runtime.Stats, asm: GameCreator.Runtime.Stats}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Sign: 1
+        m_Traits:
+          m_Property:
+            rid: 6909870353880187685
+        m_Attribute:
+          m_Property:
+            rid: 6909870353880187683
+        m_Value: 0
+        m_CompareTo:
+          m_Comparison: 1
+          m_CompareTo:
+            m_Property:
+              rid: 6909870353880187684
+    - rid: 6909870353880187683
+      type: {class: GetAttributeInstance, ns: GameCreator.Runtime.Stats, asm: GameCreator.Runtime.Stats}
+      data:
+        m_Attribute: {fileID: 11400000, guid: 4cf7ae5caa4804d0ea2548dceac15ffb, type: 2}
+    - rid: 6909870353880187684
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0
+    - rid: 6909870353880187685
       type: {class: GetGameObjectTarget, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 8814677138683199526

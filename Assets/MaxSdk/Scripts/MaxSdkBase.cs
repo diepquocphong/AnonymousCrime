@@ -14,10 +14,6 @@ using System.Runtime.InteropServices;
 
 public abstract class MaxSdkBase
 {
-    // Shared Properties
-    protected static readonly MaxUserSegment SharedUserSegment = new MaxUserSegment();
-    protected static readonly MaxTargetingData SharedTargetingData = new MaxTargetingData();
-
     /// <summary>
     /// This enum represents the user's geography used to determine the type of consent flow shown to the user.
     /// </summary>
@@ -279,17 +275,39 @@ public abstract class MaxSdkBase
         /// </summary>
         FullscreenAdNotReady = -24,
 
-#if UNITY_ANDROID
+#if UNITY_IOS || UNITY_IPHONE
         /// <summary>
-        /// This error code indicates that the SDK failed to load an ad because it could not find the top Activity.
+        /// This error code indicates you attempted to present a fullscreen ad from an invalid view controller.
         /// </summary>
-        NoActivity = -5601,
+        FullscreenAdInvalidViewController = -25,
+#endif
 
+        /// <summary>
+        /// This error code indicates you are attempting to load a fullscreen ad while another fullscreen ad is already loading.
+        /// </summary>
+        FullscreenAdAlreadyLoading = -26,
+
+        /// <summary>
+        /// This error code indicates you are attempting to load a fullscreen ad while another fullscreen ad is still showing.
+        /// </summary>
+        FullscreenAdLoadWhileShowing = -27,
+
+#if UNITY_ANDROID
         /// <summary>
         /// This error code indicates that the SDK failed to display an ad because the user has the "Don't Keep Activities" developer setting enabled.
         /// </summary>
         DontKeepActivitiesEnabled = -5602,
 #endif
+
+        /// <summary>
+        /// This error code indicates that the SDK failed to load an ad because the publisher provided an invalid ad unit identifier.
+        /// Possible reasons for an invalid ad unit identifier:
+        /// 1. Ad unit identifier is malformed or does not exist
+        /// 2. Ad unit is disabled
+        /// 3. Ad unit is not associated with the current app's package name
+        /// 4. Ad unit was created within the last 30-60 minutes
+        /// </summary>
+        InvalidAdUnitId = -5603
     }
 
     /**
@@ -567,9 +585,6 @@ public abstract class MaxSdkBase
     {
         var metaData = new Dictionary<string, string>(2);
         metaData.Add("UnityVersion", Application.unityVersion);
-
-        var graphicsMemorySize = SystemInfo.graphicsMemorySize;
-        metaData.Add("GraphicsMemorySizeMegabytes", graphicsMemorySize.ToString());
 
         return Json.Serialize(metaData);
     }

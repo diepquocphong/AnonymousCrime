@@ -104,6 +104,7 @@ MonoBehaviour:
         m_Conditions:
           m_Conditions:
           - rid: 6909870037770699000
+          - rid: 6909870331826274364
     - rid: 6909870037770699000
       type: {class: ConditionGameObjectCompare, ns: GameCreator.Runtime.VisualScripting,
         asm: GameCreator.Runtime.Core}
@@ -247,6 +248,42 @@ MonoBehaviour:
       data:
         m_Tag:
           m_Value: NPC
+    - rid: 6909870331826274364
+      type: {class: ConditionMathCompareBooleans, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Sign: 1
+        m_Value:
+          m_Property:
+            rid: 6909870331826274367
+        m_Comparison: 0
+        m_CompareTo:
+          m_Property:
+            rid: 6909870331826274371
+    - rid: 6909870331826274367
+      type: {class: GetBoolLocalName, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Variable:
+          m_TypeID:
+            m_String: boolean
+          m_Variable:
+            rid: 6909870331826274368
+          m_Name:
+            m_String: Police
+            m_ID: -472884113
+    - rid: 6909870331826274368
+      type: {class: PropertyGetGameObject, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Property:
+          rid: 6909870331826274370
+    - rid: 6909870331826274370
+      type: {class: GetGameObjectTarget, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 6909870331826274371
+      type: {class: GetBoolFalse, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
 --- !u!65 &4968285762064674477
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -282,7 +319,7 @@ GameObject:
   - component: {fileID: 2543097952067621901}
   m_Layer: 9
   m_Name: MarkerPopulatorFW
-  m_TagString: Untagged
+  m_TagString: Marker
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -792,10 +829,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5642561266895048028}
-  - component: {fileID: 5933533548108042799}
-  - component: {fileID: 2829498509201302105}
   m_Layer: 9
-  m_Name: TriggerSpawnNPC
+  m_Name: PositionSpawnNPC
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -816,179 +851,3 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1750221615011473898}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &5933533548108042799
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8714850541744788786}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_Instructions:
-    m_Instructions:
-    - rid: 6909870037770699508
-    - rid: 6909870037770699067
-    - rid: 6909870037770699072
-  m_TriggerEvent:
-    rid: 6909870041232310923
-  references:
-    version: 2
-    RefIds:
-    - rid: 6909870037770699067
-      type: {class: InstructionLogicCheckConditions, ns: GameCreator.Runtime.VisualScripting,
-        asm: GameCreator.Runtime.Core}
-      data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
-        m_Conditions:
-          m_Conditions:
-          - rid: 6909870037770699068
-    - rid: 6909870037770699068
-      type: {class: ConditionMathCompareIntegers, ns: GameCreator.Runtime.VisualScripting,
-        asm: GameCreator.Runtime.Core}
-      data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
-        m_Sign: 1
-        m_Value:
-          m_Property:
-            rid: 6909870037770699071
-        m_CompareTo:
-          m_Comparison: 2
-          m_CompareTo:
-            m_Property:
-              rid: 6909870040392663254
-    - rid: 6909870037770699071
-      type: {class: GetDecimalGlobalName, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
-      data:
-        m_Variable:
-          m_TypeID:
-            m_String: number
-          m_Variable: {fileID: 11400000, guid: 6dfb0ffbdde5f46e8a749b0164f73122, type: 2}
-          m_Name:
-            m_String: NPC_Spawn
-            m_ID: -1163264571
-    - rid: 6909870037770699072
-      type: {class: InstructionGameObjectInstantiate, ns: GameCreator.Runtime.VisualScripting,
-        asm: GameCreator.Runtime.Core}
-      data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
-        m_GameObject:
-          m_Property:
-            rid: 6909870037770699073
-          usePooling: 0
-          size: 10
-          hasDuration: 0
-          duration: 10
-        m_Position:
-          m_Property:
-            rid: 6909870037770699078
-        m_Rotation:
-          m_Property:
-            rid: 6909870037770699079
-        m_Parent:
-          m_Property:
-            rid: 6909870037770699076
-        m_Save:
-          m_Property:
-            rid: 6909870062764556377
-    - rid: 6909870037770699073
-      type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_GameObject: {fileID: 8948930346453162337, guid: 2b10d543af9604ed8af468534561c41e,
-          type: 3}
-    - rid: 6909870037770699076
-      type: {class: GetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 6909870037770699078
-      type: {class: GetPositionSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 6909870037770699079
-      type: {class: GetRotationSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Space: 0
-    - rid: 6909870037770699508
-      type: {class: InstructionCommonTimeWait, ns: GameCreator.Runtime.VisualScripting,
-        asm: GameCreator.Runtime.Core}
-      data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
-        m_Seconds:
-          m_Property:
-            rid: 6909870040392663317
-        m_Mode:
-          m_UpdateTime: 0
-    - rid: 6909870040392663254
-      type: {class: GetDecimalGlobalName, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
-      data:
-        m_Variable:
-          m_TypeID:
-            m_String: number
-          m_Variable: {fileID: 11400000, guid: 6dfb0ffbdde5f46e8a749b0164f73122, type: 2}
-          m_Name:
-            m_String: NPC_AoundPlayer
-            m_ID: -2146858835
-    - rid: 6909870040392663317
-      type: {class: GetDecimalRandomRange, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_MinValue:
-          m_Property:
-            rid: 6909870040392663320
-        m_MaxValue:
-          m_Property:
-            rid: 6909870040392663321
-    - rid: 6909870040392663320
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 0.1
-    - rid: 6909870040392663321
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 2
-    - rid: 6909870041232310923
-      type: {class: EventTriggerEnter, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
-      data:
-        m_Collider:
-          m_Option: 1
-          m_GameObject:
-            m_Property:
-              rid: 6909870068658864394
-    - rid: 6909870062764556377
-      type: {class: SetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 6909870068658864394
-      type: {class: GetGameObjectByTag, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Tag:
-          m_Property:
-            rid: 6909870068658864395
-    - rid: 6909870068658864395
-      type: {class: GetStringString, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: Player
---- !u!65 &2829498509201302105
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8714850541744788786}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 64
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 951
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 1
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 90, y: 90, z: 90}
-  m_Center: {x: 0, y: 0, z: 0}

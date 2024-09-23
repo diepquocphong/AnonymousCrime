@@ -42,6 +42,7 @@ namespace Gley.MobileAds.Internal
         private string designedForFamilies;
         private string testDeviceID;
         private float callbackTime;
+        private bool resetCallbackTime;
         private float adShowTIme;
         private int currentRetryRewardedVideo;
         private int currentRetryRewardedInterstitial;
@@ -50,6 +51,7 @@ namespace Gley.MobileAds.Internal
         private bool initialized;
         private bool rewardedVideoWatched;
         private bool rewardedVideoClosed;
+        private bool interstitialClosed;
         private bool rewardedInterstitialWatched;
         private bool bannerLoaded;
         private bool interstitialFailedToLoad;
@@ -57,6 +59,8 @@ namespace Gley.MobileAds.Internal
         private bool rewardedInterstitialFailedToLoad;
         private bool appOpenFailedToLoad;
         private bool directedForChildren;
+        private bool adIsActive;
+        private bool resetTimer;
 
 
 
@@ -425,6 +429,7 @@ namespace Gley.MobileAds.Internal
         private void BannerAdPaied(AdValue adValue)
         {
             GleyLogger.AddLog($"Banner view paid {adValue.Value} {adValue.CurrencyCode}.");
+            Events.OnBannerPaid?.Invoke(adValue, banner.GetResponseInfo());
         }
 
 
@@ -490,9 +495,11 @@ namespace Gley.MobileAds.Internal
         {
             if (IsInterstitialAvailable())
             {
-                adShowTIme = Time.realtimeSinceStartup;
+                adIsActive = true;
+                resetTimer = true;
+                interstitialClosed = false;
                 onInterstitialClosed = InterstitialClosed;
-                interstitial.Show();        
+                interstitial.Show();
             }
             else
             {
@@ -621,11 +628,11 @@ namespace Gley.MobileAds.Internal
         /// </summary>
         private void InterstitialClosed()
         {
-            adShowTIme = Time.realtimeSinceStartup;
+            adIsActive = false;
+            resetTimer = true;
             GleyLogger.AddLog("Reload Interstitial");
 
-            //trigger complete event
-            StartCoroutine(CompleteMethodInterstitial());
+            interstitialClosed = true;
 
             //reload interstitial
             LoadInterstitial();
@@ -636,9 +643,9 @@ namespace Gley.MobileAds.Internal
         ///  Because Admob has some problems when used in multi threading applications with Unity a frame needs to be skipped before returning to application
         /// </summary>
         /// <returns></returns>
-        private IEnumerator CompleteMethodInterstitial()
+        private void CompleteMethodInterstitial()
         {
-            yield return null;
+            interstitialClosed = false;
             if (onInterstitialClosed != null)
             {
                 onInterstitialClosed();
@@ -654,6 +661,7 @@ namespace Gley.MobileAds.Internal
         private void InterstitialAdPaied(AdValue adValue)
         {
             GleyLogger.AddLog($"Interstitial ad paid {adValue.Value} {adValue.CurrencyCode}");
+            Events.OnInterstitialPaid?.Invoke(adValue, interstitial.GetResponseInfo());
         }
 
 
@@ -723,7 +731,7 @@ namespace Gley.MobileAds.Internal
             if (IsAppOpenAvailable())
             {
                 // Don't show AppOpen after another full screen ad was shown. 
-                if (Time.realtimeSinceStartup - adShowTIme > skipAppOpenTime)
+                if (Time.realtimeSinceStartup - adShowTIme > skipAppOpenTime && adIsActive == false && resetTimer == false)
                 {
                     onAppOpenClosed = appOpenClosed;
                     appOpen.Show();
@@ -819,6 +827,7 @@ namespace Gley.MobileAds.Internal
         private void AppOpenAdPaied(AdValue adValue)
         {
             GleyLogger.AddLog($"Open app ad paid {adValue.Value} {adValue.CurrencyCode}");
+            Events.OnAppOpenPaid?.Invoke(adValue, appOpen.GetResponseInfo());
         }
 
         private void AppOpenLoadCallback(AppOpenAd ad, LoadAdError loadAdError)
@@ -896,10 +905,12 @@ namespace Gley.MobileAds.Internal
         {
             if (IsRewardedVideoAvailable())
             {
-                adShowTIme = Time.realtimeSinceStartup;
+                adIsActive = true;
+                resetTimer = true;
                 onRewardedVideoClosed = CompleteMethod;
                 rewardedVideoWatched = false;
                 rewardedVideoClosed = false;
+                resetCallbackTime = false;
                 rewardedVideo.Show(RewardedVideoWatched);
             }
             else
@@ -1036,10 +1047,11 @@ namespace Gley.MobileAds.Internal
         /// </summary>
         private void RewardedAdClosed()
         {
-            adShowTIme = Time.realtimeSinceStartup;
+            adIsActive = false;
+            resetTimer = true;
             GleyLogger.AddLog("Rewarded Ad Closed");
             rewardedVideoClosed = true;
-            callbackTime = Time.realtimeSinceStartup;
+            resetCallbackTime = true;
         }
 
 
@@ -1049,8 +1061,10 @@ namespace Gley.MobileAds.Internal
         /// <returns></returns>
         private void CompleteMethodRewardedVideo(bool val)
         {
-            adShowTIme = Time.realtimeSinceStartup;
+            adIsActive = false;
+            resetTimer = true;
             rewardedVideoClosed = false;
+            resetCallbackTime = false;
             if (onRewardedVideoClosed != null)
             {
                 onRewardedVideoClosed(val);
@@ -1078,6 +1092,7 @@ namespace Gley.MobileAds.Internal
         private void RewardedPaid(AdValue adValue)
         {
             GleyLogger.AddLog($"Rewarded ad paid {adValue.Value} {adValue.CurrencyCode}");
+            Events.OnRewardedVideoPaid?.Invoke(adValue, rewardedVideo.GetResponseInfo());
         }
 
 
@@ -1139,7 +1154,8 @@ namespace Gley.MobileAds.Internal
         {
             if (IsRewardedInterstitialAvailable())
             {
-                adShowTIme = Time.realtimeSinceStartup;
+                adIsActive = true;
+                resetTimer = true;
                 onRewardedInterstitialClosed = completeMethod;
                 rewardedInterstitialWatched = false;
                 rewardedInterstitial.Show(RewardedInterstitialWatched);
@@ -1152,7 +1168,8 @@ namespace Gley.MobileAds.Internal
         #endregion
         private void RewardedInterstitialWatched(Reward reward)
         {
-            adShowTIme = Time.realtimeSinceStartup;
+            adIsActive = false;
+            resetTimer = true;
             GleyLogger.AddLog($"Rewarded Interstitial Watched -> Reward amount: {reward.Amount} Reward type: {reward.Type}");
             rewardedInterstitialWatched = true;
 #if UNITY_EDITOR
@@ -1162,7 +1179,8 @@ namespace Gley.MobileAds.Internal
 
         private void RewardedInterstitialClosed()
         {
-            adShowTIme = Time.realtimeSinceStartup;
+            adIsActive = false;
+            resetTimer = true;
             GleyLogger.AddLog("Rewarded Interstitial Closed");
             //trigger complete method
             StartCoroutine(CompleteMethodRewardedInterstitial(rewardedInterstitialWatched));
@@ -1289,6 +1307,7 @@ namespace Gley.MobileAds.Internal
         private void RewardedInterstitialPaid(AdValue adValue)
         {
             GleyLogger.AddLog($"Rewarded Interstitial ad paid {adValue.Value} {adValue.CurrencyCode}");
+            Events.OnRewardedInterstitialPaid?.Invoke(adValue, rewardedInterstitial.GetResponseInfo());
         }
 
 
@@ -1597,8 +1616,24 @@ namespace Gley.MobileAds.Internal
         /// </summary>
         private void Update()
         {
+            if (resetTimer)
+            {
+                adShowTIme = Time.realtimeSinceStartup;
+                resetTimer = false;
+            }
+
+            if(interstitialClosed)
+            {
+                CompleteMethodInterstitial();
+            }
+
             if (rewardedVideoClosed)
             {
+                if (resetCallbackTime)
+                {
+                    callbackTime = Time.realtimeSinceStartup;
+                    resetCallbackTime = false;
+                }
                 if (Time.realtimeSinceStartup - callbackTime > bufferTime || rewardedVideoWatched)
                 {
                     CompleteMethodRewardedVideo(rewardedVideoWatched);

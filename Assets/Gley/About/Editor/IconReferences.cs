@@ -22,6 +22,7 @@ namespace Gley.About
         public Texture2D rateGameIcon;
         public Texture2D saveIcon;
         public Texture2D trafficSystemIcon;
+        public Texture2D pedestrianSystemIcon;
         public Texture2D twitterIcon;
         public Texture2D vehiclesIcon;
         public Texture2D websiteIcon;

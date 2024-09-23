@@ -52,7 +52,7 @@ MonoBehaviour:
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
-        m_Value: 10
+        m_Value: 6
     - rid: 6909870040392663252
       type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
       data:
@@ -185,6 +185,50 @@ MonoBehaviour:
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
+    - rid: 6909870335869321346
+      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value:
+          rid: 6909870335869321347
+        m_Name:
+          m_String: ------------InfoGame----------------------------------
+    - rid: 6909870335869321347
+      type: {class: ValueNull, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+    - rid: 6909870335869321348
+      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value:
+          rid: 6909870335869321349
+        m_Name:
+          m_String: KillPolice
+    - rid: 6909870335869321349
+      type: {class: ValueNumber, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value: 0
+    - rid: 6909870353880186880
+      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value:
+          rid: 6909870353880186881
+        m_Name:
+          m_String: Shooting
+    - rid: 6909870353880186881
+      type: {class: ValueBool, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value: 0
     - rid: 8453198294428942340
       type: {class: NameList, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
       data:
@@ -192,6 +236,7 @@ MonoBehaviour:
         - rid: 6909870087546863910
         - rid: 6909870065313383126
         - rid: 6909870065313382977
+        - rid: 6909870353880186880
         - rid: 6909870087546863923
         - rid: 6909870043677589508
         - rid: 6909870043677589510
@@ -200,3 +245,5 @@ MonoBehaviour:
         - rid: 6909870087546863925
         - rid: 6909870037770699064
         - rid: 6909870040392663252
+        - rid: 6909870335869321346
+        - rid: 6909870335869321348

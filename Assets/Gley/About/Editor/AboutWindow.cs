@@ -66,6 +66,8 @@
             {
                 new AssetStorePackage("TrafficSystem", "Traffic System", iconReferences.trafficSystemIcon, "Highly performant and easy to use traffic system that can make any driving game more fun to play in just a few clicks.",
                 "https://assetstore.unity.com/packages/slug/277301?aid=1011l8QY4"),
+                 new AssetStorePackage("PedestrianSystem", "Pedestrian System", iconReferences.pedestrianSystemIcon, "Create a realistic and vibrant urban environment with a customizable and dynamic Pedestrian System.",
+                "https://assetstore.unity.com/packages/slug/203706?aid=1011l8QY4"),
                 new AssetStorePackage("Jumpy", "Mobile Tools", iconReferences.mobileToolsIcon, "All you need to publish your finished game on the store and BONUS a free game with all of them already integrated", 
                 "https://assetstore.unity.com/packages/slug/266719?aid=1011l8QY4"),
                 new AssetStorePackage("Ads", "Mobile Ads", iconReferences.mobileAdsIcon, "Show ads inside your game with this easy to use, multiple advertisers support tool.", 
@@ -127,7 +129,7 @@
 
             RefreshState();
 
-            mobileToolsAvailable = (assetStorePackages[1].assetState != AssetState.NotDownloaded);
+            mobileToolsAvailable = (assetStorePackages[2].assetState != AssetState.NotDownloaded);
         }
 
         static void RefreshState()
@@ -252,8 +254,13 @@
             string filePath = $"{path}/Version.txt";
             StreamReader reader = new StreamReader(filePath);
             int localVersion = JsonUtility.FromJson<Common.AssetVersion>(reader.ReadToEnd()).shortVersion;
+            var assetVersion = allAssetsVersion.assetsVersion.FirstOrDefault(cond => cond.folderName == folderName);
 
-            int serverVersion = allAssetsVersion.assetsVersion.First(cond => cond.folderName == folderName).shortVersion;
+            int serverVersion = 0;
+            if (assetVersion != null)
+            {
+                serverVersion = assetVersion.shortVersion;
+            }
             reader.Close();
             if (localVersion < serverVersion)
             {

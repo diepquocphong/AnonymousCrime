@@ -1,12 +1,18 @@
+#if GLEY_ADMOB
+using GoogleMobileAds.Api;
+#endif
+
+using UnityEngine.Events;
+
 namespace Gley.MobileAds
 {
-    public class Events 
+    public class Events
     {
         public delegate void Initialized();
         public static event Initialized onInitialized;
         public void TriggerOnInitialized()
         {
-            if (onInitialized!=null)
+            if (onInitialized != null)
             {
                 onInitialized();
             }
@@ -176,5 +182,13 @@ namespace Gley.MobileAds
                 onRewardedInterstitialClicked();
             }
         }
+
+#if GLEY_ADMOB
+        public static UnityAction<AdValue, ResponseInfo> OnBannerPaid;
+        public static UnityAction<AdValue, ResponseInfo> OnInterstitialPaid;
+        public static UnityAction<AdValue, ResponseInfo> OnRewardedInterstitialPaid; 
+        public static UnityAction<AdValue, ResponseInfo> OnRewardedVideoPaid;
+        public static UnityAction<AdValue, ResponseInfo> OnAppOpenPaid;
+#endif
     }
 }
