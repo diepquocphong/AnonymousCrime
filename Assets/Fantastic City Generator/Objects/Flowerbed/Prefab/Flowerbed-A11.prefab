@@ -17,7 +17,7 @@ GameObject:
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!4 &3010324051085729026
 Transform:
@@ -26,9 +26,11 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3013293967959092702}
+  serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 4711675402649501411}
   - {fileID: 3145469023252268436}
@@ -38,7 +40,6 @@ Transform:
   - {fileID: 6219040717920873424}
   - {fileID: 2579981175096550945}
   m_Father: {fileID: 0}
-  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &2999721261863304956
 MeshFilter:
@@ -59,10 +60,12 @@ MeshRenderer:
   m_CastShadows: 1
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
   m_MotionVectors: 1
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -87,6 +90,7 @@ MeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!65 &2967926091431649500
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -95,9 +99,17 @@ BoxCollider:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3013293967959092702}
   m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
   m_IsTrigger: 0
+  m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 2
+  serializedVersion: 3
   m_Size: {x: 2.0006723, y: 0.41216362, z: 2}
   m_Center: {x: -0.0003361106, y: 0.20608181, z: 0}
 --- !u!1001 &1014715238230243755
@@ -105,12 +117,18 @@ PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
+    serializedVersion: 3
     m_TransformParent: {fileID: 3010324051085729026}
     m_Modifications:
     - target: {fileID: 3706289095308114335, guid: f0a1f60fb07828a47889eaf959139da5,
         type: 3}
       propertyPath: m_Name
       value: Vegetation-02 (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 3706289095308114335, guid: f0a1f60fb07828a47889eaf959139da5,
+        type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 4045555071466742565, guid: f0a1f60fb07828a47889eaf959139da5,
         type: 3}
@@ -168,6 +186,9 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f0a1f60fb07828a47889eaf959139da5, type: 3}
 --- !u!4 &3904705286743366286 stripped
 Transform:
@@ -180,6 +201,7 @@ PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
+    serializedVersion: 3
     m_TransformParent: {fileID: 3010324051085729026}
     m_Modifications:
     - target: {fileID: 134549498675789376, guid: f5f0e0c6a81b31d4582c93115c9e7ea2,
@@ -242,7 +264,15 @@ PrefabInstance:
       propertyPath: m_Name
       value: Vegetation-04 (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 762749508386202874, guid: f5f0e0c6a81b31d4582c93115c9e7ea2,
+        type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f5f0e0c6a81b31d4582c93115c9e7ea2, type: 3}
 --- !u!4 &1473840438634145877 stripped
 Transform:
@@ -255,6 +285,7 @@ PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
+    serializedVersion: 3
     m_TransformParent: {fileID: 3010324051085729026}
     m_Modifications:
     - target: {fileID: 1091805407325710, guid: 33bdbb4efb3a3af48a07f4fe23013757, type: 3}
@@ -306,6 +337,9 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 33bdbb4efb3a3af48a07f4fe23013757, type: 3}
 --- !u!4 &3145469023252268436 stripped
 Transform:
@@ -318,6 +352,7 @@ PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
+    serializedVersion: 3
     m_TransformParent: {fileID: 3010324051085729026}
     m_Modifications:
     - target: {fileID: 1091805407325710, guid: 33bdbb4efb3a3af48a07f4fe23013757, type: 3}
@@ -369,6 +404,9 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 33bdbb4efb3a3af48a07f4fe23013757, type: 3}
 --- !u!4 &4711675402649501411 stripped
 Transform:
@@ -381,6 +419,7 @@ PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
+    serializedVersion: 3
     m_TransformParent: {fileID: 3010324051085729026}
     m_Modifications:
     - target: {fileID: 134549498675789376, guid: f5f0e0c6a81b31d4582c93115c9e7ea2,
@@ -443,7 +482,15 @@ PrefabInstance:
       propertyPath: m_Name
       value: Vegetation-04
       objectReference: {fileID: 0}
+    - target: {fileID: 762749508386202874, guid: f5f0e0c6a81b31d4582c93115c9e7ea2,
+        type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f5f0e0c6a81b31d4582c93115c9e7ea2, type: 3}
 --- !u!4 &5720688871744747274 stripped
 Transform:
@@ -456,12 +503,18 @@ PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
+    serializedVersion: 3
     m_TransformParent: {fileID: 3010324051085729026}
     m_Modifications:
     - target: {fileID: 8117782567300634088, guid: 3270e15ace3581949a675994303887c5,
         type: 3}
       propertyPath: m_Name
       value: Vegetation-03
+      objectReference: {fileID: 0}
+    - target: {fileID: 8117782567300634088, guid: 3270e15ace3581949a675994303887c5,
+        type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 8927252186780421970, guid: 3270e15ace3581949a675994303887c5,
         type: 3}
@@ -519,6 +572,9 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 3270e15ace3581949a675994303887c5, type: 3}
 --- !u!4 &2579981175096550945 stripped
 Transform:
@@ -531,12 +587,18 @@ PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
+    serializedVersion: 3
     m_TransformParent: {fileID: 3010324051085729026}
     m_Modifications:
     - target: {fileID: 3706289095308114335, guid: f0a1f60fb07828a47889eaf959139da5,
         type: 3}
       propertyPath: m_Name
       value: Vegetation-02
+      objectReference: {fileID: 0}
+    - target: {fileID: 3706289095308114335, guid: f0a1f60fb07828a47889eaf959139da5,
+        type: 3}
+      propertyPath: m_StaticEditorFlags
+      value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 4045555071466742565, guid: f0a1f60fb07828a47889eaf959139da5,
         type: 3}
@@ -594,6 +656,9 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f0a1f60fb07828a47889eaf959139da5, type: 3}
 --- !u!4 &6219040717920873424 stripped
 Transform:
