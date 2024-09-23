@@ -26,14 +26,13 @@ namespace Gley.MobileAds.Internal
         private int retryNumberRewarded;
         private bool initialized;
         private bool rewardedVideoCompleted;
-        private bool directedForChildren;
 
 
         #region Initialize
         #region InterfaceImplementation
         public void SetDirectedForChildren(bool active)
         {
-            directedForChildren = active;
+            
         }
 
         /// <summary>
@@ -67,7 +66,7 @@ namespace Gley.MobileAds.Internal
 
 
                 //Initialize the SDK
-                MaxSdk.SetSdkKey(settings.appId.id.ToString());
+                //MaxSdk.SetSdkKey(settings.appId.id.ToString());
                 MaxSdk.InitializeSdk();
 
                 //verify settings
@@ -77,7 +76,6 @@ namespace Gley.MobileAds.Internal
                 GleyLogger.AddLog($"{settings.idRewarded.displayName} : {rewardedVideoId}");
                 GleyLogger.AddLog($"{settings.idMRec.displayName} : {mRecId}");
                 GleyLogger.AddLog($"{settings.idOpenApp.displayName} : {appOpenId}");
-                GleyLogger.AddLog($"Directed for children: {directedForChildren}");
             }
         }
         #endregion
@@ -94,15 +92,6 @@ namespace Gley.MobileAds.Internal
             else
             {
                 MaxSdk.SetHasUserConsent(false);
-            }
-
-            if (directedForChildren == true)
-            {
-                MaxSdk.SetIsAgeRestrictedUser(true);
-            }
-            else
-            {
-                MaxSdk.SetIsAgeRestrictedUser(false);
             }
 
             if (ccpaConsent == UserConsent.Accept || ccpaConsent == UserConsent.Unset)

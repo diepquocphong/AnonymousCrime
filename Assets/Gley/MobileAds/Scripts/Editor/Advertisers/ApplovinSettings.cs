@@ -27,7 +27,7 @@ namespace Gley.MobileAds.Editor
 
         public string appOpenAdsDisplayName => "App Open ID";
 
-        public bool directedForChildrenRequired => true;
+        public bool directedForChildrenRequired => false;
 
         public bool testModeRequired => false;
 
