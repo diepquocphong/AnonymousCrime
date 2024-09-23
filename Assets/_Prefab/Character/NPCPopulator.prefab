@@ -207,6 +207,7 @@ MonoBehaviour:
     m_Instructions:
     - rid: 6909870331826275126
     - rid: 6909870335869321350
+    - rid: 6909870354983027352
     - rid: 6909870335632343753
   references:
     version: 2
@@ -309,6 +310,45 @@ MonoBehaviour:
           m_Name:
             m_String: KillPolice
             m_ID: -330248841
+    - rid: 6909870354983027352
+      type: {class: InstructionArithmeticAddNumbers, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Set:
+          m_Property:
+            rid: 6909870354983027353
+        m_Value1:
+          m_Property:
+            rid: 6909870354983027354
+        m_Value2:
+          m_Property:
+            rid: 6909870354983027355
+    - rid: 6909870354983027353
+      type: {class: SetNumberGlobalName, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Variable:
+          m_TypeID:
+            m_String: number
+          m_Variable: {fileID: 11400000, guid: 6dfb0ffbdde5f46e8a749b0164f73122, type: 2}
+          m_Name:
+            m_String: Wanted
+            m_ID: -565199602
+    - rid: 6909870354983027354
+      type: {class: GetDecimalGlobalName, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Variable:
+          m_TypeID:
+            m_String: number
+          m_Variable: {fileID: 11400000, guid: 6dfb0ffbdde5f46e8a749b0164f73122, type: 2}
+          m_Name:
+            m_String: Wanted
+            m_ID: -565199602
+    - rid: 6909870354983027355
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 1
 --- !u!1 &779150481847209479
 GameObject:
   m_ObjectHideFlags: 0
