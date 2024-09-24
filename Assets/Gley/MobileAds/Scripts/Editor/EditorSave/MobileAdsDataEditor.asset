@@ -92,12 +92,12 @@ MonoBehaviour:
     useSDK: 1
     preprocessorDirective: GLEY_APPLOVIN
     sdkLink: https://dash.applovin.com/documentation/mediation/unity/getting-started/integration
-    directedForChildrenRequired: 1
+    directedForChildrenRequired: 0
     testModeRequired: 0
     testDeviceRequired: 0
     directedForChildren: 0
     consentPopupRequired: 1
-    showConsentPopup: 0
+    showConsentPopup: 1
     platformSettings:
     - platform: 0
       enabled: 1
@@ -106,19 +106,19 @@ MonoBehaviour:
         displayName: SDK key
         required: 1
       idBanner:
-        id: 
+        id: a
         displayName: Banner ID
         required: 1
       idMRec:
-        id: 
+        id: a
         displayName: MRec ID
         required: 1
       idInterstitial:
-        id: 
+        id: a
         displayName: Interstitial ID
         required: 1
       idRewarded:
-        id: 
+        id: a
         displayName: Rewarded ID
         required: 1
       idRewardedInterstitial:
@@ -126,7 +126,7 @@ MonoBehaviour:
         displayName: 
         required: 0
       idOpenApp:
-        id: 
+        id: a
         displayName: App Open ID
         required: 1
       testMode: 0

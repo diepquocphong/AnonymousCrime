@@ -657,6 +657,7 @@ MonoBehaviour:
     - rid: 6909870087546864507
     - rid: 6909870336165282133
     - rid: 6909870354983027147
+    - rid: 6909870362697662717
   m_TriggerEvent:
     rid: 6909870336357696092
   references:
@@ -780,6 +781,38 @@ MonoBehaviour:
           m_Property:
             rid: 6909870354983027155
     - rid: 6909870354983027155
+      type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 6909870362697662717
+      type: {class: InstructionCharacterPropertyMoveSpeed, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Character:
+          m_Property:
+            rid: 6909870362697662720
+        m_Speed:
+          m_Operation: 0
+          m_Value:
+            m_Property:
+              rid: 6909870362697662719
+        m_Transition:
+          m_Duration: 0
+          m_Easing: 3
+          m_Time: 0
+          m_WaitToComplete: 1
+    - rid: 6909870362697662719
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 3
+    - rid: 6909870362697662720
+      type: {class: GetGameObjectRoot, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Transform:
+          m_Property:
+            rid: 6909870362697662722
+    - rid: 6909870362697662722
       type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
 --- !u!1 &381937694054089434
@@ -3281,6 +3314,7 @@ MonoBehaviour:
     - rid: 6909870087546864611
     - rid: 6909870087546864560
     - rid: 6909870088480621113
+    - rid: 6909870362697662723
     - rid: 6909870088480621442
     - rid: 6909870088480620844
   m_TriggerEvent:
@@ -3490,6 +3524,38 @@ MonoBehaviour:
           m_Property:
             rid: 6909870179653517336
     - rid: 6909870179653517336
+      type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 6909870362697662723
+      type: {class: InstructionCharacterPropertyMoveSpeed, ns: GameCreator.Runtime.VisualScripting,
+        asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Character:
+          m_Property:
+            rid: 6909870362697662724
+        m_Speed:
+          m_Operation: 0
+          m_Value:
+            m_Property:
+              rid: 6909870362697662725
+        m_Transition:
+          m_Duration: 0
+          m_Easing: 3
+          m_Time: 0
+          m_WaitToComplete: 1
+    - rid: 6909870362697662724
+      type: {class: GetGameObjectRoot, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Transform:
+          m_Property:
+            rid: 6909870362697662726
+    - rid: 6909870362697662725
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 3
+    - rid: 6909870362697662726
       type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
 --- !u!135 &693114652493168899

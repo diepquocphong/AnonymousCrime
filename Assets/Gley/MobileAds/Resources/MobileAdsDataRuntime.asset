@@ -12,8 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 940df1a5021160d42b896ca3c766993a, type: 3}
   m_Name: MobileAdsDataRuntime
   m_EditorClassIdentifier: 
-  consentCanvas: {fileID: 0}
-  consentPopup: {fileID: 0}
+  consentCanvas: {fileID: 8831108138657628483, guid: d934bc761efe5014ab063b64f211ae58,
+    type: 3}
+  consentPopup: {fileID: 3240109449405206250, guid: b4c3a1b7b6446d14c894d5a536ac9628,
+    type: 3}
   androidAdvertiser:
     advertiser: 30
     platformSettings:
@@ -24,19 +26,19 @@ MonoBehaviour:
         displayName: SDK key
         required: 1
       idBanner:
-        id: 
+        id: a
         displayName: Banner ID
         required: 1
       idMRec:
-        id: 
+        id: a
         displayName: MRec ID
         required: 1
       idInterstitial:
-        id: 
+        id: a
         displayName: Interstitial ID
         required: 1
       idRewarded:
-        id: 
+        id: a
         displayName: Rewarded ID
         required: 1
       idRewardedInterstitial:
@@ -44,7 +46,7 @@ MonoBehaviour:
         displayName: 
         required: 0
       idOpenApp:
-        id: 
+        id: a
         displayName: App Open ID
         required: 1
       testMode: 0
