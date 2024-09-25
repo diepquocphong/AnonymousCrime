@@ -82,7 +82,7 @@ MonoBehaviour:
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
-        m_Value: 4
+        m_Value: 0.3
     - rid: 6909870043677589510
       type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
       data:
@@ -229,6 +229,51 @@ MonoBehaviour:
         m_Breakpoint: 0
         m_IsEnabled: 1
         m_Value: 0
+    - rid: 6909870375953499041
+      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value:
+          rid: 6909870375953499042
+        m_Name:
+          m_String: ProcessRun
+    - rid: 6909870375953499042
+      type: {class: ValueBool, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value: 0
+    - rid: 6909870375953499043
+      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value:
+          rid: 6909870375953499044
+        m_Name:
+          m_String: ProcessDone
+    - rid: 6909870375953499044
+      type: {class: ValueBool, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value: 0
+    - rid: 6909870396801286762
+      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value:
+          rid: 6909870396801286764
+        m_Name:
+          m_String: CanHack
+    - rid: 6909870396801286764
+      type: {class: ValueBool, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value: 0
     - rid: 8453198294428942340
       type: {class: NameList, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
       data:
@@ -237,6 +282,9 @@ MonoBehaviour:
         - rid: 6909870065313383126
         - rid: 6909870065313382977
         - rid: 6909870353880186880
+        - rid: 6909870396801286762
+        - rid: 6909870375953499041
+        - rid: 6909870375953499043
         - rid: 6909870087546863923
         - rid: 6909870043677589508
         - rid: 6909870043677589510
