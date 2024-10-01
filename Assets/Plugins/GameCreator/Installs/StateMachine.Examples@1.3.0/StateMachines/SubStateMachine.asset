@@ -1,0 +1,218 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ed88b47b9f8014a8587d7712e17957cc, type: 3}
+  m_Name: SubStateMachine
+  m_EditorClassIdentifier: 
+  m_SaveUniqueID:
+    m_Save:
+      m_Save: 1
+    m_UniqueID:
+      m_SerializedID:
+        m_String: 9779899d-7eab-4721-89df-023c05e2dc3b
+  m_NameList:
+    rid: 4307091958826795884
+  nodes:
+  - rid: 4307091958826795885
+  - rid: 4307091958826795886
+  - rid: 5085185405609312282
+  edges:
+  - GUID: 35dc02db-4fdc-4870-acf2-6b8aab677cde
+    owner: {fileID: 11400000}
+    inputNodeGUID: 659505a4-ffc2-417f-b5c8-7ab118606f9d
+    outputNodeGUID: ce54364b-e093-44a6-95f7-73cea2d645e5
+    inputFieldName: input
+    outputFieldName: output
+    inputPortIdentifier: 
+    outputPortIdentifier: 
+  - GUID: bf3e8245-c809-4576-87e7-1ffe678eacb1
+    owner: {fileID: 11400000}
+    inputNodeGUID: dd3980ba-57ec-446e-b13d-47728d4dc332
+    outputNodeGUID: 659505a4-ffc2-417f-b5c8-7ab118606f9d
+    inputFieldName: input
+    outputFieldName: output
+    inputPortIdentifier: 
+    outputPortIdentifier: 
+  groups: []
+  stackNodes: []
+  networkNodes: []
+  pinnedElements:
+  - position:
+      serializedVersion: 2
+      x: 134
+      y: 102
+      width: 150
+      height: 200
+    opened: 0
+    editorType:
+      serializedType: NinjutsuGames.StateMachine.Editor.ExposedParameterView, NinjutsuGames.StateMachine.Editor,
+        Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+  - position:
+      serializedVersion: 2
+      x: 0
+      y: 20
+      width: 150
+      height: 200
+    opened: 0
+    editorType:
+      serializedType: NinjutsuGames.StateMachine.Editor.BlackboardView, NinjutsuGames.StateMachine.Editor,
+        Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+  exposedParameters: []
+  serializedParameterList: []
+  stickyNotes: []
+  nodeInspectorReference: {fileID: 0}
+  position: {x: 71.5, y: 10, z: 0}
+  scale: {x: 1, y: 1, z: 1}
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
+    - rid: 4307091958826795884
+      type: {class: NameList, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Source:
+        - rid: 5085185479846133911
+    - rid: 4307091958826795885
+      type: {class: StartNode, ns: NinjutsuGames.StateMachine.Runtime, asm: NinjutsuGames.StateMachine.Runtime}
+      data:
+        nodeCustomName: 
+        GUID: ce54364b-e093-44a6-95f7-73cea2d645e5
+        computeOrder: 0
+        position:
+          serializedVersion: 2
+          x: 127
+          y: 257
+          width: 83
+          height: 39
+        expanded: 0
+        debug: 0
+        nodeLock: 0
+        enabledForExecution: 1
+        networkingSettings:
+          rid: 5085185479795802898
+        instructions:
+          m_Instructions:
+          - rid: 5085185412629528636
+    - rid: 4307091958826795886
+      type: {class: ActionsNode, ns: NinjutsuGames.StateMachine.Runtime, asm: NinjutsuGames.StateMachine.Runtime}
+      data:
+        nodeCustomName: 
+        GUID: 659505a4-ffc2-417f-b5c8-7ab118606f9d
+        computeOrder: 1
+        position:
+          serializedVersion: 2
+          x: 270
+          y: 269
+          width: 110.5
+          height: 54
+        expanded: 0
+        debug: 0
+        nodeLock: 0
+        enabledForExecution: 1
+        networkingSettings:
+          rid: 5085185405609312281
+        instructions:
+          m_Instructions:
+          - rid: 4307091958826795887
+    - rid: 4307091958826795887
+      type: {class: InstructionCommonDebugText, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Message:
+          m_Property:
+            rid: 4307091958826795888
+    - rid: 4307091958826795888
+      type: {class: GetStringString, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: This is a SubState Machine
+    - rid: 5085185405609312281
+      type: {class: NetworkingSettings, ns: NinjutsuGames.StateMachine.Runtime, asm: NinjutsuGames.StateMachine.Runtime}
+      data:
+        networkSync: 0
+        nodeId: 659505a4-ffc2-417f-b5c8-7ab118606f9d
+        config:
+          rid: -2
+    - rid: 5085185405609312282
+      type: {class: ExitNode, ns: NinjutsuGames.StateMachine.Runtime, asm: NinjutsuGames.StateMachine.Runtime}
+      data:
+        nodeCustomName: 
+        GUID: dd3980ba-57ec-446e-b13d-47728d4dc332
+        computeOrder: 2
+        position:
+          serializedVersion: 2
+          x: 427.66
+          y: 257
+          width: 88
+          height: 39
+        expanded: 0
+        debug: 0
+        nodeLock: 0
+        enabledForExecution: 1
+        networkingSettings:
+          rid: 5085185479795802899
+        instructions:
+          m_Instructions:
+          - rid: 5085185412629528634
+    - rid: 5085185412629528634
+      type: {class: InstructionCommonDebugText, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Message:
+          m_Property:
+            rid: 5085185412629528635
+    - rid: 5085185412629528635
+      type: {class: GetStringString, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: Exit SubState Machine
+    - rid: 5085185412629528636
+      type: {class: InstructionCommonDebugText, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Message:
+          m_Property:
+            rid: 5085185412629528637
+    - rid: 5085185412629528637
+      type: {class: GetStringString, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: Entering SubState Machine
+    - rid: 5085185479795802898
+      type: {class: NetworkingSettings, ns: NinjutsuGames.StateMachine.Runtime, asm: NinjutsuGames.StateMachine.Runtime}
+      data:
+        networkSync: 0
+        nodeId: ce54364b-e093-44a6-95f7-73cea2d645e5
+        config:
+          rid: -2
+    - rid: 5085185479795802899
+      type: {class: NetworkingSettings, ns: NinjutsuGames.StateMachine.Runtime, asm: NinjutsuGames.StateMachine.Runtime}
+      data:
+        networkSync: 0
+        nodeId: dd3980ba-57ec-446e-b13d-47728d4dc332
+        config:
+          rid: -2
+    - rid: 5085185479846133911
+      type: {class: NameVariable, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value:
+          rid: 5085185479846133913
+        m_Name:
+          m_String: sub-var
+    - rid: 5085185479846133913
+      type: {class: ValueString, ns: GameCreator.Runtime.Variables, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Value: 

@@ -1,0 +1,57 @@
+﻿#title-label{
+    -unity-font-style: bold;
+}
+
+.node #selection-border,
+.node:checked #selection-border,
+.node:hover #selection-border,
+.node:hover:checked #selection-border
+{
+    border-color: #cf3039;
+    border-radius: 6px;
+}
+
+#title{
+    background-color: #8d131a;
+    border-bottom-color: #661E1C;
+    border-bottom-width: 5px;
+    /*flex-direction: row-reverse;*/
+}
+
+#connector{
+    background-color: #a72a2a;
+}
+#contents > #top > #input, #contents > #top > #output
+{
+    background-color: rgba(0, 0, 0, 0.2);
+    margin-top: -23px;
+    padding: 0px;
+    height: 36px;
+    width: 18px;
+    position: absolute;
+    border-right-color: rgba(0, 0, 0, 0.3);
+    border-right-width: 1px;
+}
+
+#contents > #top > #input .port
+{
+    width: 20px;
+    padding-left: 5px;
+    margin-top: 4px;
+}
+
+#top{
+    margin-top: -14px;
+}
+
+#title .node-icon{
+    margin-top: 6px;
+    margin-left: 22px;
+    margin-right: -2px;
+    opacity: 0.5;
+}
+
+#input {
+    margin-right: 20px;
+    border-top-left-radius: 5px;
+}

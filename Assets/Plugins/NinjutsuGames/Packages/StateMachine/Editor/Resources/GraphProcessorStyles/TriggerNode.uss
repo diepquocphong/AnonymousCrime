@@ -1,0 +1,44 @@
+﻿#title-label{
+    -unity-font-style: bold;
+}
+
+#title .node-icon{
+    margin-left: 10px;
+    margin-bottom: 5px;
+}
+
+.node #selection-border,
+.node:checked #selection-border,
+.node:hover #selection-border,
+.node:hover:checked #selection-border
+{
+    border-color: #f59f00;
+    /*border-color: #d5293d;*/
+    border-radius: 6px;
+}
+
+#title{
+    background-color: #096675;
+    /*background-color: #8d131a;*/
+    border-bottom-color: #054855;
+    /*border-bottom-color: ##661E1C;*/
+    border-bottom-width: 5px;
+    height: 40px;
+}
+
+#selection-border{
+    margin-bottom: 5px;
+}
+
+#controls {
+    width: 300px;
+}
+
+/*
+#BottomPortContainer{
+    position: absolute;
+    height: 40%;
+    align-items: flex-end;
+    margin-top: 3px;
+    top: 26px;
+}*/

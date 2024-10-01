@@ -1,0 +1,174 @@
+﻿.NodeControls
+{
+    /*border-width: 1.2px;*/
+    /*border-radius: 4px;*/
+    /*border-color: rgba(22, 22, 22, 0.23);*/
+    /*padding-top: 8px;*/
+    margin-left: -14px;
+    margin-right: -3px;
+    margin-bottom: 10px;
+    
+    /*margin-right:8px;*/
+    /*margin-top: 8px;*/
+}
+
+.NodeControls > #Header > Label
+{
+    font-size: 12px;
+    -unity-font-style: bold;
+    margin-bottom: 8px;
+    margin-left: 4px;
+}
+
+.NodeControls > #Header
+{
+    padding-left: 6px;
+    padding-right: 4px;
+    border-top-width: 1px;
+    border-top-color: rgba(0, 0, 0, 0.3);
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(0, 0, 0, 0.75);
+    margin-top: -3px;
+    /*border-bottom-width: 2px;*/
+    /*border-color: rgba(22, 22, 22);*/
+    padding-top: 10px;
+    /*padding-bottom: 10px;*/
+    margin-bottom: 10px;
+    /*margin-left: -18px;*/
+    /*margin-right: -20px;*/
+}
+.NodeControls > #networkingSettings{
+    padding-left: 16px;
+    padding-right: 8px;
+    margin-bottom: 5px;
+}
+
+.NodeControls > #instructions,
+.NodeControls > #triggerEvent,
+.NodeControls > #branch,
+.NodeControls > #conditions,
+.NodeControls > #stateMachine
+{
+    padding-left: 16px;
+    padding-right: 8px;
+    /*border-bottom-width: 1px;*/
+    /*border-radius: 6px;*/
+    /*border-top-width: 2px;*/
+    /*border-width: 1px;*/
+    border-color: rgba(22, 22, 22, 0.6);
+    /*padding: 6px;*/
+    /*padding-bottom: 10px;*/
+    margin-bottom: 10px;
+}
+
+.NodeControls > .unity-image
+{
+    /*margin: 18px;*/
+}
+
+.NodeControls > #Header
+{
+    flex-direction: row;
+    align-items: center;
+}
+
+.NodeControls > #Header .Locked, .NodeControls > #Header .Disabled, .NodeControls > #Header .Help
+{
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0px;
+    /*margin-left: 4px;*/
+    /*margin-right: 4px;*/
+    width: 24px;
+    height: 24px;
+    /*margin-bottom: 7px;*/
+    margin-top: -8px;
+    justify-content: center;
+    align-content: center;
+    align-items: center;
+}
+
+.NodeControls > #Header .Locked:hover, .NodeControls > #Header .Disabled:hover, .NodeControls > #Header .Help:hover
+{
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.NodeControls > #Header .Locked > .unity-image
+{
+    width: 14px;
+    height: 14px;
+}
+
+.NodeControls > #Header .Disabled > .unity-image
+{
+    width: 16px;
+    height: 16px;
+}
+
+.NodeControls > #Header .Help > .unity-image
+{
+    width: 16px;
+    height: 16px;
+    /*margin-left: -2px;*/
+    opacity: 0.8;
+}
+
+.PlaceHolder
+{
+    /*font-size: 14px;
+    padding: 8px;
+    margin-right:8px;
+    margin-bottom: 8px;*/
+    margin-top: 14px;
+    margin-right: 8px;
+}
+
+.NodeControls{
+    --gc-list-head-image-size: 16px;
+    --gc-common-space-smaller: 5px;
+}
+
+.gc-branch-label {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    height: var(--gc-list-head-image-size);
+    margin: 0 0 var(--gc-common-space-smaller) 0;
+    padding: 0;
+}
+
+.gc-branch-label Image {
+    width: var(--gc-list-head-image-size);
+    height: var(--gc-list-head-image-size);
+    margin: 0;
+    padding: 0;
+}
+
+.gc-branch-label Label {
+    -unity-font-style: bold;
+    margin: 0 0 0 var(--gc-common-space-smaller);
+    -unity-text-align: middle-left;
+    padding: 0;
+}
+
+DocumentationStateMachine{
+    /*border-width: 1px;*/
+    /*border-color: rgba(0, 0, 0, 0.11);*/
+    /*background-color: rgba(0, 0, 0, 0.05);*/
+    /*padding: 0 7px 7px 7px;*/
+    border-radius: 5px;
+    /*margin-left: -3px;*/
+    margin-top: -5px;
+}
+
+DocumentationStateMachine > InfoMessage {
+    margin-bottom: 0px;
+    margin-top: 0px;
+}
+
+DocumentationStateMachine > #GC-Documentation-Parameters {
+    margin-top: 5px;
+}
+
+PropertyField > InfoMessage {
+    margin-bottom: 0px;
+    /*margin-top: 0px;*/
+}

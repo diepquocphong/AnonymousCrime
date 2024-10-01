@@ -1,0 +1,68 @@
+﻿
+
+#title-label{
+    -unity-font-style: bold;
+    margin-left: 2px;
+    /*opacity: 0.8;*/
+}
+
+.node #selection-border,
+.node:checked #selection-border,
+.node:hover #selection-border,
+.node:hover:checked #selection-border
+{
+    border-color: #2ca647;
+    border-radius: 6px;
+}
+
+#title{
+    background-color: #11551f;
+    border-bottom-color: #0f4219;
+    border-bottom-width: 5px;
+}
+
+#connector{
+    background-color: #2ca647;
+}
+
+#contents > #top > #output
+{
+    background-color: rgba(0, 0, 0, 0.2);
+    margin-top: -23px;
+    padding: 0px;
+    height: 37px;
+    width: 18px;
+    flex-grow: 0;
+    border-left-color: rgba(0, 0, 0, 0.3);
+    border-left-width: 1px;
+    border-bottom-right-radius: 6px;
+    border-top-right-radius: 6px;
+    margin-left: 65px;
+}
+
+#contents > #top > #output .port
+{
+    width: 20px;
+    padding-right: 7px;
+    margin-top: 5px;
+}
+
+#top{
+    flex-grow: 1;
+    justify-content: flex-end;
+    position: absolute;
+    width: 100%;
+    align-items: center;
+    margin-top: -14px;
+}
+
+#title .node-icon{
+    margin-top: 6px;
+    margin-left: 4px;
+    opacity: 0.5;
+}
+
+.expand-button {
+    margin-right: 20px;
+    margin-left: 0px
+}
