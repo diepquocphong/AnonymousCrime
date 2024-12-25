@@ -1,9 +1,6 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.Events;
-using Firebase;
-using Firebase.Analytics;
-using Firebase.Extensions;
 
 public class AdsManager : MonoBehaviour
 {
@@ -17,18 +14,6 @@ public class AdsManager : MonoBehaviour
         {
             onRewardedVideoCompleted = new UnityEvent();
         }
-
-        FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task => {
-            if (task.Result == DependencyStatus.Available)
-            {
-                FirebaseAnalytics.SetAnalyticsCollectionEnabled(true);
-                Debug.Log("Firebase Initialized");
-            }
-            else
-            {
-                Debug.LogError("Could not resolve all Firebase dependencies: " + task.Result);
-            }
-        });
 
         Gley.MobileAds.API.Initialize();
         Gley.MobileAds.Events.onInitialized += OnInitialized;
@@ -125,10 +110,6 @@ public class AdsManager : MonoBehaviour
 
     private void OnAdShown(string adType)
     {
-        var adEventParameters = new[] {
-            new Firebase.Analytics.Parameter("ad_type", adType),
-            new Firebase.Analytics.Parameter("timestamp", System.DateTime.UtcNow.ToString())
-        };
-        Firebase.Analytics.FirebaseAnalytics.LogEvent("ad_shown", adEventParameters);
+        Debug.Log("Ad shown: " + adType);
     }
 }
