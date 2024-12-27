@@ -28,7 +28,7 @@ public class AdsManager : MonoBehaviour
 
     public void ShowBanner()
     {
-        Gley.MobileAds.API.ShowBanner(Gley.MobileAds.BannerPosition.Bottom, Gley.MobileAds.BannerType.Adaptive);
+        Gley.MobileAds.API.ShowBanner(Gley.MobileAds.BannerPosition.Top, Gley.MobileAds.BannerType.Adaptive);
         OnAdShown("Banner");
     }
 

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   advertiserSettings:
   - advertiser: 20
-    useSDK: 0
+    useSDK: 1
     preprocessorDirective: GLEY_ADMOB
     sdkLink: https://github.com/googleads/googleads-mobile-unity/releases
     directedForChildrenRequired: 1
@@ -25,21 +25,21 @@ MonoBehaviour:
     showConsentPopup: 0
     platformSettings:
     - platform: 0
-      enabled: 0
+      enabled: 1
       appId:
-        id: 
+        id: ca-app-pub-6626601540311877~4048721887
         displayName: App ID
         required: 1
       idBanner:
-        id: 
+        id: ca-app-pub-6626601540311877/6855604308
         displayName: Banner ID
         required: 1
       idMRec:
-        id: 
+        id: ca-app-pub-6626601540311877/6855604308
         displayName: MRec ID
         required: 1
       idInterstitial:
-        id: 
+        id: ca-app-pub-6626601540311877/5542522637
         displayName: Interstitial ID
         required: 1
       idRewarded:
@@ -89,7 +89,7 @@ MonoBehaviour:
       testMode: 0
       testDevice: 
   - advertiser: 30
-    useSDK: 1
+    useSDK: 0
     preprocessorDirective: GLEY_APPLOVIN
     sdkLink: https://dash.applovin.com/documentation/mediation/unity/getting-started/integration
     directedForChildrenRequired: 0
@@ -100,7 +100,7 @@ MonoBehaviour:
     showConsentPopup: 1
     platformSettings:
     - platform: 0
-      enabled: 1
+      enabled: 0
       appId:
         id: ArdMxTOMzAagq3L8EhwTHlyMVhRMlyfJfVb8ELTSoA9rVIx9psanq8Oy48H3iukzHBTU6eIC_RyHeDp6bsLEO3
         displayName: SDK key
@@ -394,5 +394,5 @@ MonoBehaviour:
   enableATT: 0
   nativePopupText: We will use your data to provide a better and personalized ad
     experience.
-  selectedAndroidAdvertiser: 30
+  selectedAndroidAdvertiser: 20
   selectediOSAdvertiser: 0
