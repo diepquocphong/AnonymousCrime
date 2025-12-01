@@ -104,6 +104,11 @@ namespace Gley.MobileAds.Internal
 #else
                 Debug.LogWarning("Current platform not supported");
 #endif
+                if (selectedAdvertiser == null)
+                {
+                    Debug.LogError("No valid advertiser found for the current platform. Ads will not be shown.");
+                    return;
+                }
                 GleyLogger.AddLog($"Selected advertiser: {selectedAdvertiser.advertiser}");
 
                 selectedAdvertiser.advertiserScript.SetDirectedForChildren(selectedAdvertiser.directedForChildren);
