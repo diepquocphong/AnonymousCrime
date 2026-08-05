@@ -1,0 +1,168 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 652aa780f3eda6546a37901f1614666e, type: 3}
+  m_Name: DefaultBuildingFamily
+  m_EditorClassIdentifier: Veridian.BuildingBuilder.Runtime::Veridian.BuildingSystem.Runtime.BuildingFamilyProfile
+  palettes:
+  - paletteName: Default
+    selectionWeight: 1
+    wallMaterials: []
+    roofMaterials: []
+    glassMaterials: []
+    masonryMaterials: []
+    accentMaterials: []
+    frameMaterials: []
+    doorMaterials: []
+    wallFallbackColor: {r: 0.5, g: 0.55, b: 0.45, a: 1}
+    roofFallbackColor: {r: 0.2, g: 0.2, b: 0.22, a: 1}
+    glassFallbackColor: {r: 0.1, g: 0.15, b: 0.2, a: 1}
+    masonryFallbackColor: {r: 0.55, g: 0.3, b: 0.25, a: 1}
+    accentFallbackColor: {r: 0.35, g: 0.35, b: 0.38, a: 1}
+    frameFallbackColor: {r: 0.4, g: 0.45, b: 0.55, a: 1}
+    doorFallbackColor: {r: 0.35, g: 0.2, b: 0.1, a: 1}
+  widthRange:
+    min: 8
+    max: 15
+  lengthRange:
+    min: 10
+    max: 20
+  wallHeightRange:
+    min: 2.8
+    max: 3.5
+  addWingProbability: 0.35
+  wingWidthRange:
+    min: 6
+    max: 10
+  wingLengthRange:
+    min: 6
+    max: 12
+  wingOffsetRange:
+    min: -1
+    max: 1
+  addMirroredBuildingProbability: 0.2
+  mirroredWidthRange:
+    min: 8
+    max: 15
+  mirroredLengthRange:
+    min: 10
+    max: 20
+  mirroredOffsetRange:
+    min: -1
+    max: 1
+  floorCountDistribution:
+    options:
+    - value: 1
+      weight: 8
+    - value: 2
+      weight: 5
+    - value: 3
+      weight: 2
+    - value: 4
+      weight: 1
+  generateColliders: 1
+  generateLODGroup: 1
+  lod1ScreenSizeRange:
+    min: 0.5
+    max: 0.7
+  lod2ScreenSizeRange:
+    min: 0.1
+    max: 0.3
+  addFoundationProbability: 0.9
+  foundationHeightRange:
+    min: 0.3
+    max: 0.8
+  foundationExtensionRange:
+    min: 0.1
+    max: 0.3
+  addChimneyProbability: 0.5
+  roofTypeDistribution:
+    options:
+    - value: 0
+      weight: 10
+    - value: 1
+      weight: 3
+  roofHeightRange:
+    min: 2
+    max: 5
+  roofOverhangRange:
+    min: 0.2
+    max: 0.6
+  windowWidthRange:
+    min: 0.8
+    max: 1.2
+  windowHeightRange:
+    min: 1.2
+    max: 1.6
+  windowSillHeightRange:
+    min: 0.8
+    max: 1
+  addWindowFramesProbability: 0.8
+  windowFrameWidthRange:
+    min: 0.1
+    max: 0.2
+  windowsFacadeDistribution:
+    options:
+    - value: 1
+      weight: 2
+    - value: 2
+      weight: 6
+    - value: 3
+      weight: 4
+    - value: 4
+      weight: 1
+  addDoorProbability: 1
+  addBackDoorProbability: 0.2
+  addWingDoorProbability: 0.1
+  doorWidthRange:
+    min: 1
+    max: 1.4
+  doorHeightRange:
+    min: 2
+    max: 2.4
+  doorOffsetRange:
+    min: -1.5
+    max: 1.5
+  addDoorFrameProbability: 0.9
+  doorFrameWidthRange:
+    min: 0.1
+    max: 0.2
+  addPorchProbability: 0.4
+  addBackPorchProbability: 0.2
+  addWingPorchProbability: 0.1
+  porchDepthRange:
+    min: 1.5
+    max: 3
+  porchWidthRange:
+    min: 3
+    max: 6
+  porchHeightRange:
+    min: 2.5
+    max: 3
+  porchColumnSizeRange:
+    min: 0.15
+    max: 0.25
+  trimWidthRange:
+    min: 0.2
+    max: 0.4
+  addCornerTrimProbability: 0.5
+  addHorizontalTrimProbability: 0.5
+  addVerticalTrimProbability: 0.3
+  addFasciaTrimProbability: 0.7
+  fasciaHeightRange:
+    min: 0.15
+    max: 0.3
+  textureScaleRange:
+    min: 0.8
+    max: 1.2
+  detailOffsetBiasRange:
+    min: 0.01
+    max: 0.02

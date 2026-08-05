@@ -1,0 +1,107 @@
+﻿* 
+{
+    --tactile-section-head-image-size: 16px;
+    --tactile-section-head-image-margin: 3px;
+}
+
+/* ROOT: --------------------------------------------------------------------------------------- */
+
+.tactile-section-root 
+{
+    margin-top: -1px;
+}
+
+.tactile-section-head 
+{
+    flex-direction: row;
+    flex-wrap: nowrap;
+
+    border-color: var(--gc-color-border-default);
+    border-width: var(--gc-common-border-width);
+    
+    background-color: var(--gc-color-list-head-default);
+}
+
+.tactile-section-head:hover 
+{
+    background-color: var(--gc-color-list-head-hover);
+}
+
+.tactile-section-body 
+{
+    padding: var(--gc-common-space-smaller);
+    margin: var(--gc-common-border-inverse-width) 2px 0 2px;
+    
+    border-color: var(--gc-color-border-default);
+    border-width: var(--gc-common-border-width);
+
+    background-color: var(--gc-color-bg-dark);
+}
+
+/* HEAD: --------------------------------------------------------------------------------------- */
+
+.tactile-section-head-image 
+{
+    width: var(--tactile-section-head-image-size);
+    height: var(--tactile-section-head-image-size);
+
+    margin: var(--tactile-section-head-image-margin);
+
+    flex-shrink: 0;
+}
+
+.tactile-section-head-arrow 
+{
+    width: var(--tactile-section-head-image-size);
+    height: var(--tactile-section-head-image-size);
+
+    margin: var(--tactile-section-head-image-margin);
+    margin-left: 0;
+}
+
+.tactile-section-head-btn__toggle 
+{
+    padding: 0;
+
+    flex-grow: 1;
+    flex-shrink: 1;
+
+    border-width: 0;
+    border-radius: 0;
+
+    background-color: transparent;
+
+    -unity-text-align: middle-left;
+    -unity-font-style: bold;
+}
+
+.tactile-section-head-label__unit 
+{
+    padding: 0;
+    margin-right: var(--gc-common-space-smaller);
+
+    flex-grow: 1;
+
+    -unity-text-align: middle-right;
+    -unity-font-style: normal;
+}
+
+.tactile-section-head-btn__change 
+{
+    padding: 0;
+    margin: 0;
+
+    flex-direction: row;
+    flex-wrap: nowrap;
+
+    border-radius: 0;
+    border-width: 0 0 0 var(--gc-common-border-width);
+
+    -unity-text-align: middle-left;
+}
+
+.tactile-section-head-btn__change:focus
+{
+    border-color: var(--gc-color-border-default);
+}
+

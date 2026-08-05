@@ -1,0 +1,179 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1680625540762075188
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4666781318020775366}
+  - component: {fileID: 1197206643457127454}
+  - component: {fileID: 4361296912675117748}
+  m_Layer: 5
+  m_Name: Wheel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &4666781318020775366
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1680625540762075188}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 0}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 9135206206316738592}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 350, y: 350}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &1197206643457127454
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1680625540762075188}
+  m_CullTransparentMesh: 1
+--- !u!114 &4361296912675117748
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1680625540762075188}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_Sprite: {fileID: 21300000, guid: b2d21c5fe7d426f4c8c10b96baca09d4, type: 3}
+  m_Type: 0
+  m_PreserveAspect: 0
+  m_FillCenter: 1
+  m_FillMethod: 4
+  m_FillAmount: 1
+  m_FillClockwise: 1
+  m_FillOrigin: 0
+  m_UseSpriteMesh: 0
+  m_PixelsPerUnitMultiplier: 1
+--- !u!1 &1706509442135098527
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9135206206316738592}
+  - component: {fileID: 1104864191567748521}
+  m_Layer: 5
+  m_Name: SteeringWheel
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &9135206206316738592
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1706509442135098527}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 1
+  m_Children:
+  - {fileID: 4666781318020775366}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: -250, y: 0}
+  m_SizeDelta: {x: 350, y: 350}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1104864191567748521
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1706509442135098527}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5b278c841f8dd941974f6e52807d8cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Interactable: 1
+  m_UniqueID:
+    m_SerializedID:
+      m_String: tactile-steering-wheel
+  m_TouchableArea:
+    rid: 7829957727009898564
+  m_ControlType:
+    rid: 8368746984294580310
+  references:
+    version: 2
+    RefIds:
+    - rid: 6571934242085536225
+      type: {class: ControlPathAxisGamepadLeftStickX, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data: 
+    - rid: 7829957727009898564
+      type: {class: TouchableAreaPrimitiveCircle, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_Raycast: 0
+        m_LayerMask:
+          serializedVersion: 2
+          m_Bits: 32
+        m_AutoPress: 0
+        m_AutoRelease: 0
+        m_MultiTouch: 1
+        m_Interaction:
+          m_UseTapTime: 0
+          m_UseSlowTapTime: 0
+          m_UseMultiTapDelayTime: 0
+          m_UseHoldTime: 0
+          m_TapTime: 0.2
+          m_SlowTapTime: 0.5
+          m_MultiTapDelayTime: 0.75
+          m_HoldTime: 0.4
+        m_Radius: 175
+        m_Offset: {x: 0, y: 0}
+    - rid: 8368746984294580310
+      type: {class: ControlTypeSteeringWheel, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_InputSimulate:
+          m_ControlPath:
+            rid: 6571934242085536225
+        m_TimeMode:
+          m_UpdateTime: 0
+        m_Wheel: {fileID: 4666781318020775366}
+        m_Deadzone: 50
+        m_CanSnap: 0
+        m_SnapAngle: 45
+        m_HasMaxAngle: 1
+        m_MaxAngle: 720
+        m_Sensitivity: 1
+        m_SteerDamping: 0.1
+        m_Recenter: 1
+        m_LiftDamping: 0.2

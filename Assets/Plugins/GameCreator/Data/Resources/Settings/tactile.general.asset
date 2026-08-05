@@ -1,0 +1,91 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ca6c546b2aa0feb4ea25a431401a1d1b, type: 3}
+  m_Name: tactile.general
+  m_EditorClassIdentifier: Niam.Runtime.Tactile::Niam.Runtime.Tactile.GeneralSettings
+  m_Repository:
+    rid: 9185873313828962973
+  references:
+    version: 2
+    RefIds:
+    - rid: 9185873313828962973
+      type: {class: GeneralRepository, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_ScaleMode: 1
+        m_ReferenceResolution: {x: 1280, y: 720}
+        m_ReferenceDPI: 96
+        m_DeviceBuilder:
+          m_InputControls:
+          - rid: 9185873313828962974
+          - rid: 9185873313828962975
+          - rid: 9185873313828962976
+          - rid: 9185873313828962977
+          - rid: 9185873313828962978
+          - rid: 9185873313828962979
+          - rid: 9185873313828962980
+          - rid: 9185873313828962981
+    - rid: 9185873313828962974
+      type: {class: InputControlStick, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Name: movestick
+        m_DisplayName: Move Stick
+    - rid: 9185873313828962975
+      type: {class: InputControlDelta, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Name: lookdelta
+        m_DisplayName: Look Delta
+    - rid: 9185873313828962976
+      type: {class: InputControlDelta, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Name: zoomdelta
+        m_DisplayName: Zoom Delta
+    - rid: 9185873313828962977
+      type: {class: InputControlButton, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Name: interact
+        m_DisplayName: Interact
+    - rid: 9185873313828962978
+      type: {class: InputControlButton, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Name: crouch
+        m_DisplayName: Crouch
+    - rid: 9185873313828962979
+      type: {class: InputControlButton, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Name: jump
+        m_DisplayName: Jump
+    - rid: 9185873313828962980
+      type: {class: InputControlButton, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Name: sprint
+        m_DisplayName: Sprint
+    - rid: 9185873313828962981
+      type: {class: InputControlButton, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Name: attack
+        m_DisplayName: Attack

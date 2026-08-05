@@ -1,0 +1,24 @@
+#ControlPath 
+{
+    margin-left: 2px;
+    margin-right: -2px;
+    flex-direction: row;
+    overflow: hidden;
+}
+
+#ControlPath > Label 
+{
+    -unity-text-align: middle-left;
+}
+
+#ControlPath-Input
+{
+    height: var(--gc-common-element-height);
+    flex-grow: 1;
+}
+
+#ControlPath-Input > IMGUIContainer 
+{
+    flex-grow: 1;
+    margin-left: -47px;
+}

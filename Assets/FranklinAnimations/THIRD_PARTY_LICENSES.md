@@ -1,15 +1,24 @@
 # Third-party animation license
 
-## Cartoon City – Massive Pack (Characters Free)
+## Movement Animset Pro
 
-Models and animations by RG Poly.
+Animations by Kubold. Integrated from the user's licensed local asset copy at
+`/Users/diepquocphong/Documents/AssetGame/Animation/Assets/MovementAnimsetPro/`.
 
-License: CC0 1.0 Universal — Public Domain Dedication  
-https://creativecommons.org/publicdomain/zero/1.0/
+Selected clips: `RunFwdStart`, `RunFwdStop_LU`, `RunFwdStop_RU`, `Jump_place_ALL_short`,
+`Jump_walk_lu_ALL`, `Jump_walk_ru_ALL`, `Jump_run_lu_ALL` and `Jump_run_ru_ALL`. They provide
+visual gestures only and do not replace GC2 Core movement or jump physics. Refer to the original
+asset license and purchase terms for redistribution rights.
 
-Official source: https://rg-poly.itch.io/cartoon-city-massive-pack-characters
+## MoCapCentral MC_Idles
 
-Selected source clips: `LookingAround`, `Idle_A`, `Idle_B`.
+Integrated from the user's local asset copy at
+`/Users/diepquocphong/Documents/AssetGame/Animation/Assets/MoCapCentral/MC_Idles/`.
+
+Selected clips: `MCU_am_Stand_Idle_Waiting_07_LookAround`,
+`MCU_am_Stand_Idle_Fidget_02_RubNeck`, `MCU_am_Stand_Idle_LookAtNails_01` and
+`MCU_am_Stand_Idle_BrushOff_01_Legs`. Refer to the original MoCapCentral package terms for
+redistribution rights.
 
 ## Universal Animation Library 1
 

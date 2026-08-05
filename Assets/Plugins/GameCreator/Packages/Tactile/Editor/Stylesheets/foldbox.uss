@@ -1,0 +1,58 @@
+#Foldbox {
+    margin-top: var(--gc-common-space-smallest);
+    margin-bottom: var(--gc-common-space-smallest);
+}
+
+.foldbox-head {
+    margin: 0 -1px 0 0;
+    height: var(--gc-list-head-size);
+    
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+
+.foldbox-head__with-border {
+    background-color: var(--gc-color-list-head-default);
+    border-width: var(--gc-common-border-width);
+    border-color: var(--gc-color-border-default);
+}
+
+.foldbox-head:hover {
+    background-color: var(--gc-color-list-head-hover);
+}
+
+.foldbox-head:active {
+    background-color: var(--gc-color-list-head-press);
+}
+
+.foldbox-head > .unity-label {
+    margin: 0;
+    padding: 0;
+
+    height: var(--gc-common-element-height);
+
+    -unity-font-style: bold;
+    -unity-text-align: middle-left;
+}
+
+.foldbox-head > .unity-image {
+    width: var(--gc-common-element-height);
+    height: var(--gc-common-element-height);
+    flex-shrink: 0;
+}
+
+.foldbox-body {
+    /* margin: 2px 0 0 18px; */
+    margin: 2px 0 0 0;
+    padding: 0;
+}
+
+.foldbox-body__with-border {
+    background-color: var(--gc-color-list-body);
+    margin: 0 var(--gc-list-body-margins);
+    padding: var(--gc-list-body-padding);
+    border-width: var(--gc-common-border-width);
+    border-top-width: 0;
+    border-color: var(--gc-color-border-default);
+    overflow: hidden;
+}

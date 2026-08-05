@@ -1,0 +1,135 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &737613561352483609
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1879305668272296741}
+  - component: {fileID: 3733517854188918765}
+  m_Layer: 5
+  m_Name: SwipePad
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1879305668272296741
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 737613561352483609}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &3733517854188918765
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 737613561352483609}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5b278c841f8dd941974f6e52807d8cb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Interactable: 1
+  m_UniqueID:
+    m_SerializedID:
+      m_String: tactile-swipe-pad
+  m_TouchableArea:
+    rid: 6571934112244301843
+  m_ControlType:
+    rid: 6810179767250976841
+  references:
+    version: 2
+    RefIds:
+    - rid: 6571934112244301843
+      type: {class: TouchableAreaScreenFull, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_Raycast: 0
+        m_LayerMask:
+          serializedVersion: 2
+          m_Bits: 32
+        m_AutoPress: 0
+        m_AutoRelease: 0
+        m_MultiTouch: 1
+        m_Interaction:
+          m_UseTapTime: 0
+          m_UseSlowTapTime: 0
+          m_UseMultiTapDelayTime: 0
+          m_UseHoldTime: 0
+          m_TapTime: 0.2
+          m_SlowTapTime: 0.5
+          m_MultiTapDelayTime: 0.75
+          m_HoldTime: 0.4
+    - rid: 6810179767250976841
+      type: {class: ControlTypeSwipePad, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data:
+        m_Continuous: 0
+        m_Directions:
+          m_Values:
+          - m_InputSimulate:
+              m_ControlPath:
+                rid: 6810179832993022551
+            m_Fingers: 1
+            m_Id:
+              m_String: swipe-up
+            m_Angle: 0
+            m_Arc: 90
+          - m_InputSimulate:
+              m_ControlPath:
+                rid: 6810179832993022552
+            m_Fingers: 1
+            m_Id:
+              m_String: swipe-right
+            m_Angle: 90
+            m_Arc: 90
+          - m_InputSimulate:
+              m_ControlPath:
+                rid: 6810179832993022554
+            m_Fingers: 1
+            m_Id:
+              m_String: swipe-down
+            m_Angle: 180
+            m_Arc: 90
+          - m_InputSimulate:
+              m_ControlPath:
+                rid: 6810179832993022553
+            m_Fingers: 1
+            m_Id:
+              m_String: swipe-left
+            m_Angle: 270
+            m_Arc: 90
+        m_MinSwipeDistance: 150
+        m_MaxSwipeDuration: 0.5
+        m_MinSampleDistance: 50
+        m_MaxSampleDeviation: 60
+        m_DirectionReversalThreshold: 0
+    - rid: 6810179832993022551
+      type: {class: ControlPathButtonConstantNone, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data: 
+    - rid: 6810179832993022552
+      type: {class: ControlPathButtonConstantNone, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data: 
+    - rid: 6810179832993022553
+      type: {class: ControlPathButtonConstantNone, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data: 
+    - rid: 6810179832993022554
+      type: {class: ControlPathButtonConstantNone, ns: Niam.Runtime.Tactile, asm: Niam.Runtime.Tactile}
+      data: 

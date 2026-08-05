@@ -14,11 +14,16 @@ namespace FranklinGame.Animations.Editor
         private const string RootFolder = "Assets/FranklinAnimations";
         private const string StagingFolder = RootFolder + "/Editor/Staging";
         private const string AnimationFolder = RootFolder + "/Animations";
+        private const string RunTransitionFolder = RootFolder + "/RunTransitions";
+        private const string JumpComboFolder = RootFolder + "/JumpCombos";
         private const string StateFolder = RootFolder + "/States";
 
-        private const string RgIdleAPath = StagingFolder + "/RG_Idle_A.fbx";
-        private const string RgIdleBPath = StagingFolder + "/RG_Idle_B.fbx";
-        private const string RgLookingAroundPath = StagingFolder + "/RG_LookingAround.fbx";
+        private const string McIdleLibrary =
+            "/Users/diepquocphong/Documents/AssetGame/Animation/Assets/MoCapCentral/MC_Idles/Animations";
+        private const string McLookAroundPath = StagingFolder + "/MC_LookAround.fbx";
+        private const string McRubNeckPath = StagingFolder + "/MC_RubNeck.fbx";
+        private const string McLookAtNailsPath = StagingFolder + "/MC_LookAtNails.fbx";
+        private const string McBrushLegPath = StagingFolder + "/MC_BrushLeg.fbx";
         private const string SprintClipPath = AnimationFolder + "/IP-sprint-loop-smooth.anim";
         private const string LegacyLocomotionStatePath = StateFolder + "/Franklin_GTA_Locomotion.asset";
         private const string LegacyWalkClipPath = AnimationFolder + "/Franklin_Walk.anim";
@@ -28,8 +33,15 @@ namespace FranklinGame.Animations.Editor
         private const string LegacyIdlePath = AnimationFolder + "/Franklin_Idle.anim";
         private const string LegacyIdleFoldArmsPath = AnimationFolder + "/Franklin_Idle_FoldArms.anim";
         private const string LegacyIdleGesturePath = AnimationFolder + "/Franklin_Idle_Gesture.anim";
+        private const string PreviousIdleLookAroundPath = AnimationFolder + "/Franklin_Idle_LookAround.anim";
+        private const string PreviousIdleNaturalAPath = AnimationFolder + "/Franklin_Idle_Natural_A.anim";
+        private const string PreviousIdleNaturalBPath = AnimationFolder + "/Franklin_Idle_Natural_B.anim";
         private const string SprintStatePath = StateFolder + "/Franklin_GTA_Sprint.asset";
         private const string PlayerPath = "Assets/Prefab/Player.prefab";
+        private const string Gc2WalkStatePath =
+            "Assets/Plugins/GameCreator/Installs/GameCreator.Characters@1.8.25/Assets/States/Walk.asset";
+        private const string Gc2RunStatePath =
+            "Assets/Plugins/GameCreator/Installs/GameCreator.Characters@1.8.25/Assets/States/Run.asset";
         private const string Gc2ControllerPath =
             "Assets/Plugins/GameCreator/Packages/Core/Runtime/Characters/Assets/Controllers/CompleteLocomotion.controller";
         private const string Gc2LocomotionClipsFolder =
@@ -37,9 +49,34 @@ namespace FranklinGame.Animations.Editor
 
         private static readonly ClipRequest[] ClipRequests =
         {
-            new ClipRequest(RgLookingAroundPath, "LookingAround", "Franklin_Idle_LookAround", false),
-            new ClipRequest(RgIdleAPath, "Idle_A", "Franklin_Idle_Natural_A", false),
-            new ClipRequest(RgIdleBPath, "Idle_B", "Franklin_Idle_Natural_B", false)
+            new ClipRequest(
+                McIdleLibrary + "/Waiting/MCU_am_Stand_Idle_Waiting_07_LookAround.FBX",
+                McLookAroundPath,
+                "Unreal Take",
+                "Franklin_Idle_MC_LookAround",
+                false
+            ),
+            new ClipRequest(
+                McIdleLibrary + "/Fidget/MCU_am_Stand_Idle_Fidget_02_RubNeck.FBX",
+                McRubNeckPath,
+                "Unreal Take",
+                "Franklin_Idle_MC_RubNeck",
+                false
+            ),
+            new ClipRequest(
+                McIdleLibrary + "/LookAtNails/MCU_am_Stand_Idle_LookAtNails_01.FBX",
+                McLookAtNailsPath,
+                "Unreal Take",
+                "Franklin_Idle_MC_LookAtNails",
+                false
+            ),
+            new ClipRequest(
+                McIdleLibrary + "/BrushOff/MCU_am_Stand_Idle_BrushOff_01_Legs.FBX",
+                McBrushLegPath,
+                "Unreal Take",
+                "Franklin_Idle_MC_BrushLeg",
+                false
+            )
         };
 
         [MenuItem("Tools/Franklin Game/Install GTA-style animations")]
@@ -47,10 +84,13 @@ namespace FranklinGame.Animations.Editor
         {
             EnsureFolder(AnimationFolder);
             EnsureFolder(StateFolder);
+            EnsureFolder(StagingFolder);
+            StageIdleSources();
 
-            ConfigureSourceModel(RgIdleAPath);
-            ConfigureSourceModel(RgIdleBPath);
-            ConfigureSourceModel(RgLookingAroundPath);
+            foreach (string sourcePath in ClipRequests.Select(request => request.SourcePath).Distinct())
+            {
+                ConfigureSourceModel(sourcePath);
+            }
 
             Dictionary<string, AnimationClip> clips = ExtractClips();
             AnimationClip sprintClip = LoadSprintClip();
@@ -62,6 +102,9 @@ namespace FranklinGame.Animations.Editor
             AssetDatabase.DeleteAsset(LegacyIdlePath);
             AssetDatabase.DeleteAsset(LegacyIdleFoldArmsPath);
             AssetDatabase.DeleteAsset(LegacyIdleGesturePath);
+            AssetDatabase.DeleteAsset(PreviousIdleLookAroundPath);
+            AssetDatabase.DeleteAsset(PreviousIdleNaturalAPath);
+            AssetDatabase.DeleteAsset(PreviousIdleNaturalBPath);
             StateCompleteLocomotion sprintState = CreateLocomotionState(
                 SprintStatePath,
                 "Franklin_GTA_Sprint",
@@ -74,14 +117,16 @@ namespace FranklinGame.Animations.Editor
             AssetDatabase.Refresh();
             ValidateInstallation(sprintState, clips, sprintClip);
 
-            // The extracted .anim files are self-contained. Removing the source FBX
-            // files keeps the project and mobile build lean while preserving the CC0 license file.
-            AssetDatabase.DeleteAsset(RgIdleAPath);
-            AssetDatabase.DeleteAsset(RgIdleBPath);
-            AssetDatabase.DeleteAsset(RgLookingAroundPath);
+            // The extracted .anim files are self-contained. Removing the staged FBX
+            // files keeps the project and mobile build lean.
+            foreach (string sourcePath in ClipRequests.Select(request => request.SourcePath).Distinct())
+            {
+                AssetDatabase.DeleteAsset(sourcePath);
+            }
             AssetDatabase.Refresh();
+            FranklinRetargetProIntegration.SetupProfile();
 
-            Debug.Log("Franklin animations installed: GC2 default locomotion/jump, Left Shift sprint and idle variations. GC2 files were not modified.");
+            Debug.Log("Franklin animations installed: GC2 default locomotion/jump, Left Shift sprint, idle variations and the Retarget Pro profile. GC2 files were not modified.");
         }
 
         [MenuItem("Tools/Franklin Game/Apply IP sprint clip")]
@@ -114,8 +159,9 @@ namespace FranklinGame.Animations.Editor
             StateCompleteLocomotion sprintState = AssetDatabase.LoadAssetAtPath<StateCompleteLocomotion>(SprintStatePath);
             ValidateInstallation(sprintState, clips, sprintClip);
             ValidatePlayerPrefab(sprintState);
+            FranklinRetargetProIntegration.ValidateIntegration();
 
-            Debug.Log("Franklin animation validation passed: clips, GC2 State, Humanoid rig and Player references are valid.");
+            Debug.Log("Franklin animation validation passed: clips, GC2 State, Humanoid rig, Retarget Pro profile and Player references are valid.");
         }
 
         private static Dictionary<string, AnimationClip> LoadExtractedClips()
@@ -145,6 +191,32 @@ namespace FranklinGame.Animations.Editor
             }
 
             return clip;
+        }
+
+        private static void StageIdleSources()
+        {
+            foreach (ClipRequest request in ClipRequests)
+            {
+                if (!File.Exists(request.ExternalPath))
+                {
+                    throw new FileNotFoundException($"MC_Idles source is missing: {request.ExternalPath}");
+                }
+
+                string destination = Path.GetFullPath(
+                    Path.Combine(Application.dataPath, "..", request.SourcePath)
+                );
+                Directory.CreateDirectory(Path.GetDirectoryName(destination));
+                File.Copy(request.ExternalPath, destination, true);
+
+                string sourceMeta = request.ExternalPath + ".meta";
+                if (!File.Exists(sourceMeta))
+                {
+                    throw new FileNotFoundException($"MC_Idles import settings are missing: {sourceMeta}");
+                }
+                File.Copy(sourceMeta, destination + ".meta", true);
+            }
+
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
         }
 
         private static void ConfigureSourceModel(string path)
@@ -403,21 +475,54 @@ namespace FranklinGame.Animations.Editor
                     throw new InvalidOperationException("GC2 start-state property was not found on Player.prefab");
                 }
 
-                // Keep GC2's original locomotion as the normal/default behavior.
-                startState.objectReferenceValue = null;
+                State walkState = AssetDatabase.LoadAssetAtPath<State>(Gc2WalkStatePath);
+                State jogState = AssetDatabase.LoadAssetAtPath<State>(Gc2RunStatePath);
+                if (walkState == null || jogState == null)
+                {
+                    throw new FileNotFoundException("GC2 stock Walk or Run state is missing");
+                }
+
+                // GC2 owns the default Walk state. The bridge temporarily selects GC2's Run
+                // state for held Shift, then its separate Franklin sprint state for quick taps.
+                startState.objectReferenceValue = walkState;
                 serializedCharacter.ApplyModifiedPropertiesWithoutUndo();
 
                 FranklinAnimationBridge bridge = root.GetComponent<FranklinAnimationBridge>();
                 if (bridge == null) bridge = root.AddComponent<FranklinAnimationBridge>();
 
                 SerializedObject serializedBridge = new SerializedObject(bridge);
+                serializedBridge.FindProperty("m_JogState").objectReferenceValue = jogState;
+                serializedBridge.FindProperty("m_JogSpeed").floatValue = 4f;
                 serializedBridge.FindProperty("m_SprintState").objectReferenceValue = sprintState;
+                serializedBridge.FindProperty("m_RunSpeed").floatValue = 6f;
+                serializedBridge.FindProperty("m_SprintTapWindow").floatValue = 0.35f;
+                serializedBridge.FindProperty("m_SprintTapGrace").floatValue = 0.45f;
+                serializedBridge.FindProperty("m_SprintTapsRequired").intValue = 2;
+                serializedBridge.FindProperty("m_HealthAttributeId").stringValue = "hp";
+                serializedBridge.FindProperty("m_DamageJogDuration").floatValue = 6f;
+                serializedBridge.FindProperty("m_RunForwardInputThreshold").floatValue = 0.5f;
+                serializedBridge.FindProperty("m_RunCameraAlignmentAngle").floatValue = 8f;
+                SetBridgeClip(serializedBridge, "m_RunStart", $"{RunTransitionFolder}/MAP_Run_Start.anim");
+                SetBridgeClip(serializedBridge, "m_RunStopLeft", $"{RunTransitionFolder}/MAP_Run_Stop_Left.anim");
+                SetBridgeClip(serializedBridge, "m_RunStopRight", $"{RunTransitionFolder}/MAP_Run_Stop_Right.anim");
+                serializedBridge.FindProperty("m_RunTransitionMotionMode").enumValueIndex =
+                    (int) RunTransitionMotionMode.AnimationRootMotion;
+                serializedBridge.FindProperty("m_RunStartAccelerationTime").floatValue = 0.77f;
+                serializedBridge.FindProperty("m_RunStartAccelerationPower").floatValue = 2.2f;
+                serializedBridge.FindProperty("m_RunStopEaseOutTime").floatValue = 1f;
+                serializedBridge.FindProperty("m_RunStopEaseOutPower").floatValue = 2f;
+                SetBridgeClip(serializedBridge, "m_JumpPlace", $"{JumpComboFolder}/MAP_Jump_Place.anim");
+                SetBridgeClip(serializedBridge, "m_JumpWalkLeft", $"{JumpComboFolder}/MAP_Jump_Walk_Left.anim");
+                SetBridgeClip(serializedBridge, "m_JumpWalkRight", $"{JumpComboFolder}/MAP_Jump_Walk_Right.anim");
+                SetBridgeClip(serializedBridge, "m_JumpRunLeft", $"{JumpComboFolder}/MAP_Jump_Run_Left.anim");
+                SetBridgeClip(serializedBridge, "m_JumpRunRight", $"{JumpComboFolder}/MAP_Jump_Run_Right.anim");
                 SerializedProperty idleVariations = serializedBridge.FindProperty("m_IdleVariations");
                 string[] idleNames =
                 {
-                    "Franklin_Idle_LookAround",
-                    "Franklin_Idle_Natural_A",
-                    "Franklin_Idle_Natural_B"
+                    "Franklin_Idle_MC_LookAround",
+                    "Franklin_Idle_MC_RubNeck",
+                    "Franklin_Idle_MC_LookAtNails",
+                    "Franklin_Idle_MC_BrushLeg"
                 };
                 idleVariations.arraySize = idleNames.Length;
                 for (int i = 0; i < idleNames.Length; ++i)
@@ -439,6 +544,20 @@ namespace FranklinGame.Animations.Editor
             {
                 PrefabUtility.UnloadPrefabContents(root);
             }
+        }
+
+        private static void SetBridgeClip(
+            SerializedObject serializedBridge,
+            string propertyName,
+            string clipPath)
+        {
+            AnimationClip clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
+            if (clip == null || clip.empty)
+            {
+                throw new FileNotFoundException($"Required Franklin animation is missing: {clipPath}");
+            }
+
+            serializedBridge.FindProperty(propertyName).objectReferenceValue = clip;
         }
 
         private static void ValidateInstallation(
@@ -497,21 +616,133 @@ namespace FranklinGame.Animations.Editor
                     .FindProperty("m_Kernel.m_Animim.m_StartState")
                     ?.objectReferenceValue;
 
-                if (configuredState != null)
+                State walkState = AssetDatabase.LoadAssetAtPath<State>(Gc2WalkStatePath);
+                State jogState = AssetDatabase.LoadAssetAtPath<State>(Gc2RunStatePath);
+                if (configuredState != walkState)
                 {
-                    throw new InvalidOperationException("Player Start State must remain empty to use GC2's default locomotion");
+                    throw new InvalidOperationException("Player Start State must use GC2's stock Walk state");
                 }
 
                 SerializedObject serializedBridge = new SerializedObject(bridge);
+                if (serializedBridge.FindProperty("m_JogState")?.objectReferenceValue != jogState)
+                {
+                    throw new InvalidOperationException("Bridge does not reference GC2's stock Run state for Jog");
+                }
+                SerializedProperty jogSpeed = serializedBridge.FindProperty("m_JogSpeed");
+                if (jogSpeed == null || jogSpeed.floatValue <= 0f)
+                {
+                    throw new InvalidOperationException("Bridge Jog Speed must be greater than zero");
+                }
                 if (serializedBridge.FindProperty("m_SprintState")?.objectReferenceValue != sprintState)
                 {
                     throw new InvalidOperationException("Bridge does not reference Franklin_GTA_Sprint");
                 }
 
-                SerializedProperty idleVariations = serializedBridge.FindProperty("m_IdleVariations");
-                if (idleVariations == null || idleVariations.arraySize != 3)
+                SerializedProperty runSpeed = serializedBridge.FindProperty("m_RunSpeed");
+                if (runSpeed == null || runSpeed.floatValue <= 0f)
                 {
-                    throw new InvalidOperationException("Bridge must contain exactly three idle variations");
+                    throw new InvalidOperationException("Bridge Run Speed must be greater than zero");
+                }
+                SerializedProperty runInputThreshold =
+                    serializedBridge.FindProperty("m_RunForwardInputThreshold");
+                SerializedProperty runCameraAlignment =
+                    serializedBridge.FindProperty("m_RunCameraAlignmentAngle");
+                if (runInputThreshold == null || runInputThreshold.floatValue < 0f ||
+                    runInputThreshold.floatValue > 1f || runCameraAlignment == null ||
+                    runCameraAlignment.floatValue < 0f || runCameraAlignment.floatValue > 45f)
+                {
+                    throw new InvalidOperationException("Bridge sprint camera direction settings are invalid");
+                }
+                SerializedProperty tapWindow = serializedBridge.FindProperty("m_SprintTapWindow");
+                SerializedProperty tapGrace = serializedBridge.FindProperty("m_SprintTapGrace");
+                SerializedProperty tapCount = serializedBridge.FindProperty("m_SprintTapsRequired");
+                if (tapWindow == null || tapWindow.floatValue < 0.1f || tapWindow.floatValue > 1f ||
+                    tapGrace == null || tapGrace.floatValue < 0.1f || tapGrace.floatValue > 1f ||
+                    tapCount == null || tapCount.intValue < 2 || tapCount.intValue > 4)
+                {
+                    throw new InvalidOperationException("Bridge sprint tap settings are invalid");
+                }
+                SerializedProperty healthAttribute = serializedBridge.FindProperty("m_HealthAttributeId");
+                SerializedProperty damageJogDuration = serializedBridge.FindProperty("m_DamageJogDuration");
+                if (healthAttribute == null || string.IsNullOrWhiteSpace(healthAttribute.stringValue) ||
+                    damageJogDuration == null || damageJogDuration.floatValue <= 0f)
+                {
+                    throw new InvalidOperationException("Bridge damage locomotion settings are invalid");
+                }
+
+                string[] accentClips =
+                {
+                    "m_RunStart", "m_RunStopLeft", "m_RunStopRight",
+                    "m_JumpPlace", "m_JumpWalkLeft", "m_JumpWalkRight",
+                    "m_JumpRunLeft", "m_JumpRunRight"
+                };
+                foreach (string propertyName in accentClips)
+                {
+                    AnimationClip clip = serializedBridge.FindProperty(propertyName)?.objectReferenceValue as AnimationClip;
+                    if (clip == null || clip.empty)
+                    {
+                        throw new InvalidOperationException($"Bridge accent clip is missing: {propertyName}");
+                    }
+                }
+
+                SerializedProperty transitionMotionMode =
+                    serializedBridge.FindProperty("m_RunTransitionMotionMode");
+                if (transitionMotionMode == null)
+                {
+                    throw new InvalidOperationException("Bridge Run Transition Motion Mode is missing");
+                }
+                if (transitionMotionMode.enumValueIndex ==
+                    (int) RunTransitionMotionMode.AnimationRootMotion)
+                {
+                    string[] rootMotionClips = { "m_RunStart", "m_RunStopLeft", "m_RunStopRight" };
+                    foreach (string propertyName in rootMotionClips)
+                    {
+                        AnimationClip clip = serializedBridge
+                            .FindProperty(propertyName)
+                            ?.objectReferenceValue as AnimationClip;
+                        if (clip == null || !clip.hasRootCurves)
+                        {
+                            throw new InvalidOperationException(
+                                $"Bridge root-motion clip has no root curves: {propertyName}"
+                            );
+                        }
+                    }
+                }
+
+                SerializedProperty runStartAcceleration =
+                    serializedBridge.FindProperty("m_RunStartAccelerationTime");
+                if (runStartAcceleration == null || runStartAcceleration.floatValue <= 0f)
+                {
+                    throw new InvalidOperationException(
+                        "Bridge Run Start Acceleration Time must be greater than zero"
+                    );
+                }
+                SerializedProperty runStartAccelerationPower =
+                    serializedBridge.FindProperty("m_RunStartAccelerationPower");
+                if (runStartAccelerationPower == null || runStartAccelerationPower.floatValue < 1f)
+                {
+                    throw new InvalidOperationException(
+                        "Bridge Run Start Acceleration Power must be at least one"
+                    );
+                }
+                SerializedProperty runStopEaseOutTime =
+                    serializedBridge.FindProperty("m_RunStopEaseOutTime");
+                SerializedProperty runStopEaseOutPower =
+                    serializedBridge.FindProperty("m_RunStopEaseOutPower");
+                if (runStopEaseOutTime == null || runStopEaseOutTime.floatValue <= 0f ||
+                    runStopEaseOutPower == null || runStopEaseOutPower.floatValue < 1f)
+                {
+                    throw new InvalidOperationException(
+                        "Bridge Run Stop Ease Out settings are invalid"
+                    );
+                }
+
+                SerializedProperty idleVariations = serializedBridge.FindProperty("m_IdleVariations");
+                if (idleVariations == null || idleVariations.arraySize != ClipRequests.Length)
+                {
+                    throw new InvalidOperationException(
+                        $"Bridge must contain exactly {ClipRequests.Length} idle variations"
+                    );
                 }
                 for (int i = 0; i < idleVariations.arraySize; ++i)
                 {
@@ -519,6 +750,12 @@ namespace FranklinGame.Animations.Editor
                     {
                         throw new InvalidOperationException($"Bridge idle variation is missing at index {i}");
                     }
+                }
+
+                SerializedProperty jumpHeight = serializedBridge.FindProperty("m_JumpHeight");
+                if (jumpHeight == null || jumpHeight.floatValue <= 0f)
+                {
+                    throw new InvalidOperationException("Bridge Jump Height must be greater than zero");
                 }
 
                 if (animator == null || !animator.isHuman)
@@ -559,13 +796,20 @@ namespace FranklinGame.Animations.Editor
 
         private readonly struct ClipRequest
         {
+            public readonly string ExternalPath;
             public readonly string SourcePath;
             public readonly string SourceName;
             public readonly string TargetName;
             public readonly bool Loop;
 
-            public ClipRequest(string sourcePath, string sourceName, string targetName, bool loop)
+            public ClipRequest(
+                string externalPath,
+                string sourcePath,
+                string sourceName,
+                string targetName,
+                bool loop)
             {
+                this.ExternalPath = externalPath;
                 this.SourcePath = sourcePath;
                 this.SourceName = sourceName;
                 this.TargetName = targetName;

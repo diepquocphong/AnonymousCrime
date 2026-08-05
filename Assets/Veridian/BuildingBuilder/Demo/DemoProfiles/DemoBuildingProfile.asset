@@ -1,0 +1,84 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 164a1a64208b6714da09e7fd1e56d43d, type: 3}
+  m_Name: DemoBuildingProfile
+  m_EditorClassIdentifier: Assembly-CSharp::BuildingProfile
+  width: 8
+  length: 23.5
+  wallHeight: 3.4
+  addWing: 1
+  wingWidth: 4.4
+  wingLength: 14.1
+  wingOffset: 0.07
+  addMirroredBuilding: 0
+  mirroredWidth: 10
+  mirroredLength: 15
+  mirroredOffset: 0
+  floorCount: 2
+  generateColliders: 1
+  generateLODGroup: 1
+  lod1ScreenSize: 0.63
+  lod2ScreenSize: 0.2
+  addFoundation: 1
+  foundationHeight: 0.81
+  foundationExtension: 0.77
+  addChimney: 1
+  chimneySize: {x: 0.8, y: 2, z: 0.8}
+  roofType: 0
+  roofHeight: 3.42
+  roofOverhang: 0.4
+  windowWidth: 1.38
+  windowHeight: 1.26
+  windowSillHeight: 0.9
+  addWindowFrames: 1
+  windowFrameWidth: 0.112
+  windowsFront: 2
+  windowsBack: 2
+  windowsLeft: 5
+  windowsRight: 8
+  addDoor: 1
+  addBackDoor: 1
+  addWingDoor: 1
+  doorWidth: 1.32
+  doorHeight: 1.95
+  doorOffsetFromCenter: 0
+  addDoorFrame: 1
+  doorFrameWidth: 0.15
+  addPorch: 1
+  addBackPorch: 1
+  addWingPorch: 1
+  porchDepth: 2.8
+  porchWidth: 3
+  porchHeight: 2.7
+  porchColumnSize: 0.2
+  trimWidth: 0.3
+  addCornerTrim: 1
+  addHorizontalTrim: 1
+  addVerticalTrim: 1
+  addFasciaTrim: 1
+  fasciaHeight: 0.2
+  textureScale: 1
+  detailOffsetBias: 0.01
+  wallMaterial: {fileID: 2100000, guid: 836b4265e860535468f56cf655d30d2f, type: 2}
+  wallFallbackColor: {r: 0.5, g: 0.55, b: 0.45, a: 1}
+  roofMaterial: {fileID: 2100000, guid: 0f5696af740ae4d49b73e691299b2a0c, type: 2}
+  roofFallbackColor: {r: 0.2, g: 0.2, b: 0.22, a: 1}
+  glassMaterial: {fileID: 0}
+  glassFallbackColor: {r: 0.19607843, g: 0.4509804, b: 0.54901963, a: 1}
+  masonryMaterial: {fileID: 0}
+  masonryFallbackColor: {r: 0.55, g: 0.3, b: 0.25, a: 1}
+  accentMaterial: {fileID: 2100000, guid: 342313ea4f30f8941878c918909257c0, type: 2}
+  accentFallbackColor: {r: 0.35, g: 0.35, b: 0.38, a: 1}
+  frameMaterial: {fileID: 0}
+  frameFallbackColor: {r: 0.4, g: 0.45, b: 0.55, a: 1}
+  doorMaterial: {fileID: 0}
+  doorFallbackColor: {r: 0.35, g: 0.2, b: 0.1, a: 1}

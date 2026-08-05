@@ -1,0 +1,204 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 652aa780f3eda6546a37901f1614666e, type: 3}
+  m_Name: DemoBuildingFamily
+  m_EditorClassIdentifier: Veridian.BuildingBuilder.Runtime::Veridian.BuildingSystem.Runtime.BuildingFamilyProfile
+  palettes:
+  - paletteName: Demo Palette
+    selectionWeight: 1
+    wallMaterials:
+    - {fileID: 2100000, guid: 836b4265e860535468f56cf655d30d2f, type: 2}
+    - {fileID: 2100000, guid: bbdafd7b0851e974c9385f2709887cc7, type: 2}
+    - {fileID: 2100000, guid: 499d5dc0406714f4bbc99a7c75068bd1, type: 2}
+    - {fileID: 2100000, guid: 341f6e9170d0d1746a487c71d455449e, type: 2}
+    - {fileID: 2100000, guid: a6f915774e6080e4ca667ca91d87de2b, type: 2}
+    - {fileID: 2100000, guid: a28f373e225308547ac331f9efa47830, type: 2}
+    - {fileID: 2100000, guid: a7b6bd691c94d1d4c9af04ed746800bb, type: 2}
+    - {fileID: 2100000, guid: 499d5dc0406714f4bbc99a7c75068bd1, type: 2}
+    - {fileID: 2100000, guid: 53fa713a754108b4ab0e6aa062b7816d, type: 2}
+    roofMaterials:
+    - {fileID: 2100000, guid: 0f5696af740ae4d49b73e691299b2a0c, type: 2}
+    - {fileID: 2100000, guid: 76fef583242b1854f824a3ec02742a6f, type: 2}
+    - {fileID: 2100000, guid: 0fc8f7b4bbcd15749917c0d0a8099d08, type: 2}
+    - {fileID: 2100000, guid: 8ea3cf0fce3e10248af42f47f88d175f, type: 2}
+    - {fileID: 2100000, guid: 1c4f73fc19e45e74ba4f6e2f7790bda0, type: 2}
+    - {fileID: 2100000, guid: 83689fb403e8c384eb047f772cc12f52, type: 2}
+    glassMaterials:
+    - {fileID: 2100000, guid: a757f095b2ee06349816c3eebf6bff56, type: 2}
+    - {fileID: 2100000, guid: 7f381ac2af92266439b72e236c9d68e6, type: 2}
+    - {fileID: 2100000, guid: 776008dd0b24ca048adee6c094e15e76, type: 2}
+    - {fileID: 2100000, guid: 918440fd531e32a42b29f956a843c0c8, type: 2}
+    masonryMaterials:
+    - {fileID: 2100000, guid: 129ebf987dde4e24b911c49963d0310b, type: 2}
+    - {fileID: 2100000, guid: 7c0d2593344b6ac439982ffd68ee389c, type: 2}
+    - {fileID: 2100000, guid: 3e177251c748a7f498da4672b1090b23, type: 2}
+    accentMaterials:
+    - {fileID: 2100000, guid: 7bf80c7161b0bc04ead231da5b7d388f, type: 2}
+    - {fileID: 2100000, guid: bbdafd7b0851e974c9385f2709887cc7, type: 2}
+    - {fileID: 2100000, guid: 0f5696af740ae4d49b73e691299b2a0c, type: 2}
+    - {fileID: 2100000, guid: 7c0d2593344b6ac439982ffd68ee389c, type: 2}
+    frameMaterials:
+    - {fileID: 2100000, guid: 7bf80c7161b0bc04ead231da5b7d388f, type: 2}
+    - {fileID: 2100000, guid: bbdafd7b0851e974c9385f2709887cc7, type: 2}
+    - {fileID: 2100000, guid: 0f5696af740ae4d49b73e691299b2a0c, type: 2}
+    doorMaterials:
+    - {fileID: 2100000, guid: a6f915774e6080e4ca667ca91d87de2b, type: 2}
+    - {fileID: 2100000, guid: 7bf80c7161b0bc04ead231da5b7d388f, type: 2}
+    - {fileID: 2100000, guid: 836b4265e860535468f56cf655d30d2f, type: 2}
+    wallFallbackColor: {r: 0.5, g: 0.55, b: 0.45, a: 1}
+    roofFallbackColor: {r: 0.2, g: 0.2, b: 0.22, a: 1}
+    glassFallbackColor: {r: 0.1, g: 0.15, b: 0.2, a: 1}
+    masonryFallbackColor: {r: 0.55, g: 0.3, b: 0.25, a: 1}
+    accentFallbackColor: {r: 0.35, g: 0.35, b: 0.38, a: 1}
+    frameFallbackColor: {r: 0.4, g: 0.45, b: 0.55, a: 1}
+    doorFallbackColor: {r: 0.35, g: 0.2, b: 0.1, a: 1}
+  widthRange:
+    min: 8
+    max: 15
+  lengthRange:
+    min: 10
+    max: 20
+  wallHeightRange:
+    min: 2.8
+    max: 3.5
+  addWingProbability: 0.504
+  wingWidthRange:
+    min: 6
+    max: 14
+  wingLengthRange:
+    min: 6
+    max: 16
+  wingOffsetRange:
+    min: -1
+    max: 1
+  addMirroredBuildingProbability: 0.305
+  mirroredWidthRange:
+    min: 8
+    max: 15
+  mirroredLengthRange:
+    min: 10
+    max: 20
+  mirroredOffsetRange:
+    min: -1
+    max: 1
+  floorCountDistribution:
+    options:
+    - value: 1
+      weight: 10
+    - value: 2
+      weight: 6
+    - value: 3
+      weight: 4
+    - value: 4
+      weight: 3
+    - value: 5
+      weight: 2
+    - value: 6
+      weight: 1
+  generateColliders: 1
+  generateLODGroup: 1
+  lod1ScreenSizeRange:
+    min: 0.5
+    max: 0.7
+  lod2ScreenSizeRange:
+    min: 0.1
+    max: 0.2
+  addFoundationProbability: 1
+  foundationHeightRange:
+    min: 0.3
+    max: 1
+  foundationExtensionRange:
+    min: 0.1
+    max: 1
+  addChimneyProbability: 0.752
+  roofTypeDistribution:
+    options:
+    - value: 0
+      weight: 10
+    - value: 1
+      weight: 1
+  roofHeightRange:
+    min: 2
+    max: 7
+  roofOverhangRange:
+    min: 0.2
+    max: 0.6
+  windowWidthRange:
+    min: 0.8
+    max: 1.2
+  windowHeightRange:
+    min: 1.2
+    max: 1.6
+  windowSillHeightRange:
+    min: 0.8
+    max: 1
+  addWindowFramesProbability: 1
+  windowFrameWidthRange:
+    min: 0.1
+    max: 0.2
+  windowsFacadeDistribution:
+    options:
+    - value: 1
+      weight: 2
+    - value: 2
+      weight: 6
+    - value: 3
+      weight: 4
+    - value: 4
+      weight: 1
+  addDoorProbability: 1
+  addBackDoorProbability: 0.806
+  addWingDoorProbability: 0.713
+  doorWidthRange:
+    min: 1
+    max: 1.4
+  doorHeightRange:
+    min: 2
+    max: 2.4
+  doorOffsetRange:
+    min: -1.5
+    max: 1.5
+  addDoorFrameProbability: 0.9
+  doorFrameWidthRange:
+    min: 0.1
+    max: 0.2
+  addPorchProbability: 0.775
+  addBackPorchProbability: 0.636
+  addWingPorchProbability: 0.55
+  porchDepthRange:
+    min: 1.5
+    max: 3
+  porchWidthRange:
+    min: 3
+    max: 6
+  porchHeightRange:
+    min: 2.5
+    max: 3
+  porchColumnSizeRange:
+    min: 0.15
+    max: 0.25
+  trimWidthRange:
+    min: 0.2
+    max: 0.4
+  addCornerTrimProbability: 0.814
+  addHorizontalTrimProbability: 0.767
+  addVerticalTrimProbability: 0.636
+  addFasciaTrimProbability: 0.837
+  fasciaHeightRange:
+    min: 0.15
+    max: 0.3
+  textureScaleRange:
+    min: 0.8
+    max: 1.2
+  detailOffsetBiasRange:
+    min: 0.01
+    max: 0.02

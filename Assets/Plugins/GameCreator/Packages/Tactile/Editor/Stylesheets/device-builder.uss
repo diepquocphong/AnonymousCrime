@@ -1,0 +1,56 @@
+﻿
+
+#Tactile-Device-Foot 
+{
+    margin: var(--gc-common-space-smallest) 0 0 0;
+    height: var(--gc-list-head-size);
+
+    border-width: var(--gc-common-border-width);
+    border-radius: var(--gc-common-border-radius);
+    border-color: var(--gc-color-border-default);
+
+    flex-direction: row;
+}
+
+#Tactile-Device-Foot > .unity-button
+{
+    padding: 0;
+
+    border-width: 0;
+
+    flex-direction: row;
+    flex-wrap: nowrap;
+}
+
+#Tactile-Device-Foot-Add 
+{
+    margin: 0;
+    flex-grow: 1;
+    border-radius: var(--gc-common-border-radius) 0 0 var(--gc-common-border-radius);
+}
+
+#Tactile-Device-Foot-Apply 
+{
+    margin: 0 0 0 1px;
+    border-radius: 0 var(--gc-common-border-radius) var(--gc-common-border-radius) 0;
+    flex-grow: 0.5;
+}
+
+.unity-button > .unity-image 
+{
+    height: var(--gc-list-head-image-size);
+    width: var(--gc-list-head-image-size);
+    margin: var(--gc-list-head-image-margin);
+    padding: 0;
+}
+
+.unity-button > .unity-label 
+{
+    padding: 0;
+    margin: var(--gc-list-head-image-margin);
+    height: var(--gc-list-head-image-size);
+    color: var(--unity-colors-button-text);
+
+    -unity-text-align: middle-left;
+    -unity-text-generator: standard;
+}

@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6526664947832741375}
   - component: {fileID: 2388274866722542675}
+  - component: {fileID: 7504627843016842578}
   m_Layer: 0
   m_Name: Camera Shot
   m_TagString: Untagged
@@ -42,7 +43,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f55db089f35f4457a8ff1981374b2de6, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: GameCreator.Runtime.Core::GameCreator.Runtime.Cameras.ShotCamera
   m_IsMainShot: 1
   m_TimeMode:
@@ -152,3 +153,17 @@ MonoBehaviour:
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 0.2
+--- !u!114 &7504627843016842578
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4176520112101643234}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dd960f9d974a44e9bd65f5214c114812, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Animations.FranklinSprintCameraYaw
+  m_PlayerBridge: {fileID: 0}
+  m_EnableMaxYawWhileRunning: 1
