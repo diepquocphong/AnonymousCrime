@@ -33,21 +33,35 @@ namespace GameCreator.Runtime.Characters
             new Footstep(HumanBodyBones.RightFoot),
         };
 
-        [SerializeField] private MaterialSounds m_FootstepSounds = new MaterialSounds();
+        [SerializeField]
+        private MaterialSounds m_FootstepSounds = new MaterialSounds();
+
+        [SerializeReference]
+        private FootstepDetectorBase m_FootstepDetector = new FootstepDetectorAnimationCurves();
         
         // MEMBERS: -------------------------------------------------------------------------------
 
-        private Character m_Character;
+        [NonSerialized] private bool m_IsActive;
         
-        private Dictionary<Transform, Footprint> m_Footprints = new Dictionary<Transform, Footprint>();
+        [NonSerialized] private Character m_Character;
         
-        private readonly RaycastHit[] m_HitsBuffer = new RaycastHit[RAYCAST_BUFFER_SIZE];
+        [NonSerialized] private readonly RaycastHit[] m_HitsBuffer = new RaycastHit[RAYCAST_BUFFER_SIZE];
 
         // PROPERTIES: ----------------------------------------------------------------------------
 
         public override int Length => this.m_Feet.Length;
 
+        public IReadOnlyList<Footstep> Feet => this.m_Feet;
+        
         public GameObject LastFootstep { get; private set; }
+        
+        public FootstepDetectorBase FootstepDetector => this.m_FootstepDetector;
+        
+        public bool IsActive
+        {
+            get => this.m_IsActive;
+            set => this.m_IsActive = value;
+        }
 
         // EVENTS: --------------------------------------------------------------------------------
 
@@ -59,6 +73,7 @@ namespace GameCreator.Runtime.Characters
         {
             this.m_Character = character;
             this.m_FootstepSounds.OnStartup();
+            this.m_IsActive = true;
         }
         
         internal void AfterStartup(Character character)
@@ -70,45 +85,20 @@ namespace GameCreator.Runtime.Characters
         }
 
         internal void OnEnable()
-        { }
+        {
+            this.m_FootstepDetector?.OnEnable(this.m_Character);
+        }
 
         internal void OnDisable()
-        { }
+        {
+            this.m_FootstepDetector?.OnDisable(this.m_Character);
+        }
 
         // UPDATE METHODS: ------------------------------------------------------------------------
         
         internal void OnUpdate()
         {
-            Animator animator = this.m_Character.Animim.Animator;
-            if (animator == null) return;
-
-            bool isGrounded = this.m_Character.Driver.IsGrounded;
-            
-            for (int i = 0; i < this.m_Feet.Length && i < Phases.Count; i++)
-            {
-                Footstep foot = this.m_Feet[i];
-                Transform bone = foot.Bone.GetTransform(animator);
-                if (bone == null) continue;
-
-                bool phaseGround = this.m_Character.Phases.IsGround(i);
-
-                if (isGrounded && this.m_Footprints.TryGetValue(bone, out Footprint footprint))
-                {
-                    if (phaseGround && !footprint.WasGrounded)
-                    {
-                        this.OnStep(i, bone);
-                    }
-
-                    footprint.WasGrounded = phaseGround;
-                }
-                else
-                {
-                    this.m_Footprints[bone] = new Footprint
-                    {
-                        WasGrounded = true,
-                    };
-                }
-            }
+            this.m_FootstepDetector?.OnUpdate(this.m_Character);
         }
         
         // PUBLIC METHODS: ------------------------------------------------------------------------
@@ -130,11 +120,11 @@ namespace GameCreator.Runtime.Characters
             
             MaterialSounds.Play(args, hit.point, hit.normal, hit.collider.gameObject, materialSoundsAsset, yaw);
         }
-
-        // PRIVATE METHODS: -----------------------------------------------------------------------
-
-        private void OnStep(int phase, Transform bone)
+        
+        public void OnStep(Transform bone)
         {
+            if (!this.m_IsActive) return;
+            
             this.LastFootstep = bone.gameObject;
             this.EventStep?.Invoke(bone);
 
@@ -144,7 +134,7 @@ namespace GameCreator.Runtime.Characters
             float speed = Mathf.Clamp01(this.m_Character.Motion.LinearSpeed > 0f
                 ? this.m_Character.Driver.WorldMoveDirection.magnitude /
                   this.m_Character.Motion.LinearSpeed 
-                : 0f
+                : 1f
             );
             
             Args args = new Args(this.m_Character.gameObject, hit.collider.gameObject);
@@ -152,6 +142,8 @@ namespace GameCreator.Runtime.Characters
             
             this.m_FootstepSounds.Play(bone, hit, speed, args, yaw);
         }
+
+        // PRIVATE METHODS: -----------------------------------------------------------------------
 
         private RaycastHit GetGroundHit(Vector3 position)
         {
@@ -187,6 +179,7 @@ namespace GameCreator.Runtime.Characters
         internal void OnDrawGizmos(Character character)
         {
             Gizmos.color = Color.blue;
+            this.m_FootstepDetector?.OnGizmos(character);
             
             if (!Application.isPlaying) return;
             if (!this.m_Character.Driver.IsGrounded) return;

@@ -14,7 +14,7 @@ namespace GameCreator.Runtime.Common
         // PROPERTIES: ----------------------------------------------------------------------------
 
         public float Duration => this.m_Duration;
-        
+
         public Easing.Type EasingType => this.m_Easing;
 
         public TimeMode.UpdateMode Time => this.m_Time;
@@ -35,6 +35,14 @@ namespace GameCreator.Runtime.Common
         {
             this.m_Duration = duration;
             this.m_Easing = easing;
+            this.m_WaitToComplete = waitToComplete;
+        }
+
+        public Transition(float duration, Easing.Type easing, TimeMode.UpdateMode time, bool waitToComplete)
+        {
+            this.m_Duration = duration;
+            this.m_Easing = easing;
+            this.m_Time = time;
             this.m_WaitToComplete = waitToComplete;
         }
     }

@@ -9,26 +9,26 @@ using UnityEngine;
 namespace GameCreator.Runtime.Stats
 {
     [CreateAssetMenu(
-        fileName = "Formula", 
+        fileName = "Formula",
         menuName = "Game Creator/Stats/Formula",
         order    = 50
     )]
-    
+
     [Icon(EditorPaths.PACKAGES + "Stats/Editor/Gizmos/GizmoFormula.png")]
-    
+
     public class Formula : ScriptableObject
     {
         #if UNITY_EDITOR
-        
+
         [UnityEditor.InitializeOnEnterPlayMode]
         public static void InitializeOnEnterPlayMode()
         {
             LastFormulaResult = 0f;
         }
-        
+
         #endif
-        
-        private static readonly Input[] Inputs = 
+
+        private static readonly Input[] Inputs =
         {
             new Input(@"source\.base\[[a-zA-Z0-9_\-]+\]", BaseSourceName),
             new Input(@"source\.stat\[[a-zA-Z0-9_\-]+\]", StatSourceName),
@@ -39,56 +39,56 @@ namespace GameCreator.Runtime.Stats
             new Input(@"source\.var\[[a-zA-Z0-9_\-]+\]", VariableSourceName),
             new Input(@"target\.var\[[a-zA-Z0-9_\-]+\]", VariableTargetName)
         };
-        
+
         private static readonly Regex RX_EXTRACT_NAME = new Regex(@"\[(?:\[??([^\[]*?)\])");
-        
+
         // STATIC MEMBERS: ------------------------------------------------------------------------
-        
+
         [field: NonSerialized] public static double LastFormulaResult { get; private set; }
 
         // EXPOSED MEMBERS: -----------------------------------------------------------------------
-        
+
         [SerializeField] private string m_Formula;
         [SerializeField] private Table m_Table;
-        
+
         // MEMBERS: -------------------------------------------------------------------------------
 
         [NonSerialized] private int m_FormulaHash;
         [NonSerialized] private Expression m_Expression;
         [NonSerialized] private Domain m_Domain;
-        
+
         [NonSerialized] private Parameter[] m_Parameters;
         [NonSerialized] private double[] m_Input;
 
         // PROPERTIES: ----------------------------------------------------------------------------
 
         public bool Exists => !string.IsNullOrEmpty(this.m_Formula);
-        
+
         // PUBLIC METHODS: ------------------------------------------------------------------------
-        
+
         public double Calculate(GameObject source, GameObject target)
         {
             #if UNITY_EDITOR
-            
+
             if (this.m_Formula.GetHashCode() != this.m_FormulaHash)
             {
                 this.Initialize();
             }
-            
+
             #else
-            
+
             if (this.m_Expression == null)
             {
                 this.Initialize();
             }
-            
+
             #endif
 
             this.m_Domain.Set(this.m_Table, source, target);
             this.SetInputs();
 
             LastFormulaResult = this.m_Expression.Evaluate(this.m_Domain, this.m_Input, out double input) 
-                ? input 
+                ? input
                 : default;
 
             return LastFormulaResult;
@@ -100,7 +100,7 @@ namespace GameCreator.Runtime.Stats
         {
             this.m_FormulaHash = default;
         }
-        
+
         private void Initialize()
         {
             StringBuilder formula = new StringBuilder(this.m_Formula);
@@ -111,21 +111,21 @@ namespace GameCreator.Runtime.Stats
                 formula = formula
                     .Remove(match.Index, match.Length)
                     .Insert(match.Index, '#');
-                
+
                 Parameter variable = new Parameter(
                     ClauseName(match.Value),
                     Inputs[index].Function
                 );
-                
+
                 variables.Add(variable);
             }
 
             this.m_Parameters = variables.ToArray();
             this.m_Input = new double[this.m_Parameters.Length];
-            
+
             this.m_Expression = new Expression(formula.ToString());
             this.m_Domain = new Domain();
-            
+
             this.m_FormulaHash = this.m_Formula.GetHashCode();
         }
 
@@ -133,9 +133,9 @@ namespace GameCreator.Runtime.Stats
         {
             match = null;
             index = -1;
-            
+
             int minIndex = int.MaxValue;
-            
+
             for (int i = 0; i < Inputs.Length; ++i)
             {
                 Match candidate = Inputs[i].Match(formula);

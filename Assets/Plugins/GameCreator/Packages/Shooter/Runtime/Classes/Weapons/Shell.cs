@@ -46,7 +46,7 @@ namespace GameCreator.Runtime.Shooter
             float force = (float) this.m_Force.Get(args);
             float torque = (float) this.m_Torque.Get(args);
             
-            rigidbody.velocity = Vector3.zero;
+            rigidbody.linearVelocity = Vector3.zero;
             rigidbody.angularVelocity = Vector3.zero;
             
             rigidbody.AddForce(

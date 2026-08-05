@@ -19,6 +19,7 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
         [SerializeField] private Formula m_Formula;
         
+        [SerializeField] private string m_Format = "0";
         [SerializeField] private TextReference m_Value = new TextReference();
         [SerializeField] private Image m_RatioFill;
 
@@ -124,7 +125,7 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
             double value = this.m_Formula.Calculate(this.m_LastSource, this.m_LastTarget);
 
-            this.m_Value.Text = FromDouble(value, "0");
+            this.m_Value.Text = FromDouble(value, this.m_Format);
             if (this.m_RatioFill != null) this.m_RatioFill.fillAmount = (float) value;
         }
 

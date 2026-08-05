@@ -8,6 +8,8 @@ namespace GameCreator.Runtime.Common
     [Serializable]
     public abstract class TInputValueVector2 : TInputValue<Vector2>
     {
+        public virtual bool IsDeltaControl => false;
+        
         public abstract override Vector2 Read();
     }
 }

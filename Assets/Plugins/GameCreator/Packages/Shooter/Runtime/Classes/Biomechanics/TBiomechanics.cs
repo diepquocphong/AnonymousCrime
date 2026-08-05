@@ -16,6 +16,8 @@ namespace GameCreator.Runtime.Shooter
         );
         
         // PROPERTIES: ----------------------------------------------------------------------------
+
+        public abstract bool UseKinematics { get; }
         
         public abstract THumanRotations HumanBonesPitch { get; }
         public abstract THumanRotations HumanBonesYaw { get; }

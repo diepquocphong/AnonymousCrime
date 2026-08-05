@@ -33,6 +33,7 @@ namespace GameCreator.Editor.Stats.UnityUI
             SerializedProperty formulaTarget = this.serializedObject.FindProperty("m_Target");
             SerializedProperty formulaAsset = this.serializedObject.FindProperty("m_Formula");
 
+            SerializedProperty format = this.serializedObject.FindProperty("m_Format");
             SerializedProperty value = this.serializedObject.FindProperty("m_Value");
             SerializedProperty ratioFill = this.serializedObject.FindProperty("m_RatioFill");
 
@@ -45,6 +46,7 @@ namespace GameCreator.Editor.Stats.UnityUI
             this.m_Head.Add(fieldFormula);
 
             this.m_Body.Add(new SpaceSmall());
+            this.m_Body.Add(new PropertyField(format));
             this.m_Body.Add(new PropertyField(value));
             this.m_Body.Add(new PropertyField(ratioFill));
             

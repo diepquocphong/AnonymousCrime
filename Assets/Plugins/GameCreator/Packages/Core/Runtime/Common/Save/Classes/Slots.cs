@@ -26,9 +26,16 @@ namespace GameCreator.Runtime.Common.SaveSystem
 
                 foreach (KeyValuePair<int, Data> entry in this)
                 {
-                    if (!DateTime.TryParse(entry.Value.date, out DateTime dateTime)) continue;
+                    bool canParseDate = DateTime.TryParse(
+                        entry.Value.date,
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.None,
+                        out DateTime dateTime
+                    );
+                    
+                    if (!canParseDate) continue;
                     if (DateTime.Compare(lastDateTime, dateTime) > 0) continue;
-
+                    
                     lastSlot = entry.Key;
                     lastDateTime = dateTime;
                 }

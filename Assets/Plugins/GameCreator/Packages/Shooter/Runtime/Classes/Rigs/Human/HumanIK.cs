@@ -47,7 +47,7 @@ namespace GameCreator.Runtime.Shooter
         
         [NonSerialized] private bool m_IsInitialized;
         [NonSerialized] private Sight m_LastSight;
-        
+
         // CONSTRUCTOR: ---------------------------------------------------------------------------
 
         public HumanIK(Transform mannequin, Transform hand)
@@ -82,13 +82,12 @@ namespace GameCreator.Runtime.Shooter
             );
             
             if (sight != null && sight != this.m_LastSight)
-            // if (this.m_LastSight != null && sight != this.m_LastSight)
             {
                 this.m_UseIK.Current = MIN;
                 this.m_LastSight = sight;
             }
             
-            if (this.m_IsInitialized == false)
+            if (!this.m_IsInitialized)
             {
                 this.m_LastLocalUpperArm.Set(
                     this.m_Mannequin.InverseTransformPoint(this.m_UpperArm.position),

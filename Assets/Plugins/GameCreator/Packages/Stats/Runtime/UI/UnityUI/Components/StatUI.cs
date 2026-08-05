@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Globalization;
 using GameCreator.Runtime.Characters;
@@ -20,6 +21,7 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
         [SerializeField] private UICommon m_Common = new UICommon();
 
+        [SerializeField] private string m_Format = "0";
         [SerializeField] private TextReference m_Value = new TextReference();
         [SerializeField] private TextReference m_Base = new TextReference();
         [SerializeField] private TextReference m_Modifiers = new TextReference();
@@ -31,7 +33,7 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
         // MEMBERS: -------------------------------------------------------------------------------
 
-        private GameObject m_LastTarget;
+        private GameObject m_CurrentTarget;
         private Args m_Args;
 
         // PROPERTIES: ----------------------------------------------------------------------------
@@ -41,6 +43,7 @@ namespace GameCreator.Runtime.Stats.UnityUI
             set
             {
                 this.m_Target = GetGameObjectInstance.Create(value);
+                this.UpdateTargetEvents();
                 this.RefreshValues();
             }
         }
@@ -50,6 +53,7 @@ namespace GameCreator.Runtime.Stats.UnityUI
             set
             {
                 this.m_Stat = value;
+                this.UpdateTargetEvents();
                 this.RefreshValues();
             }
         }
@@ -67,28 +71,42 @@ namespace GameCreator.Runtime.Stats.UnityUI
         {
             yield return null;
             
+            this.UpdateTargetEvents();
             this.RefreshValues();
+            
             this.IsInitialized = true;
         }
 
         private void OnEnable()
         {
             if (!this.IsInitialized) return;
+            
+            this.UpdateTargetEvents();
             this.RefreshValues();
         }
 
         private void OnDisable()
         {
             if (ApplicationManager.IsExiting) return;
-            if (this.m_LastTarget == null) return;
+            if (this.m_CurrentTarget == null) return;
             if (this.m_Stat == null) return;
 
-            Traits lastTraits = this.m_LastTarget.Get<Traits>();
-            if (lastTraits != null) lastTraits.RuntimeStats.EventChange -= this.OnChangeStat;
+            Traits currentTraits = this.m_CurrentTarget.Get<Traits>();
+            if (currentTraits != null) currentTraits.RuntimeStats.EventChange -= this.OnChangeStat;
             
-            this.m_LastTarget = null;
+            this.m_CurrentTarget = null;
         }
-        
+
+        private void Update()
+        {
+            GameObject target = this.m_Target.Get(this.m_Args);
+            if (this.m_CurrentTarget != target)
+            {
+                this.UpdateTargetEvents();
+                this.RefreshValues();
+            }
+        }
+
         // PUBLIC STATIC METHODS: -----------------------------------------------------------------
 
         public static StatUI CreateFrom(Text text)
@@ -106,6 +124,7 @@ namespace GameCreator.Runtime.Stats.UnityUI
         /// </summary>
         public void Repaint()
         {
+            this.UpdateTargetEvents();
             this.RefreshValues();
         }
 
@@ -113,6 +132,7 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
         private void OnChangeStat(IdString statID)
         {
+            this.UpdateTargetEvents();
             this.RefreshValues();
         }
 
@@ -120,12 +140,11 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
         private void RefreshValues()
         {
-            this.UpdateTargetEvents();
             if (this.m_Stat == null) return;
 
-            if (this.m_LastTarget == null) return;
+            if (this.m_CurrentTarget == null) return;
 
-            Traits traits = this.m_LastTarget.Get<Traits>();
+            Traits traits = this.m_CurrentTarget.Get<Traits>();
             if (traits == null) return;
 
             if (this.m_Common.Icon != null) this.m_Common.Icon.overrideSprite = this.m_Stat.GetIcon(this.m_Args);
@@ -138,8 +157,8 @@ namespace GameCreator.Runtime.Stats.UnityUI
             RuntimeStatData stat = traits.RuntimeStats.Get(this.m_Stat.ID);
             if (stat == null) return;
 
-            this.m_Value.Text = FromDouble(stat.Value, "0");
-            this.m_Base.Text = FromDouble(stat.Base, "0");
+            this.m_Value.Text = FromDouble(stat.Value, this.m_Format);
+            this.m_Base.Text = FromDouble(stat.Base, this.m_Format);
             this.m_Modifiers.Text = FromDouble(stat.ModifiersValue, "+#;-#;0");
             
             if (this.m_RatioFill != null) this.m_RatioFill.fillAmount = (float) stat.Value;
@@ -155,15 +174,15 @@ namespace GameCreator.Runtime.Stats.UnityUI
             if (this.m_Stat == null) return;
 
             GameObject currentTarget = this.m_Target.Get(this.m_Args);
-            if (this.m_LastTarget == currentTarget) return;
+            if (this.m_CurrentTarget == currentTarget) return;
             
-            if (this.m_LastTarget != null)
+            if (this.m_CurrentTarget != null)
             {
-                Traits lastTraits = this.m_LastTarget.Get<Traits>();
+                Traits lastTraits = this.m_CurrentTarget.Get<Traits>();
                 if (lastTraits != null) lastTraits.RuntimeStats.EventChange -= this.OnChangeStat;
             }
 
-            this.m_LastTarget = currentTarget;
+            this.m_CurrentTarget = currentTarget;
             if (currentTarget == null) return;
             
             Traits currentTraits = currentTarget.Get<Traits>();

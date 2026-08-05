@@ -3,6 +3,7 @@ using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
 using GameCreator.Runtime.Common.UnityUI;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace GameCreator.Runtime.Shooter
@@ -14,13 +15,17 @@ namespace GameCreator.Runtime.Shooter
     [Serializable]
     public class AmmoUI : MonoBehaviour
     {
+        private const string INFINITE = "INFINITE";
+        
         // EXPOSED MEMBERS: -----------------------------------------------------------------------
         
         [SerializeField] private PropertyGetGameObject m_Character = GetGameObjectPlayer.Create();
         [SerializeField] private PropertyGetWeapon m_Weapon = GetWeaponShooterInstance.Create();
 
         [SerializeField] private TextReference m_InMagazine = new TextReference();
-        [SerializeField] private TextReference m_InMunition = new TextReference();
+        [SerializeField] private TextReference m_InPouch = new TextReference();
+        [SerializeField, FormerlySerializedAs("m_InMunition")]
+        private TextReference m_InTotal = new TextReference();
 
         [SerializeField] private Image m_MagazineFill;
         
@@ -33,67 +38,49 @@ namespace GameCreator.Runtime.Shooter
         // MEMBERS: -------------------------------------------------------------------------------
 
         [NonSerialized] private Args m_Args;
-        [NonSerialized] private Character m_CharacterCache;
-        [NonSerialized] private ShooterWeapon m_WeaponCache;
         
         // INITIALIZERS: --------------------------------------------------------------------------
 
         private void OnEnable()
         {
-             Character character = this.m_Character.Get<Character>(this.gameObject);
-             if (character == null) return;
-
-             ShooterWeapon weapon = this.m_Weapon.Get(this.gameObject) as ShooterWeapon;
-             if (weapon == null) return;
-
-             TMunitionValue munition = character.Combat.RequestMunition(weapon);
-             if (munition == null) return;
-             
-             this.m_Args = new Args(character.gameObject);
-             
-             this.m_CharacterCache = character;
-             this.m_WeaponCache = weapon;
-             
-             this.Refresh();
-             munition.EventChange += this.Refresh;
-        }
-
-        private void OnDisable()
-        {
-            if (this.m_CharacterCache == null) return;
-            if (this.m_WeaponCache == null) return;
-            
-            TMunitionValue munition = this.m_CharacterCache.Combat.RequestMunition(this.m_WeaponCache);
-            if (munition == null) return;
-            
-            munition.EventChange -= this.Refresh;
+             this.m_Args = new Args(this.gameObject);
         }
         
-        // PRIVATE METHODS: -----------------------------------------------------------------------
+        // UPDATE METHODS: ------------------------------------------------------------------------
         
-        private void Refresh()
+        private void Update()
         {
-            if (this.m_CharacterCache == null) return;
-            if (this.m_WeaponCache == null) return;
+            Character character = this.m_Character.Get<Character>(this.gameObject);
+            if (character == null) return;
             
-            TMunitionValue munition = this.m_CharacterCache.Combat.RequestMunition(this.m_WeaponCache);
+            ShooterWeapon weapon = this.m_Weapon.Get(this.gameObject) as ShooterWeapon;
+            if (weapon == null) return;
+
+            TMunitionValue munition = character.Combat.RequestMunition(weapon);
             if (munition is not ShooterMunition shooterMunition) return;
             
-            GameObject prop = this.m_CharacterCache.Combat
-                .RequestStance<ShooterStance>()
-                .Get(this.m_WeaponCache)?.Prop;
-            
-            this.m_Args.ChangeTarget(prop);
+            GameObject prop = character.Combat.RequestStance<ShooterStance>().Get(weapon)?.Prop;
 
+            if (this.m_Args.Self != character.gameObject)
+            {
+                this.m_Args.ChangeSelf(character.gameObject);
+            }
+
+            if (this.m_Args.Target != prop)
+            {
+                this.m_Args.ChangeTarget(prop);   
+            }
+            
             int inMagazine = shooterMunition.InMagazine;
-            int inTotal = shooterMunition.Total;
+            int inTotal = weapon.Magazine.GetTotalAmmo(this.m_Args); 
             int inPouch = Mathf.Max(0, inTotal - inMagazine);
             
             this.m_InMagazine.Text = shooterMunition.InMagazine.ToString();
-            this.m_InMunition.Text = inPouch.ToString();
+            this.m_InPouch.Text = inTotal >= int.MaxValue ? INFINITE : inPouch.ToString();
+            this.m_InTotal.Text = inTotal >= int.MaxValue ? INFINITE : inTotal.ToString();
 
-            int magazineSize = this.m_WeaponCache.Magazine.GetHasMagazine(this.m_Args)
-                ? this.m_WeaponCache.Magazine.GetMagazineSize(this.m_Args)
+            int magazineSize = weapon.Magazine.GetHasMagazine(this.m_Args)
+                ? weapon.Magazine.GetMagazineSize(this.m_Args)
                 : 0;
             
             float ratio = magazineSize >= 1 

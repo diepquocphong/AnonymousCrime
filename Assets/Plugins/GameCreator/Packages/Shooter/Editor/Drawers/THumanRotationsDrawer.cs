@@ -1,6 +1,7 @@
 using GameCreator.Editor.Common;
 using GameCreator.Runtime.Shooter;
 using UnityEditor;
+using UnityEngine.UIElements;
 
 namespace GameCreator.Editor.Shooter
 {

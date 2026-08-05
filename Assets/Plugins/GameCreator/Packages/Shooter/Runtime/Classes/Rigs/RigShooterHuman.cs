@@ -125,6 +125,23 @@ namespace GameCreator.Runtime.Shooter
             UpdateManager.UnsubscribeLateUpdate(this.OnLateUpdateBeforeCamera, ORDER_BEFORE_CAMERA);
             UpdateManager.UnsubscribeLateUpdate(this.OnLateUpdateAfterCamera, ORDER_AFTER_CAMERA);
         }
+        
+        protected sealed override void DoChangeModel()
+        {
+            base.DoChangeModel();
+            
+            this.m_MainHandPosition = new SpringVector3(Vector3.zero);
+            
+            this.m_HandL = this.Character.Animim.Animator.GetBoneTransform(HumanBodyBones.LeftHand);
+            this.m_HandR = this.Character.Animim.Animator.GetBoneTransform(HumanBodyBones.RightHand);
+            
+            this.m_MainL = new HumanIK(this.Character.Animim.Mannequin, this.m_HandL);
+            this.m_MainR = new HumanIK(this.Character.Animim.Mannequin, this.m_HandR);
+            this.m_FreeL = new HumanIK(this.Character.Animim.Mannequin, this.m_HandL);
+            this.m_FreeR = new HumanIK(this.Character.Animim.Mannequin, this.m_HandR);
+            this.m_RecoilL = new HumanIK(this.Character.Animim.Mannequin, this.m_HandL);
+            this.m_RecoilR = new HumanIK(this.Character.Animim.Mannequin, this.m_HandR);
+        }
 
         // PUBLIC METHODS: ------------------------------------------------------------------------
 
@@ -189,7 +206,7 @@ namespace GameCreator.Runtime.Shooter
                 : null;
 
             this.m_FreeHand = this.m_Biomechanics?.HumanFreeHand?.UseFreeHand ?? false
-                ? this.m_Biomechanics?.HumanFreeHand.GetBone(this.Animator)
+                ? this.m_Biomechanics?.HumanFreeHand.GetBone(this.Character.Animim.Animator)
                 : null;
             
             float deltaTime = this.Character.Time.DeltaTime;
@@ -213,7 +230,13 @@ namespace GameCreator.Runtime.Shooter
                 deltaTime
             );
             
-            this.m_LeanFK.RotateBody(this.Animator, this.RotateLean, this.m_UseFK.Current);
+            this.m_LeanFK.RotateBody(
+                this.Character.Animim.Animator,
+                this.RotateLean,
+                this.m_UseFK.Current,
+                false,
+                false
+            );
         }
 
         private void OnLateUpdateAfterCamera()
@@ -251,15 +274,29 @@ namespace GameCreator.Runtime.Shooter
                 DECAY_FK_ROTATE,
                 deltaTime
             );
-
-            this.m_PitchFK.RotateBody(this.Animator, this.RotatePitch, this.m_UseFK.Current);
-            this.m_YawFK.RotateBody(this.Animator, this.RotateYaw, this.m_UseFK.Current);
+            
+            bool useSideR = this.m_MainHand == this.m_HandR || this.m_FreeHand == this.m_HandR;
+            bool useSideL = this.m_MainHand == this.m_HandL || this.m_FreeHand == this.m_HandL;
+            
+            this.m_PitchFK.RotateBody(this.Character.Animim.Animator, this.RotatePitch, this.m_UseFK.Current, useSideR, useSideL);
+            this.m_YawFK.RotateBody(this.Character.Animim.Animator, this.RotateYaw, this.m_UseFK.Current, useSideR, useSideL);
             
             TwoBoneData sideL = new TwoBoneData(this.m_HandL.parent.parent, this.m_HandL.parent, this.m_HandL);
             TwoBoneData sideR = new TwoBoneData(this.m_HandR.parent.parent, this.m_HandR.parent, this.m_HandR);
-            
-            this.UpdateMainIK(ref sideL, ref sideR);
 
+            Scope scope = this.m_WeaponProp != null && this.m_WeaponData != null && this.m_Sight != null
+                ? this.m_Weapon.GetScope(this.Character)
+                : new Scope();
+            
+            if (scope.HasScope)
+            {
+                this.UpdateMainIK_Scope(in scope, ref sideL, ref sideR);
+            }
+            else
+            {
+                this.UpdateMainIK_NoScope(ref sideL, ref sideR);
+            }
+            
             this.m_MainL.Update(this.m_Sight, sideL, deltaTime, this.m_UseIK.Current);
             this.m_MainR.Update(this.m_Sight, sideR, deltaTime, this.m_UseIK.Current);
             
@@ -306,16 +343,16 @@ namespace GameCreator.Runtime.Shooter
             Args args = this.m_WeaponData.WeaponArgs;
             
             MuzzleData muzzle = this.m_Sight.GetMuzzle(args, this.m_Weapon);
-            Vector3 opticsPoint = this.m_Sight.Biomechanics.Value.GetOpticsPoint(args);
+            Vector3 sourcePoint = this.ForwardCenterMuzzleToHand(this.m_MainHand.position, muzzle);
             
             this.m_HasTargetPoint = true;
             this.m_TargetPoint = this.m_Sight.Aim.GetPoint(args);
             
-            Vector3 targetDirection = this.m_TargetPoint - opticsPoint;
+            Vector3 opticsTargetDirection = this.m_TargetPoint - sourcePoint;
             
             this.CalculateRotation(
                 muzzle.Direction,
-                targetDirection,
+                opticsTargetDirection,
                 out float pitch,
                 out float yaw
             );
@@ -338,25 +375,58 @@ namespace GameCreator.Runtime.Shooter
         
         // INVERSE KINEMATICS: --------------------------------------------------------------------
 
-        private void UpdateMainIK(ref TwoBoneData sideL, ref TwoBoneData sideR)
+        private void UpdateMainIK_NoScope(ref TwoBoneData sideL, ref TwoBoneData sideR)
         {
             if (this.m_WeaponProp == null || this.m_WeaponData == null || this.m_Sight == null)
             {
                 return;
             }
             
+            if (this.m_MainHand != this.m_HandL && this.m_MainHand != this.m_HandR)
+            {
+                return;
+            }
+            
+            MuzzleData muzzle = this.m_Sight.GetMuzzle(this.m_WeaponData.WeaponArgs, this.m_Weapon);
+            Vector3 muzzleDirection = muzzle.Direction;
+            Vector3 muzzlePosition = ForwardCenterMuzzleToHand(this.m_MainHand.position, muzzle);
+            
+            Quaternion targetRotation = GetHandRotationFromMuzzle(
+                this.m_MainHand,
+                muzzlePosition,
+                muzzleDirection,
+                this.m_TargetPoint
+            );
+            
+            TwoBoneData twoBoneData = new TwoBoneData(
+                this.m_MainHand.parent.parent,
+                this.m_MainHand.parent, 
+                this.m_MainHand
+            );
+            
+            twoBoneData = TwoBoneSolver.Run(
+                twoBoneData,
+                this.m_MainHand.position,
+                targetRotation,
+                null,
+                0f
+            );
+            
+            if (this.m_MainHand == this.m_HandL) sideL = twoBoneData;
+            if (this.m_MainHand == this.m_HandR) sideR = twoBoneData;
+        }
+
+        private void UpdateMainIK_Scope(in Scope scope, ref TwoBoneData sideL, ref TwoBoneData sideR)
+        {
             float deltaTime = this.Character.Time.DeltaTime;
             
-            Scope scope = this.m_Weapon.GetScope(this.Character);
-            bool useHandIK = this.m_MainHand == this.m_HandL || this.m_MainHand == this.m_HandR;
-            
-            if (scope.HasScope == false || useHandIK == false)
+            if (this.m_MainHand != this.m_HandL && this.m_MainHand != this.m_HandR)
             {
                 return;
             }
             
             Vector3 opticsPoint = this.m_Biomechanics.GetOpticsPoint(this.m_WeaponData.WeaponArgs);
-
+            
             Quaternion rotationWeapon = 
                 this.m_WeaponProp.transform.localRotation * 
                 scope.LocalRotation *
@@ -376,7 +446,7 @@ namespace GameCreator.Runtime.Shooter
             
             float distance = scope.Distance;
             
-            BiomechanicsHumanIK biomechanics = this.m_Biomechanics as BiomechanicsHumanIK;
+            BiomechanicsHumanFPS biomechanics = this.m_Biomechanics as BiomechanicsHumanFPS;
             if (biomechanics?.PullOnObstruction.IsEnabled ?? false)
             {
                 bool isHit = Physics.Raycast(
@@ -443,7 +513,7 @@ namespace GameCreator.Runtime.Shooter
                 this.m_MainHand.parent, 
                 this.m_MainHand
             );
-
+            
             twoBoneData = TwoBoneSolver.Run(
                 twoBoneData,
                 this.m_MainHandPosition.Current + translationSway,
@@ -624,7 +694,7 @@ namespace GameCreator.Runtime.Shooter
                 return 1f - this.Character.Gestures.CurrentWeight;
             }
 
-            return 1f;
+            return this.m_Biomechanics?.UseKinematics ?? false ? 1f : 0f;
         }
         
         private float GetTargetIK()
@@ -632,25 +702,53 @@ namespace GameCreator.Runtime.Shooter
             if (!this.IsActive) return 0f;
             if (this.m_Sight == null) return 0f;
 
+            float useKinematics = this.m_Biomechanics?.UseKinematics ?? false ? 1f : 0f;
+            
             if (this.m_Stance.Reloading.IsReloading)
             {
-                if (this.m_Sight.ReloadingUsesIK) return 1f;
-                return 1f - this.Character.Gestures.CurrentWeight;
+                return this.m_Sight.ReloadingUsesIK
+                    ? useKinematics
+                    : Mathf.Clamp01(useKinematics - this.Character.Gestures.CurrentWeight);
             }
             
             if (this.m_Stance.Shooting.IsShootingAnimation)
             {
-                if (this.m_Sight.ShootingUsesIK) return 1f;
-                return 1f - this.Character.Gestures.CurrentWeight;
+                return this.m_Sight.ShootingUsesIK
+                    ? useKinematics
+                    : Mathf.Clamp01(useKinematics - this.Character.Gestures.CurrentWeight);
             }
             
             if (this.m_Stance.Jamming.IsFixing)
             {
-                if (this.m_Sight.FixingUsesIK) return 1f;
-                return 1f - this.Character.Gestures.CurrentWeight;
+                return this.m_Sight.FixingUsesIK
+                    ? useKinematics
+                    : Mathf.Clamp01(useKinematics - this.Character.Gestures.CurrentWeight);
             }
 
-            return 1f;
+            return useKinematics;
+        }
+        
+        private static Quaternion GetHandRotationFromMuzzle(
+            Transform mainHand,
+            Vector3 muzzlePosition,
+            Vector3 muzzleDirection,
+            Vector3 targetPoint)
+        {
+            Vector3 aimDirection = (targetPoint - muzzlePosition).normalized;
+            Quaternion rotationDelta = Quaternion.FromToRotation(muzzleDirection.normalized, aimDirection);
+
+            Quaternion targetHandRotation = rotationDelta * mainHand.rotation;
+            return targetHandRotation;
+        }
+        
+        private Vector3 ForwardCenterMuzzleToHand(Vector3 mainHandPosition, MuzzleData muzzle)
+        {
+            Vector3 muzzleToHand = mainHandPosition - muzzle.Position;
+
+            Vector3 muzzleDirection = muzzle.Direction.normalized;
+            float projectionDistance = Vector3.Dot(muzzleToHand, muzzleDirection);
+            
+            return muzzle.Position + muzzleDirection * projectionDistance;
         }
 
         // PRIVATE CALLBACKS: ---------------------------------------------------------------------

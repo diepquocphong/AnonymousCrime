@@ -52,12 +52,12 @@ namespace GameCreator.Runtime.Characters.IK
         // EXPOSED MEMBERS: -----------------------------------------------------------------------
 
         [SerializeField] private float m_TrackSpeed = 270f;
-        [SerializeField] private float m_MaxAngle = 120f;
+        [SerializeField] private float m_MaxAngle = 90f;
 
         [SerializeField] private LookSection[] m_Sections =
         {
             new LookSection(HumanBodyBones.Chest, 1f),
-            new LookSection(HumanBodyBones.Neck, 3f),
+            new LookSection(HumanBodyBones.Neck, 2f),
             new LookSection(HumanBodyBones.Head, 3f),
         };
 
@@ -70,6 +70,8 @@ namespace GameCreator.Runtime.Characters.IK
 
         [NonSerialized] private ILookTo m_LookToTarget;
         [NonSerialized] private readonly LookLayers m_Layers = new LookLayers();
+        
+        [NonSerialized] private LookSection m_Head = new LookSection(HumanBodyBones.Head, 1f);
 
         // PROPERTIES: ----------------------------------------------------------------------------
         
@@ -120,32 +122,7 @@ namespace GameCreator.Runtime.Characters.IK
         {
             base.DoEnable(character);
             
-            if (this.m_LookHandle == null || this.m_LookPoint == null)
-            {
-                if (this.m_LookHandle != null) UnityEngine.Object.Destroy(this.m_LookHandle.gameObject);
-                if (this.m_LookPoint != null) UnityEngine.Object.Destroy(this.m_LookPoint.gameObject);
-                
-                GameObject handle = new GameObject(RIG_NAME + "Handle");
-                GameObject point = new GameObject(RIG_NAME + "Point");
-                
-                handle.hideFlags = HideFlags.HideAndDontSave;
-                point.hideFlags = HideFlags.HideAndDontSave;
-
-                this.m_LookHandle = handle.transform;
-                this.m_LookHandle.position = character.Eyes;
-
-                this.m_LookPoint = point.transform;
-                this.m_LookPoint.SetParent(this.m_LookHandle);
-                this.m_LookPoint.localPosition = Vector3.forward * HORIZON;
-            }
-
-            foreach (LookSection section in this.m_Sections)
-            {
-                if (this.GetBone(section.Bone, out Transform bone))
-                {
-                    section.Transform = bone;
-                }
-            }
+            this.Initialize();
 
             this.Character.EventBeforeLateUpdate -= this.OnLateUpdate;
             this.Character.EventBeforeLateUpdate += this.OnLateUpdate;
@@ -176,6 +153,7 @@ namespace GameCreator.Runtime.Characters.IK
                 targetDirection = targetPosition - character.Eyes;
                 
                 float angle = Vector3.Angle(characterDirection, targetDirection);
+                
                 float distance = Vector2.Distance(
                     character.transform.position.XZ(),
                     targetPosition.XZ()
@@ -204,37 +182,53 @@ namespace GameCreator.Runtime.Characters.IK
                 character.Time.DeltaTime * this.m_TrackSpeed
             );
         }
-        
+
         private void OnLateUpdate()
         {
-            float totalWeight = 0f;
+            Vector3 targetDirection = this.m_LookPoint.position - this.m_LookHandle.position;
+            Vector3 targetLocalDirection = this.Character.transform.InverseTransformDirection(targetDirection).normalized;
             
+            float yaw = Mathf.Atan2(targetLocalDirection.x, targetLocalDirection.z) * Mathf.Rad2Deg;
+            float pitch = Mathf.Asin(-targetLocalDirection.y) * Mathf.Rad2Deg;
+            
+            this.m_Head.Transform.Rotate(
+                this.Character.transform.right,
+                pitch * this.m_WeightTarget.Current,
+                Space.World
+            );
+            
+            float totalWeight = 0f;
+
             foreach (LookSection section in this.m_Sections)
             {
                 if (!section.IsValid) continue;
-                
+
                 section.Transform.localRotation *= section.Rotation;
-                totalWeight = section.Weight;
+                totalWeight += section.Weight;
             }
             
+            if (totalWeight <= float.Epsilon) return;
+            
             foreach (LookSection section in this.m_Sections)
             {
                 if (!section.IsValid) continue;
-                float weightRatio = section.Weight / totalWeight;
-            
-                Quaternion rotation = Quaternion.LookRotation(
-                    this.m_LookPoint.position - section.Transform.position,
-                    Vector3.up
-                );
                 
-                section.Transform.rotation = Quaternion.Lerp(
-                    section.Transform.rotation,
-                    rotation,
-                    this.m_WeightTarget.Current * weightRatio
+                float weightRatio = section.Weight / totalWeight;
+                
+                section.Transform.Rotate(
+                    Vector3.up,
+                    yaw * (this.m_WeightTarget.Current * weightRatio),
+                    Space.World
                 );
             }
         }
-        
+
+        protected override void DoChangeModel()
+        {
+            base.DoChangeModel();
+            this.Initialize();
+        }
+
         // PRIVATE METHODS: -----------------------------------------------------------------------
 
         private bool GetBone(HumanBodyBones boneType, out Transform bone)
@@ -252,6 +246,41 @@ namespace GameCreator.Runtime.Characters.IK
             }
             
             return null;
+        }
+
+        private void Initialize()
+        {
+            if (this.m_LookHandle == null || this.m_LookPoint == null)
+            {
+                if (this.m_LookHandle != null) UnityEngine.Object.Destroy(this.m_LookHandle.gameObject);
+                if (this.m_LookPoint != null) UnityEngine.Object.Destroy(this.m_LookPoint.gameObject);
+                
+                GameObject handle = new GameObject(RIG_NAME + "Handle");
+                GameObject point = new GameObject(RIG_NAME + "Point");
+                
+                handle.hideFlags = HideFlags.HideAndDontSave;
+                point.hideFlags = HideFlags.HideAndDontSave;
+
+                this.m_LookHandle = handle.transform;
+                this.m_LookHandle.position = this.Character.Eyes;
+
+                this.m_LookPoint = point.transform;
+                this.m_LookPoint.SetParent(this.m_LookHandle);
+                this.m_LookPoint.localPosition = Vector3.forward * HORIZON;
+            }
+
+            foreach (LookSection section in this.m_Sections)
+            {
+                if (this.GetBone(section.Bone, out Transform bone))
+                {
+                    section.Transform = bone;
+                }
+            }
+            
+            if (this.GetBone(this.m_Head.Bone, out Transform boneHead))
+            {
+                this.m_Head.Transform = boneHead;
+            }
         }
         
         // GIZMOS: --------------------------------------------------------------------------------

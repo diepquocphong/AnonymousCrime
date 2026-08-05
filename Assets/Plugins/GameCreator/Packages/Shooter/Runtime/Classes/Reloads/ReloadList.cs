@@ -57,6 +57,7 @@ namespace GameCreator.Runtime.Shooter
             int layer = (int) this.m_Layer.Get(args);
             float transition = cancel.CancelReason == CancelReason.ForceStop ? 0f : TRANSITION;
             
+            if (character == null) return;
             character.States.Stop(layer, 0f, transition);
             
             float startTime = character.Time.Time;

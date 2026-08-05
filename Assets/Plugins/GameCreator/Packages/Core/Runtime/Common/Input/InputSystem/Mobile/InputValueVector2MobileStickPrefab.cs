@@ -16,6 +16,8 @@ namespace GameCreator.Runtime.Common
     {
         [SerializeField] private TouchStickSkin m_Touchstick;
         
+        public override bool IsDeltaControl => false;
+        
         protected override ITouchStick CreateTouchStick()
         {
             if (!this.m_Touchstick.HasValue) return null;

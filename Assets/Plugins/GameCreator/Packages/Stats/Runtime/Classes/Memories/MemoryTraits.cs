@@ -7,7 +7,7 @@ namespace GameCreator.Runtime.Stats
     [Title("Traits")]
     [Category("Stats/Traits")]
     
-    [Image(typeof(IconTraits), ColorTheme.Type.Pink)]
+    [Image(typeof(IconTraits), ColorTheme.Type.Green)]
     [Description("Remembers every Stat, Attribute and Status Effect of the game object")]
 
     [Serializable]

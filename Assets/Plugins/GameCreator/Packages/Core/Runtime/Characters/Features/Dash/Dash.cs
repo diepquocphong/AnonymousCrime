@@ -26,6 +26,12 @@ namespace GameCreator.Runtime.Characters
 
         public bool IsDodge => this.IsDashing && this.m_Character.Combat.Invincibility.IsInvincible;
 
+        public int NumDashes
+        {
+            get => this.m_NumDashes;
+            set => this.m_NumDashes = value;
+        }
+
         // EVENTS: --------------------------------------------------------------------------------
 
         public event Action EventDashStart;
@@ -81,7 +87,10 @@ namespace GameCreator.Runtime.Characters
                 : 1;
             
             this.IsDashing = true;
-            this.m_Character.Driver.SetGravityInfluence(GRAVITY_INFLUENCE_KEY, gravity);
+            if (!Mathf.Approximately(gravity, 1f))
+            {
+                this.m_Character.Driver.SetGravityInfluence(GRAVITY_INFLUENCE_KEY, gravity);
+            }
             
             this.EventDashStart?.Invoke();
 

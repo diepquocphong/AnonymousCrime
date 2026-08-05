@@ -18,7 +18,8 @@ namespace GameCreator.Editor.Shooter
             
             root.Add(new SpaceSmall());
             root.Add(new PropertyField(this.serializedObject.FindProperty("m_InMagazine")));
-            root.Add(new PropertyField(this.serializedObject.FindProperty("m_InMunition")));
+            root.Add(new PropertyField(this.serializedObject.FindProperty("m_InPouch")));
+            root.Add(new PropertyField(this.serializedObject.FindProperty("m_InTotal")));
             
             root.Add(new SpaceSmall());
             root.Add(new PropertyField(this.serializedObject.FindProperty("m_MagazineFill")));

@@ -34,6 +34,7 @@ namespace GameCreator.Editor.Stats.UnityUI
             
             SerializedProperty common = this.serializedObject.FindProperty("m_Common");
             
+            SerializedProperty statFormat = this.serializedObject.FindProperty("m_Format");
             SerializedProperty statValue = this.serializedObject.FindProperty("m_Value");
             SerializedProperty statBase = this.serializedObject.FindProperty("m_Base");
             SerializedProperty statModifiers = this.serializedObject.FindProperty("m_Modifiers");
@@ -53,6 +54,7 @@ namespace GameCreator.Editor.Stats.UnityUI
             
             this.m_Body.Add(new SpaceSmall());
             this.m_Body.Add(new LabelTitle("Values:"));
+            this.m_Body.Add(new PropertyField(statFormat));
             this.m_Body.Add(new PropertyField(statValue));
             this.m_Body.Add(new PropertyField(statBase));
             this.m_Body.Add(new PropertyField(statModifiers));

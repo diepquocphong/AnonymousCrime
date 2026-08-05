@@ -24,10 +24,16 @@ namespace GameCreator.Runtime.Shooter
             
             if (character == null) return;
             if (weapon == null) return;
+            
+            ShooterWeapon shooterWeapon = weapon as ShooterWeapon;
+            if (shooterWeapon == null) return;
 
+            int maxMagazineSize = shooterWeapon.Magazine.GetMagazineSize(args);
+            int magazineValue = Mathf.Min((int) value, maxMagazineSize);
+            
             if (character.Combat.RequestMunition(weapon) is ShooterMunition munition)
             {
-                munition.InMagazine = (int) value;
+                munition.InMagazine = magazineValue;
             }
         }
 

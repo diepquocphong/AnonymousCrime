@@ -20,6 +20,20 @@ namespace GameCreator.Runtime.Melee
     {
         private const int LAYER_TIME_SCALE = 999;
         
+        public static Vector3 LastHitPosition;
+        public static Vector3 LastHitDirection;
+        
+        #if UNITY_EDITOR
+
+        [UnityEditor.InitializeOnEnterPlayMode]
+        private static void OnEnterPlayMode()
+        {
+            LastHitPosition = Vector3.zero;
+            LastHitDirection = Vector3.zero;
+        }
+        
+        #endif
+        
         // EXPOSED MEMBERS: -----------------------------------------------------------------------
 
         [SerializeField] private PropertyGetString m_Title = GetStringString.Create;
@@ -267,6 +281,9 @@ namespace GameCreator.Runtime.Melee
         
         internal void OnHit(Args args, Vector3 point, Vector3 direction)
         {
+            LastHitPosition = point;
+            LastHitDirection = direction;
+            
             if (this.m_Effects.HitPause)
             {
                 TimeManager.Instance.SetTimeScale(
@@ -382,7 +399,8 @@ namespace GameCreator.Runtime.Melee
                 attacker.Combat.RequestStance<MeleeStance>().PlayReaction(
                     args.Target, 
                     input,
-                    weapon.Asset.ParriedReaction
+                    weapon.Asset.ParriedReaction,
+                    false
                 );
                 
                 break;

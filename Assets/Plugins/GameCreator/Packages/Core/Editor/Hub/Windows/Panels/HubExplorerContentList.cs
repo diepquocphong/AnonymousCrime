@@ -245,9 +245,9 @@ namespace GameCreator.Editor.Hub
         private void RefreshList()
         {
             this.m_ListView.itemsSource = GameCreatorHub.Data;
-            this.m_ListView.selectedIndex = 0;
+            this.m_ListView.selectedIndex = -1;
             
-            this.m_ListView.Rebuild();
+            this.m_ListView.RefreshItems();
         }
     }
 }

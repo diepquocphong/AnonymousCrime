@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 namespace GameCreator.Runtime.Common
 {
@@ -21,6 +22,8 @@ namespace GameCreator.Runtime.Common
         
         // PROPERTIES: ----------------------------------------------------------------------------
 
+        public override bool IsDeltaControl => this.m_InputAction?.activeControl is DeltaControl;
+        
         public InputAction InputAction
         {
             get
@@ -31,19 +34,17 @@ namespace GameCreator.Runtime.Common
                         "Secondary Motion",
                         InputActionType.Value
                     );
-                
+                    
                     this.m_InputAction.AddBinding(
                         "<Mouse>/delta",
                         processors: @"
-                        invertVector2(invertX=false,invertY=true),
-                        scaleVector2(x=3,y=3),
-                        divideScreenSize,
-                        divideDeltaTime"
+                        invertVector2(invertX=false,invertY=true)"
                     );
-                
+                    
                     this.m_InputAction.AddBinding(
                         "<Gamepad>/rightStick",
-                        processors: "invertVector2(invertX=false,invertY=true)"
+                        processors: @"
+                        invertVector2(invertX=false,invertY=true)"
                     );
                 }
         

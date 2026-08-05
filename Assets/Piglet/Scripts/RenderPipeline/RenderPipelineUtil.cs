@@ -17,7 +17,7 @@ namespace Piglet
         /// </summary>
         static public RenderPipelineType GetRenderPipeline()
         {
-            var pipeline = GraphicsSettings.renderPipelineAsset;
+            var pipeline = GraphicsSettings.defaultRenderPipeline;
 
 #if UNITY_2019_3_OR_NEWER
             if (pipeline != null) {

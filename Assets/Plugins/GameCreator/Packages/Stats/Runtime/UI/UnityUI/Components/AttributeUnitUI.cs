@@ -16,6 +16,8 @@ namespace GameCreator.Runtime.Stats.UnityUI
         [SerializeField] private Image m_ImageFillMax;
         [SerializeField] private Image m_ImageFillCurrent;
 
+        [SerializeField] private RectTransform m_Scale;
+
         // PUBLIC METHODS: ------------------------------------------------------------------------
 
         public void Refresh(Attribute attribute, float maxValue, float currentValue, Args args)
@@ -29,6 +31,12 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
             if (this.m_ImageFillMax != null) this.m_ImageFillMax.fillAmount = maxValue;
             if (this.m_ImageFillCurrent != null) this.m_ImageFillCurrent.fillAmount = currentValue;
+            
+            if (this.m_Scale != null)
+            {
+                Vector3 scale = new Vector3(currentValue, currentValue, currentValue);
+                this.m_Scale.localScale = scale;
+            }
         }
         
         // PRIVATE METHODS: -----------------------------------------------------------------------

@@ -7,14 +7,11 @@ namespace GameCreator.Runtime.Shooter
     [Serializable]
     public class HumanRotationLean : THumanRotations
     {
-        [SerializeField] private PropertyGetDecimal m_Spine = GetDecimalConstantPointFive.Create;
-        [SerializeField] private PropertyGetDecimal m_LowerChest = GetDecimalConstantPointFive.Create;
-        [SerializeField] private PropertyGetDecimal m_UpperChest = GetDecimalConstantZero.Create;
+        [SerializeField] private PropertyGetDecimal m_Spine = new PropertyGetDecimal(20f);
+        [SerializeField] private PropertyGetDecimal m_LowerChest = new PropertyGetDecimal(20f);
+        [SerializeField] private PropertyGetDecimal m_UpperChest = new PropertyGetDecimal(0f);
         
         // PROPERTIES: ----------------------------------------------------------------------------
-        
-        public override float GetUseLeftSide(Args args) => 0f;
-        public override float GetUseRightSide(Args args) => 0f;
         
         public override float GetRatioSpine(Args args)
         {
@@ -31,14 +28,19 @@ namespace GameCreator.Runtime.Shooter
             return (float) this.m_UpperChest.Get(args);
         }
 
-        public override float GetRatioShoulders(Args args) => 0f;
+        public override float GetRatioShoulders(Args args)
+        {
+            return 0f;
+        }
 
-        public override float GetRatioArms(Args args) => 0f;
+        public override float GetRatioNeck(Args args)
+        {
+            return 0f;
+        }
 
-        public override float GetRatioHands(Args args) => 0f;
-
-        public override float GetRatioNeck(Args args) => 0f;
-
-        public override float GetRatioHead(Args args) => 0f;
+        public override float GetRatioHead(Args args)
+        {
+            return 0f;
+        }
     }
 }

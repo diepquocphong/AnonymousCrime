@@ -21,6 +21,8 @@ namespace GameCreator.Runtime.Common
         
         // PROPERTIES: ----------------------------------------------------------------------------
 
+        public override bool IsDeltaControl => false;
+        
         public InputAction InputAction
         {
             get

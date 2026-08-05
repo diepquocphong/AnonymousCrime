@@ -151,8 +151,8 @@ namespace GameCreator.Runtime.Shooter
             if (rigidBody == null) return;
 
             rigidBody.mass = mass;
-            rigidBody.drag = airResistance;
-            rigidBody.velocity = Vector3.zero;
+            rigidBody.linearDamping = airResistance;
+            rigidBody.linearVelocity = Vector3.zero;
             rigidBody.angularVelocity = Vector3.zero;
             rigidBody.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
             
@@ -391,8 +391,8 @@ namespace GameCreator.Runtime.Shooter
                 }
             }
             
-            return rigidBody.velocity != Vector3.zero
-                ? rigidBody.velocity.normalized
+            return rigidBody.linearVelocity != Vector3.zero
+                ? rigidBody.linearVelocity.normalized
                 : this.transform.forward;
         }
         
@@ -528,8 +528,14 @@ namespace GameCreator.Runtime.Shooter
                     point,
                     normal,
                     hit,
-                    this.m_ShotData.Impact,
+                    this.m_ShotData.ImpactSound,
                     UnityEngine.Random.Range(-180f, 180f)
+                );
+                
+                this.m_ShotData.ImpactEffect?.Get(
+                    this.m_ArgsTarget,
+                    point,
+                    Quaternion.LookRotation(normal)
                 );
             }
 

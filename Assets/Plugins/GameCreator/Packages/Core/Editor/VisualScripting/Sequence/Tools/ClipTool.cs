@@ -1,8 +1,8 @@
 using System;
 using GameCreator.Editor.Common;
-using GameCreator.Runtime.Common;
 using GameCreator.Runtime.VisualScripting;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -115,8 +115,10 @@ namespace GameCreator.Editor.VisualScripting
             this.m_ClipConnectionM = new VisualElement
             {
                 name = NAME_CLIP_CONNECTION_M,
-                pickingMode = connectionM == default ? PickingMode.Ignore : PickingMode.Position
+                pickingMode = connectionM == default ? PickingMode.Ignore : PickingMode.Position,
             };
+
+            this.m_ClipConnectionM.generateVisualContent += OnGenerateFadeConnectionM;
             
             this.m_ClipConnectionR = new VisualElement
             {
@@ -173,6 +175,11 @@ namespace GameCreator.Editor.VisualScripting
 
         // CALLBACK METHODS: ----------------------------------------------------------------------
 
+        public void OnPropertyChange()
+        {
+            this.m_ClipConnectionM.MarkDirtyRepaint();
+        }
+        
         private void OnChangeStart()
         {
             this.BringToFront();
@@ -188,13 +195,13 @@ namespace GameCreator.Editor.VisualScripting
 
             if (changeTime)
             {
-                float clip = this.m_ClipA.transform.position.x;
+                float clip = this.m_ClipA.resolvedStyle.translate.x;
                 this.m_DragOffset = this.m_Manipulator.StartPosition.x - clip;
             }
             
             if (changeDuration)
             {
-                float clip = this.m_ClipB.transform.position.x;
+                float clip = this.m_ClipB.resolvedStyle.translate.x;
                 this.m_DragOffset = this.m_Manipulator.StartPosition.x - clip;
             }
             
@@ -310,6 +317,32 @@ namespace GameCreator.Editor.VisualScripting
             
             eventContext.StopPropagation();
         }
+        
+        private void OnGenerateFadeConnectionM(MeshGenerationContext context)
+        {
+            float ratio = this.TrackTool.Track.TransitionRange;
+            if (ratio <= 0f) return;
+            
+            Rect rect = context.visualElement.contentRect;
+            Painter2D painter = context.painter2D;
+            
+            painter.BeginPath();
+            painter.MoveTo(rect.min);
+            painter.LineTo(rect.min + new Vector2(rect.width * ratio, 0));
+            painter.LineTo(rect.min + new Vector2(0, rect.height));
+            painter.ClosePath();
+            
+            painter.fillColor = new Color(0f, 0f, 0f, 0.35f);
+            painter.Fill();
+            
+            painter.BeginPath();
+            painter.LineTo(rect.min + new Vector2(rect.width * ratio, 0));
+            painter.LineTo(rect.min + new Vector2(rect.width * ratio, rect.height));
+
+            painter.strokeColor = Color.white;
+            painter.lineWidth = 2f;
+            painter.Stroke();
+        }
 
         // PUBLIC METHODS: ------------------------------------------------------------------------
 
@@ -358,10 +391,10 @@ namespace GameCreator.Editor.VisualScripting
             const float offset = CLIP_WIDTH * 0.5f;
 
             float x = Mathf.Lerp(0f, this.TrackTool.Width, value);
-            float y = !float.IsNaN(clip.transform.position.y) ? clip.transform.position.y : 0f;
+            float y = !float.IsNaN(clip.resolvedStyle.translate.y) ? clip.resolvedStyle.translate.y : 0f;
             
             Vector3 position = new Vector3(x - offset, y, 0);
-            clip.transform.position = position;
+            clip.style.translate = position;
 
             bool isTrack = this.TrackTool.SequenceTool.SelectedTrack == this.TrackTool.TrackIndex;
             
@@ -375,16 +408,16 @@ namespace GameCreator.Editor.VisualScripting
         {
             const float offset = CLIP_WIDTH * 0.5f;
             
-            Vector3 clipA = this.m_ClipA.transform.position;
-            Vector3 clipB = this.m_ClipB.transform.position;
+            Vector3 clipA = this.m_ClipA.resolvedStyle.translate;
+            Vector3 clipB = this.m_ClipB.resolvedStyle.translate;
 
-            this.m_ClipConnectionL.transform.position = Vector3.zero;
+            this.m_ClipConnectionL.style.translate = Vector3.zero;
             this.m_ClipConnectionL.style.width = clipA.x + offset;
 
-            this.m_ClipConnectionM.transform.position = clipA + Vector3.right * offset;
+            this.m_ClipConnectionM.style.translate = clipA + Vector3.right * offset;
             this.m_ClipConnectionM.style.width = clipB.x - clipA.x;
             
-            this.m_ClipConnectionR.transform.position = clipB + Vector3.right * offset;
+            this.m_ClipConnectionR.style.translate = clipB + Vector3.right * offset;
             this.m_ClipConnectionR.style.width = this.TrackTool.Width - clipB.x - offset;
             
             bool isTrack = this.TrackTool.SequenceTool.SelectedTrack == this.TrackTool.TrackIndex;

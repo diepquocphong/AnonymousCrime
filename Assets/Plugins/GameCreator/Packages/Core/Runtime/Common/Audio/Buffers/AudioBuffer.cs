@@ -37,7 +37,9 @@ namespace GameCreator.Runtime.Common.Audio
             
             this.Transform = audioBuffer.GetComponent<Transform>();
             this.AudioSource = audioBuffer.AddComponent<AudioSource>();
+            
             this.AudioSource.outputAudioMixerGroup = audioMixerGroup;
+            this.AudioSource.dopplerLevel = 0f;
             
             this.Transform.SetParent(parent);
         }
@@ -46,7 +48,12 @@ namespace GameCreator.Runtime.Common.Audio
 
         internal bool Update(float volume)
         {
-            this.m_Volume.Update();
+            this.m_Volume.UpdateWithDelta(this.m_AudioConfig.UpdateMode switch
+            {
+                TimeMode.UpdateMode.GameTime => Time.deltaTime,
+                TimeMode.UpdateMode.UnscaledTime => Time.unscaledDeltaTime,
+                _ => throw new ArgumentOutOfRangeException()
+            });
 
             volume *= this.m_Volume.Current;
             this.AudioSource.volume = Rescale(volume);

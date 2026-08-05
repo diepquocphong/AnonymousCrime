@@ -12,7 +12,9 @@ namespace GameCreator.Runtime.Common
     public class InputValueFloatNone : TInputValueFloat
     {
         // PUBLIC METHODS: ------------------------------------------------------------------------
-        
+
+        public override bool IsDeltaControl => false;
+
         public override float Read() => 0f;
     }
 }

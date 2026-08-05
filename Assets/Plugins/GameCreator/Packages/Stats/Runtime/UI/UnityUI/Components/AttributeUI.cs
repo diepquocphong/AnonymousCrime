@@ -27,6 +27,7 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
         [SerializeField] private UICommon m_Common = new UICommon();
 
+        [SerializeField] private string m_Format = "0";
         [SerializeField] private TextReference m_Value = new TextReference();
         [SerializeField] private TextReference m_Percentage = new TextReference();
         [SerializeField] private TextReference m_MaxValue = new TextReference();
@@ -48,7 +49,7 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
         // MEMBERS: -------------------------------------------------------------------------------
 
-        [NonSerialized] private GameObject m_LastTarget;
+        [NonSerialized] private GameObject m_CurrentTarget;
         [NonSerialized] private Args m_Args;
 
         [NonSerialized] private AnimFloat m_ProgressAnimation;
@@ -84,6 +85,7 @@ namespace GameCreator.Runtime.Stats.UnityUI
         private void Awake()
         {
             this.m_Args = new Args(this.gameObject);
+            this.m_ProgressAnimation = new AnimFloat(0f, 0f, 0f);
         }
 
         private IEnumerator Start()
@@ -107,13 +109,17 @@ namespace GameCreator.Runtime.Stats.UnityUI
         private void OnDisable()
         {
             if (ApplicationManager.IsExiting) return;
-            if (this.m_LastTarget == null) return;
+            if (this.m_CurrentTarget == null) return;
             if (this.m_Attribute == null) return;
 
-            Traits lastTraits = this.m_LastTarget.Get<Traits>();
-            if (lastTraits != null) lastTraits.EventChange -= this.OnChangeAttribute;
+            Traits lastTraits = this.m_CurrentTarget.Get<Traits>();
+            if (lastTraits != null)
+            {
+                lastTraits.EventChange -= this.OnChangeTraits;
+                lastTraits.RuntimeAttributes.EventChange -= this.OnChangeAttribute;
+            }
 
-            this.m_LastTarget = null;
+            this.m_CurrentTarget = null;
         }
 
         public static AttributeUI CreateFrom(Image image)
@@ -128,10 +134,12 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
         private void Update()
         {
-            if (this.m_LastTarget == null) return;
+            this.UpdateTargetEvents();
+            
+            if (this.m_CurrentTarget == null) return;
             if (this.m_Attribute == null) return;
 
-            Traits traits = this.m_LastTarget.Get<Traits>();
+            Traits traits = this.m_CurrentTarget.Get<Traits>();
             if (traits == null) return;
 
             RuntimeAttributeData attribute = traits.RuntimeAttributes.Get(this.m_Attribute.ID);
@@ -205,8 +213,15 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
         // CALLBACKS: -----------------------------------------------------------------------------
 
-        private void OnChangeAttribute()
+        private void OnChangeTraits()
         {
+            this.RefreshValues();
+        }
+        
+        private void OnChangeAttribute(IdString attributeId)
+        {
+            if (attributeId != this.m_Attribute.ID) return;
+            
             this.m_LastChangeTime = Time.unscaledTime;
             this.RefreshValues();
         }
@@ -215,18 +230,16 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
         private void RefreshProgress()
         {
-            if (this.m_LastTarget == null) return;
+            if (this.m_CurrentTarget == null) return;
             if (this.m_Attribute == null) return;
 
-            Traits traits = this.m_LastTarget.Get<Traits>();
+            Traits traits = this.m_CurrentTarget.Get<Traits>();
             if (traits == null) return;
 
             RuntimeAttributeData attribute = traits.RuntimeAttributes.Get(this.m_Attribute.ID);
-            this.m_ProgressAnimation = new AnimFloat(
-                (float) attribute.Ratio,
-                (float) attribute.Ratio, 
-                0f
-            );
+            this.m_ProgressAnimation.Current = (float) attribute.Ratio;
+            this.m_ProgressAnimation.Target = (float) attribute.Ratio;
+            this.m_ProgressAnimation.Smooth = 0f;
 
             this.UpdateProgress();
         }
@@ -234,11 +247,11 @@ namespace GameCreator.Runtime.Stats.UnityUI
         private void RefreshValues()
         {
             this.UpdateTargetEvents();
-
+            
             if (this.m_Attribute == null) return;
-            if (this.m_LastTarget == null) return;
+            if (this.m_CurrentTarget == null) return;
 
-            Traits traits = this.m_LastTarget.Get<Traits>();
+            Traits traits = this.m_CurrentTarget.Get<Traits>();
             if (traits == null) return;
 
             if (this.m_Common.Icon != null) this.m_Common.Icon.overrideSprite = this.m_Attribute.GetIcon(this.m_Args);
@@ -250,12 +263,12 @@ namespace GameCreator.Runtime.Stats.UnityUI
 
             RuntimeAttributeData attribute = traits.RuntimeAttributes.Get(this.m_Attribute.ID);
             if (attribute == null) return;
-
-            this.m_Value.Text = FromDouble(attribute.Value, "0");
-            this.m_Percentage.Text = (attribute.Ratio * 100).ToString("0");
-            this.m_MaxValue.Text = FromDouble(attribute.MaxValue, "0");
-            this.m_MinValue.Text = FromDouble(attribute.MinValue, "0");
-
+            
+            this.m_Value.Text = FromDouble(attribute.Value, this.m_Format);
+            this.m_Percentage.Text = (attribute.Ratio * 100).ToString(this.m_Format);
+            this.m_MaxValue.Text = FromDouble(attribute.MaxValue, this.m_Format);
+            this.m_MinValue.Text = FromDouble(attribute.MinValue, this.m_Format);
+            
             if (this.m_UnitContainer != null && this.m_UnitPrefab != null)
             {
                 int numUnits = this.m_UnitMode switch
@@ -282,20 +295,30 @@ namespace GameCreator.Runtime.Stats.UnityUI
         {
             if (this.m_Attribute == null) return;
 
-            GameObject currentTarget = this.m_Target.Get(this.m_Args);
-            if (this.m_LastTarget == currentTarget) return;
+            GameObject target = this.m_Target.Get(this.m_Args);
+            if (this.m_CurrentTarget == target) return;
             
-            if (this.m_LastTarget != null)
+            if (this.m_CurrentTarget != null)
             {
-                Traits lastTraits = this.m_LastTarget.Get<Traits>();
-                if (lastTraits != null) lastTraits.EventChange -= this.OnChangeAttribute;
+                Traits lastTraits = this.m_CurrentTarget.Get<Traits>();
+                if (lastTraits != null)
+                {
+                    lastTraits.EventChange -= this.OnChangeTraits;
+                    lastTraits.RuntimeAttributes.EventChange -= this.OnChangeAttribute;
+                }
             }
 
-            this.m_LastTarget = currentTarget;
-            if (currentTarget == null) return;
+            this.m_CurrentTarget = target;
+            if (target == null) return;
             
-            Traits currentTraits = currentTarget.Get<Traits>();
-            if (currentTraits != null) currentTraits.EventChange += this.OnChangeAttribute;;
+            Traits currentTraits = target.Get<Traits>();
+            if (currentTraits != null)
+            {
+                currentTraits.EventChange += this.OnChangeTraits;
+                currentTraits.RuntimeAttributes.EventChange += this.OnChangeAttribute;
+            };
+            
+            this.RefreshValues();
         }
 
         private static string FromDouble(double value, string format = "")

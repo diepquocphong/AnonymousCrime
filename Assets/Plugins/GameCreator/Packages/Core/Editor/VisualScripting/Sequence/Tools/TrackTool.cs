@@ -189,10 +189,10 @@ namespace GameCreator.Editor.VisualScripting
             float value = this.SequenceTool.PlaybackTool.Value;
             
             float x = Mathf.Lerp(0f, this.m_Track.resolvedStyle.width, value);
-            float y = this.m_Head.transform.position.y;
+            float y = this.m_Head.resolvedStyle.translate.y;
             
             Vector3 position = new Vector3(x - PLAYHEAD_SIZE * 0.5f, y, 0);
-            this.m_Head.transform.position = position;
+            this.m_Head.style.translate = position;
         }
         
         private void OnDragHeadFinish()
@@ -305,18 +305,6 @@ namespace GameCreator.Editor.VisualScripting
             this.m_Head.BringToFront();
             this.RefreshButtons();
         }
-
-        // private void CreateNewClip(SerializedProperty newClip, float time, float duration)
-        // {
-        //     SerializedProperty instructions = newClip.FindPropertyRelative(ClipDefault.NAME_INSTRUCTIONS);
-        //     
-        //     if (instructions != null) 
-        //     {
-        //         instructions
-        //             .FindPropertyRelative(InstructionListDrawer.NAME_INSTRUCTIONS)
-        //             .arraySize = 0;
-        //     }
-        // }
 
         private void RefreshButtons()
         {

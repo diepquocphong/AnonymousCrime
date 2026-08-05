@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using GameCreator.Runtime.Characters.Animim;
 using GameCreator.Runtime.Common;
 using UnityEngine;
@@ -99,7 +98,7 @@ namespace GameCreator.Runtime.Characters
         public InverseKinematics IK => this.m_InverseKinematics;
 
         public Interaction Interaction => this.m_Interaction;
-        public Footsteps Footsteps => m_Footsteps;
+        public Footsteps Footsteps => this.m_Footsteps;
         public Ragdoll Ragdoll => this.m_Ragdoll;
         public Props Props => this.m_Props;
         public Combat Combat => this.m_Combat;
@@ -135,11 +134,12 @@ namespace GameCreator.Runtime.Characters
                     if (head != null) return head.position;
                 }
 
-                return this.transform.position + Vector3.up * this.Motion.Height / 2f;
+                return this.transform.position + Vector3.up * (this.Motion.Height * 0.5f);
             }
         }
 
-        public Vector3 Feet => this.transform.position - Vector3.up * this.Motion.Height / 2f;
+        public Vector3 Crown => this.transform.position + Vector3.up * this.Motion.Height * 0.5f;
+        public Vector3 Feet => this.transform.position - Vector3.up * this.Motion.Height * 0.5f;
         
         // EVENTS: --------------------------------------------------------------------------------
 
@@ -179,9 +179,9 @@ namespace GameCreator.Runtime.Characters
             this.m_Busy?.OnStartup(this);
             this.m_Kernel?.OnStartup(this);
             this.m_AnimimGraph?.OnStartup(this);
+            this.m_Footsteps?.OnStartup(this);
             this.m_InverseKinematics?.OnStartup(this);
             this.m_Interaction?.OnStartup(this);
-            this.m_Footsteps?.OnStartup(this);
             this.m_Ragdoll?.OnStartup(this);
             this.m_Props?.OnStartup(this);
             this.m_Combat?.OnStartup(this);
@@ -196,9 +196,9 @@ namespace GameCreator.Runtime.Characters
             this.m_Busy?.AfterStartup(this);
             this.m_Kernel?.AfterStartup(this);
             this.m_AnimimGraph?.AfterStartup(this);
+            this.m_Footsteps?.AfterStartup(this);
             this.m_InverseKinematics?.AfterStartup(this);
             this.m_Interaction?.AfterStartup(this);
-            this.m_Footsteps?.AfterStartup(this);
             this.m_Props?.AfterStartup(this);
             this.m_Combat?.AfterStartup(this);
             this.m_Jump?.AfterStartup(this);
@@ -209,8 +209,8 @@ namespace GameCreator.Runtime.Characters
         {
             this.m_Kernel?.OnDispose(this);
             this.m_AnimimGraph?.OnDispose(this);
-            this.m_Interaction?.OnDispose(this);
             this.m_Footsteps?.OnDispose(this);
+            this.m_Interaction?.OnDispose(this);
             this.m_Ragdoll?.OnDispose(this);
             this.m_Props?.OnDispose(this);
             this.m_Combat?.OnDispose(this);
@@ -226,8 +226,8 @@ namespace GameCreator.Runtime.Characters
         {
             this.m_Kernel?.OnEnable();
             this.m_InverseKinematics?.OnEnable();
-            this.m_Interaction?.OnEnable();
             this.m_Footsteps?.OnEnable();
+            this.m_Interaction?.OnEnable();
             this.m_Ragdoll?.OnEnable();
             this.m_Props?.OnEnable();
             this.m_Combat?.OnEnable();
@@ -240,9 +240,9 @@ namespace GameCreator.Runtime.Characters
         protected virtual void OnDisable()
         {
             this.m_Kernel?.OnDisable();
+            this.m_Footsteps?.OnDisable();
             this.m_InverseKinematics?.OnDisable();
             this.m_Interaction?.OnDisable();
-            this.m_Footsteps?.OnDisable();
             this.m_Ragdoll?.OnDisable();
             this.m_Props?.OnDisable();
             this.m_Combat?.OnDisable();
@@ -261,9 +261,9 @@ namespace GameCreator.Runtime.Characters
             this.m_Kernel?.OnUpdate();
             this.m_AnimimGraph?.OnUpdate();
             this.m_Ragdoll?.OnUpdate();
+            this.m_Footsteps?.OnUpdate();
             this.m_InverseKinematics?.OnUpdate();
             this.m_Interaction?.OnUpdate();
-            this.Footsteps?.OnUpdate();
 
             this.EventAfterUpdate?.Invoke();
         }
@@ -297,9 +297,9 @@ namespace GameCreator.Runtime.Characters
             
             this.m_Kernel?.OnDrawGizmos(this);
             this.m_Ragdoll?.OnDrawGizmos(this);
+            this.m_Footsteps?.OnDrawGizmos(this);
             this.m_InverseKinematics?.OnDrawGizmos(this);
             this.m_Interaction?.OnDrawGizmos(this);
-            this.m_Footsteps?.OnDrawGizmos(this);
             this.m_Combat?.OnDrawGizmos(this);
         }
 
@@ -378,7 +378,7 @@ namespace GameCreator.Runtime.Characters
 
             if (options.materials != null)
             {
-                this.Footsteps.ChangeFootstepSounds(options.materials);
+                this.m_Footsteps.ChangeFootstepSounds(options.materials);
             }
             
             this.EventAfterChangeModel?.Invoke();
@@ -393,7 +393,7 @@ namespace GameCreator.Runtime.Characters
             this.m_Kernel ??= new CharacterKernel();
             this.m_AnimimGraph ??= new AnimimGraph();
             this.m_InverseKinematics ??= new InverseKinematics();
-
+            
             this.m_Footsteps ??= new Footsteps();
             this.m_Ragdoll ??= new Ragdoll();
             this.m_Props ??= new Props();

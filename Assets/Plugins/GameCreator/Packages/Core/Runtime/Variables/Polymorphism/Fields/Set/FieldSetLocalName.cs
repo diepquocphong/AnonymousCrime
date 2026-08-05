@@ -24,7 +24,7 @@ namespace GameCreator.Runtime.Variables
         public override void Set(object value, Args args)
         {
             LocalNameVariables instance = this.m_Variable.Get<LocalNameVariables>(args);
-            instance.Set(this.m_Name.String, value);
+            if (instance != null) instance.Set(this.m_Name.String, value);
         }
 
         public override object Get(Args args)

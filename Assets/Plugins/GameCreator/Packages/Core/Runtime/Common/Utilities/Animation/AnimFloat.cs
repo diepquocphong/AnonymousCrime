@@ -6,6 +6,8 @@ namespace GameCreator.Runtime.Common
     [Serializable]
 	public class AnimFloat
 	{
+        private const float SMOOTH_FACTOR = 0.5f;
+        
         private const float SMOOTH = 0.1f;
         
         // TRANSIENT STRUCT: ----------------------------------------------------------------------
@@ -62,6 +64,8 @@ namespace GameCreator.Runtime.Common
         
         [NonSerialized] private Transient m_Transient;
         
+        [NonSerialized] private float m_Velocity;
+        
         // PROPERTIES: ----------------------------------------------------------------------------
 
         [field: NonSerialized] public float Current { get; set; }
@@ -83,22 +87,25 @@ namespace GameCreator.Runtime.Common
         }
 
         // UPDATE METHODS: ------------------------------------------------------------------------
-
+        
         public void UpdateWithDelta(float deltaTime)
         {
             if (this.m_Transient.IsActive)
             {
+                this.m_Velocity = 0f;
                 this.Current = this.m_Transient.Update(this.Current, this.Target);
+                
                 return;
             }
             
-            float sign = Math.Sign(this.Target - this.Current);
-                
-            if (this.Smooth <= float.Epsilon) this.Current = this.Target;
-            else this.Current += deltaTime * sign / this.Smooth;
-            
-            if (sign <= 0f) this.Current = Math.Max(this.Current, this.Target);
-            if (sign >= 0f) this.Current = Math.Min(this.Current, this.Target);
+            this.Current = Mathf.SmoothDamp(
+                this.Current,
+                this.Target,
+                ref this.m_Velocity,
+                this.Smooth * SMOOTH_FACTOR,
+                Mathf.Infinity,
+                deltaTime
+            );
         }
         
         public void UpdateWithDelta(float target, float deltaTime)

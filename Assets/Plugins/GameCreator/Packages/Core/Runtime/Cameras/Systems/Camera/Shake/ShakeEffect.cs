@@ -29,7 +29,7 @@ namespace GameCreator.Runtime.Cameras
         private bool m_IsInitialized;
         
         private Vector3 m_Seed;
-        private float m_NoiseSpeed;
+        private float m_Time;
 
         // PROPERTIES: ----------------------------------------------------------------------------
 
@@ -53,7 +53,7 @@ namespace GameCreator.Runtime.Cameras
 
             this.m_IsInitialized = false;
             this.m_Seed = Vector3.zero;
-            this.m_NoiseSpeed = 0f;
+            this.m_Time = 0f;
 
             this.Value = Vector3.zero;
         }
@@ -66,19 +66,20 @@ namespace GameCreator.Runtime.Cameras
         {
             if (!this.m_IsInitialized)
             {
-                this.m_NoiseSpeed = 0.0f;
                 this.m_Seed = new Vector3(
                     UnityEngine.Random.Range(SEED_MIN, SEED_MAX),
                     UnityEngine.Random.Range(SEED_MIN, SEED_MAX),
                     UnityEngine.Random.Range(SEED_MIN, SEED_MAX)
                 );
                 
+                this.m_Time = 0f;
+                
                 this.m_IsInitialized = true;
             }
 
-            Vector3 noise = this.GetPerlinNoise();
-            this.m_NoiseSpeed += Time.deltaTime * this.m_Roughness;
-
+            this.m_Time += camera.Time.DeltaTime * this.m_Roughness;
+            Vector3 noise = this.GetPerlinNoise(this.m_Time);
+            
             float distance = Vector3.Distance(
                 this.m_Transform != null ? this.m_Transform.position : camera.transform.position, 
                 camera.transform.position
@@ -90,12 +91,12 @@ namespace GameCreator.Runtime.Cameras
         
         // PRIVATE METHODS: -----------------------------------------------------------------------
 
-        private Vector3 GetPerlinNoise()
+        private Vector3 GetPerlinNoise(float time)
         {
             return new Vector3(
-                Mathf.PerlinNoise(this.m_NoiseSpeed, this.m_Seed.x) - 0.5f,
-                Mathf.PerlinNoise(this.m_NoiseSpeed, this.m_Seed.y) - 0.5f,
-                Mathf.PerlinNoise(this.m_NoiseSpeed, this.m_Seed.z) - 0.5f
+                PerlinNoiseUtils.Get(time, this.m_Seed.x),
+                PerlinNoiseUtils.Get(time, this.m_Seed.y),
+                PerlinNoiseUtils.Get(time, this.m_Seed.z)
             );
         }
     }

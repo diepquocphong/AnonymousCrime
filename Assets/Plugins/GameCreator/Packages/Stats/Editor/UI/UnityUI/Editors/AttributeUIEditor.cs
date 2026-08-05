@@ -41,6 +41,7 @@ namespace GameCreator.Editor.Stats.UnityUI
             
             SerializedProperty common = this.serializedObject.FindProperty("m_Common");
             
+            SerializedProperty attrFormat = this.serializedObject.FindProperty("m_Format");
             SerializedProperty attrValue = this.serializedObject.FindProperty("m_Value");
             SerializedProperty attrPercentage = this.serializedObject.FindProperty("m_Percentage");
             SerializedProperty attrMinValue = this.serializedObject.FindProperty("m_MinValue");
@@ -72,6 +73,7 @@ namespace GameCreator.Editor.Stats.UnityUI
             
             this.m_Body.Add(new SpaceSmall());
             this.m_Body.Add(new LabelTitle("Values:"));
+            this.m_Body.Add(new PropertyField(attrFormat));
             this.m_Body.Add(new PropertyField(attrValue));
             this.m_Body.Add(new PropertyField(attrPercentage));
             this.m_Body.Add(new PropertyField(attrMinValue));

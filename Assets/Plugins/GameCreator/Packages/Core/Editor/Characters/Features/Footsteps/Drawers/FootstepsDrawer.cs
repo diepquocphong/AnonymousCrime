@@ -19,6 +19,12 @@ namespace GameCreator.Editor.Characters
             
             container.Add(feetTool);
             container.Add(new PropertyField(footstepSounds));
+            
+            SerializedProperty footstepDetector = property.FindPropertyRelative("m_FootstepDetector");
+            PropertyElement footstepDetectorField = new PropertyElement(footstepDetector, footstepDetector.displayName, false);
+            
+            container.Add(new SpaceSmallest());
+            container.Add(footstepDetectorField);
         }
     }
 }

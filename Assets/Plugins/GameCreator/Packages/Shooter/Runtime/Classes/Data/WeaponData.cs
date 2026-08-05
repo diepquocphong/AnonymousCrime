@@ -28,6 +28,7 @@ namespace GameCreator.Runtime.Shooter
         [NonSerialized] private bool m_AttemptedToShoot;
         [NonSerialized] private bool m_LoadStartPlayed;
         [NonSerialized] private bool m_IsPullingTrigger;
+        [NonSerialized] private bool m_IsCanceledTrigger;
         [NonSerialized] private int m_NumShots;
 
         [NonSerialized] private List<Vector3> m_TrajectoryPoints;
@@ -442,6 +443,15 @@ namespace GameCreator.Runtime.Shooter
 
         private void ChargeRelease()
         {
+            if (this.m_IsCanceledTrigger)
+            {
+                this.m_IsPullingTrigger = false;
+                this.m_IsCanceledTrigger = false;
+                return;
+            }
+            
+            this.m_IsCanceledTrigger = false;
+            
             if (this.m_NumShots != 0) return;
             
             this.m_LastTriggerRelease = this.Character.Time.Time;
@@ -488,15 +498,25 @@ namespace GameCreator.Runtime.Shooter
             }
             
             this.m_Crosshairs.Clear();
+            
+            AudioClip loadLoop = this.Weapon.Fire.LoadLoopAudio(this.WeaponArgs);
+            if (AudioManager.Instance.Ambient.IsPlaying(loadLoop, this.Prop))
+            {
+                _ = AudioManager.Instance.Ambient.Stop(loadLoop, this.Prop, 0.5f);
+            }
         }
         
         public void OnPullTrigger()
         {
+            SightItem sight = this.Weapon.Sights.Get(this.SightId);
+            if (sight != null && !sight.CanShoot(this.WeaponArgs)) return;
+            
             this.m_LastTriggerPull = this.Character.Time.Time;
 
             this.m_AttemptedToShoot = false;
             this.m_LoadStartPlayed = false;
             this.m_IsPullingTrigger = true;
+            this.m_IsCanceledTrigger = false;
             this.m_NumShots = 0;
         }
         
@@ -511,6 +531,14 @@ namespace GameCreator.Runtime.Shooter
             }
         }
 
+        public void OnCancelTrigger()
+        {
+            if (!this.m_IsPullingTrigger) return;
+             
+            this.m_IsCanceledTrigger = true;
+            this.m_IsPullingTrigger = false;
+        }
+        
         public void OnChangeSight(IdString sightId)
         {
             if (this.m_Crosshairs.TryGetValue(this.SightId, out CrosshairData crosshairs))

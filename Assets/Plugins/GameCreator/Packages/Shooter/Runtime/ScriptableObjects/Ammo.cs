@@ -42,7 +42,7 @@ namespace GameCreator.Runtime.Shooter
         public Sprite GetSprite(Args args) => this.m_Icon.Get(args);
         public Color GetColor(Args args) => this.m_Color.Get(args);
 
-        public int Get(Args args) => this.m_Infinite
+        public int GetTotalAmmo(Args args) => this.m_Infinite
             ? int.MaxValue
             : (int) this.m_Value.Get(args);
 

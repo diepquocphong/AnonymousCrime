@@ -13,6 +13,8 @@ namespace GameCreator.Runtime.Common
     [Serializable]
     public class InputValueVector2MobileStickLeft : TInputValueVector2MobileStick
     {
+        public override bool IsDeltaControl => false;
+        
         protected override ITouchStick CreateTouchStick()
         {
             return TouchStickLeft.Create();

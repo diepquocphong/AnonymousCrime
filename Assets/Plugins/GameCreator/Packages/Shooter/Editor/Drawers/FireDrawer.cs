@@ -158,6 +158,9 @@ namespace GameCreator.Editor.Shooter
             SerializedProperty loadMaxPitch = property.FindPropertyRelative("m_LoadMaxPitch");
             SerializedProperty muzzleEffect = property.FindPropertyRelative("m_MuzzleEffect");
             SerializedProperty force = property.FindPropertyRelative("m_Force");
+            SerializedProperty power = property.FindPropertyRelative("m_Power");
+            SerializedProperty blockedAudio = property.FindPropertyRelative("m_BlockedAudio");
+            SerializedProperty parriedAudio = property.FindPropertyRelative("m_ParriedAudio");
             
             container.Add(new SpaceSmall());
             container.Add(new PropertyField(fireAnimation));
@@ -177,6 +180,10 @@ namespace GameCreator.Editor.Shooter
             container.Add(new PropertyField(muzzleEffect));
             container.Add(new SpaceSmall());
             container.Add(new PropertyField(force));
+            container.Add(new PropertyField(power));
+            container.Add(new SpaceSmall());
+            container.Add(new PropertyField(blockedAudio));
+            container.Add(new PropertyField(parriedAudio));
         }
     }
 }

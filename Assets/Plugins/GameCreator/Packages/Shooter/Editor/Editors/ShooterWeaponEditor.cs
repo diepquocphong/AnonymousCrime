@@ -77,9 +77,9 @@ namespace GameCreator.Editor.Shooter
         }
         
         [OnOpenAsset]
-        public static bool OpenWeaponExecute(int instanceID, int line)
+        public static bool OpenWeaponExecute(EntityId entityId, int line)
         {
-            ShooterWeapon weapon = EditorUtility.InstanceIDToObject(instanceID) as ShooterWeapon;
+            ShooterWeapon weapon = EditorUtility.EntityIdToObject(entityId) as ShooterWeapon;
             if (weapon == null) return false;
 
             if (WeaponConfigurationStage.InStage) StageUtility.GoToMainStage();
@@ -200,6 +200,8 @@ namespace GameCreator.Editor.Shooter
             SerializedProperty onShoot = this.serializedObject.FindProperty("m_OnShoot");
             SerializedProperty onReloadStart = this.serializedObject.FindProperty("m_OnStartReload");
             SerializedProperty onReloadFinish = this.serializedObject.FindProperty("m_OnFinishReload");
+            SerializedProperty canBeBlocked = this.serializedObject.FindProperty("m_CanBeBlocked");
+            SerializedProperty canBeParried = this.serializedObject.FindProperty("m_CanBeParried");
             SerializedProperty canHit = this.serializedObject.FindProperty("m_CanHit");
             SerializedProperty onHit = this.serializedObject.FindProperty("m_OnHit");
 
@@ -222,6 +224,16 @@ namespace GameCreator.Editor.Shooter
             foot.Add(new LabelTitle("On Finish Reload:"));
             foot.Add(new SpaceSmaller());
             foot.Add(new PropertyField(onReloadFinish));
+            
+            foot.Add(new SpaceSmall());
+            foot.Add(new LabelTitle("Can Be Blocked:"));
+            foot.Add(new SpaceSmaller());
+            foot.Add(new PropertyField(canBeBlocked));
+            
+            foot.Add(new SpaceSmall());
+            foot.Add(new LabelTitle("Can Be Parried:"));
+            foot.Add(new SpaceSmaller());
+            foot.Add(new PropertyField(canBeParried));
             
             foot.Add(new SpaceSmall());
             foot.Add(new LabelTitle("Can Hit:"));

@@ -7,7 +7,8 @@ namespace GameCreator.Runtime.Shooter
         bool Run(
             Args args,
             ShooterWeapon weapon,
-            MaterialSoundsAsset impact,
+            MaterialSoundsAsset impactSound,
+            PropertyGetInstantiate impactEffect,
             float chargeRatio,
             float pullTime
         );

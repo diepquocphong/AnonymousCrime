@@ -32,11 +32,5 @@ namespace GameCreator.Runtime.Characters.IK
             this.m_Euler = Vector3.zero;
             this.m_Weight = weight;
         }
-
-        // public LookSection(HumanBodyBones bone, float weight, Vector3 euler, Transform transform) : this(bone, weight)
-        // {
-        //     this.m_Euler = euler;
-        //     this.Transform = transform;
-        // }
     }
 }

@@ -27,6 +27,7 @@ namespace GameCreator.Editor.Stats.UnityUI
             SerializedProperty common = this.serializedObject.FindProperty("m_Common");
             SerializedProperty max = this.serializedObject.FindProperty("m_ImageFillMax");
             SerializedProperty current = this.serializedObject.FindProperty("m_ImageFillCurrent");
+            SerializedProperty scale = this.serializedObject.FindProperty("m_Scale");
             
             this.m_Root.Add(new SpaceSmaller());
             this.m_Root.Add(new InfoMessage(TEXT));
@@ -38,6 +39,10 @@ namespace GameCreator.Editor.Stats.UnityUI
             this.m_Root.Add(new LabelTitle("Progress:"));
             this.m_Root.Add(new PropertyField(max));
             this.m_Root.Add(new PropertyField(current));
+            
+            this.m_Root.Add(new SpaceSmall());
+            this.m_Root.Add(new LabelTitle("Scale:"));
+            this.m_Root.Add(new PropertyField(scale));
             
             return this.m_Root;
         }

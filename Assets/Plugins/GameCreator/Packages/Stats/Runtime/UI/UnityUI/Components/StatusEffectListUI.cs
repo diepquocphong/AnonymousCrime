@@ -19,8 +19,8 @@ namespace GameCreator.Runtime.Stats.UnityUI
             StatusEffectTypeMask.Negative |
             StatusEffectTypeMask.Neutral;
 
-        [SerializeField] private bool m_ShowHidden = false;
-
+        [SerializeField] private bool m_ShowHidden;
+        
         [SerializeField] private RectTransform m_Container;
         [SerializeField] private GameObject m_PrefabStatusEffect;
 

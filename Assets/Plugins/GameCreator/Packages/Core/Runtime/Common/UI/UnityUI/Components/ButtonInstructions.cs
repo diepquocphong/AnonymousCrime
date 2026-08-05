@@ -23,9 +23,9 @@ namespace GameCreator.Runtime.Common.UnityUI
 
         protected override void Awake()
         {
-            base.Start();
+            base.Awake();
             if (!Application.isPlaying) return;
-
+            
             this.m_Args = new Args(gameObject);
             
             this.m_Instructions.EventStartRunning += this.OnStartRunning;

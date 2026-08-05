@@ -131,12 +131,15 @@ namespace GameCreator.Runtime.Shooter
                 }
                 
                 int reloadAmount = reload.GetReloadAmount(args);
-                int magazineSize = weapon.Magazine.GetMagazineSize(args);
+                int maxMagazine = Mathf.Min(
+                    weapon.Magazine.GetMagazineSize(args),
+                    weapon.Magazine.GetTotalAmmo(args)
+                );
                 
-                munition.InMagazine = Math.Min(munition.InMagazine + reloadAmount, magazineSize);
+                munition.InMagazine = Mathf.Min(munition.InMagazine + reloadAmount, maxMagazine);
                 bool partialReload = this.m_CancelReload.CancelReason == CancelReason.PartialReload;
                 
-                isComplete = partialReload || munition.InMagazine >= magazineSize;
+                isComplete = partialReload || munition.InMagazine >= maxMagazine;
             }
             
             this.CanPartialReload = false;

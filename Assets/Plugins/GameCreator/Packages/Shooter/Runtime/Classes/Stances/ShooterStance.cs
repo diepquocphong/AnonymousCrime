@@ -32,10 +32,6 @@ namespace GameCreator.Runtime.Shooter
         [field: NonSerialized] public Reloading Reloading { get; private set; }
         [field: NonSerialized] public Shooting Shooting { get; private set; } 
         [field: NonSerialized] public Jamming Jamming { get; private set; }
-        
-        // EVENTS: --------------------------------------------------------------------------------
-
-        
 
         // CONSTRUCTOR: ---------------------------------------------------------------------------
 
@@ -131,7 +127,7 @@ namespace GameCreator.Runtime.Shooter
 
         public WeaponData Get(ShooterWeapon weapon)
         {
-            int weaponInstanceId = weapon != null ? weapon.GetInstanceID() : default;
+            int weaponInstanceId = weapon != null ? weapon.GetInstanceID() : 0;
             return this.m_Equipment.GetValueOrDefault(weaponInstanceId);
         }
 
@@ -179,7 +175,7 @@ namespace GameCreator.Runtime.Shooter
 
             if (this.Reloading.WeaponReloading == shooterWeapon)
             {
-                if (this.Reloading.CanPartialReload == false) return;
+                if (!this.Reloading.CanPartialReload) return;
                 
                 this.StopReload(shooterWeapon, CancelReason.PartialReload);
                 return;
@@ -188,7 +184,7 @@ namespace GameCreator.Runtime.Shooter
             if (!this.Reloading.IsReloading)
             {
                 bool autoReload = shooterWeapon.Magazine.AutoReload(weaponData.WeaponArgs);
-                int ammo = shooterWeapon.Magazine.GetAmmo(weaponData.WeaponArgs);
+                int ammo = shooterWeapon.Magazine.GetTotalAmmo(weaponData.WeaponArgs);
                 
                 ShooterMunition munition = (ShooterMunition) this.Character
                     .Combat
@@ -222,6 +218,21 @@ namespace GameCreator.Runtime.Shooter
             if (!this.m_Equipment.TryGetValue(shooterWeaponId, out WeaponData weaponData)) return;
             
             weaponData.OnReleaseTrigger();
+        }
+
+        /// <summary>
+        /// Cancels the pulled trigger of the specified weapon (or default one)
+        /// </summary>
+        /// <param name="optionalWeapon"></param>
+        public void CancelTrigger(ShooterWeapon optionalWeapon)
+        {
+            ShooterWeapon shooterWeapon = this.GetWeapon(optionalWeapon);
+            if (shooterWeapon == null) return;
+
+            int shooterWeaponId = shooterWeapon.GetInstanceID();
+            if (!this.m_Equipment.TryGetValue(shooterWeaponId, out WeaponData weaponData)) return;
+            
+            weaponData.OnCancelTrigger();
         }
 
         /// <summary>

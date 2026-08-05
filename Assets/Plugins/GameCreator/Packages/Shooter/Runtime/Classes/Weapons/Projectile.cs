@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using GameCreator.Runtime.Common;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace GameCreator.Runtime.Shooter
 {
@@ -12,7 +13,12 @@ namespace GameCreator.Runtime.Shooter
         
         [SerializeField] private Shot m_Shot = new Shot();
         
-        [SerializeField] private MaterialSoundsAsset m_Impact;
+        [FormerlySerializedAs("m_Impact")]
+        [SerializeField] private MaterialSoundsAsset m_ImpactSound;
+
+        [SerializeField] private PropertyGetInstantiate m_ImpactEffect = new PropertyGetInstantiate(
+            new GetGameObjectNone()
+        );
         
         // INTERNAL METHODS: ----------------------------------------------------------------------
 
@@ -26,7 +32,8 @@ namespace GameCreator.Runtime.Shooter
             return this.m_Shot.Value.Run(
                 args,
                 weapon,
-                this.m_Impact,
+                this.m_ImpactSound,
+                this.m_ImpactEffect,
                 chargeRatio,
                 pullTime
             );

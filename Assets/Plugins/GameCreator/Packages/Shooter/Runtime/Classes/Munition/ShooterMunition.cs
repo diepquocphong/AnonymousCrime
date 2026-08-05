@@ -1,5 +1,6 @@
 using System;
 using GameCreator.Runtime.Characters;
+using GameCreator.Runtime.Common;
 using UnityEngine;
 
 namespace GameCreator.Runtime.Shooter
@@ -33,7 +34,7 @@ namespace GameCreator.Runtime.Shooter
         }
 
         // PUBLIC METHODS: ------------------------------------------------------------------------
-
+        
         public override object Clone()
         {
             return new ShooterMunition

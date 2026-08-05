@@ -1,4 +1,5 @@
 using System;
+using UnityEngine;
 
 namespace GameCreator.Runtime.Characters
 {
@@ -14,6 +15,10 @@ namespace GameCreator.Runtime.Characters
 
         public int RemainingAirJumps => this.m_RemainingAirJumps;
         public int AirJumps => this.m_Character.Motion.AirJumps - this.m_RemainingAirJumps;
+        
+        // EVENTS: --------------------------------------------------------------------------------
+
+        public event Action EventAttemptJump; 
 
         // INITIALIZE METHODS: --------------------------------------------------------------------
         
@@ -44,12 +49,16 @@ namespace GameCreator.Runtime.Characters
 
         public void Do()
         {
+            this.EventAttemptJump?.Invoke();
+            
             if (!this.CanJump()) return;
             this.m_Character.Motion.Jump();
         }
         
         public void Do(float force)
         {
+            this.EventAttemptJump?.Invoke();
+            
             if (!this.CanJump()) return;
             this.m_Character.Motion.Jump(force);
         }
@@ -57,12 +66,13 @@ namespace GameCreator.Runtime.Characters
         public bool CanJump()
         {
             if (this.m_Character.Busy.AreLegsBusy) return false;
+            
             if (this.m_Character.Driver.IsGrounded) return true;
             return this.m_RemainingAirJumps > 0;
         }
         
         // CALLBACKS: -----------------------------------------------------------------------------
-
+        
         private void OnLand(float velocity)
         {
             this.m_RemainingAirJumps = this.m_Character.Motion.AirJumps;

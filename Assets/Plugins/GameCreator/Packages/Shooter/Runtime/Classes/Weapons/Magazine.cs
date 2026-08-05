@@ -16,9 +16,9 @@ namespace GameCreator.Runtime.Shooter
         
         // GETTER METHODS: ------------------------------------------------------------------------
 
-        public int GetAmmo(Args args)
+        public int GetTotalAmmo(Args args)
         {
-            return this.m_Ammo != null ? this.m_Ammo.Get(args) : 0;
+            return this.m_Ammo != null ? this.m_Ammo.GetTotalAmmo(args) : 0;
         }
         
         public bool GetHasMagazine(Args args)
@@ -42,8 +42,8 @@ namespace GameCreator.Runtime.Shooter
             Character character = args.Self.Get<Character>();
             if (character == null) return false;
             
-            int currentAmmo = this.m_Ammo.Get(args);
-            if (this.m_Ammo.IsInfinite == false && shotData.Cartridges > currentAmmo) return false;
+            int currentAmmo = this.m_Ammo.GetTotalAmmo(args);
+            if (!this.m_Ammo.IsInfinite && shotData.Cartridges > currentAmmo) return false;
             
             if (this.m_HasMagazine.Get(args))
             {
@@ -64,6 +64,12 @@ namespace GameCreator.Runtime.Shooter
             
             if (this.m_Ammo == null) return;
             this.m_Ammo.Remove(amount, args);
+        }
+        
+        internal void OnShoot(int cartridgesShot, Args args)
+        {
+            if (this.m_Ammo == null) return;
+            this.m_Ammo.Remove(cartridgesShot, args);
         }
         
         // GIZMOS: --------------------------------------------------------------------------------

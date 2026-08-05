@@ -13,6 +13,11 @@ namespace GameCreator.Runtime.Shooter
         
         [field: NonSerialized] public bool IsFixing { get; private set; }
 
+        // EVENTS: --------------------------------------------------------------------------------
+
+        public event Action<IWeapon> EventJam;
+        public event Action<IWeapon> EventFix;
+        
         // CONSTRUCTOR: ---------------------------------------------------------------------------
 
         public Jamming(Character character)
@@ -54,6 +59,7 @@ namespace GameCreator.Runtime.Shooter
             
             this.IsFixing = false;
             weaponData.IsJammed = false;
+            this.EventFix?.Invoke(weapon);
         }
 
         public void Jam(ShooterWeapon weapon)
@@ -67,6 +73,7 @@ namespace GameCreator.Runtime.Shooter
             if (weaponData.IsJammed) return;
             
             weaponData.IsJammed = true;
+            this.EventJam?.Invoke(weapon);
         }
     }
 }

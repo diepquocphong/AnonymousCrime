@@ -51,9 +51,9 @@ namespace GameCreator.Editor.Shooter
         }
 
         [OnOpenAsset]
-        public static bool OpenSkillExecute(int instanceID, int line)
+        public static bool OpenSkillExecute(EntityId entityId, int line)
         {
-            Reload reload = EditorUtility.InstanceIDToObject(instanceID) as Reload;
+            Reload reload = EditorUtility.EntityIdToObject(entityId) as Reload;
             if (reload == null) return false;
 
             if (ReloadConfigurationStage.InStage) StageUtility.GoToMainStage();

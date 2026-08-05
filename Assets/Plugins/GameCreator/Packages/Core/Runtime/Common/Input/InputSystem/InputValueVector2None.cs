@@ -14,6 +14,8 @@ namespace GameCreator.Runtime.Common
     {
         // PUBLIC METHODS: ------------------------------------------------------------------------
         
+        public override bool IsDeltaControl => false;
+        
         public override Vector2 Read() => Vector2.zero;
     }
 }

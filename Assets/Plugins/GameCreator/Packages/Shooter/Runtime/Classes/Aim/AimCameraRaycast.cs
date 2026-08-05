@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using GameCreator.Runtime.Cameras;
 using GameCreator.Runtime.Common;
 using UnityEngine;
@@ -37,9 +36,12 @@ namespace GameCreator.Runtime.Shooter
             }
             
             Vector3 cameraDirection = camera.TransformDirection(Vector3.forward);
-
+            
+            Ray cameraRay = new Ray(camera.position, cameraDirection);
+            Vector3 raySource = args.Self.transform.position.ProjectPointOntoRay(cameraRay);
+            
             bool isHit = Physics.Raycast(
-                camera.position,
+                raySource,
                 cameraDirection.normalized,
                 out RaycastHit hit,
                 INFINITY,

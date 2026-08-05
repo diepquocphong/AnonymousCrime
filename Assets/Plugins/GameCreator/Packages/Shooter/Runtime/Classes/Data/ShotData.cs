@@ -7,6 +7,16 @@ namespace GameCreator.Runtime.Shooter
 {
     public struct ShotData
     {
+        public static ShooterWeapon LastShooterWeapon { get; private set; }
+        public static GameObject LastProp { get; private set; }
+        public static Vector3 LastShooterPosition { get; private set; }
+        public static Vector3 LastShooterDirection { get; private set; }
+        public static GameObject LastHitObject { get; private set; }
+        public static Vector3 LastHitPosition { get; private set; }
+        public static float LastChargeRatio { get; private set; }
+        public static float LastDistance { get; private set; }
+        public static int LastNumPierces { get; private set; }
+        
         // PROPERTIES: ----------------------------------------------------------------------------
         
         [field: NonSerialized] public Character Source { get; }
@@ -21,7 +31,8 @@ namespace GameCreator.Runtime.Shooter
         [field: NonSerialized] public Vector3 ShootPosition { get; }
         [field: NonSerialized] public Vector3 ShootDirection { get; }
         [field: NonSerialized] public Vector3 HitPoint { get; private set; }
-        [field: NonSerialized] public MaterialSoundsAsset Impact { get; private set; }
+        [field: NonSerialized] public MaterialSoundsAsset ImpactSound { get; private set; }
+        [field: NonSerialized] public PropertyGetInstantiate ImpactEffect { get; private set; }
         
         [field: NonSerialized] public int Cartridges { get; }
         [field: NonSerialized] public float ChargeRatio { get; }
@@ -32,14 +43,14 @@ namespace GameCreator.Runtime.Shooter
         
         // CONSTRUCTOR: ---------------------------------------------------------------------------
 
-        public ShotData(
-            Character source,
+        public ShotData(Character source,
             ShooterWeapon weapon,
             IdString sightId,
             GameObject prop,
             Vector3 shootPosition,
             Vector3 shootDirection,
-            MaterialSoundsAsset impact,
+            MaterialSoundsAsset impactSound,
+            PropertyGetInstantiate impactEffect,
             int cartridges,
             float chargeRatio,
             float delay,
@@ -57,7 +68,8 @@ namespace GameCreator.Runtime.Shooter
             this.ShootPosition = shootPosition;
             this.ShootDirection = shootDirection;
             this.HitPoint = default;
-            this.Impact = impact;
+            this.ImpactSound = impactSound;
+            this.ImpactEffect = impactEffect;
 
             this.Cartridges = cartridges;
             this.ChargeRatio = chargeRatio;
@@ -65,6 +77,12 @@ namespace GameCreator.Runtime.Shooter
             this.Distance = 0f;
             this.PullTime = pullTime;
             this.Pierces = 0;
+
+            LastShooterWeapon = weapon;
+            LastProp = prop;
+            LastShooterPosition = shootPosition;
+            LastShooterDirection = shootDirection;
+            LastChargeRatio = chargeRatio;
         }
         
         // PUBLIC METHODS: ------------------------------------------------------------------------
@@ -81,6 +99,11 @@ namespace GameCreator.Runtime.Shooter
             
             this.Distance = distance;
             this.Pierces = pierces;
+
+            LastHitObject = target;
+            LastHitPosition = hitPoint;
+            LastDistance = distance;
+            LastNumPierces = pierces;
         }
     }
 }

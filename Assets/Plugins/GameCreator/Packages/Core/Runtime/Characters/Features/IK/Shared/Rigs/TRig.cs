@@ -18,8 +18,11 @@ namespace GameCreator.Runtime.Characters.IK
         [field: NonSerialized] protected Args Args { get; private set; }
 
         [field: NonSerialized] public Character Character { get; private set; }
-        [field: NonSerialized] public Animator Animator { get; private set; }
-
+        
+        public Animator Animator => this.Character != null
+            ? this.Character.Animim.Animator
+            : null;
+        
         public bool IsActive
         {
             get
@@ -45,9 +48,9 @@ namespace GameCreator.Runtime.Characters.IK
             this.Args = new Args(character);
 
             this.Character = character;
-            this.Animator = this.Character.Animim.Animator;
             
             this.DoStartup(character);
+            this.Character.EventAfterChangeModel += this.DoChangeModel;
         }
 
         public void OnEnable(Character character)
@@ -61,10 +64,17 @@ namespace GameCreator.Runtime.Characters.IK
         }
         
         public abstract void OnUpdate(Character character);
-
+        
         public void OnDrawGizmos(Character character)
         {
             this.DoDrawGizmos(character);
+        }
+        
+        // PRIVATE METHODS: -----------------------------------------------------------------------
+        
+        private void OnChangeModel()
+        {
+            this.DoChangeModel();
         }
         
         // VIRTUAL METHODS: -----------------------------------------------------------------------
@@ -79,6 +89,9 @@ namespace GameCreator.Runtime.Characters.IK
         { }
 
         protected virtual void DoUpdate(Character character)
+        { }
+        
+        protected virtual void DoChangeModel()
         { }
         
         protected virtual void DoDrawGizmos(Character character)

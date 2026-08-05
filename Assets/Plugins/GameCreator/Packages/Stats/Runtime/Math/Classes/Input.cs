@@ -8,12 +8,12 @@ namespace GameCreator.Runtime.Stats
     internal class Input
     {
         // MEMBERS: -------------------------------------------------------------------------------
-        
+
         [NonSerialized] private readonly Regex m_Regex;
 
         // PROPERTIES: ----------------------------------------------------------------------------
-        
-        [field:NonSerialized] public InputHandle Function { get; }
+
+        [field: NonSerialized] public InputHandle Function { get; }
 
         // CONSTRUCTORS: --------------------------------------------------------------------------
 

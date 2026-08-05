@@ -10,13 +10,12 @@ namespace GameCreator.Runtime.Shooter
     [Serializable]
     public abstract class TShot : IShot, IComparer<RaycastHit>
     {
-        public abstract bool Run(
-            Args args,
+        public abstract bool Run(Args args,
             ShooterWeapon weapon,
-            MaterialSoundsAsset impact,
+            MaterialSoundsAsset impactSound,
+            PropertyGetInstantiate impactEffect,
             float chargeRatio,
-            float pullTime
-        );
+            float pullTime);
         
         public abstract Vector3 GetTrajectory(
             List<Vector3> points,

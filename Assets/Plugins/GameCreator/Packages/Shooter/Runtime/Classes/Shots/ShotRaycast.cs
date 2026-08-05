@@ -40,10 +40,10 @@ namespace GameCreator.Runtime.Shooter
         
         // RUN METHOD: ----------------------------------------------------------------------------
         
-        public override bool Run(
-            Args args,
+        public override bool Run(Args args,
             ShooterWeapon weapon,
-            MaterialSoundsAsset impact,
+            MaterialSoundsAsset impactSound,
+            PropertyGetInstantiate impactEffect,
             float chargeRatio,
             float pullTime)
         {
@@ -77,7 +77,8 @@ namespace GameCreator.Runtime.Shooter
                     character.Combat.GetProp(weapon),
                     muzzle.Position,
                     spreadDirection,
-                    impact,
+                    impactSound,
+                    impactEffect,
                     i == 0 ? cartridgesUsed : 0,
                     chargeRatio,
                     0f,
@@ -116,8 +117,14 @@ namespace GameCreator.Runtime.Shooter
                             hit.point,
                             hit.normal,
                             hit.collider.gameObject,
-                            impact,
+                            impactSound,
                             UnityEngine.Random.Range(-180f, 180f)
+                        );
+                        
+                        impactEffect?.Get(
+                            weaponData.CombatArgs,
+                            hit.point,
+                            Quaternion.LookRotation(hit.normal)
                         );
                     }
                 }

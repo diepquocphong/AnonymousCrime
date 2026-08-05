@@ -49,9 +49,9 @@ namespace GameCreator.Editor.Characters
         }
 
         [OnOpenAsset]
-        public static bool OpenSkeletonExecute(int instanceID, int line)
+        public static bool OpenSkeletonExecute(EntityId entityId, int line)
         {
-            Skeleton skeleton = EditorUtility.InstanceIDToObject(instanceID) as Skeleton;
+            Skeleton skeleton = EditorUtility.EntityIdToObject(entityId) as Skeleton;
             if (skeleton == null) return false;
 
             if (SkeletonConfigurationStage.InStage) StageUtility.GoToMainStage();

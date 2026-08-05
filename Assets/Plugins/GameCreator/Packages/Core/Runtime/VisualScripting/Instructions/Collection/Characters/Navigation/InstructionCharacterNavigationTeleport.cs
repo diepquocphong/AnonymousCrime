@@ -41,7 +41,7 @@ namespace GameCreator.Runtime.VisualScripting
             Vector3 position = location.GetPosition(character.gameObject);
             Quaternion rotation = location.GetRotation(character.gameObject);
 
-            if (location.HasPosition(character.gameObject)) character.Driver.SetPosition(position);
+            if (location.HasPosition(character.gameObject)) character.Driver.SetPosition(position, true);
             if (location.HasRotation(character.gameObject)) character.Driver.SetRotation(rotation);
             
             return DefaultResult;

@@ -1,1 +1,0 @@
-To access the documentation Go to the Unity menu bar and select Tools > Ash Tools > Arcade Bike Physics Pro > Online Documentation.

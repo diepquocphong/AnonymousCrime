@@ -87,8 +87,8 @@ namespace GameCreator.Runtime.Common
                 cache = new Cache(gameObject);
                 CACHE[instanceID] = cache;
             }
-
-            if (!cache.components.TryGetValue(type, out Component component))
+            
+            if (!cache.components.TryGetValue(type, out Component component) || component == null)
             {
                 component = gameObject.GetComponent(type);
                 if (component != null)

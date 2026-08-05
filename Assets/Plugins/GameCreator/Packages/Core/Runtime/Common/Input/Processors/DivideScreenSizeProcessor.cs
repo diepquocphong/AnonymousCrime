@@ -11,7 +11,7 @@ namespace GameCreator.Runtime.Common
     {
         public override Vector2 Process(Vector2 value, InputControl control)
         {
-            return Vector2.Scale(value, new Vector2(1f/Screen.width, 1f/Screen.height));
+            return Vector2.Scale(value, new Vector2(1f/Screen.height, 1f/Screen.height));
         }
         
         #if UNITY_EDITOR

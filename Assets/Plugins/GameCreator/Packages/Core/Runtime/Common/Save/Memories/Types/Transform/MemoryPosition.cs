@@ -30,7 +30,7 @@ namespace GameCreator.Runtime.Common
             Character character = target.Get<Character>();
             if (character != null)
             {
-                character.Driver.SetPosition(tokenPosition.Position);
+                character.Driver.SetPosition(tokenPosition.Position, true);
                 return;
             }
             

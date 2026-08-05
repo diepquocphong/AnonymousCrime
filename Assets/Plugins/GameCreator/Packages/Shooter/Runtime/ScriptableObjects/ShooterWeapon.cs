@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
+using GameCreator.Runtime.Common.Audio;
 using GameCreator.Runtime.VisualScripting;
 using UnityEngine;
 
@@ -21,6 +22,8 @@ namespace GameCreator.Runtime.Shooter
         private const float TRANSITION = 0.25f;
 
         public static ShotData LastShotData { get; private set; }
+        
+        internal static readonly Vector2 PITCH = new Vector2(0.9f, 1.1f);
         
         // EXPOSED MEMBERS: -----------------------------------------------------------------------
         
@@ -44,6 +47,9 @@ namespace GameCreator.Runtime.Shooter
         
         [SerializeField] private RunInstructionsList m_OnStartReload = new RunInstructionsList();
         [SerializeField] private RunInstructionsList m_OnFinishReload = new RunInstructionsList();
+        
+        [SerializeField] private RunConditionsList m_CanBeBlocked = new RunConditionsList();
+        [SerializeField] private RunConditionsList m_CanBeParried = new RunConditionsList();
         
         [SerializeField] private RunConditionsList m_CanHit = new RunConditionsList();
         [SerializeField] private RunInstructionsList m_OnHit = new RunInstructionsList();
@@ -145,8 +151,8 @@ namespace GameCreator.Runtime.Shooter
         {
             LastShotData = data;
             
-            if (this.m_Magazine.EnoughAmmo(data, args) == false) return false;
-            if (this.m_CanShoot.Check(args) == false) return false;
+            if (!this.m_Magazine.EnoughAmmo(data, args)) return false;
+            if (!this.m_CanShoot.Check(args)) return false;
             
             SightItem sight = this.Sights.Get(data.SightId);
             return sight != null && sight.CanShoot(args);
@@ -162,6 +168,7 @@ namespace GameCreator.Runtime.Shooter
                 munition.InMagazine -= data.Cartridges;
             }
 
+            data.Weapon.Magazine.OnShoot(data.Cartridges, args);
             data.Weapon.Accuracy.OnShoot(args);
             data.Weapon.Recoil.OnShoot(args);
         }
@@ -198,18 +205,56 @@ namespace GameCreator.Runtime.Shooter
             }
             
             Character target = data.Target.Get<Character>();
-            if (target != null)
+            
+            if (target != null && !target.IsDead)
             {
-                ReactionInput reactionInput = new ReactionInput(
-                    data.ShootDirection.normalized,
-                    1f
-                );
-                
-                _ = target.Combat.GetHitReaction(
-                    reactionInput,
-                    args,
-                    data.Weapon.HitReaction
-                );
+                if (target.Dash.IsDodge)
+                {
+                    target.Dash.OnDodge(args);
+                }
+                else if (!target.Combat.Invincibility.IsInvincible)
+                {
+                    ReactionInput reactionInput = new ReactionInput(
+                        target.transform.InverseTransformDirection(data.ShootDirection).normalized,
+                        (float) data.Weapon.Fire.Power(args)
+                    );
+                    
+                    ShieldInput shieldInput = new ShieldInput(
+                        reactionInput.Direction,
+                        data.HitPoint,
+                        reactionInput.Power
+                    );
+                    
+                    IShield shield = target.Combat.GetBlock(
+                        shieldInput,
+                        args,
+                        data.Weapon.m_CanBeBlocked.Check(args),
+                        data.Weapon.m_CanBeParried.Check(args),
+                        out ShieldOutput shieldOutput
+                    );
+                    
+                    switch (shieldOutput.Type)
+                    {
+                        case BlockType.Break:
+                        case BlockType.None: 
+                            _ = target.Combat.GetHitReaction(
+                                reactionInput,
+                                args,
+                                data.Weapon.HitReaction
+                            );
+                            break;
+                        
+                        case BlockType.Block: data.Weapon.OnBlocked(args, data.Weapon); break;
+                        case BlockType.Parry: data.Weapon.OnParried(args, data.Weapon); break;
+                        default: throw new ArgumentOutOfRangeException();
+                    }
+                    
+                    if (shield != null)
+                    {
+                        Args blockArgs = new Args(args.Target, args.Self);
+                        shield.OnDefend(blockArgs, shieldOutput, reactionInput);
+                    }
+                }
             }
             
             _ = this.m_OnHit.Run(args);
@@ -225,6 +270,44 @@ namespace GameCreator.Runtime.Shooter
         {
             _ = this.m_OnFinishReload.Run(args);
             await this.m_Reloads.ExitState(character, speed, cancel, args);
+        }
+        
+        internal void OnBlocked(Args args, ShooterWeapon weapon)
+        {
+            AudioClip blockedAudio = weapon.Fire.BlockedAudio(args);
+            if (blockedAudio != null)
+            {
+                Character self = args.Self != null ? args.Self.Get<Character>() : null;
+                TimeMode.UpdateMode time = self != null
+                    ? self.Time.UpdateTime
+                    : TimeMode.UpdateMode.GameTime;
+                
+                AudioConfigSoundEffect config = AudioConfigSoundEffect.Create(
+                    1f, PITCH, 0f,
+                    time, SpatialBlending.Spatial, args.Self
+                );
+                
+                _ = AudioManager.Instance.SoundEffect.Play(blockedAudio, config, args);
+            }
+        }
+        
+        internal void OnParried(Args args, ShooterWeapon weapon)
+        {
+            AudioClip sound = weapon.Fire.ParriedAudio(args);
+            if (sound != null)
+            {
+                Character self = args.Self != null ? args.Self.Get<Character>() : null;
+                TimeMode.UpdateMode time = self != null
+                    ? self.Time.UpdateTime
+                    : TimeMode.UpdateMode.GameTime;
+                
+                AudioConfigSoundEffect config = AudioConfigSoundEffect.Create(
+                    1f, PITCH, 0f,
+                    time, SpatialBlending.Spatial, args.Self
+                );
+                
+                _ = AudioManager.Instance.SoundEffect.Play(sound, config, args);
+            }
         }
 
         // STAGE GIZMOS: --------------------------------------------------------------------------

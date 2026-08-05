@@ -32,7 +32,7 @@ namespace GameCreator.Runtime.Common
                     
                     if (location.HasPosition(target))
                     {
-                        if (character != null) character.Driver.SetPosition(position);
+                        if (character != null) character.Driver.SetPosition(position, true);
                         else target.transform.position = position;
                     }
                     

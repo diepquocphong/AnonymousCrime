@@ -4,10 +4,10 @@ using GameCreator.Runtime.Common;
 
 namespace GameCreator.Runtime.Characters
 {
-    [Title("Rigidbody")]
+    [Title("Rigidbody (obsolete)")]
     [Image(typeof(IconPhysics), ColorTheme.Type.Yellow)]
     
-    [Category("Rigidbody")]
+    [Category("Rigidbody (obsolete)")]
     [Description("Moves the Character using a physics based Rigidbody component")]
     
     [Serializable]
@@ -15,7 +15,7 @@ namespace GameCreator.Runtime.Characters
     {
         // EXPOSED MEMBERS: -----------------------------------------------------------------------
         
-        [SerializeField] protected PhysicMaterial m_Material;
+        [SerializeField] protected PhysicsMaterial m_Material;
 
         [SerializeField]
         private RigidbodyInterpolation m_Interpolation = RigidbodyInterpolation.Interpolate;
@@ -46,13 +46,13 @@ namespace GameCreator.Runtime.Characters
         
         // INTERFACE PROPERTIES: ------------------------------------------------------------------
 
-        public override Vector3 WorldMoveDirection => this.m_Rigidbody.velocity;
+        public override Vector3 WorldMoveDirection => this.m_Rigidbody.linearVelocity;
         public override Vector3 LocalMoveDirection => this.Transform.InverseTransformDirection(
             this.WorldMoveDirection
         );
 
         public override float SkinWidth => 0f;
-        public override bool IsGrounded => this.m_IsGrounded;
+        public override bool IsGrounded => this.m_ForceGrounded || this.m_IsGrounded;
         public override Vector3 FloorNormal => this.m_FloorNormal.Current;
         
         public override bool Collision
@@ -240,7 +240,7 @@ namespace GameCreator.Runtime.Characters
                 ForceMode.Force
             );
 
-            if (this.m_IsGrounded)
+            if (this.m_ForceGrounded || this.m_IsGrounded)
             {
                 if (this.Character.Time.Time - this.m_GroundTime > COYOTE_TIME &&
                     this.Character.Time.Frame - this.m_GroundFrame > COYOTE_FRAMES)
@@ -252,31 +252,33 @@ namespace GameCreator.Runtime.Characters
                 this.m_GroundFrame = this.Character.Time.Frame;
             }
 
-            Vector3 velocity = this.m_Rigidbody.velocity;
-            this.m_Rigidbody.velocity = new Vector3(
+            Vector3 velocity = this.m_Rigidbody.linearVelocity;
+            this.m_Rigidbody.linearVelocity = new Vector3(
                 velocity.x,
                 Mathf.Max(velocity.y, motion.TerminalVelocity),
                 velocity.z
             );
 
-            this.m_LastVerticalSpeed = this.m_Rigidbody.velocity.y;
+            this.m_LastVerticalSpeed = this.m_Rigidbody.linearVelocity.y;
         }
 
         protected virtual void UpdateTranslation(IUnitMotion motion)
         {
-            Vector3 kinetic = motion.MovementType switch
-            {
-                Character.MovementType.MoveToDirection => this.UpdateMoveToDirection(motion),
-                Character.MovementType.MoveToPosition => this.UpdateMoveToPosition(motion),
-                _ => Vector3.zero
-            };
+            Vector3 kinetic = this.UpdateKinematics
+                ? motion.MovementType switch
+                {
+                    Character.MovementType.MoveToDirection => this.UpdateMoveToDirection(motion),
+                    Character.MovementType.MoveToPosition => this.UpdateMoveToPosition(motion),
+                    _ => Vector3.zero
+                }
+                : Vector3.zero;
 
             Vector3 rootMotion = this.Character.Animim.RootMotionDeltaPosition;
             Vector3 translation = Vector3.Lerp(kinetic, rootMotion, this.Character.RootMotionPosition);
             Vector3 movement = this.m_Axonometry?.ProcessTranslation(this, translation) ?? translation;
             
             Vector3 horizontalVelocity = Vector3.Scale(
-                this.m_Rigidbody.velocity,
+                this.m_Rigidbody.linearVelocity,
                 Vector3Plane.NormalUp
             );
 
@@ -306,7 +308,7 @@ namespace GameCreator.Runtime.Characters
                 }
             }
 
-            Vector3 direction = new Vector3(movement.x, this.m_Rigidbody.velocity.y, movement.z); 
+            Vector3 direction = new Vector3(movement.x, this.m_Rigidbody.linearVelocity.y, movement.z); 
             direction = this.m_Axonometry?.ProcessTranslation(this, direction) ?? direction;
             
             this.m_Rigidbody.AddForce(
@@ -350,7 +352,7 @@ namespace GameCreator.Runtime.Characters
 
         // INTERFACE METHODS: ---------------------------------------------------------------------
 
-        public override void SetPosition(Vector3 position)
+        public override void SetPosition(Vector3 position, bool teleport = false)
         {
             position += Vector3.up * (this.Character.Motion.Height * 0.5f);
             this.Transform.position = position;
@@ -398,17 +400,17 @@ namespace GameCreator.Runtime.Characters
         {
             this.m_Capsule.enabled = true;
             this.m_Rigidbody.isKinematic = false;
-            this.m_Rigidbody.velocity = Vector3.zero;
+            this.m_Rigidbody.linearVelocity = Vector3.zero;
         }
         
         // GRAVITY METHODS: -----------------------------------------------------------------------
 
         public override void ResetVerticalVelocity()
         {
-            this.m_Rigidbody.velocity = new Vector3(
-                this.m_Rigidbody.velocity.x,
+            this.m_Rigidbody.linearVelocity = new Vector3(
+                this.m_Rigidbody.linearVelocity.x,
                 0f,
-                this.m_Rigidbody.velocity.z
+                this.m_Rigidbody.linearVelocity.z
             );
         }
 

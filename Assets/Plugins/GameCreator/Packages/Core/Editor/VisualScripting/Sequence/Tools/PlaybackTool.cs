@@ -184,10 +184,10 @@ namespace GameCreator.Editor.VisualScripting
         {
             float playheadOffset = this.m_PlaybackHead.resolvedStyle.width * 0.5f;
             float x = Mathf.Lerp(0f, this.m_PlaybackTrack.resolvedStyle.width, this.Value);
-            float y = this.m_PlaybackHead.transform.position.y;
+            float y = this.m_PlaybackHead.resolvedStyle.translate.y;
             
             Vector3 position = new Vector3(x - playheadOffset, y, 0);
-            this.m_PlaybackHead.transform.position = position;
+            this.m_PlaybackHead.style.translate = position;
         }
 
         private void RefreshPlaybackTooltip()
@@ -198,10 +198,10 @@ namespace GameCreator.Editor.VisualScripting
                 : -1f * (TOOLTIP_WIDTH + TOOLTIP_PADDING);
             
             float x = Mathf.Lerp(0f, this.m_PlaybackTrack.resolvedStyle.width, time);
-            float y = this.m_PlaybackTooltip.transform.position.y;
+            float y = this.m_PlaybackTooltip.resolvedStyle.translate.y;
             
             Vector3 position = new Vector3(x + offset, y, 0);
-            this.m_PlaybackTooltip.transform.position = position;
+            this.m_PlaybackTooltip.style.translate = position;
             this.m_PlaybackTooltip.text = (time * this.MaxFrame).ToString("0000");
         }
 
@@ -245,7 +245,7 @@ namespace GameCreator.Editor.VisualScripting
                 VisualElement element = this.m_Metrics[i].element;
                 
                 float position = size * this.m_Metrics[i].time;
-                element.transform.position = new Vector3(position, 0);
+                element.style.translate = new Vector3(position, 0);
 
                 element.name = i % 30 == 0
                     ? NAME_PLAYBACK_METRIC_UNIT

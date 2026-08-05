@@ -26,6 +26,8 @@ namespace GameCreator.Runtime.Common
         
         // PUBLIC METHODS: ------------------------------------------------------------------------
 
+        public bool IsDeltaControl() => this.m_Input.IsDeltaControl;
+        
         public float Read() => this.m_Input.Read();
         
         // STRING: --------------------------------------------------------------------------------

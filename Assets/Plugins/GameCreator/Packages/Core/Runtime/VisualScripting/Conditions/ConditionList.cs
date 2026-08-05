@@ -39,12 +39,14 @@ namespace GameCreator.Runtime.VisualScripting
             foreach (Condition condition in this.m_Conditions)
             {
                 if (condition == null) continue;
+                if (!condition.IsEnabled) continue;
+                
                 bool check = condition.Check(args);
 
                 switch (mode)
                 {
                     case CheckMode.And:
-                        if (check == false)
+                        if (!check)
                         {
                             this.EventEndCheck?.Invoke();
                             return false;

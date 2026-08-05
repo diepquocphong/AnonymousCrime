@@ -17,7 +17,7 @@ namespace GameCreator.Runtime.Common
 
         [field: NonSerialized] public float Decay { get; set; }
 
-        [field: NonSerialized] private Vector3 Velocity { get; set; }
+        [field: NonSerialized] public Vector3 Velocity { get; set; }
 
         // CONSTRUCTORS: --------------------------------------------------------------------------
 

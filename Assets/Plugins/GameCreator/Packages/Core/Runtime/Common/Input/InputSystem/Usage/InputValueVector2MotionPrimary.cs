@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 namespace GameCreator.Runtime.Common
 {
@@ -23,6 +24,8 @@ namespace GameCreator.Runtime.Common
         
         // PROPERTIES: ----------------------------------------------------------------------------
 
+        public override bool IsDeltaControl => this.m_InputAction?.activeControl is DeltaControl;
+        
         public InputAction InputAction
         {
             get

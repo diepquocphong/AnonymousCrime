@@ -72,8 +72,8 @@ namespace GameCreator.Runtime.Cameras
                     float sensitivityY = (float) this.m_SensitivityY.Get(shotType.Args);
                     
                     this.m_Value.Target += new Vector3(
-                        input.x * sensitivityX,
-                        input.y * sensitivityY,
+                        input.x * sensitivityX * shotType.ShotCamera.TimeMode.DeltaTime,
+                        input.y * sensitivityY * shotType.ShotCamera.TimeMode.DeltaTime,
                         0f
                     );
                     break;
@@ -139,6 +139,7 @@ namespace GameCreator.Runtime.Cameras
         private float GetRotationDamp(float current, float target, ref float velocity, 
             float smoothTime, float deltaTime)
         {
+            if (deltaTime <= float.Epsilon) return current;
             return Mathf.SmoothDampAngle(
                 current,
                 target,

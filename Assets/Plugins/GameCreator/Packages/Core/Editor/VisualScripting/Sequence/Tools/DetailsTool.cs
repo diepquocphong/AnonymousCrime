@@ -115,10 +115,10 @@ namespace GameCreator.Editor.VisualScripting
             
             float offset = this.m_Sign.resolvedStyle.width * 0.5f;
             float x = Mathf.Lerp(0f, this.m_Track.resolvedStyle.width, value);
-            float y = this.m_Sign.transform.position.y;
+            float y = this.m_Sign.resolvedStyle.translate.y;
             
             Vector3 position = new Vector3(x - offset, y, 0);
-            this.m_Sign.transform.position = position;
+            this.m_Sign.style.translate = position;
         }
 
         private void RefreshBindings(ClipTool clipTool)
@@ -132,6 +132,7 @@ namespace GameCreator.Editor.VisualScripting
 
             clipTool.Property.serializedObject.Update();
             field.Bind(this.SequenceTool.SerializedObject);
+            field.RegisterValueChangeCallback(_ => clipTool.OnPropertyChange());
         }
 
         private ClipTool SelectedClipTool()

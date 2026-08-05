@@ -66,6 +66,10 @@ namespace GameCreator.Runtime.Shooter
         [SerializeField] private PropertyGetInstantiate m_MuzzleEffect = new PropertyGetInstantiate();
 
         [SerializeField] private EnablerFloat m_Force = new EnablerFloat(false, 10f);
+        [SerializeField] private PropertyGetDecimal m_Power = GetDecimalConstantOne.Create;
+        
+        [SerializeField] private PropertyGetAudio m_BlockedAudio = GetAudioNone.Create;
+        [SerializeField] private PropertyGetAudio m_ParriedAudio = GetAudioNone.Create;
         
         // PROPERTIES: ----------------------------------------------------------------------------
 
@@ -121,6 +125,12 @@ namespace GameCreator.Runtime.Shooter
         public float LoadMaxPitch(Args args) => (float) this.m_LoadMaxPitch.Get(args);
         
         public GameObject MuzzleEffect(Args args) => this.m_MuzzleEffect.Get(args);
+
+        public double Power(Args args) => this.m_Power.Get(args);
+        
+        public AudioClip BlockedAudio(Args args) => this.m_BlockedAudio.Get(args);
+        
+        public AudioClip ParriedAudio(Args args) => this.m_ParriedAudio.Get(args);
         
         // GIZMOS: --------------------------------------------------------------------------------
         

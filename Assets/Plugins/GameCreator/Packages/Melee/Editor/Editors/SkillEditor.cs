@@ -44,9 +44,9 @@ namespace GameCreator.Editor.Melee
         }
 
         [OnOpenAsset]
-        public static bool OpenSkillExecute(int instanceID, int line)
+        public static bool OpenSkillExecute(EntityId entityId, int line)
         {
-            Skill skill = EditorUtility.InstanceIDToObject(instanceID) as Skill;
+            Skill skill = EditorUtility.EntityIdToObject(entityId) as Skill;
             if (skill == null) return false;
 
             if (SkillConfigurationStage.InStage) StageUtility.GoToMainStage();

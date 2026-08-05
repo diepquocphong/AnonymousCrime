@@ -9,7 +9,7 @@ namespace GameCreator.Runtime.Shooter
     {
         // EXPOSED MEMBERS: -----------------------------------------------------------------------
         
-        [SerializeReference] private TBiomechanics m_Value = new BiomechanicsHumanIK();
+        [SerializeReference] private TBiomechanics m_Value = new BiomechanicsHumanFPS();
 
         // PROPERTIES: ----------------------------------------------------------------------------
         

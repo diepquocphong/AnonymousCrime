@@ -14,11 +14,13 @@ namespace GameCreator.Runtime.Shooter
     public class BiomechanicsNone : TBiomechanics
     {
         // PROPERTIES: ----------------------------------------------------------------------------
-        
+
+        public override bool UseKinematics => false;
+
         public override THumanRotations HumanBonesPitch => null;
         public override THumanRotations HumanBonesYaw => null;
         public override THumanRotations HumanBonesLean => null;
-
+        
         public override HumanRecoil HumanRecoil => null;
         public override HumanFreeHand HumanFreeHand => null;
 

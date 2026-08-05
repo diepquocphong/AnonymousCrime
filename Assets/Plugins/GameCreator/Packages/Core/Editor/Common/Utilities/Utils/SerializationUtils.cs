@@ -191,12 +191,12 @@ namespace GameCreator.Editor.Common
 
         public static void SetManaged(this SerializedProperty property, object value)
         {
-            property.managedReferenceValue = value;
+            property.boxedValue = value;
         }
-        
+
         public static void SetValue<T>(this SerializedProperty property, T value)
         {
-            property.managedReferenceValue = value;
+            property.boxedValue = value;
         }
     }
 }

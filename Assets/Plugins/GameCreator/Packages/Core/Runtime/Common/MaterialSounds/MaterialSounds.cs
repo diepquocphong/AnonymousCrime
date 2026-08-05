@@ -383,6 +383,8 @@ namespace GameCreator.Runtime.Common
 
             foreach (MaterialSoundTexture material in materialSounds.MaterialSounds.MaterialSounds)
             {
+                if (material.Texture != texture) continue;
+                
                 AudioClip audioClip = material.Audio;
                 if (audioClip == null) return;
                 

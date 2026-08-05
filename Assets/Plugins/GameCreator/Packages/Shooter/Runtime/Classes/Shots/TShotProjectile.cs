@@ -15,10 +15,10 @@ namespace GameCreator.Runtime.Shooter
         
         // RUN METHOD: ----------------------------------------------------------------------------
         
-        public override bool Run(
-            Args args,
+        public override bool Run(Args args,
             ShooterWeapon weapon,
-            MaterialSoundsAsset impact,
+            MaterialSoundsAsset impactSound,
+            PropertyGetInstantiate impactEffect,
             float chargeRatio,
             float pullTime)
         {
@@ -52,7 +52,8 @@ namespace GameCreator.Runtime.Shooter
                     prop,
                     muzzle.Position,
                     spreadDirection,
-                    impact,
+                    impactSound,
+                    impactEffect,
                     i == 0 ? cartridgesUsed : 0,
                     chargeRatio,
                     (float) this.m_Delay.Get(weaponData.WeaponArgs),
