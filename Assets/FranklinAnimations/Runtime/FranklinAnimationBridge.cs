@@ -192,6 +192,8 @@ namespace FranklinGame.Animations
                                         this.m_HasForwardSprintInput &&
                                         this.m_IsRunCameraAligned;
 
+        public bool IsExternalAnimationLocked => this.m_IsExternalAnimationLocked;
+
         /// <summary>
         /// Lets a touch HUD request GC2's light jog without simulating a keyboard device.
         /// </summary>
@@ -415,6 +417,15 @@ namespace FranklinGame.Animations
         private void UpdateJumpInput()
         {
             if (this.m_Keyboard?.spaceKey.wasPressedThisFrame != true) return;
+            this.RequestVirtualJump();
+        }
+
+        /// <summary>
+        /// Requests one jump from the mobile HUD. GC2 still enforces grounded state and cooldown.
+        /// </summary>
+        public void RequestVirtualJump()
+        {
+            if (this.m_IsExternalAnimationLocked) return;
             if (this.m_Character?.Motion == null || this.m_Character.Jump == null) return;
 
             // Convert the requested apex height to GC2's launch velocity. GC2 still decides
@@ -520,11 +531,12 @@ namespace FranklinGame.Animations
 
             bool canJog = this.m_Character?.Driver?.IsGrounded == true &&
                           this.m_Character.Motion?.IsJumping != true;
+            VirtualAutoRunMode autoRunMode = this.GetVirtualAutoRunMode();
             // After taking damage, Jog is the temporary baseline for both keyboard and mobile
             // joystick input. Outside danger mode, only held Shift requests the GC2 Run state.
             bool wantsJog = canJog && (this.m_IsHealthDanger ||
                                         this.m_VirtualJogHeld ||
-                                        this.m_VirtualAutoRunMode == VirtualAutoRunMode.Jog ||
+                                        autoRunMode == VirtualAutoRunMode.Jog ||
                                         this.m_Keyboard?.leftShiftKey.isPressed == true);
             if (wantsJog == this.m_IsJogging) return;
 
@@ -597,14 +609,16 @@ namespace FranklinGame.Animations
 
         private bool HasSprintRequest()
         {
+            VirtualAutoRunMode autoRunMode = this.GetVirtualAutoRunMode();
+
             // Danger mode intentionally simplifies locomotion: Jog by default, Sprint on a
             // held Left Shift. The normal GTA-style repeated-tap requirement resumes once safe.
             return this.m_IsHealthDanger
                 ? this.m_VirtualSprintHeld ||
-                  this.m_VirtualAutoRunMode == VirtualAutoRunMode.Sprint ||
+                  autoRunMode == VirtualAutoRunMode.Sprint ||
                   this.m_Keyboard?.leftShiftKey.isPressed == true
                 : this.m_VirtualSprintHeld ||
-                  this.m_VirtualAutoRunMode == VirtualAutoRunMode.Sprint ||
+                  autoRunMode == VirtualAutoRunMode.Sprint ||
                   this.IsSprintTapSequenceActive();
         }
 
@@ -685,7 +699,7 @@ namespace FranklinGame.Animations
 
         private bool HasMovementInput()
         {
-            if (this.m_VirtualAutoRunMode != VirtualAutoRunMode.None) return true;
+            if (this.GetVirtualAutoRunMode() != VirtualAutoRunMode.None) return true;
             if (this.m_Character?.Player == null) return false;
 
             Vector3 inputDirection = this.m_Character.Player.InputDirection;
@@ -760,7 +774,7 @@ namespace FranklinGame.Animations
 
             bool canRun = this.m_Character?.Driver?.IsGrounded == true &&
                           this.m_Character.Motion?.IsJumping != true;
-            bool hasAutoRun = this.m_VirtualAutoRunMode != VirtualAutoRunMode.None;
+            bool hasAutoRun = this.GetVirtualAutoRunMode() != VirtualAutoRunMode.None;
             bool requestsSprint = this.HasSprintRequest();
             if (!canRun || (!hasAutoRun && !requestsSprint) ||
                 !this.TryGetRunCameraForward(out Vector3 cameraForward))
@@ -807,8 +821,18 @@ namespace FranklinGame.Animations
 
         private bool TryGetAutoRunInput(out float inputStrength)
         {
-            inputStrength = this.m_VirtualAutoRunMode == VirtualAutoRunMode.None ? 0f : 1f;
+            inputStrength = this.GetVirtualAutoRunMode() == VirtualAutoRunMode.None ? 0f : 1f;
             return inputStrength > 0f;
+        }
+
+        private VirtualAutoRunMode GetVirtualAutoRunMode()
+        {
+            // Hold controls have priority over the optional persistent auto-run choice. This
+            // makes the HUD buttons work as immediate, hold-to-run actions: Sprint wins when
+            // both fingers are down; releasing either button restores the remaining selection.
+            if (this.m_VirtualSprintHeld) return VirtualAutoRunMode.Sprint;
+            if (this.m_VirtualJogHeld) return VirtualAutoRunMode.Jog;
+            return this.m_VirtualAutoRunMode;
         }
 
         private bool TryGetForwardSprintInput(out float inputStrength, Vector3 cameraForward)

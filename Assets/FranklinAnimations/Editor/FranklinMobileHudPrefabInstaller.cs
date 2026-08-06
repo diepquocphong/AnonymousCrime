@@ -49,6 +49,8 @@ namespace FranklinGame.UI.Editor
                 new Vector2(-305f, 170f), new Vector2(165f, 165f)),
             new("Sprint", "player-movement-1", 1, new Vector2(1f, 0f),
                 new Vector2(-130f, 195f), new Vector2(215f, 215f)),
+            new("Jump", "player-jump", 8, new Vector2(1f, 0f),
+                new Vector2(-505f, 170f), new Vector2(165f, 165f)),
             new("Enter Vehicle", "vehicle-enter", 7, new Vector2(1f, 0.5f),
                 new Vector2(-90f, 0f), new Vector2(125f, 125f))
         };
@@ -137,6 +139,7 @@ namespace FranklinGame.UI.Editor
             return canvas.GetComponent<FranklinMobileHud>() != null &&
                    root.Find(ON_FOOT_GROUP) != null &&
                    root.Find(VEHICLE_GROUP) != null &&
+                   HasButton(root.Find(ON_FOOT_GROUP), "Jump") &&
                    HasButton(root.Find(ON_FOOT_GROUP), "Enter Vehicle") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Exit Vehicle");
         }

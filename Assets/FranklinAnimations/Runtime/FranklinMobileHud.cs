@@ -25,8 +25,6 @@ namespace FranklinGame.UI
         private RectTransform m_OnFootGroup;
         private RectTransform m_VehicleGroup;
         private GameObject m_EnterVehicleButton;
-        private FranklinHudButton m_JogButton;
-        private FranklinHudButton m_SprintButton;
         private FranklinAnimationBridge m_MovementBridge;
         private FranklinVehicleInteractionManager m_VehicleInteraction;
         private SimcadeCarDriver m_ActiveDriver;
@@ -117,18 +115,13 @@ namespace FranklinGame.UI
             switch (action)
             {
                 case FranklinHudAction.Jog:
-                    if (active)
-                    {
-                        this.m_MovementBridge?.ToggleVirtualJogAutoRun();
-                        this.m_SprintButton?.SetToggledVisual(false);
-                    }
+                    this.m_MovementBridge?.SetVirtualJogInput(active);
                     break;
                 case FranklinHudAction.Sprint:
-                    if (active)
-                    {
-                        this.m_MovementBridge?.ToggleVirtualSprintAutoRun();
-                        this.m_JogButton?.SetToggledVisual(false);
-                    }
+                    this.m_MovementBridge?.SetVirtualSprintInput(active);
+                    break;
+                case FranklinHudAction.Jump:
+                    if (active) this.m_MovementBridge?.RequestVirtualJump();
                     break;
                 case FranklinHudAction.SteerLeft:
                     this.m_ActiveDriver?.SetVirtualSteerLeftInput(active);
@@ -180,7 +173,7 @@ namespace FranklinGame.UI
             this.m_OnFootGroup = this.CreateGroup("On Foot Controls", canvasRect);
             this.m_VehicleGroup = this.CreateGroup("Vehicle Controls", canvasRect);
 
-            this.m_JogButton = this.CreateButton(
+            this.CreateButton(
                 this.m_OnFootGroup,
                 "Jog",
                 "player-movement-0",
@@ -189,7 +182,7 @@ namespace FranklinGame.UI
                 new Vector2(-305f, 170f),
                 new Vector2(165f, 165f)
             );
-            this.m_SprintButton = this.CreateButton(
+            this.CreateButton(
                 this.m_OnFootGroup,
                 "Sprint",
                 "player-movement-1",
@@ -197,6 +190,15 @@ namespace FranklinGame.UI
                 new Vector2(1f, 0f),
                 new Vector2(-130f, 195f),
                 new Vector2(215f, 215f)
+            );
+            this.CreateButton(
+                this.m_OnFootGroup,
+                "Jump",
+                "player-jump",
+                FranklinHudAction.Jump,
+                new Vector2(1f, 0f),
+                new Vector2(-505f, 170f),
+                new Vector2(165f, 165f)
             );
             this.m_EnterVehicleButton = this.CreateButton(
                 this.m_OnFootGroup,
@@ -278,11 +280,9 @@ namespace FranklinGame.UI
             this.m_OnFootGroup = onFoot;
             this.m_VehicleGroup = vehicle;
             this.m_EnterVehicleButton = FindChild("Enter Vehicle")?.gameObject;
-            this.m_JogButton = FindButton("Jog");
-            this.m_SprintButton = FindButton("Sprint");
 
-            if (this.m_EnterVehicleButton == null || this.m_JogButton == null ||
-                this.m_SprintButton == null)
+            if (this.m_EnterVehicleButton == null || FindButton("Jog") == null ||
+                FindButton("Sprint") == null || FindButton("Jump") == null)
             {
                 return false;
             }
@@ -491,8 +491,6 @@ namespace FranklinGame.UI
             this.m_MovementBridge?.SetVirtualJogInput(false);
             this.m_MovementBridge?.SetVirtualSprintInput(false);
             this.m_MovementBridge?.StopVirtualAutoRun();
-            this.m_JogButton?.SetToggledVisual(false);
-            this.m_SprintButton?.SetToggledVisual(false);
         }
 
         private void ReleaseVehicleInputs(SimcadeCarDriver driver)
@@ -527,7 +525,8 @@ namespace FranklinGame.UI
         Accelerate,
         BrakeReverse,
         Handbrake,
-        VehicleInteraction
+        VehicleInteraction,
+        Jump
     }
 
 }

@@ -21,8 +21,6 @@ namespace FranklinGame.UI
         [SerializeField] private FranklinHudAction m_Action;
         [SerializeField] private Image m_Image;
         private bool m_IsPressed;
-        private bool m_IsToggle;
-        private bool m_IsToggled;
 
         internal void Initialize(
             FranklinMobileHud hud,
@@ -38,21 +36,11 @@ namespace FranklinGame.UI
         {
             this.m_Hud = hud;
             if (this.m_Image == null) this.m_Image = this.GetComponent<Image>();
-            this.m_IsToggle = this.m_Action == FranklinHudAction.Jog ||
-                              this.m_Action == FranklinHudAction.Sprint;
             this.SetVisual(false);
         }
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            if (this.m_IsToggle)
-            {
-                this.m_IsToggled = !this.m_IsToggled;
-                this.SetVisual(this.m_IsToggled);
-                this.m_Hud?.SetAction(this.m_Action, true);
-                return;
-            }
-
             if (this.m_IsPressed) return;
             this.m_IsPressed = true;
             this.SetVisual(true);
@@ -71,16 +59,8 @@ namespace FranklinGame.UI
 
         private void OnDisable()
         {
-            this.m_IsToggled = false;
             this.Release();
             this.SetVisual(false);
-        }
-
-        internal void SetToggledVisual(bool isToggled)
-        {
-            if (!this.m_IsToggle) return;
-            this.m_IsToggled = isToggled;
-            this.SetVisual(isToggled);
         }
 
         private void Release()

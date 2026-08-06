@@ -1787,6 +1787,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5232497071453331672}
   - component: {fileID: 7093607615885551950}
+  - component: {fileID: 4612085941438927001}
   - component: {fileID: 7778753513856544495}
   m_Layer: 0
   m_Name: ManagerMove
@@ -1862,6 +1863,29 @@ MonoBehaviour:
   m_IdleVariationDelayMax: 11
   m_TransitionIn: 0.12
   m_TransitionOut: 0.16
+--- !u!114 &4612085941438927001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7186542646712343973}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da3f6e0d1a2c4b7ea4c92d7f8b15e6a1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Animations.FranklinCameraHeadLook
+  m_Player: {fileID: 2818276778289055273}
+  m_CameraOverride: {fileID: 0}
+  m_OnlyWhileCameraOrbiting: 1
+  m_MinOrbitSpeed: 1
+  m_KeepLookingTime: 1.15
+  m_LookDistance: 8
+  m_FollowSmoothTime: 0.38
+  m_MaxYaw: 55
+  m_MaxUpPitch: 18
+  m_MaxDownPitch: 12
+  m_LookPriority: -10
 --- !u!114 &7778753513856544495
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2031,8 +2055,6 @@ MonoBehaviour:
   m_Player: {fileID: 2818276778289055273}
   m_MovementBridge: {fileID: 7093607615885551950}
   m_DelayDrivingIdleUntilEntryFinishes: 1
-  m_SimcadeCarFallbackRadius: 6
-  m_SimcadeCarDirectEntryRadius: 2.5
   m_UseVehicleCamera: 1
   m_VehicleShotPrefab: {fileID: 0}
   m_VehicleCameraEnterBlend: 2.5
