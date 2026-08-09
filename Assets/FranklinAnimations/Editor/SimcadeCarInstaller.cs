@@ -26,6 +26,10 @@ namespace FranklinGame.Vehicles.Editor
             "Assets/Ash Assets/Sim-Cade Vehicle Physics/Audios/Engines/simple rev.wav";
         private const string GearAudioPath =
             "Assets/Ash Assets/Sim-Cade Vehicle Physics/Audios/Car Gear switch 2.wav";
+        private const string MovingExitAnimationPath =
+            "Assets/FranklinAnimations/Animations/Vehicles/CarExitMoving_L.anim";
+        private const string MovingExitLandingAnimationPath =
+            "Assets/FranklinAnimations/Animations/Vehicles/CarExitLanding_L.anim";
 
         static SimcadeCarInstaller()
         {
@@ -41,11 +45,21 @@ namespace FranklinGame.Vehicles.Editor
             GameObject mobileInput = AssetDatabase.LoadAssetAtPath<GameObject>(MobileInputPath);
             AudioClip engineClip = AssetDatabase.LoadAssetAtPath<AudioClip>(EngineAudioPath);
             AudioClip gearClip = AssetDatabase.LoadAssetAtPath<AudioClip>(GearAudioPath);
+            AnimationClip movingExit = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                MovingExitAnimationPath
+            );
+            AnimationClip movingExitLanding = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                MovingExitLandingAnimationPath
+            );
 
             if (carAsset == null) throw new InvalidOperationException($"Missing car prefab: {CarPrefabPath}");
             if (presetAsset == null) throw new InvalidOperationException($"Missing Sim-Cade preset: {SedanPresetPath}");
             if (chaseCamera == null) throw new InvalidOperationException($"Missing Sim-Cade chase camera: {ChaseCameraPath}");
             if (mobileInput == null) throw new InvalidOperationException($"Missing Sim-Cade mobile UI: {MobileInputPath}");
+            if (movingExit == null || movingExitLanding == null)
+                throw new InvalidOperationException(
+                    "Moving-car exit animations are missing from FranklinAnimations"
+                );
 
             GameObject presetRoot = PrefabUtility.LoadPrefabContents(SedanPresetPath);
             GameObject carRoot = PrefabUtility.LoadPrefabContents(CarPrefabPath);
@@ -155,6 +169,8 @@ namespace FranklinGame.Vehicles.Editor
                     // Door, character entry/exit clips, seat and IK remain on CarEntry.
                     // Its former HUD instructions belonged to the removed RVR controller.
                     EnsureEntryAlignmentAnchors(carRoot, entry);
+                    entry.movingExitAnimation = movingExit;
+                    entry.movingExitLandingAnimation = movingExitLanding;
                     entry.onEnter = new InstructionList();
                     entry.onExit = new InstructionList();
                 }
@@ -218,10 +234,12 @@ namespace FranklinGame.Vehicles.Editor
             }
 
             if (entry == null || entry.doorTransform == null ||
-                entry.entryAnimation == null || entry.exitAnimation == null)
+                entry.entryAnimation == null || entry.exitAnimation == null ||
+                entry.movingExitAnimation == null ||
+                entry.movingExitLandingAnimation == null)
             {
                 throw new InvalidOperationException(
-                    "CarEntry door or character entry/exit animation references were lost"
+                    "CarEntry door, normal exit or moving-car exit animations are not assigned"
                 );
             }
 

@@ -68,7 +68,29 @@ public class CarEntryEditor : Editor
             "entryAnimationTransitionOut",
             "exitAnimationTransitionIn",
             "exitAnimationTransitionOut",
+            "entryAnimationSpeed",
+            "exitAnimationSpeed",
             "useRootMotion"
+        }));
+
+        root.Add(Spacer());
+        root.Add(MakeFoldout("Speed Aware Exit", true, new[]
+        {
+            "movingExitAnimation",
+            "movingExitLandingAnimation",
+            "fastExitSpeedKph",
+            "stoppedExitSpeedKph",
+            "exitStopTimeout",
+            "movingExitAnimationSpeed",
+            "movingExitLandingSpeed",
+            "movingExitDoorLeadTime",
+            "movingExitLandingClipDuration",
+            "movingExitInheritedVelocity",
+            "movingExitLateralSpeed",
+            "movingExitUpwardSpeed",
+            "movingExitTransientDuration",
+            "movingExitTransientFade",
+            "movingExitClearance"
         }));
 
         root.Add(Spacer());
@@ -108,6 +130,10 @@ public class CarEntryEditor : Editor
             "alignCharacterToStandingPoint",
             "useAuthoredEntryPath",
             "entryStepNormalizedTime",
+            "entryApproachStopDistance",
+            "entryApproachTimeout",
+            "entryApproachAlignmentDuration",
+            "entryApproachMotionPriority",
             "entryParent",
             "entrySeatAlignmentStart",
             "entrySeatAlignmentSharpness"

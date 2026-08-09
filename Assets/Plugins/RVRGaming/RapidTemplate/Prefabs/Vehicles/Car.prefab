@@ -382,7 +382,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e2912f38526d541c098dbcef2fe9fab2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Target:
     m_Property:
@@ -433,7 +433,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Instructions:
     m_Instructions:
@@ -609,7 +609,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Instructions:
     m_Instructions:
@@ -686,7 +686,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Instructions:
     m_Instructions:
@@ -764,7 +764,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Instructions:
     m_Instructions:
@@ -842,7 +842,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Instructions:
     m_Instructions:
@@ -1015,7 +1015,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 721fb82976bce47f38247178301b66c1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Branches:
     m_Branches:
@@ -1738,6 +1738,7 @@ GameObject:
   - component: {fileID: 6764596126617352001}
   - component: {fileID: 5638316691754358680}
   - component: {fileID: 3419928902034986279}
+  - component: {fileID: 1948572191909641474}
   m_Layer: 0
   m_Name: Car
   m_TagString: Player
@@ -1807,6 +1808,7 @@ Transform:
   - {fileID: 7804284713319953939}
   - {fileID: 1587646431451906253}
   - {fileID: 1845719793634410833}
+  - {fileID: 7422403928226389635}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &2366635193457452804
@@ -1867,7 +1869,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d926907fa96a9384fb25640d45411859, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   frontLight1: {fileID: 8107360818502185862}
   frontLight2: {fileID: 3421256138305761529}
@@ -1888,21 +1890,38 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 97b4d1b527339af48913b69b89bdd1fa, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   entryAnimation: {fileID: 7400000, guid: bf86a80223202694d9bd6e8c6a9a442b, type: 2}
   exitAnimation: {fileID: 7400000, guid: e4ed41c68e3bcf04c990df32c727ed75, type: 2}
   animationMask: {fileID: 0}
-  entryAnimationTransitionIn: 0.2
-  entryAnimationTransitionOut: 0
-  exitAnimationTransitionIn: 0
-  exitAnimationTransitionOut: 0.2
+  entryAnimationTransitionIn: 0.06
+  entryAnimationTransitionOut: 0.12
+  exitAnimationTransitionIn: 0.06
+  exitAnimationTransitionOut: 0.12
+  entryAnimationSpeed: 1.7
+  exitAnimationSpeed: 1.7
   useRootMotion: 1
+  movingExitAnimation: {fileID: 7400000, guid: 4c5e1215e2104466786329efdb32cb9c, type: 2}
+  movingExitLandingAnimation: {fileID: 7400000, guid: e14bcc8b7f1474a4eb1f3cbf912b340e, type: 2}
+  fastExitSpeedKph: 28
+  stoppedExitSpeedKph: 0.8
+  exitStopTimeout: 6
+  movingExitAnimationSpeed: 1.75
+  movingExitLandingSpeed: 1.9
+  movingExitDoorLeadTime: 0.18
+  movingExitLandingClipDuration: 1.6
+  movingExitInheritedVelocity: 0.55
+  movingExitLateralSpeed: 2.8
+  movingExitUpwardSpeed: 1.2
+  movingExitTransientDuration: 0.45
+  movingExitTransientFade: 0.75
+  movingExitClearance: 0.25
   doorTransform: {fileID: 106341504346761971}
   doorOpenRotation: {x: 10.14, y: 57.21, z: 0}
-  doorRotationDuration: 0.5
-  doorRotationStartDelay: 0.2
-  doorResetDelay: 1.5
+  doorRotationDuration: 0.32
+  doorRotationStartDelay: 0.1
+  doorResetDelay: 0.65
   doorHandleTarget: {fileID: 5747749612008314108}
   doorHandleHand: 2
   doorHandleIKWeight: 1
@@ -2007,6 +2026,10 @@ MonoBehaviour:
   alignCharacterToStandingPoint: 1
   useAuthoredEntryPath: 1
   entryStepNormalizedTime: 0.52
+  entryApproachStopDistance: 0.15
+  entryApproachTimeout: 4
+  entryApproachAlignmentDuration: 0.12
+  entryApproachMotionPriority: 10
   steeringWheelLeftHandTarget: {fileID: 5693327446266848955}
   steeringWheelRightHandTarget: {fileID: 1099088008351007637}
   leftHandIKWeight: 1
@@ -2034,7 +2057,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3c924eacff884626a5aa4c90cf311c23, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Class: {fileID: 11400000, guid: 15ec02fce9653eb4ab4d74884daf28fa, type: 2}
   m_OverrideAttributes:
@@ -2073,7 +2096,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 228805c2cfb68164680169bec503f811, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   springForce: 40000
   springDamper: 3000
@@ -2307,7 +2330,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ad36e637430f1b140875f8bfae33182c, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   engineSound: {fileID: 7932575407493897519}
   GearSound: {fileID: 7419506933404399413}
@@ -2323,7 +2346,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 266f8bf93a4c57c44b362c816d29049c, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   VehicleSpeed: 0
   currentGear: 0
@@ -2340,7 +2363,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48a1db5545d024f03b44b7ee56b67e64, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Vehicles.SimcadeCarDriver
   m_Controller: {fileID: 4596240358959118080}
   m_GearSystem: {fileID: 5638316691754358680}
@@ -2348,6 +2371,11 @@ MonoBehaviour:
   m_AccelerationResponse: 15
   m_SteeringResponse: 15
   m_SteeringReturnResponse: 25
+  m_SlowModeMaxSpeedKph: 18
+  m_SlowThrottle: 0.35
+  m_SlowThrottleTaperStart: 0.65
+  m_ExitStopDeceleration: 14
+  m_CoastingParkingSpeedKph: 2
   m_SteeringWheel: {fileID: 828204137598588610}
   m_SteeringWheelMaxAngle: 360
   m_SteeringWheelResponse: 15
@@ -2366,6 +2394,144 @@ MonoBehaviour:
   m_MobileInputPrefab: {fileID: 1949208663535683518, guid: 9889818cb0b9d384cbda300852615f57, type: 3}
   m_UseMobileInput: 1
   m_ShowMobileInputInEditor: 1
+--- !u!114 &1948572191909641474
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1012201392339528721}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99ef06a7d0dc04a4299c9abb4078063a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Vehicles.SimcadeCarjacking
+  m_CarEntry: {fileID: 2869051609714795022}
+  m_NpcDriverPrefab: {fileID: 5364405789980172438, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+  m_SpawnNpcDriverOnStart: 1
+  m_AttackerKickOut: {fileID: 7400000, guid: d00bb9229304943149220dd612e81fc0, type: 2}
+  m_VictimGetKickedOut: {fileID: 7400000, guid: 5a2f516ffc25e496c80cefdfe0cb7c42, type: 2}
+  m_VictimLandingPoint: {fileID: 7422403928226389635}
+  m_TransitionIn: 0.05
+  m_TransitionOut: 0.1
+  m_CarjackingAnimationSpeed: 1.7
+  m_EnterHandoffNormalizedTime: 0.78
+  m_PrimaryGrabIKWeight:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.2
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.92
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  m_SecondaryGrabIKWeight:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.2
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.34
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 0.5
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  m_NeckGrabSurfaceOffset: 0.06
+  m_ShoulderGrabSurfaceOffset: 0.045
+  m_MaxGrabReach: 1.35
+  m_MaxPullYawFromEntry: 55
+  m_PullFacingSharpness: 18
 --- !u!1 &1128668091853653028
 GameObject:
   m_ObjectHideFlags: 0
@@ -2543,7 +2709,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0, g: 0, b: 0, a: 0.3137255}
@@ -2618,7 +2784,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.764151, g: 0.764151, b: 0.764151, a: 0.78431374}
@@ -2909,7 +3075,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 239324a37fe043188a0191ff01c81fd1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Target:
     m_Property:
@@ -2975,7 +3141,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Instructions:
     m_Instructions:
@@ -3150,7 +3316,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Instructions:
     m_Instructions:
@@ -3802,7 +3968,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 721fb82976bce47f38247178301b66c1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Branches:
     m_Branches:
@@ -4546,7 +4712,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
@@ -4883,7 +5049,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8b01c4c6ab8f24302816449b24f62efc, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_StopDistance: 0.01
   m_MarkerType:
@@ -4952,7 +5118,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -5441,7 +5607,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.9622642, g: 0.8900787, b: 0.5855287, a: 1}
@@ -5664,7 +5830,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
@@ -6083,7 +6249,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 47425a7bbe224e69874b500860abf565, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -7086,7 +7252,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0, g: 0, b: 0, a: 0.3137255}
@@ -7470,7 +7636,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 239324a37fe043188a0191ff01c81fd1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Target:
     m_Property:
@@ -7536,7 +7702,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Instructions:
     m_Instructions:
@@ -7619,7 +7785,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 721fb82976bce47f38247178301b66c1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Branches:
     m_Branches:
@@ -8209,7 +8375,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
@@ -8232,7 +8398,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_IgnoreReversedGraphics: 1
   m_BlockingObjects: 0
@@ -8249,7 +8415,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Instructions:
     m_Instructions:
@@ -8356,7 +8522,7 @@ Transform:
   - {fileID: 4050909396274651877}
   - {fileID: 5747749612008314108}
   m_Father: {fileID: 3151071797122099942}
-  m_LocalEulerAnglesHint: {x: 10.140001, y: 57.21, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6465953309349519115
 GameObject:
   m_ObjectHideFlags: 0
@@ -9101,7 +9267,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 721fb82976bce47f38247178301b66c1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Branches:
     m_Branches:
@@ -9805,6 +9971,37 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &7860581197297312297
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7422403928226389635}
+  m_Layer: 0
+  m_Name: Carjack Victim Landing Point
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7422403928226389635
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7860581197297312297}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: -2.7, y: 0.17999995, z: 0.59000003}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6475209126892533336}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7969242467446929364
 GameObject:
   m_ObjectHideFlags: 0
@@ -10032,7 +10229,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 721fb82976bce47f38247178301b66c1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Branches:
     m_Branches:
@@ -10218,7 +10415,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 0.764151, g: 0.764151, b: 0.764151, a: 0.78431374}
@@ -10777,7 +10974,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -10929,7 +11126,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 721fb82976bce47f38247178301b66c1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Branches:
     m_Branches:

@@ -65,6 +65,9 @@ namespace FranklinGame.Animations
         [SerializeField, Range(0f, 45f)]
         [Tooltip("Maximum yaw error in degrees before sprint movement and Max Yaw can begin")]
         private float m_RunCameraAlignmentAngle = 8f;
+        [SerializeField, Range(0f, 0.5f)]
+        [Tooltip("Smooths camera-orbit direction before it steers held Jog/Sprint. Zero follows instantly")]
+        private float m_RunCameraDirectionSmoothTime = 0.08f;
 
         [Header("Damage locomotion")]
         [SerializeField]
@@ -162,6 +165,8 @@ namespace FranklinGame.Animations
         private bool m_HasForwardSprintInput;
         private bool m_IsRunCameraAligned;
         private bool m_HasSprintCameraMotionControl;
+        private bool m_HasSmoothedRunCameraDirection;
+        private Vector3 m_SmoothedRunCameraDirection;
         private bool m_HasDisabledSprintRootMotionRotation;
         private bool m_IsExternalAnimationLocked;
         private int m_RunCameraFacingLayer = -1;
@@ -169,6 +174,7 @@ namespace FranklinGame.Animations
         private bool m_UseLeftJump;
         private AnimationClip m_ActiveCustomGesture;
         private float m_ActiveCustomGestureUntil;
+        private bool m_IsIdleGestureActive;
         private bool m_HasWarnedMissingTransitionRootMotion;
 
         public float JumpHeight
@@ -189,8 +195,9 @@ namespace FranklinGame.Animations
 
         public bool IsSprintRunning => this.m_IsSprinting &&
                                         this.m_HasSprintMovement &&
-                                        this.m_HasForwardSprintInput &&
-                                        this.m_IsRunCameraAligned;
+                                        this.m_HasForwardSprintInput;
+
+        public bool IsRunCameraAligned => this.m_IsRunCameraAligned;
 
         public bool IsExternalAnimationLocked => this.m_IsExternalAnimationLocked;
 
@@ -315,6 +322,11 @@ namespace FranklinGame.Animations
             this.m_DamageJogDuration = Mathf.Max(0.1f, this.m_DamageJogDuration);
             this.m_RunForwardInputThreshold = Mathf.Clamp01(this.m_RunForwardInputThreshold);
             this.m_RunCameraAlignmentAngle = Mathf.Clamp(this.m_RunCameraAlignmentAngle, 0f, 45f);
+            this.m_RunCameraDirectionSmoothTime = Mathf.Clamp(
+                this.m_RunCameraDirectionSmoothTime,
+                0f,
+                0.5f
+            );
             this.RefreshRuntimeCaches();
             this.m_JumpHeight = Mathf.Max(0.05f, this.m_JumpHeight);
             this.m_RunStartAccelerationTime = Mathf.Max(0f, this.m_RunStartAccelerationTime);
@@ -384,6 +396,7 @@ namespace FranklinGame.Animations
 
             this.UpdateJumpInput();
             this.UpdateHealthDanger();
+            this.UpdateIdleGestureInterruption();
             this.UpdateSprintTapInput();
             this.UpdateSprintCameraDirection();
             this.UpdateSprint();
@@ -711,7 +724,9 @@ namespace FranklinGame.Animations
         {
             if (this.m_Character?.Driver == null || this.m_Character.Motion == null) return;
 
-            bool hasMovementInput = this.m_HasForwardSprintInput && this.m_IsRunCameraAligned;
+            // Alignment only gates the initial Sprint start. Once running, camera orbit must
+            // not repeatedly fire Run Stop/Run Start while the body catches up with the camera.
+            bool hasMovementInput = this.m_HasForwardSprintInput;
 
             if (this.m_IsSprinting)
             {
@@ -783,10 +798,12 @@ namespace FranklinGame.Animations
                 return;
             }
 
+            Vector3 runCameraDirection = this.SmoothRunCameraDirection(cameraForward);
+
             float inputStrength = 0f;
             bool hasForwardMovement = hasAutoRun
                 ? this.TryGetAutoRunInput(out inputStrength)
-                : this.TryGetForwardSprintInput(out inputStrength, cameraForward);
+                : this.TryGetForwardSprintInput(out inputStrength, runCameraDirection);
             if (!hasForwardMovement)
             {
                 this.ReleaseSprintCameraDirection();
@@ -800,7 +817,7 @@ namespace FranklinGame.Animations
             {
                 this.m_RunCameraFacingLayer = this.m_Character.Facing.SetLayerDirection(
                     this.m_RunCameraFacingLayer,
-                    cameraForward,
+                    runCameraDirection,
                     false
                 );
             }
@@ -809,14 +826,49 @@ namespace FranklinGame.Animations
             // inverse-cosine calculation on every sprint frame.
             this.m_IsRunCameraAligned = Vector3.Dot(
                 this.m_CharacterTransform.forward,
-                cameraForward
+                runCameraDirection
             ) >= this.m_RunCameraAlignmentDot;
 
-            Vector3 velocity = this.m_IsRunCameraAligned
-                ? cameraForward * (this.m_Character.Motion.LinearSpeed * inputStrength)
-                : Vector3.zero;
+            // Keep locomotion continuous while the facing layer smoothly rotates the body.
+            // Sending zero velocity here made Jog/Sprint stutter whenever orbit temporarily
+            // moved the camera beyond the alignment threshold.
+            Vector3 velocity = runCameraDirection *
+                               (this.m_Character.Motion.LinearSpeed * inputStrength);
             this.m_Character.Motion.MoveToDirection(velocity, Space.World, 1);
             this.m_HasSprintCameraMotionControl = true;
+        }
+
+        private Vector3 SmoothRunCameraDirection(Vector3 cameraForward)
+        {
+            if (!this.m_HasSmoothedRunCameraDirection ||
+                this.m_RunCameraDirectionSmoothTime <= float.Epsilon)
+            {
+                this.m_SmoothedRunCameraDirection = cameraForward;
+                this.m_HasSmoothedRunCameraDirection = true;
+                return cameraForward;
+            }
+
+            // Exponential smoothing is frame-rate independent and requires no allocations.
+            // It removes touch/orbit jitter while preserving the camera as the sole run heading.
+            float blend = 1f - Mathf.Exp(
+                -UnityEngine.Time.deltaTime / this.m_RunCameraDirectionSmoothTime
+            );
+            this.m_SmoothedRunCameraDirection = Vector3.Slerp(
+                this.m_SmoothedRunCameraDirection,
+                cameraForward,
+                blend
+            );
+
+            if (this.m_SmoothedRunCameraDirection.sqrMagnitude <= float.Epsilon)
+            {
+                this.m_SmoothedRunCameraDirection = cameraForward;
+            }
+            else
+            {
+                this.m_SmoothedRunCameraDirection.Normalize();
+            }
+
+            return this.m_SmoothedRunCameraDirection;
         }
 
         private bool TryGetAutoRunInput(out float inputStrength)
@@ -891,6 +943,9 @@ namespace FranklinGame.Animations
 
         private void ReleaseSprintCameraDirection()
         {
+            this.m_HasSmoothedRunCameraDirection = false;
+            this.m_SmoothedRunCameraDirection = Vector3.zero;
+
             if (this.m_RunCameraFacingLayer < 0 &&
                 !this.m_HasSprintCameraMotionControl &&
                 !this.m_HasDisabledSprintRootMotionRotation)
@@ -1125,6 +1180,9 @@ namespace FranklinGame.Animations
             if (this.m_IdleVariations == null || this.m_IdleVariations.Length == 0) return false;
             if (this.m_Character.Driver == null || this.m_Character.Motion == null) return false;
             if (!this.m_Character.Driver.IsGrounded || this.m_Character.Motion.IsJumping) return false;
+            // Driver direction is updated after input. Check raw Player/virtual input as well so
+            // an idle root-motion gesture cannot capture the first movement frame.
+            if (this.HasMovementInput()) return false;
             if (this.m_Character.Driver.WorldMoveDirection.sqrMagnitude > MOVEMENT_EPSILON_SQR)
             {
                 return false;
@@ -1132,6 +1190,27 @@ namespace FranklinGame.Animations
 
             // Never replace a gesture started by GC2 gameplay, combat or interaction systems.
             return !this.m_Character.Gestures.IsPlaying;
+        }
+
+        private void UpdateIdleGestureInterruption()
+        {
+            if (!this.m_IsIdleGestureActive) return;
+
+            if (UnityEngine.Time.time >= this.m_ActiveCustomGestureUntil)
+            {
+                this.m_IsIdleGestureActive = false;
+                return;
+            }
+
+            bool hasDriverMovement = this.m_Character?.Driver != null &&
+                                     this.m_Character.Driver.WorldMoveDirection.sqrMagnitude >
+                                     MOVEMENT_EPSILON_SQR;
+            if (!this.HasMovementInput() && !hasDriverMovement) return;
+
+            // Idle variations are cosmetic. Movement always wins and blends out the owned
+            // gesture immediately, including clips that use subtle root motion.
+            this.StopOwnedCustomGesture();
+            this.StopTrackingIdle();
         }
 
         private AnimationClip SelectIdleVariation()
@@ -1182,7 +1261,12 @@ namespace FranklinGame.Animations
         {
             // The selected idle clips contain RootT/RootQ curves. Let GC2 apply that subtle
             // body-weight and foot-placement motion instead of freezing the root in place.
-            this.TryPlayCustomGesture(clip, 1f, false, true);
+            this.m_IsIdleGestureActive = this.TryPlayCustomGesture(
+                clip,
+                1f,
+                false,
+                true
+            );
         }
 
         private AnimationClip SelectJumpClip(bool wasSprinting, bool wasMoving)
@@ -1242,6 +1326,7 @@ namespace FranklinGame.Animations
             this.m_ActiveCustomGestureUntil = UnityEngine.Time.time +
                                               clip.length / speed +
                                               this.m_TransitionOut;
+            if (replaceOwnGesture) this.m_IsIdleGestureActive = false;
             return true;
         }
 
@@ -1256,6 +1341,7 @@ namespace FranklinGame.Animations
             );
             this.m_ActiveCustomGesture = null;
             this.m_ActiveCustomGestureUntil = 0f;
+            this.m_IsIdleGestureActive = false;
         }
 
         private void StopTrackingIdle()

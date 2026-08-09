@@ -21,6 +21,7 @@ namespace FranklinGame.UI
         [SerializeField] private FranklinHudAction m_Action;
         [SerializeField] private Image m_Image;
         private bool m_IsPressed;
+        private int m_ActivePointerId = int.MinValue;
 
         internal void Initialize(
             FranklinMobileHud hud,
@@ -42,6 +43,10 @@ namespace FranklinGame.UI
         public void OnPointerDown(PointerEventData eventData)
         {
             if (this.m_IsPressed) return;
+
+            this.m_ActivePointerId = eventData != null
+                ? eventData.pointerId
+                : int.MinValue;
             this.m_IsPressed = true;
             this.SetVisual(true);
             this.m_Hud?.SetAction(this.m_Action, true);
@@ -49,11 +54,16 @@ namespace FranklinGame.UI
 
         public void OnPointerUp(PointerEventData eventData)
         {
+            if (!this.IsActivePointer(eventData)) return;
             this.Release();
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
+            // Jog and Sprint are hold controls. Keep their original pointer captured until
+            // PointerUp so a small thumb drift or a second orbit finger cannot interrupt run.
+            if (this.m_Action is FranklinHudAction.Jog or FranklinHudAction.Sprint) return;
+            if (!this.IsActivePointer(eventData)) return;
             this.Release();
         }
 
@@ -67,15 +77,24 @@ namespace FranklinGame.UI
         {
             if (!this.m_IsPressed) return;
             this.m_IsPressed = false;
+            this.m_ActivePointerId = int.MinValue;
             this.SetVisual(false);
             this.m_Hud?.SetAction(this.m_Action, false);
+        }
+
+        private bool IsActivePointer(PointerEventData eventData)
+        {
+            return this.m_IsPressed &&
+                   (eventData == null || eventData.pointerId == this.m_ActivePointerId);
         }
 
         private void SetVisual(bool isPressed)
         {
             if (this.m_Image != null)
             {
-                this.m_Image.color = isPressed ? PRESSED_COLOR : NORMAL_COLOR;
+                this.m_Image.color = isPressed
+                    ? PRESSED_COLOR
+                    : NORMAL_COLOR;
             }
             this.transform.localScale = isPressed ? Vector3.one * 0.93f : Vector3.one;
         }

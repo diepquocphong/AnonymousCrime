@@ -45,30 +45,32 @@ namespace FranklinGame.UI.Editor
 
         private static readonly ButtonDefinition[] ON_FOOT_BUTTONS =
         {
-            new("Jog", "player-movement-0", 0, new Vector2(1f, 0f),
-                new Vector2(-305f, 170f), new Vector2(165f, 165f)),
-            new("Sprint", "player-movement-1", 1, new Vector2(1f, 0f),
-                new Vector2(-130f, 195f), new Vector2(215f, 215f)),
+            new("Jog", "player-movement-0", 0, new Vector2(0f, 0f),
+                new Vector2(369.2f, 568.43f), new Vector2(165f, 165f)),
+            new("Sprint", "player-movement-1", 1, new Vector2(0f, 0f),
+                new Vector2(173.4f, 561.13f), new Vector2(215f, 215f)),
             new("Jump", "player-jump", 8, new Vector2(1f, 0f),
                 new Vector2(-505f, 170f), new Vector2(165f, 165f)),
-            new("Enter Vehicle", "vehicle-enter", 7, new Vector2(1f, 0.5f),
-                new Vector2(-90f, 0f), new Vector2(125f, 125f))
+            new("Enter Vehicle", "vehicle-enter", 7, new Vector2(0.72f, 0.4f),
+                Vector2.zero, new Vector2(190f, 190f))
         };
 
         private static readonly ButtonDefinition[] VEHICLE_BUTTONS =
         {
             new("Steer Left", "vehicle-control-0", 2, new Vector2(0f, 0f),
-                new Vector2(160f, 175f), new Vector2(210f, 210f)),
+                new Vector2(180f, 190f), new Vector2(263f, 263f)),
             new("Steer Right", "vehicle-control-1", 3, new Vector2(0f, 0f),
-                new Vector2(365f, 175f), new Vector2(210f, 210f)),
+                new Vector2(450f, 190f), new Vector2(263f, 263f)),
             new("Accelerate", "vehicle-control-2", 4, new Vector2(1f, 0f),
-                new Vector2(-130f, 205f), new Vector2(230f, 230f)),
+                new Vector2(-155f, 305f), new Vector2(288f, 288f)),
             new("Brake Reverse", "vehicle-control-3", 5, new Vector2(1f, 0f),
-                new Vector2(-345f, 165f), new Vector2(180f, 180f)),
+                new Vector2(-455f, 190f), new Vector2(225f, 225f)),
             new("Handbrake", "vehicle-control-4", 6, new Vector2(1f, 0f),
-                new Vector2(-340f, 355f), new Vector2(135f, 135f)),
+                new Vector2(-455f, 430f), new Vector2(169f, 169f)),
             new("Exit Vehicle", "vehicle-control-5", 7, new Vector2(1f, 1f),
-                new Vector2(-90f, -95f), new Vector2(125f, 125f))
+                new Vector2(-115f, -120f), new Vector2(190f, 190f)),
+            new("Slow Drive", "vehicle-control-slow", 9, new Vector2(1f, 0f),
+                new Vector2(-155f, 82f), new Vector2(163f, 163f))
         };
 
         static FranklinMobileHudPrefabInstaller()
@@ -79,6 +81,7 @@ namespace FranklinGame.UI.Editor
         [MenuItem("Tools/Franklin Game/Install Player Mobile HUD")]
         public static void Install()
         {
+            EnsureSpriteImporter(UI_ROOT + "vehicle-control-slow.png");
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PLAYER_CANVAS_PATH);
             if (prefab == null)
             {
@@ -141,7 +144,25 @@ namespace FranklinGame.UI.Editor
                    root.Find(VEHICLE_GROUP) != null &&
                    HasButton(root.Find(ON_FOOT_GROUP), "Jump") &&
                    HasButton(root.Find(ON_FOOT_GROUP), "Enter Vehicle") &&
-                   HasButton(root.Find(VEHICLE_GROUP), "Exit Vehicle");
+                   HasButton(root.Find(VEHICLE_GROUP), "Exit Vehicle") &&
+                   HasButton(root.Find(VEHICLE_GROUP), "Slow Drive");
+        }
+
+        private static void EnsureSpriteImporter(string assetPath)
+        {
+            AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceSynchronousImport);
+            if (AssetImporter.GetAtPath(assetPath) is not TextureImporter importer) return;
+            if (importer.textureType == TextureImporterType.Sprite &&
+                importer.alphaIsTransparency && !importer.mipmapEnabled)
+            {
+                return;
+            }
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.SaveAndReimport();
         }
 
         private static RectTransform EnsureGroup(Transform parent, string groupName)

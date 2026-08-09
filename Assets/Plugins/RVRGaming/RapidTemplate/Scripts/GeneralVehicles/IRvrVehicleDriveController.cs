@@ -10,8 +10,12 @@ public interface IRvrVehicleDriveController
     bool IsVehicleEnabled { get; }
     bool UseSeatEntryAlignment { get; }
     Transform VehicleBody { get; }
+    float SpeedMetersPerSecond { get; }
 
     void SetVehicleEnabled(bool state);
+    void SetVehicleEnabled(bool state, bool preserveMomentum);
+    void BeginExitStop();
+    void CancelExitStop();
     void SetHandbrakeInput(bool active);
     void ResetVehicle();
 }

@@ -25,6 +25,7 @@ namespace FranklinGame.UI
         private RectTransform m_OnFootGroup;
         private RectTransform m_VehicleGroup;
         private GameObject m_EnterVehicleButton;
+        private FranklinHudButton m_SlowDriveButton;
         private FranklinAnimationBridge m_MovementBridge;
         private FranklinVehicleInteractionManager m_VehicleInteraction;
         private SimcadeCarDriver m_ActiveDriver;
@@ -138,6 +139,9 @@ namespace FranklinGame.UI
                 case FranklinHudAction.Handbrake:
                     this.m_ActiveDriver?.SetVirtualHandbrakeInput(active);
                     break;
+                case FranklinHudAction.SlowDrive:
+                    this.m_ActiveDriver?.SetVirtualSlowAccelerateInput(active);
+                    break;
                 case FranklinHudAction.VehicleInteraction:
                     if (!active) break;
                     if (this.m_ActiveDriver != null && this.m_ActiveDriver.IsVehicleEnabled)
@@ -178,8 +182,8 @@ namespace FranklinGame.UI
                 "Jog",
                 "player-movement-0",
                 FranklinHudAction.Jog,
-                new Vector2(1f, 0f),
-                new Vector2(-305f, 170f),
+                new Vector2(0f, 0f),
+                new Vector2(369.2f, 568.43f),
                 new Vector2(165f, 165f)
             );
             this.CreateButton(
@@ -187,8 +191,8 @@ namespace FranklinGame.UI
                 "Sprint",
                 "player-movement-1",
                 FranklinHudAction.Sprint,
-                new Vector2(1f, 0f),
-                new Vector2(-130f, 195f),
+                new Vector2(0f, 0f),
+                new Vector2(173.4f, 561.13f),
                 new Vector2(215f, 215f)
             );
             this.CreateButton(
@@ -205,9 +209,9 @@ namespace FranklinGame.UI
                 "Enter Vehicle",
                 "vehicle-enter",
                 FranklinHudAction.VehicleInteraction,
-                new Vector2(1f, 0.5f),
-                new Vector2(-90f, 0f),
-                new Vector2(125f, 125f)
+                new Vector2(0.72f, 0.4f),
+                Vector2.zero,
+                new Vector2(190f, 190f)
             ).gameObject;
             this.m_EnterVehicleButton.SetActive(false);
 
@@ -217,8 +221,8 @@ namespace FranklinGame.UI
                 "vehicle-control-0",
                 FranklinHudAction.SteerLeft,
                 new Vector2(0f, 0f),
-                new Vector2(160f, 175f),
-                new Vector2(210f, 210f)
+                new Vector2(180f, 190f),
+                new Vector2(263f, 263f)
             );
             this.CreateButton(
                 this.m_VehicleGroup,
@@ -226,8 +230,8 @@ namespace FranklinGame.UI
                 "vehicle-control-1",
                 FranklinHudAction.SteerRight,
                 new Vector2(0f, 0f),
-                new Vector2(365f, 175f),
-                new Vector2(210f, 210f)
+                new Vector2(450f, 190f),
+                new Vector2(263f, 263f)
             );
             this.CreateButton(
                 this.m_VehicleGroup,
@@ -235,8 +239,8 @@ namespace FranklinGame.UI
                 "vehicle-control-2",
                 FranklinHudAction.Accelerate,
                 new Vector2(1f, 0f),
-                new Vector2(-130f, 205f),
-                new Vector2(230f, 230f)
+                new Vector2(-155f, 305f),
+                new Vector2(288f, 288f)
             );
             this.CreateButton(
                 this.m_VehicleGroup,
@@ -244,8 +248,8 @@ namespace FranklinGame.UI
                 "vehicle-control-3",
                 FranklinHudAction.BrakeReverse,
                 new Vector2(1f, 0f),
-                new Vector2(-345f, 165f),
-                new Vector2(180f, 180f)
+                new Vector2(-455f, 190f),
+                new Vector2(225f, 225f)
             );
             this.CreateButton(
                 this.m_VehicleGroup,
@@ -253,8 +257,8 @@ namespace FranklinGame.UI
                 "vehicle-control-4",
                 FranklinHudAction.Handbrake,
                 new Vector2(1f, 0f),
-                new Vector2(-340f, 355f),
-                new Vector2(135f, 135f)
+                new Vector2(-455f, 430f),
+                new Vector2(169f, 169f)
             );
             this.CreateButton(
                 this.m_VehicleGroup,
@@ -262,8 +266,17 @@ namespace FranklinGame.UI
                 "vehicle-control-5",
                 FranklinHudAction.VehicleInteraction,
                 new Vector2(1f, 1f),
-                new Vector2(-90f, -95f),
-                new Vector2(125f, 125f)
+                new Vector2(-115f, -120f),
+                new Vector2(190f, 190f)
+            );
+            this.m_SlowDriveButton = this.CreateButton(
+                this.m_VehicleGroup,
+                "Slow Drive",
+                "vehicle-control-slow",
+                FranklinHudAction.SlowDrive,
+                new Vector2(1f, 0f),
+                new Vector2(-155f, 82f),
+                new Vector2(163f, 163f)
             );
         }
 
@@ -280,6 +293,20 @@ namespace FranklinGame.UI
             this.m_OnFootGroup = onFoot;
             this.m_VehicleGroup = vehicle;
             this.m_EnterVehicleButton = FindChild("Enter Vehicle")?.gameObject;
+            this.m_SlowDriveButton = FindButton("Slow Drive");
+
+            if (this.m_SlowDriveButton == null)
+            {
+                this.m_SlowDriveButton = this.CreateButton(
+                    this.m_VehicleGroup,
+                    "Slow Drive",
+                    "vehicle-control-slow",
+                    FranklinHudAction.SlowDrive,
+                    new Vector2(1f, 0f),
+                    new Vector2(-155f, 82f),
+                    new Vector2(163f, 163f)
+                );
+            }
 
             if (this.m_EnterVehicleButton == null || FindButton("Jog") == null ||
                 FindButton("Sprint") == null || FindButton("Jump") == null)
@@ -497,6 +524,7 @@ namespace FranklinGame.UI
         {
             if (driver == null) return;
             driver.SetVirtualAccelerateInput(false);
+            driver.SetVirtualSlowAccelerateInput(false);
             driver.SetVirtualBrakeReverseInput(false);
             driver.SetVirtualSteerLeftInput(false);
             driver.SetVirtualSteerRightInput(false);
@@ -526,7 +554,8 @@ namespace FranklinGame.UI
         BrakeReverse,
         Handbrake,
         VehicleInteraction,
-        Jump
+        Jump,
+        SlowDrive
     }
 
 }

@@ -10,9 +10,9 @@ using UnityEngine.InputSystem;
 namespace FranklinGame.Animations
 {
     /// <summary>
-    /// Bridges the touch HUD to RapidTemplate vehicles. It deliberately forwards
-    /// through the selected RVR/GC2 interaction so the vehicle's existing conditions,
-    /// navigation and enter sequence remain the single source of truth.
+    /// Bridges Player input to the selected vehicle. Cars own their complete
+    /// enter/carjack/exit sequence through CarEntry; the Player only requests the
+    /// action and supplies its GC2 Character reference.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class FranklinVehicleInteractionManager : MonoBehaviour
@@ -112,7 +112,10 @@ namespace FranklinGame.Animations
         private ShotCamera m_PreVehicleShot;
         private PropertyGetGameObject m_DefaultVehiclePivot;
         private GameObject m_ActiveVehiclePivot;
+        private CarEntry m_ActiveCarEntry;
+        private SimcadeCarDriver m_ActiveSimcadeDriver;
         private bool m_IsVehicleCameraActive;
+        private SimcadeCarjacking m_ActiveCarjacking;
 
         private void Awake()
         {
@@ -171,8 +174,8 @@ namespace FranklinGame.Animations
         }
 
         /// <summary>
-        /// Starts the currently selected RVR driver's-door interaction. Mobile UI calls this
-        /// entry point so RVR conditions, navigation and the door animation remain authoritative.
+        /// Requests entry from the selected vehicle. CarEntry remains authoritative
+        /// for alignment, doors, occupied-seat handling and vehicle ownership.
         /// </summary>
         public bool RequestVehicleInteraction()
         {
@@ -196,10 +199,28 @@ namespace FranklinGame.Animations
 
             this.LockMovementAnimation();
             this.m_ActiveVehiclePivot = vehicleEntry.gameObject;
+            this.m_ActiveCarEntry = vehicleEntry as CarEntry;
+            this.m_ActiveSimcadeDriver = this.m_ActiveCarEntry != null
+                ? this.m_ActiveCarEntry.GetComponent<SimcadeCarDriver>()
+                : null;
             this.DelayVehicleDrivingIdle(vehicleEntry);
 
-            // Do not call CarEntry directly: the RVR/GC2 trigger first
-            // validates its conditions and moves the character to the entry point.
+            if (vehicleEntry is CarEntry carEntry)
+            {
+                bool wasOccupied = carEntry.SeatedCharacter != null;
+                if (!carEntry.RequestEnter(this.m_Player))
+                {
+                    this.CancelVehicleInteractionRequest();
+                    return false;
+                }
+
+                this.m_ActiveCarjacking = wasOccupied
+                    ? carEntry.GetComponent<SimcadeCarjacking>()
+                    : null;
+                return true;
+            }
+
+            // Non-car vehicles keep their original RVR/GC2 interaction flow.
             if (!this.m_Player.Interaction.Interact())
             {
                 this.CancelVehicleInteractionRequest();
@@ -222,10 +243,15 @@ namespace FranklinGame.Animations
                 : null;
             if (hotspot == null || !hotspot.IsActive ||
                 vehicleEntry is not CarEntry carEntry ||
-                carEntry.IsTransitioning ||
-                carEntry.SeatedCharacter != null)
+                carEntry.IsTransitioning)
             {
                 return false;
+            }
+
+            if (carEntry.SeatedCharacter != null)
+            {
+                SimcadeCarjacking carjacking = carEntry.GetComponent<SimcadeCarjacking>();
+                if (carjacking == null || !carjacking.CanCarjack(this.m_Player)) return false;
             }
 
             SimcadeCarDriver driver = carEntry.GetComponent<SimcadeCarDriver>();
@@ -247,17 +273,37 @@ namespace FranklinGame.Animations
             this.m_MovementBridge?.SetExternalAnimationLock(false);
             this.ClearDelayedDrivingState();
             this.m_ActiveVehiclePivot = null;
+            this.m_ActiveCarEntry = null;
+            this.m_ActiveSimcadeDriver = null;
+            this.m_ActiveCarjacking = null;
         }
 
         private void LateUpdate()
         {
             if (!this.m_IsDrivingStateSuppressed || this.m_HasEnteredVehicle) return;
-            if (this.m_Player?.Player?.IsControllable != true) return;
+            // The carjacking sequence remains active while its door closes. Seat
+            // ownership is the real handoff boundary: once Player owns the seat,
+            // never remove the driving pose again.
+            if (this.IsPlayerSeatedInActiveCar()) return;
+
+            bool pairedCarjackingIsRunning = this.m_ActiveCarjacking != null &&
+                this.m_ActiveCarjacking.IsTransitioning;
+            bool carEntryIsTransitioning = this.m_ActiveCarEntry != null &&
+                this.m_ActiveCarEntry.IsTransitioning;
+            if (this.m_Player?.Player?.IsControllable != true &&
+                !pairedCarjackingIsRunning &&
+                !carEntryIsTransitioning) return;
 
             // CarEntry/BikeEntry sets its driving state before playing the entry gesture.
             // LateUpdate removes that state before rendering, leaving the door/entry gesture in
             // charge until the character has actually taken the seat.
             this.m_Player.States?.Stop(this.m_DelayedDrivingStateLayer, 0f, 0f);
+        }
+
+        private bool IsPlayerSeatedInActiveCar()
+        {
+            return this.m_Player != null && this.m_ActiveCarEntry != null &&
+                this.m_ActiveCarEntry.SeatedCharacter == this.m_Player;
         }
 
         private bool ResolvePlayer()
@@ -292,10 +338,28 @@ namespace FranklinGame.Animations
             bool isControllable = this.m_Player.Player?.IsControllable == true;
             if (!this.m_HasEnteredVehicle)
             {
+                bool playerIsSeatedInActiveCar = this.IsPlayerSeatedInActiveCar();
+                // The paired Player/NPC gestures deliberately make the Player
+                // uncontrollable before the driver seat changes ownership.
+                if (!playerIsSeatedInActiveCar &&
+                    ((this.m_ActiveCarEntry != null &&
+                      this.m_ActiveCarEntry.IsTransitioning) ||
+                     (this.m_ActiveCarjacking != null &&
+                      this.m_ActiveCarjacking.IsTransitioning)))
+                {
+                    return;
+                }
+
                 if (!isControllable)
                 {
                     this.m_HasEnteredVehicle = true;
-                    this.RestoreVehicleDrivingIdle();
+                    this.m_ActiveCarjacking = null;
+                    // CarEntry has already reasserted the final driving state
+                    // before assigning SeatedCharacter. Replaying that same
+                    // state here rebuilds the GC2 playable graph one frame before
+                    // the Sim-Cade camera switch and creates a tiny vertical pop.
+                    if (playerIsSeatedInActiveCar) this.ClearDelayedDrivingState();
+                    else this.RestoreVehicleDrivingIdle();
                     this.ActivateVehicleCamera();
                     return;
                 }
@@ -319,6 +383,9 @@ namespace FranklinGame.Animations
             this.ClearDelayedDrivingState();
             this.RestorePlayerCamera();
             this.m_ActiveVehiclePivot = null;
+            this.m_ActiveCarEntry = null;
+            this.m_ActiveSimcadeDriver = null;
+            this.m_ActiveCarjacking = null;
         }
 
         private void DelayVehicleDrivingIdle(Component vehicleEntry)
@@ -381,8 +448,7 @@ namespace FranklinGame.Animations
         private void ActivateVehicleCamera()
         {
             if (!this.m_UseVehicleCamera || this.m_IsVehicleCameraActive) return;
-            if (this.m_ActiveVehiclePivot != null &&
-                this.m_ActiveVehiclePivot.GetComponent<SimcadeCarDriver>() != null)
+            if (this.m_ActiveSimcadeDriver != null)
             {
                 return;
             }

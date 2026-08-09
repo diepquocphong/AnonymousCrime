@@ -502,6 +502,7 @@ namespace FranklinGame.Animations.Editor
                 serializedBridge.FindProperty("m_DamageJogDuration").floatValue = 6f;
                 serializedBridge.FindProperty("m_RunForwardInputThreshold").floatValue = 0.5f;
                 serializedBridge.FindProperty("m_RunCameraAlignmentAngle").floatValue = 8f;
+                serializedBridge.FindProperty("m_RunCameraDirectionSmoothTime").floatValue = 0.08f;
                 SetBridgeClip(serializedBridge, "m_RunStart", $"{RunTransitionFolder}/MAP_Run_Start.anim");
                 SetBridgeClip(serializedBridge, "m_RunStopLeft", $"{RunTransitionFolder}/MAP_Run_Stop_Left.anim");
                 SetBridgeClip(serializedBridge, "m_RunStopRight", $"{RunTransitionFolder}/MAP_Run_Stop_Right.anim");
@@ -647,9 +648,13 @@ namespace FranklinGame.Animations.Editor
                     serializedBridge.FindProperty("m_RunForwardInputThreshold");
                 SerializedProperty runCameraAlignment =
                     serializedBridge.FindProperty("m_RunCameraAlignmentAngle");
+                SerializedProperty runCameraSmoothTime =
+                    serializedBridge.FindProperty("m_RunCameraDirectionSmoothTime");
                 if (runInputThreshold == null || runInputThreshold.floatValue < 0f ||
                     runInputThreshold.floatValue > 1f || runCameraAlignment == null ||
-                    runCameraAlignment.floatValue < 0f || runCameraAlignment.floatValue > 45f)
+                    runCameraAlignment.floatValue < 0f || runCameraAlignment.floatValue > 45f ||
+                    runCameraSmoothTime == null || runCameraSmoothTime.floatValue < 0f ||
+                    runCameraSmoothTime.floatValue > 0.5f)
                 {
                     throw new InvalidOperationException("Bridge sprint camera direction settings are invalid");
                 }

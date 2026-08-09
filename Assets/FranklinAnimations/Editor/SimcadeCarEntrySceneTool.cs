@@ -22,7 +22,8 @@ namespace FranklinGame.Vehicles.Editor
             Standing,
             EntryStep,
             Seat,
-            DoorHandle
+            DoorHandle,
+            VictimLanding
         }
 
         private enum PreviewAnimation
@@ -122,7 +123,8 @@ namespace FranklinGame.Vehicles.Editor
             EditorGUILayout.LabelField("Sim-Cade Car Entry — Live Scene Setup", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
                 "Kéo trực tiếp các handle màu trong Scene View. Cyan: điểm đứng, " +
-                "magenta: bước qua cửa, green: ghế, orange: tay nắm. Có Undo (Cmd/Ctrl+Z).",
+                "magenta: bước qua cửa, green: ghế, orange: tay nắm, red: vị trí NPC ngã. " +
+                "Có Undo (Cmd/Ctrl+Z).",
                 MessageType.Info
             );
 
@@ -169,7 +171,10 @@ namespace FranklinGame.Vehicles.Editor
                     }
                 }
 
-                string[] tabs = { "Điểm đứng", "Bước vào", "Ghế ngồi", "Tay nắm cửa" };
+                string[] tabs =
+                {
+                    "Điểm đứng", "Bước vào", "Ghế ngồi", "Tay nắm", "NPC ngã"
+                };
                 this.m_EditAnchor = (EditAnchor)GUILayout.Toolbar(
                     (int)this.m_EditAnchor,
                     tabs,
@@ -455,6 +460,16 @@ namespace FranklinGame.Vehicles.Editor
                 "DOOR HANDLE",
                 EditAnchor.DoorHandle
             );
+            SimcadeCarjacking carjacking = this.m_Target.GetComponent<SimcadeCarjacking>();
+            if (carjacking != null)
+            {
+                this.DrawAnchorMarker(
+                    carjacking.VictimLandingPoint,
+                    new Color(1f, 0.12f, 0.12f, 1f),
+                    "NPC LANDING",
+                    EditAnchor.VictimLanding
+                );
+            }
 
             Transform active = this.GetActiveAnchor();
             if (active != null) this.DrawTransformHandle(active);
@@ -642,7 +657,9 @@ namespace FranklinGame.Vehicles.Editor
             AnimationClip clip = this.GetPreviewClip();
             if (clip == null || clip.length <= 0f) return;
 
-            this.m_PlayerPreviewTime += (float)Mathf.Min((float)delta, 0.1f) / clip.length;
+            float speed = this.GetPreviewAnimationSpeed();
+            this.m_PlayerPreviewTime +=
+                (float)Mathf.Min((float)delta, 0.1f) * speed / clip.length;
             if (this.m_PlayerPreviewTime >= 1f)
             {
                 if (this.m_LoopPlayerPreview) this.m_PlayerPreviewTime %= 1f;
@@ -739,6 +756,17 @@ namespace FranklinGame.Vehicles.Editor
                 : this.m_Target.exitAnimation;
         }
 
+        private float GetPreviewAnimationSpeed()
+        {
+            if (this.m_Target == null) return 1f;
+            return Mathf.Max(
+                0.01f,
+                this.m_PreviewAnimation == PreviewAnimation.Enter
+                    ? this.m_Target.entryAnimationSpeed
+                    : this.m_Target.exitAnimationSpeed
+            );
+        }
+
         private void SyncDoorToPlayerAnimation(AnimationClip clip, float sampleTime)
         {
             if (!this.m_SyncDoorToPlayer)
@@ -748,6 +776,7 @@ namespace FranklinGame.Vehicles.Editor
                 return;
             }
 
+            float runtimeElapsed = sampleTime / this.GetPreviewAnimationSpeed();
             float duration = Mathf.Max(0.01f, this.m_Target.doorRotationDuration);
             float openStart = Mathf.Max(0f, this.m_Target.doorRotationStartDelay);
             float openedAt = openStart + duration;
@@ -755,10 +784,12 @@ namespace FranklinGame.Vehicles.Editor
             float closedAt = closeStart + duration;
 
             float amount;
-            if (sampleTime <= openStart) amount = 0f;
-            else if (sampleTime < openedAt) amount = Mathf.InverseLerp(openStart, openedAt, sampleTime);
-            else if (sampleTime <= closeStart) amount = 1f;
-            else if (sampleTime < closedAt) amount = 1f - Mathf.InverseLerp(closeStart, closedAt, sampleTime);
+            if (runtimeElapsed <= openStart) amount = 0f;
+            else if (runtimeElapsed < openedAt)
+                amount = Mathf.InverseLerp(openStart, openedAt, runtimeElapsed);
+            else if (runtimeElapsed <= closeStart) amount = 1f;
+            else if (runtimeElapsed < closedAt)
+                amount = 1f - Mathf.InverseLerp(closeStart, closedAt, runtimeElapsed);
             else amount = 0f;
 
             if (!this.m_DoorPreview)
@@ -896,6 +927,12 @@ namespace FranklinGame.Vehicles.Editor
                 appliedCount += ApplyAnchorTransform(target.entryStepPoint, prefabPath);
                 appliedCount += ApplyAnchorTransform(target.entryParent, prefabPath);
                 appliedCount += ApplyAnchorTransform(target.doorHandleTarget, prefabPath);
+                SimcadeCarjacking carjacking = target.GetComponent<SimcadeCarjacking>();
+                if (carjacking != null)
+                    appliedCount += ApplyAnchorTransform(
+                        carjacking.VictimLandingPoint,
+                        prefabPath
+                    );
 
                 string[] propertyNames =
                 {
@@ -1120,6 +1157,9 @@ namespace FranklinGame.Vehicles.Editor
             this.ResetAnchorToPrefab(this.m_Target.entryStepPoint);
             this.ResetAnchorToPrefab(this.m_Target.entryParent);
             this.ResetAnchorToPrefab(this.m_Target.doorHandleTarget);
+            SimcadeCarjacking carjacking = this.m_Target.GetComponent<SimcadeCarjacking>();
+            if (carjacking != null)
+                this.ResetAnchorToPrefab(carjacking.VictimLandingPoint);
             this.ResetCarEntryPropertyToPrefab("doorOpenRotation");
             this.ResetCarEntryPropertyToPrefab("doorHandleHand");
             this.ResetCarEntryPropertyToPrefab("doorHandleIKWeight");
@@ -1283,6 +1323,8 @@ namespace FranklinGame.Vehicles.Editor
                 EditAnchor.EntryStep => this.m_Target.entryStepPoint,
                 EditAnchor.Seat => this.m_Target.entryParent,
                 EditAnchor.DoorHandle => this.m_Target.doorHandleTarget,
+                EditAnchor.VictimLanding => this.m_Target
+                    .GetComponent<SimcadeCarjacking>()?.VictimLandingPoint,
                 _ => null
             };
         }

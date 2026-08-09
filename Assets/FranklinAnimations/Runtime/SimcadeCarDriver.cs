@@ -30,6 +30,13 @@ namespace FranklinGame.Vehicles
         [SerializeField, Min(0f)] private float m_SteeringResponse = 15f;
         [SerializeField, Min(0f)] private float m_SteeringReturnResponse = 25f;
 
+        [Header("Slow Drive")]
+        [SerializeField, Min(1f)] private float m_SlowModeMaxSpeedKph = 18f;
+        [SerializeField, Range(0.05f, 1f)] private float m_SlowThrottle = 0.35f;
+        [SerializeField, Range(0f, 0.95f)] private float m_SlowThrottleTaperStart = 0.65f;
+        [SerializeField, Min(0f)] private float m_ExitStopDeceleration = 14f;
+        [SerializeField, Min(0f)] private float m_CoastingParkingSpeedKph = 2f;
+
         [Header("Steering Wheel Visual")]
         [SerializeField] private Transform m_SteeringWheel;
         [SerializeField, Min(0f)] private float m_SteeringWheelMaxAngle = 360f;
@@ -65,6 +72,9 @@ namespace FranklinGame.Vehicles
         private bool m_VirtualSteerLeft;
         private bool m_VirtualSteerRight;
         private bool m_VirtualHandbrake;
+        private bool m_VirtualSlowAccelerate;
+        private bool m_IsStoppingForExit;
+        private bool m_IsCoastingAfterExit;
         private float m_AccelerationInput;
         private float m_SteeringInput;
         private float m_ExitInputAvailableAt;
@@ -87,11 +97,16 @@ namespace FranklinGame.Vehicles
         private UiButton_SVP m_SteerLeft;
         private UiButton_SVP m_SteerRight;
         private UiButton_SVP m_Accelerate;
+        private UiButton_SVP m_SlowAccelerate;
         private UiButton_SVP m_BrakeReverse;
         private UiButton_SVP m_Handbrake;
 
         public bool IsVehicleEnabled => this.m_IsVehicleEnabled;
         public bool UseSeatEntryAlignment => true;
+        public float SpeedMetersPerSecond => this.m_Rigidbody != null
+            ? Vector3.ProjectOnPlane(this.m_Rigidbody.linearVelocity, Vector3.up).magnitude
+            : 0f;
+        public float SpeedKph => this.SpeedMetersPerSecond * 3.6f;
         public Transform VehicleBody => this.m_Controller != null
             ? this.m_Controller.VehicleBody
             : this.transform;
@@ -121,6 +136,13 @@ namespace FranklinGame.Vehicles
 
         private void Start()
         {
+            // Prewarm all runtime-only presentation objects at scene start so
+            // the first mobile enter does not instantiate camera/UI objects in
+            // the same frame as the animation handoff.
+            this.EnsureCameraRig();
+            this.EnsureRuntimeCameraTarget();
+            this.ResolveUnityCamera();
+            if (this.ShouldShowMobileControls()) this.EnsureMobileControls();
             this.SetVehicleEnabled(false);
         }
 
@@ -145,11 +167,7 @@ namespace FranklinGame.Vehicles
         private void Update()
         {
             this.UpdateControllerExecutionState();
-            if (!this.m_IsVehicleEnabled)
-            {
-                this.SendInputs(0f, 0f, true);
-                return;
-            }
+            if (!this.m_IsVehicleEnabled) return;
 
             if (this.IsExitPressed())
             {
@@ -158,6 +176,18 @@ namespace FranklinGame.Vehicles
             }
 
             this.UpdateCameraOrbit();
+
+            if (this.m_IsStoppingForExit)
+            {
+                this.m_AccelerationInput = 0f;
+                this.m_SteeringInput = Mathf.MoveTowards(
+                    this.m_SteeringInput,
+                    0f,
+                    this.m_SteeringReturnResponse * Time.deltaTime
+                );
+                this.SendInputs(0f, this.m_SteeringInput, true);
+                return;
+            }
 
             this.ReadInput(out float acceleration, out float steering, out bool handbrake);
 
@@ -184,9 +214,49 @@ namespace FranklinGame.Vehicles
             );
         }
 
+        private void FixedUpdate()
+        {
+            if (this.m_Rigidbody == null || this.m_Rigidbody.isKinematic) return;
+
+            Vector3 planarVelocity = Vector3.ProjectOnPlane(
+                this.m_Rigidbody.linearVelocity,
+                Vector3.up
+            );
+            float planarSpeed = planarVelocity.magnitude;
+
+            if (this.m_IsStoppingForExit)
+            {
+                this.ApplyPlanarDeceleration(
+                    planarVelocity,
+                    planarSpeed,
+                    this.m_ExitStopDeceleration
+                );
+                return;
+            }
+
+            if (this.m_IsCoastingAfterExit &&
+                planarSpeed <= this.m_CoastingParkingSpeedKph / 3.6f)
+            {
+                this.m_IsCoastingAfterExit = false;
+                if (this.m_Controller != null)
+                {
+                    this.m_Controller.CanDrive = false;
+                    this.m_Controller.CanAccelerate = false;
+                    this.SendInputs(0f, 0f, true);
+                }
+
+                Vector3 verticalVelocity = Vector3.Project(
+                    this.m_Rigidbody.linearVelocity,
+                    Vector3.up
+                );
+                this.m_Rigidbody.linearVelocity = verticalVelocity;
+                this.m_Rigidbody.angularVelocity = Vector3.zero;
+            }
+        }
+
         private void LateUpdate()
         {
-            if (this.m_SteeringWheel == null) return;
+            if (!this.m_IsVehicleEnabled || this.m_SteeringWheel == null) return;
 
             float angle = -this.m_SteeringInput * this.m_SteeringWheelMaxAngle;
             Quaternion target = this.m_SteeringWheelInitialRotation *
@@ -201,7 +271,14 @@ namespace FranklinGame.Vehicles
 
         public void SetVehicleEnabled(bool state)
         {
+            this.SetVehicleEnabled(state, false);
+        }
+
+        public void SetVehicleEnabled(bool state, bool preserveMomentum)
+        {
             this.m_IsVehicleEnabled = state;
+            this.m_IsStoppingForExit = false;
+            this.m_IsCoastingAfterExit = !state && preserveMomentum;
             this.ResetVirtualInputs();
             this.m_AccelerationInput = 0f;
             this.m_SteeringInput = 0f;
@@ -211,25 +288,59 @@ namespace FranklinGame.Vehicles
                 this.m_ExitInputAvailableAt = Time.unscaledTime + 0.5f;
                 this.ResetCameraOrbit();
             }
+            else
+            {
+                this.ResetSteeringWheel();
+            }
 
             if (this.m_Controller != null)
             {
                 if (state) this.m_Controller.enabled = true;
-                this.m_Controller.CanDrive = state;
+                this.m_Controller.CanDrive = state || preserveMomentum;
                 this.m_Controller.CanAccelerate = state;
             }
 
-            this.SendInputs(0f, 0f, !state);
+            this.SendInputs(0f, 0f, !state && !preserveMomentum);
             this.UpdateControllerExecutionState();
             this.SetAudioActive(state);
             this.SetMobileControlsActive(state && this.ShouldShowMobileControls());
             this.SetCameraActive(state);
 
-            if (!state && this.m_Rigidbody != null && !this.m_Rigidbody.isKinematic)
+            if (!state && !preserveMomentum && this.m_Rigidbody != null &&
+                !this.m_Rigidbody.isKinematic)
             {
                 this.m_Rigidbody.linearVelocity = Vector3.zero;
                 this.m_Rigidbody.angularVelocity = Vector3.zero;
             }
+        }
+
+        public void BeginExitStop()
+        {
+            if (!this.m_IsVehicleEnabled) return;
+
+            this.m_IsStoppingForExit = true;
+            this.ResetVirtualInputs();
+            this.m_AccelerationInput = 0f;
+            this.m_SteeringInput = 0f;
+            if (this.m_Controller != null)
+            {
+                this.m_Controller.CanDrive = true;
+                this.m_Controller.CanAccelerate = false;
+            }
+            this.SendInputs(0f, 0f, true);
+        }
+
+        public void CancelExitStop()
+        {
+            if (!this.m_IsStoppingForExit) return;
+
+            this.m_IsStoppingForExit = false;
+            if (this.m_Controller != null && this.m_IsVehicleEnabled)
+            {
+                this.m_Controller.CanDrive = true;
+                this.m_Controller.CanAccelerate = true;
+            }
+            this.SendInputs(0f, 0f, false);
         }
 
         public void SetHandbrakeInput(bool active)
@@ -240,6 +351,11 @@ namespace FranklinGame.Vehicles
         public void SetVirtualAccelerateInput(bool active)
         {
             this.m_VirtualAccelerate = active;
+        }
+
+        public void SetVirtualSlowAccelerateInput(bool active)
+        {
+            this.m_VirtualSlowAccelerate = active;
         }
 
         public void SetVirtualBrakeReverseInput(bool active)
@@ -269,6 +385,7 @@ namespace FranklinGame.Vehicles
             this.m_VirtualSteerLeft = false;
             this.m_VirtualSteerRight = false;
             this.m_VirtualHandbrake = false;
+            this.m_VirtualSlowAccelerate = false;
         }
 
         public void ResetVehicle()
@@ -302,8 +419,7 @@ namespace FranklinGame.Vehicles
             Character character = this.m_CarEntry.SeatedCharacter;
             if (character == null) return;
 
-            this.SetVehicleEnabled(false);
-            this.m_CarEntry.ExitCar(character);
+            this.m_CarEntry.RequestExit(character);
         }
 
         private void ReadInput(out float acceleration, out float steering, out bool handbrake)
@@ -355,6 +471,16 @@ namespace FranklinGame.Vehicles
             if (this.m_VirtualSteerLeft) steering -= 1f;
             if (this.m_VirtualSteerRight) steering += 1f;
             handbrake |= this.m_VirtualHandbrake;
+
+            bool slowAccelerate = this.m_VirtualSlowAccelerate ||
+                                  (keyboard != null && keyboard.lKey.isPressed) ||
+                                  (this.m_MobileCanvas != null &&
+                                   this.m_MobileCanvas.activeSelf &&
+                                   this.IsPressed(this.m_SlowAccelerate));
+            if (slowAccelerate && Mathf.Abs(acceleration) < 0.001f)
+            {
+                acceleration = this.CalculateSlowAccelerationInput();
+            }
 
             acceleration = Mathf.Clamp(acceleration, -1f, 1f);
             steering = Mathf.Clamp(steering, -1f, 1f);
@@ -457,6 +583,7 @@ namespace FranklinGame.Vehicles
             controls.name = this.m_MobileInputPrefab.name;
             this.ResolveMobileButtons(controls);
             this.CreateMobileExitButton();
+            this.CreateMobileSlowAccelerateButton();
             this.EnsureEventSystem();
         }
 
@@ -504,6 +631,75 @@ namespace FranklinGame.Vehicles
             label.fontStyle = FontStyle.Bold;
             label.color = Color.white;
             label.raycastTarget = false;
+        }
+
+        private void CreateMobileSlowAccelerateButton()
+        {
+            GameObject buttonObject = new GameObject(
+                "Slow Drive",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Button),
+                typeof(UiButton_SVP)
+            );
+            RectTransform buttonRect = buttonObject.GetComponent<RectTransform>();
+            buttonRect.SetParent(this.m_MobileCanvas.transform, false);
+            buttonRect.anchorMin = new Vector2(1f, 0f);
+            buttonRect.anchorMax = new Vector2(1f, 0f);
+            buttonRect.pivot = new Vector2(0.5f, 0.5f);
+            buttonRect.anchoredPosition = new Vector2(-130f, 65f);
+            buttonRect.sizeDelta = new Vector2(130f, 130f);
+
+            Image image = buttonObject.GetComponent<Image>();
+            image.sprite = Resources.Load<Sprite>(
+                "FranklinMobileUI/vehicle-control-slow"
+            );
+            image.preserveAspect = true;
+            this.m_SlowAccelerate = buttonObject.GetComponent<UiButton_SVP>();
+        }
+
+        private float CalculateSlowAccelerationInput()
+        {
+            if (this.m_Rigidbody == null) return this.m_SlowThrottle;
+
+            float maximumSpeed = this.m_SlowModeMaxSpeedKph / 3.6f;
+            float forwardSpeed = Vector3.Dot(
+                this.m_Rigidbody.linearVelocity,
+                this.transform.forward
+            );
+            if (forwardSpeed <= 0f) return this.m_SlowThrottle;
+            if (forwardSpeed >= maximumSpeed) return 0f;
+
+            float taperStartSpeed = maximumSpeed * this.m_SlowThrottleTaperStart;
+            float taper = Mathf.InverseLerp(maximumSpeed, taperStartSpeed, forwardSpeed);
+            taper = Mathf.SmoothStep(0f, 1f, taper);
+            return this.m_SlowThrottle * taper;
+        }
+
+        private void ApplyPlanarDeceleration(
+            Vector3 planarVelocity,
+            float planarSpeed,
+            float deceleration)
+        {
+            float maximumSpeedChange = deceleration * Time.fixedDeltaTime;
+            if (planarSpeed <= Mathf.Max(0.05f, maximumSpeedChange))
+            {
+                Vector3 verticalVelocity = Vector3.Project(
+                    this.m_Rigidbody.linearVelocity,
+                    Vector3.up
+                );
+                this.m_Rigidbody.linearVelocity = verticalVelocity;
+                return;
+            }
+
+            if (deceleration > 0f)
+            {
+                this.m_Rigidbody.AddForce(
+                    -planarVelocity.normalized * deceleration,
+                    ForceMode.Acceleration
+                );
+            }
         }
 
         private void ResolveMobileButtons(GameObject controls)
@@ -748,6 +944,8 @@ namespace FranklinGame.Vehicles
 
         private void ResolveUnityCamera()
         {
+            if (this.m_CinemachineBrain != null) return;
+
             Camera unityCamera = Camera.main;
             if (unityCamera == null) unityCamera = FindFirstObjectByType<Camera>();
             if (unityCamera == null) return;
@@ -766,6 +964,11 @@ namespace FranklinGame.Vehicles
                     behaviour.GetType().FullName == "GameCreator.Runtime.Cameras.MainCamera")
                 {
                     this.m_GameCreatorCamera = behaviour;
+                    // ResolveUnityCamera can run during the mobile prewarm while
+                    // Sim-Cade is inactive. Capture GC2's real initial state so
+                    // SetCameraActive(false) restores it instead of applying the
+                    // default false field value and freezing every Camera Shot.
+                    this.m_GameCreatorCameraWasEnabled = behaviour.enabled;
                     break;
                 }
             }
