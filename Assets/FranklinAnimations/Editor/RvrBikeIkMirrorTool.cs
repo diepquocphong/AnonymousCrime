@@ -429,7 +429,7 @@ internal sealed class RvrBikeEntryMirrorEditor : UnityEditor.Editor
             using (new EditorGUI.DisabledScope(Application.isPlaying))
             {
                 if (GUILayout.Button(
-                    "Apply Bike 01 Rider Fit + Targets To Bikes 08 / 09 / 10"
+                    "Apply Bike 01 Defaults + Targets To Bikes 08 / 09 / 10"
                 ))
                 {
                     this.serializedObject.ApplyModifiedProperties();

@@ -124,6 +124,12 @@ namespace FranklinGame.Animations
 
         private Character m_Character;
         private Transform m_CharacterTransform;
+        private Transform m_ModelRoot;
+        private Transform m_ModelRootParent;
+        private Vector3 m_ModelRootLocalPosition;
+        private Quaternion m_ModelRootLocalRotation;
+        private Vector3 m_ModelRootLocalScale;
+        private bool m_HasModelRootBaseline;
         private Transform m_RunCameraTransform;
         private Keyboard m_Keyboard;
         private float m_RunCameraAlignmentDot;
@@ -306,8 +312,51 @@ namespace FranklinGame.Animations
                 return;
             }
 
+            this.CaptureModelRootBaseline();
             this.RefreshRuntimeCaches();
             this.ApplyJumpHeight();
+        }
+
+        /// <summary>
+        /// GC2 Default Ragdoll reparents its Animator with worldPositionStays.
+        /// Restore the original model-local offset without moving the Character
+        /// root, so every vehicle seat receives the same skeleton height.
+        /// </summary>
+        public bool RestoreModelRootBaseline()
+        {
+            Animator animator = this.m_Character?.Animim?.Animator;
+            if (!this.m_HasModelRootBaseline || animator == null ||
+                animator.transform != this.m_ModelRoot || this.m_ModelRoot == null)
+            {
+                return false;
+            }
+
+            if (this.m_ModelRootParent != null &&
+                this.m_ModelRoot.parent != this.m_ModelRootParent)
+            {
+                this.m_ModelRoot.SetParent(this.m_ModelRootParent, false);
+            }
+
+            this.m_ModelRoot.SetLocalPositionAndRotation(
+                this.m_ModelRootLocalPosition,
+                this.m_ModelRootLocalRotation
+            );
+            this.m_ModelRoot.localScale = this.m_ModelRootLocalScale;
+            Physics.SyncTransforms();
+            return true;
+        }
+
+        private void CaptureModelRootBaseline()
+        {
+            Animator animator = this.m_Character?.Animim?.Animator;
+            if (animator == null) return;
+
+            this.m_ModelRoot = animator.transform;
+            this.m_ModelRootParent = this.m_ModelRoot.parent;
+            this.m_ModelRootLocalPosition = this.m_ModelRoot.localPosition;
+            this.m_ModelRootLocalRotation = this.m_ModelRoot.localRotation;
+            this.m_ModelRootLocalScale = this.m_ModelRoot.localScale;
+            this.m_HasModelRootBaseline = true;
         }
 
         private void OnValidate()

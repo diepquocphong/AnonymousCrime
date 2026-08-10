@@ -191,6 +191,8 @@ namespace FranklinGame.Vehicles
                     }
                     if (!this.IsCurrent(version) || rider == null) return;
                     await rider.Ragdoll.StartRecover();
+                    rider.GetComponentInChildren<FranklinAnimationBridge>(true)
+                        ?.RestoreModelRootBaseline();
                 }
                 if (!this.IsCurrent(version) || rider == null) return;
 

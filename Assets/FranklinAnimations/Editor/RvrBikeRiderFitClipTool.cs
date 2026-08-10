@@ -47,65 +47,119 @@ internal static class RvrBikeRiderFitClipTool
         $"{BIKE_FOLDER}/Bike_09_Sport.prefab",
         $"{BIKE_FOLDER}/Bike_10_Sport.prefab"
     };
-
-    [MenuItem("Tools/Franklin/RVR Bikes/Apply Bike 01 Rider Fit + Targets To Bikes 08-10")]
+    private static readonly string[] NON_SHARED_GROUND_LEFT_FOOT_TARGETS =
+    {
+        $"{BIKE_FOLDER}/Bike_02.prefab",
+        $"{BIKE_FOLDER}/Bike_03.prefab",
+        $"{BIKE_FOLDER}/Bike_04.prefab",
+        $"{BIKE_FOLDER}/Bike_05.prefab",
+        $"{BIKE_FOLDER}/Bike_06.prefab",
+        $"{BIKE_FOLDER}/Bike_07.prefab"
+    };
+    [MenuItem("Tools/Franklin/RVR Bikes/Apply Bike 01 Defaults + Targets To Bikes 08-10")]
     public static void ApplyBike01RiderFitToSportBikes()
     {
-        BikeEntry source = FindSceneBike01();
-        GameObject loadedSourceRoot = null;
+        ApplyBike01RiderFitToSportBikes(null);
+    }
 
-        if (source == null)
-        {
-            string sourcePath = $"{BIKE_FOLDER}/Bike_01_Sport.prefab";
-            loadedSourceRoot = PrefabUtility.LoadPrefabContents(sourcePath);
-            source = loadedSourceRoot.GetComponent<BikeEntry>();
-        }
-
+    public static void ApplyBike01RiderFitToSportBikes(BikeEntry _)
+    {
+        string canonicalPath = $"{BIKE_FOLDER}/Bike_01_Sport.prefab";
+        GameObject canonicalRoot = PrefabUtility.LoadPrefabContents(canonicalPath);
         try
         {
-            ApplyBike01RiderFitToSportBikes(source);
+            BikeEntry canonicalTargets = canonicalRoot.GetComponent<BikeEntry>();
+            if (canonicalTargets == null)
+            {
+                Debug.LogError("RVR Bike Rider Fit: canonical Bike 01 prefab has no BikeEntry.");
+                return;
+            }
+
+            int updatedCount = 0;
+            int verifiedTargetCount = 0;
+            foreach (string prefabPath in SHARED_SPORT_FIT_TARGETS)
+            {
+                GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
+                try
+                {
+                    BikeEntry target = root.GetComponent<BikeEntry>();
+                    if (target == null)
+                    {
+                        Debug.LogWarning($"RVR Bike Rider Fit: BikeEntry missing on {prefabPath}.");
+                        continue;
+                    }
+
+                    CopySharedRiderFit(canonicalTargets, canonicalTargets, target);
+                    if (SharedTargetsMatchInBikeSpace(canonicalTargets, target))
+                    {
+                        verifiedTargetCount++;
+                    }
+                    else
+                    {
+                        Debug.LogError(
+                            $"RVR Bike Rider Fit: target pose verification failed for {prefabPath}."
+                        );
+                    }
+                    target.riderPoseClip = canonicalTargets.riderPoseClip;
+                    EditorUtility.SetDirty(target);
+                    PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+                    updatedCount++;
+                }
+                finally
+                {
+                    PrefabUtility.UnloadPrefabContents(root);
+                }
+            }
+
+            int additionalGroundLeftFootCount = CopyGroundLeftFootToPrefabs(
+                canonicalTargets,
+                NON_SHARED_GROUND_LEFT_FOOT_TARGETS
+            );
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log(
+                $"RVR Bike Rider Fit: applied the canonical Bike 01 shared profile, Entry, " +
+                $"Seat, Grip, Footpeg and Ground Left Foot targets to " +
+                $"{updatedCount} shared Sport bikes (08-10); " +
+                $"verified target poses on {verifiedTargetCount}/{updatedCount}; " +
+                $"also updated Ground Left Foot on {additionalGroundLeftFootCount} bikes (02-07)."
+            );
         }
         finally
         {
-            if (loadedSourceRoot != null)
-                PrefabUtility.UnloadPrefabContents(loadedSourceRoot);
+            PrefabUtility.UnloadPrefabContents(canonicalRoot);
         }
     }
 
-    public static void ApplyBike01RiderFitToSportBikes(BikeEntry source)
+    private static int CopyGroundLeftFootToPrefabs(
+        BikeEntry canonical,
+        string[] prefabPaths
+    )
     {
-        if (source == null)
-        {
-            Debug.LogError("RVR Bike Rider Fit: Bike 01 source was not found.");
-            return;
-        }
-
         int updatedCount = 0;
-        int verifiedTargetCount = 0;
-        foreach (string prefabPath in SHARED_SPORT_FIT_TARGETS)
+        foreach (string prefabPath in prefabPaths)
         {
             GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
             try
             {
                 BikeEntry target = root.GetComponent<BikeEntry>();
-                if (target == null)
+                if (target == null || target.groundLeftFootTarget == null)
                 {
-                    Debug.LogWarning($"RVR Bike Rider Fit: BikeEntry missing on {prefabPath}.");
+                    Debug.LogWarning(
+                        $"RVR Bike Rider Fit: Ground Left Foot target missing on {prefabPath}."
+                    );
                     continue;
                 }
 
-                CopySharedRiderFit(source, target);
-                if (SharedTargetsMatchInBikeSpace(source, target))
-                {
-                    verifiedTargetCount++;
-                }
-                else
-                {
-                    Debug.LogError(
-                        $"RVR Bike Rider Fit: target pose verification failed for {prefabPath}."
-                    );
-                }
-                GeneratePoseClip(target, Path.GetFileNameWithoutExtension(prefabPath), false);
+                CopyTargetPoseInBikeSpace(
+                    canonical.transform,
+                    target.transform,
+                    canonical.groundLeftFootTarget,
+                    target.groundLeftFootTarget,
+                    "Ground Left Foot"
+                );
+                EditorUtility.SetDirty(target);
                 PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
                 updatedCount++;
             }
@@ -115,14 +169,7 @@ internal static class RvrBikeRiderFitClipTool
             }
         }
 
-        AssetDatabase.SaveAssets();
-        AssetDatabase.Refresh();
-        Debug.Log(
-            $"RVR Bike Rider Fit: applied Bike 01 pose, Spine, Entry, Seat, Grip and Footpeg " +
-            $"targets to " +
-            $"{updatedCount} shared Sport bikes (08-10); " +
-            $"verified target poses on {verifiedTargetCount}/{updatedCount}."
-        );
+        return updatedCount;
     }
 
     [MenuItem("Tools/Franklin/RVR Bikes/Build Rider Fit Poses")]
@@ -354,130 +401,144 @@ internal static class RvrBikeRiderFitClipTool
         entry.riderHeadLift = head;
     }
 
-    private static BikeEntry FindSceneBike01()
+    private static void CopySharedRiderFit(
+        BikeEntry settingsSource,
+        BikeEntry targetPoseSource,
+        BikeEntry target
+    )
     {
-        if (Selection.activeGameObject != null)
-        {
-            BikeEntry selected = Selection.activeGameObject.GetComponentInParent<BikeEntry>();
-            if (IsBike01(selected)) return selected;
-        }
+        target.entryAnimation = settingsSource.entryAnimation;
+        target.exitAnimation = settingsSource.exitAnimation;
+        target.animationMask = settingsSource.animationMask;
+        target.entryAnimationTransitionIn = settingsSource.entryAnimationTransitionIn;
+        target.entryAnimationTransitionOut = settingsSource.entryAnimationTransitionOut;
+        target.enterSeatPositionBlendStart = settingsSource.enterSeatPositionBlendStart;
+        target.exitAnimationTransitionIn = settingsSource.exitAnimationTransitionIn;
+        target.exitAnimationTransitionOut = settingsSource.exitAnimationTransitionOut;
+        target.useRootMotion = settingsSource.useRootMotion;
+        target.stoppedExitSpeedKph = settingsSource.stoppedExitSpeedKph;
+        target.exitStopTimeout = settingsSource.exitStopTimeout;
+        target.enterAlignmentDuration = settingsSource.enterAlignmentDuration;
+        target.drivingState = settingsSource.drivingState;
+        target.drivingStateLayer = settingsSource.drivingStateLayer;
+        target.drivingStateTransitionIn = settingsSource.drivingStateTransitionIn;
+        target.drivingStateTransitionOut = settingsSource.drivingStateTransitionOut;
 
-        BikeEntry[] entries = UnityEngine.Object.FindObjectsByType<BikeEntry>(
-            FindObjectsInactive.Include,
-            FindObjectsSortMode.None
-        );
-        foreach (BikeEntry entry in entries)
-        {
-            if (IsBike01(entry)) return entry;
-        }
+        target.riderFitStyle = settingsSource.riderFitStyle;
+        target.entrySideMode = settingsSource.entrySideMode;
+        target.mirroredEntryAnimation = settingsSource.mirroredEntryAnimation;
+        target.alignCharacterToStandingPoint = settingsSource.alignCharacterToStandingPoint;
+        target.entryApproachStopDistance = settingsSource.entryApproachStopDistance;
+        target.entryApproachTimeout = settingsSource.entryApproachTimeout;
+        target.entryApproachAlignmentDuration = settingsSource.entryApproachAlignmentDuration;
+        target.entryApproachMotionPriority = settingsSource.entryApproachMotionPriority;
 
-        return null;
-    }
+        target.leftHandIKWeight = settingsSource.leftHandIKWeight;
+        target.rightHandIKWeight = settingsSource.rightHandIKWeight;
+        target.handIKRotationWeight = settingsSource.handIKRotationWeight;
+        target.footSmoothingTime = settingsSource.footSmoothingTime;
+        target.leftFootIKWeight = settingsSource.leftFootIKWeight;
+        target.rightFootIKWeight = settingsSource.rightFootIKWeight;
 
-    private static bool IsBike01(BikeEntry entry)
-    {
-        return entry != null && entry.gameObject.name.StartsWith(
-            "Bike_01",
-            StringComparison.OrdinalIgnoreCase
-        );
-    }
-
-    private static void CopySharedRiderFit(BikeEntry source, BikeEntry target)
-    {
-        target.riderFitStyle = source.riderFitStyle;
-        target.entrySideMode = source.entrySideMode;
-        target.mirroredEntryAnimation = source.mirroredEntryAnimation;
-        target.enterSeatPositionBlendStart = source.enterSeatPositionBlendStart;
-        target.riderPoseSourceClip = source.riderPoseSourceClip;
-        target.riderSeatOffset = source.riderSeatOffset;
-        target.riderSpinePositionOffset = source.riderSpinePositionOffset;
-        target.riderSpineRotationOffset = source.riderSpineRotationOffset;
-        target.riderPelvisPitch = source.riderPelvisPitch;
-        target.riderLowerBackCurl = source.riderLowerBackCurl;
-        target.riderChestCurl = source.riderChestCurl;
-        target.riderUpperChestCurl = source.riderUpperChestCurl;
-        target.riderNeckLift = source.riderNeckLift;
-        target.riderHeadLift = source.riderHeadLift;
-        target.riderAirborneLift = source.riderAirborneLift;
-        target.riderAirborneLiftDelay = source.riderAirborneLiftDelay;
-        target.riderAirborneLiftSmoothTime = source.riderAirborneLiftSmoothTime;
-        target.fallenBikeRecoveryAnimation = source.fallenBikeRecoveryAnimation;
-        target.fallenBikeReachDuration = source.fallenBikeReachDuration;
-        target.fallenBikeRaiseDuration = source.fallenBikeRaiseDuration;
-        target.fallenBikeStandDistance = source.fallenBikeStandDistance;
-        target.fallenBikeHandRotationWeight = source.fallenBikeHandRotationWeight;
-        target.fallenBikeSpinePositionOffset = source.fallenBikeSpinePositionOffset;
-        target.fallenBikeSpineRotationOffset = source.fallenBikeSpineRotationOffset;
-        target.leftHandIKWeight = source.leftHandIKWeight;
-        target.rightHandIKWeight = source.rightHandIKWeight;
-        target.handIKRotationWeight = source.handIKRotationWeight;
-        target.leftFootIKWeight = source.leftFootIKWeight;
-        target.rightFootIKWeight = source.rightFootIKWeight;
-
-        Transform sourceRoot = source.transform;
+        target.riderPoseSourceClip = settingsSource.riderPoseSourceClip;
+        target.riderSeatOffset = settingsSource.riderSeatOffset;
+        target.riderSpinePositionOffset = settingsSource.riderSpinePositionOffset;
+        target.riderSpineRotationOffset = settingsSource.riderSpineRotationOffset;
+        target.riderPelvisPitch = settingsSource.riderPelvisPitch;
+        target.riderLowerBackCurl = settingsSource.riderLowerBackCurl;
+        target.riderChestCurl = settingsSource.riderChestCurl;
+        target.riderUpperChestCurl = settingsSource.riderUpperChestCurl;
+        target.riderNeckLift = settingsSource.riderNeckLift;
+        target.riderHeadLift = settingsSource.riderHeadLift;
+        target.riderAirborneLift = settingsSource.riderAirborneLift;
+        target.riderAirborneLiftDelay = settingsSource.riderAirborneLiftDelay;
+        target.riderAirborneLiftSmoothTime = settingsSource.riderAirborneLiftSmoothTime;
+        target.fallenBikeRecoveryAnimation = settingsSource.fallenBikeRecoveryAnimation;
+        target.fallenBikeReachDuration = settingsSource.fallenBikeReachDuration;
+        target.fallenBikeRaiseDuration = settingsSource.fallenBikeRaiseDuration;
+        target.fallenBikeStandDistance = settingsSource.fallenBikeStandDistance;
+        target.fallenBikeGripReach = settingsSource.fallenBikeGripReach;
+        target.fallenBikeMaxAssistDistance = settingsSource.fallenBikeMaxAssistDistance;
+        target.fallenBikeHandRotationWeight = settingsSource.fallenBikeHandRotationWeight;
+        target.fallenBikeSpinePositionOffset = settingsSource.fallenBikeSpinePositionOffset;
+        target.fallenBikeSpineRotationOffset = settingsSource.fallenBikeSpineRotationOffset;
+        target.riderForwardLean = settingsSource.riderForwardLean;
+        target.riderLeanResponse = settingsSource.riderLeanResponse;
+        target.riderHipsLeanWeight = settingsSource.riderHipsLeanWeight;
+        target.riderSpineLeanWeight = settingsSource.riderSpineLeanWeight;
+        target.riderChestLeanWeight = settingsSource.riderChestLeanWeight;
+        target.riderUpperChestLeanWeight = settingsSource.riderUpperChestLeanWeight;
+        Transform sourceRoot = targetPoseSource.transform;
         Transform targetRoot = target.transform;
         CopyTargetPoseInBikeSpace(
             sourceRoot,
             targetRoot,
-            source.entryStandingPoint,
+            targetPoseSource.entryStandingPoint,
             target.entryStandingPoint,
             "Original Entry"
         );
         CopyTargetPoseInBikeSpace(
             sourceRoot,
             targetRoot,
-            source.mirroredEntryStandingPoint,
+            targetPoseSource.mirroredEntryStandingPoint,
             target.mirroredEntryStandingPoint,
             "Mirrored Entry"
         );
         CopyTargetPoseInBikeSpace(
             sourceRoot,
             targetRoot,
-            source.fallenBikeBodyGripLeft,
+            targetPoseSource.fallenBikeBodyGripLeft,
             target.fallenBikeBodyGripLeft,
             "Fallen Body Grip Left"
         );
         CopyTargetPoseInBikeSpace(
             sourceRoot,
             targetRoot,
-            source.fallenBikeBodyGripRight,
+            targetPoseSource.fallenBikeBodyGripRight,
             target.fallenBikeBodyGripRight,
             "Fallen Body Grip Right"
         );
         CopyTargetPoseInBikeSpace(
             sourceRoot,
             targetRoot,
-            source.entryParent,
+            targetPoseSource.entryParent,
             target.entryParent,
             "Seat"
         );
         CopyTargetPoseInBikeSpace(
             sourceRoot,
             targetRoot,
-            source.steeringWheelLeftHandTarget,
+            targetPoseSource.steeringWheelLeftHandTarget,
             target.steeringWheelLeftHandTarget,
             "Left Grip"
         );
         CopyTargetPoseInBikeSpace(
             sourceRoot,
             targetRoot,
-            source.steeringWheelRightHandTarget,
+            targetPoseSource.steeringWheelRightHandTarget,
             target.steeringWheelRightHandTarget,
             "Right Grip"
         );
         CopyTargetPoseInBikeSpace(
             sourceRoot,
             targetRoot,
-            source.leftFootTarget,
+            targetPoseSource.leftFootTarget,
             target.leftFootTarget,
             "Left Footpeg"
         );
         CopyTargetPoseInBikeSpace(
             sourceRoot,
             targetRoot,
-            source.rightFootTarget,
+            targetPoseSource.rightFootTarget,
             target.rightFootTarget,
             "Right Footpeg"
+        );
+        CopyTargetPoseInBikeSpace(
+            sourceRoot,
+            targetRoot,
+            targetPoseSource.groundLeftFootTarget,
+            target.groundLeftFootTarget,
+            "Ground Left Foot"
         );
         EditorUtility.SetDirty(target);
     }
@@ -555,6 +616,12 @@ internal static class RvrBikeRiderFitClipTool
                 targetRoot,
                 source.rightFootTarget,
                 target.rightFootTarget
+            ) &&
+            TargetPoseMatchesInBikeSpace(
+                sourceRoot,
+                targetRoot,
+                source.groundLeftFootTarget,
+                target.groundLeftFootTarget
             );
     }
 

@@ -77,6 +77,31 @@ public class CarEntryEditor : Editor
         }));
 
         root.Add(Spacer());
+        root.Add(MakeFoldout("Rear Seats (4 Doors)", true, new[]
+        {
+            "mirroredExitAnimation",
+            "rearLeftEntryStandingPoint",
+            "rearLeftEntryStepPoint",
+            "rearLeftSeatParent",
+            "rearLeftDoorTransform",
+            "rearLeftDoorOpenRotation",
+            "rearLeftDoorHandleTarget",
+            "rearLeftDoorAudioSource",
+            "rearRightEntryStandingPoint",
+            "rearRightEntryStepPoint",
+            "rearRightSeatParent",
+            "rearRightDoorTransform",
+            "rearRightDoorOpenRotation",
+            "rearRightDoorHandleTarget",
+            "rearRightDoorAudioSource",
+            "rearLeftLapLeftHandTarget",
+            "rearLeftLapRightHandTarget",
+            "rearRightLapLeftHandTarget",
+            "rearRightLapRightHandTarget",
+            "rearLapHandIKWeight"
+        }));
+
+        root.Add(Spacer());
         root.Add(MakeFoldout("Speed Aware Exit", true, new[]
         {
             "movingExitAnimation",

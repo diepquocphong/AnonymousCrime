@@ -35,6 +35,7 @@ namespace FranklinGame.UI
         private GameObject m_TactileMoveStick;
         private float m_NextReferenceRefresh;
         private bool m_WasDriving;
+        private bool m_WasPassengerMode;
         private bool m_HasAppliedMode;
         private bool m_UsesCanvasPlayerControl;
 
@@ -104,10 +105,14 @@ namespace FranklinGame.UI
             this.RefreshReferences(false);
 
             bool isDriving = IsUsableDriver(this.m_ActiveDriver);
+            bool isPassengerMode = this.m_ActiveDriver is SimcadeCarDriver car &&
+                car.IsPassengerPresentationActive;
             if (!this.m_HasAppliedMode || isDriving != this.m_WasDriving)
             {
                 this.ApplyMode(isDriving);
             }
+            if (!this.m_HasAppliedMode || isPassengerMode != this.m_WasPassengerMode)
+                this.ApplyPassengerControlVisibility(isPassengerMode);
 
             this.UpdateEnterVehicleButton(isDriving);
             this.UpdateBikeOnlyControls(isDriving);
@@ -152,7 +157,13 @@ namespace FranklinGame.UI
                     break;
                 case FranklinHudAction.VehicleInteraction:
                     if (!active) break;
-                    if (this.m_ActiveDriver != null && this.m_ActiveDriver.IsVehicleEnabled)
+                    if (this.m_ActiveDriver is SimcadeCarDriver passengerCar &&
+                        passengerCar.IsPassengerPresentationActive)
+                    {
+                        passengerCar.RequestExit();
+                    }
+                    else if (this.m_ActiveDriver != null &&
+                             this.m_ActiveDriver.IsVehicleEnabled)
                     {
                         this.m_ActiveDriver.RequestExit();
                     }
@@ -497,7 +508,8 @@ namespace FranklinGame.UI
                 foreach (SimcadeCarDriver driver in FindObjectsByType<SimcadeCarDriver>(
                     FindObjectsSortMode.None))
                 {
-                    if (driver != null && driver.IsVehicleEnabled)
+                    if (driver != null && (driver.IsVehicleEnabled ||
+                                           driver.IsPassengerPresentationActive))
                     {
                         this.m_ActiveDriver = driver;
                         break;
@@ -573,6 +585,27 @@ namespace FranklinGame.UI
             }
         }
 
+        private void ApplyPassengerControlVisibility(bool passengerMode)
+        {
+            if (this.m_VehicleGroup == null) return;
+            string[] drivingOnlyControls =
+            {
+                "Steer Left",
+                "Steer Right",
+                "Accelerate",
+                "Brake Reverse",
+                "Handbrake",
+                "Slow Drive",
+                "Bike Headlight"
+            };
+            foreach (string controlName in drivingOnlyControls)
+            {
+                Transform control = this.m_VehicleGroup.Find(controlName);
+                if (control != null) control.gameObject.SetActive(!passengerMode);
+            }
+            this.m_WasPassengerMode = passengerMode;
+        }
+
         private void ReleaseMovementInputs()
         {
             this.m_MovementBridge?.SetVirtualJogInput(false);
@@ -598,7 +631,9 @@ namespace FranklinGame.UI
         private static bool IsUsableDriver(IRvrVehicleInputController driver)
         {
             return driver is MonoBehaviour behaviour && behaviour != null &&
-                   driver.IsVehicleEnabled;
+                   (driver.IsVehicleEnabled ||
+                    driver is SimcadeCarDriver car &&
+                    car.IsPassengerPresentationActive);
         }
 
         private void EnsureEventSystem()

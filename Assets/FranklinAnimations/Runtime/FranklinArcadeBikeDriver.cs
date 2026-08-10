@@ -25,6 +25,12 @@ namespace FranklinGame.Vehicles
         [SerializeField, Range(0.1f, 1f)] private float m_SlowThrottle = 0.35f;
         [SerializeField] private bool m_ReadKeyboardInput = true;
 
+        [Header("Exit Stop")]
+        [Tooltip("Planar deceleration applied while a moving bike is preparing to exit.")]
+        [SerializeField, Min(0.1f)] private float m_ExitStopDeceleration = 7.5f;
+        [Tooltip("Angular deceleration applied while preparing to exit so the bike settles before parking.")]
+        [SerializeField, Min(0.1f)] private float m_ExitStopAngularDeceleration = 6f;
+
         [Header("Crash Engine Audio")]
         [SerializeField]
         [Tooltip("Keeps the engine idling while the crashed bike tumbles and waits to be raised instead of cutting the loop immediately.")]
@@ -145,6 +151,15 @@ namespace FranklinGame.Vehicles
             }
 #endif
 
+            if (this.m_IsStoppingForExit)
+            {
+                // Mobile/keyboard input is ignored once exit braking begins.
+                // Keep ABP active so suspension and balance still settle while
+                // braking, but never allow throttle, reverse or steering input.
+                this.ProvideInput(0f, 0f, 1f, 0f, 0f, 0f);
+                return;
+            }
+
             this.ProvideInput(
                 accelerate,
                 reverse,
@@ -152,6 +167,30 @@ namespace FranklinGame.Vehicles
                 steerLeft,
                 steerRight,
                 wheelie
+            );
+        }
+
+        private void FixedUpdate()
+        {
+            if (!this.m_IsStoppingForExit || !this.m_IsVehicleEnabled ||
+                this.m_Rigidbody == null || this.m_Rigidbody.isKinematic)
+            {
+                return;
+            }
+
+            Vector3 velocity = this.m_Rigidbody.linearVelocity;
+            Vector3 planarVelocity = Vector3.ProjectOnPlane(velocity, Vector3.up);
+            Vector3 verticalVelocity = velocity - planarVelocity;
+            planarVelocity = Vector3.MoveTowards(
+                planarVelocity,
+                Vector3.zero,
+                this.m_ExitStopDeceleration * Time.fixedDeltaTime
+            );
+            this.m_Rigidbody.linearVelocity = verticalVelocity + planarVelocity;
+            this.m_Rigidbody.angularVelocity = Vector3.MoveTowards(
+                this.m_Rigidbody.angularVelocity,
+                Vector3.zero,
+                this.m_ExitStopAngularDeceleration * Time.fixedDeltaTime
             );
         }
 
@@ -258,8 +297,11 @@ namespace FranklinGame.Vehicles
 
         public void BeginExitStop()
         {
+            if (!this.m_IsVehicleEnabled) return;
             this.m_IsStoppingForExit = true;
             this.ResetVirtualInputs();
+            this.m_ExternalHandbrake = false;
+            this.ProvideInput(0f, 0f, 1f, 0f, 0f, 0f);
         }
 
         public void CancelExitStop()
@@ -502,6 +544,11 @@ namespace FranklinGame.Vehicles
 
         private void OnValidate()
         {
+            this.m_ExitStopDeceleration = Mathf.Max(0.1f, this.m_ExitStopDeceleration);
+            this.m_ExitStopAngularDeceleration = Mathf.Max(
+                0.1f,
+                this.m_ExitStopAngularDeceleration
+            );
             this.m_CrashIdleEngineVolume = Mathf.Clamp01(
                 this.m_CrashIdleEngineVolume
             );

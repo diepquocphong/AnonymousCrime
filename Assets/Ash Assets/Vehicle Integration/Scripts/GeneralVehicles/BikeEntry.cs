@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using FranklinGame.Animations;
 using FranklinGame.Vehicles;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
@@ -48,6 +49,12 @@ public class BikeEntry : MonoBehaviour
 
     [Tooltip("If true, the animation uses root motion.")]
     public bool useRootMotion = true;
+
+    [Header("Exit Stop")]
+    [Tooltip("The exit animation starts only after planar bike speed falls below this threshold.")]
+    [Min(0f)] public float stoppedExitSpeedKph = 1.25f;
+    [Tooltip("Maximum braking time before the bike is forced to a complete safe stop.")]
+    [Min(0.1f)] public float exitStopTimeout = 5f;
 
     [Header("Enter Alignment")]
     [Tooltip("Time used to turn the character parallel with the bike and blend the nearest hand onto the handlebar.")]
@@ -151,6 +158,10 @@ public class BikeEntry : MonoBehaviour
     [Min(0.2f)] public float fallenBikeReachDuration = 0.45f;
     [Min(0.3f)] public float fallenBikeRaiseDuration = 1.15f;
     [Min(0.4f)] public float fallenBikeStandDistance = 0.85f;
+    [Tooltip("Horizontal reach from the Player root to the fallen-bike grip center before lifting.")]
+    [Min(0.2f)] public float fallenBikeGripReach = 0.48f;
+    [Tooltip("Maximum distance the parked bike may slide toward the Player to guarantee both hands can reach it.")]
+    [Min(0f)] public float fallenBikeMaxAssistDistance = 0.75f;
     [Range(0f, 1f)] public float fallenBikeHandRotationWeight = 0.35f;
     public Vector3 fallenBikeSpinePositionOffset = new Vector3(0f, -0.06f, 0.04f);
     public Vector3 fallenBikeSpineRotationOffset = new Vector3(32f, 0f, 0f);
@@ -221,6 +232,7 @@ public class BikeEntry : MonoBehaviour
         new List<Collider>(24);
     private readonly List<IgnoredCollisionPair> _ignoredEntryCollisionPairs =
         new List<IgnoredCollisionPair>(48);
+    private readonly RaycastHit[] _recoveryGroundHits = new RaycastHit[16];
     private float _airborneDuration;
     private float _currentAirborneLift;
     private float _airborneLiftVelocity;
@@ -410,7 +422,11 @@ public class BikeEntry : MonoBehaviour
         fallenBikeReachDuration = Mathf.Max(0.2f, fallenBikeReachDuration);
         fallenBikeRaiseDuration = Mathf.Max(0.3f, fallenBikeRaiseDuration);
         fallenBikeStandDistance = Mathf.Max(0.4f, fallenBikeStandDistance);
+        fallenBikeGripReach = Mathf.Max(0.2f, fallenBikeGripReach);
+        fallenBikeMaxAssistDistance = Mathf.Max(0f, fallenBikeMaxAssistDistance);
         fallenBikeHandRotationWeight = Mathf.Clamp01(fallenBikeHandRotationWeight);
+        stoppedExitSpeedKph = Mathf.Max(0f, stoppedExitSpeedKph);
+        exitStopTimeout = Mathf.Max(0.1f, exitStopTimeout);
         enterAlignmentDuration = Mathf.Max(0.05f, enterAlignmentDuration);
         enterSeatPositionBlendStart = Mathf.Clamp(
             enterSeatPositionBlendStart,
@@ -659,6 +675,8 @@ public class BikeEntry : MonoBehaviour
     public async void EnterBike(Character character)
     {
         if (IsTransitioning || character == null || _mountedCharacter != null) return;
+        character.GetComponentInChildren<FranklinAnimationBridge>(true)
+            ?.RestoreModelRootBaseline();
         isEntering = true;
         SelectEntrySide(character);
 
@@ -684,10 +702,15 @@ public class BikeEntry : MonoBehaviour
         if (arcadeBikeRagdoll != null &&
             arcadeBikeRagdoll.RequiresManualRecovery)
         {
+            // Ignore Player/Bike collision before approaching a fallen bike. The
+            // parked mesh collider can otherwise block GC2 navigation before the
+            // hands ever reach the recovery targets.
+            BeginEntryCollisionIgnore(character);
             if (!await RaiseFallenBikeBeforeEntry(character))
             {
                 if (character != null && character.Player != null)
                     character.Player.IsControllable = true;
+                EndEntryCollisionIgnore();
                 ClearActiveEntrySide();
                 isEntering = false;
                 return;
@@ -825,8 +848,13 @@ public class BikeEntry : MonoBehaviour
 
     private async Task<bool> RaiseFallenBikeBeforeEntry(Character character)
     {
-        if (character == null || arcadeBikeRagdoll == null ||
-            !arcadeBikeRagdoll.TryGetManualRecoveryTarget(
+        if (character == null || arcadeBikeRagdoll == null) return false;
+        if (!arcadeBikeRagdoll.RequiresManualRecovery &&
+            !arcadeBikeRagdoll.TryPrepareManualRecoveryForInteraction())
+        {
+            return false;
+        }
+        if (!arcadeBikeRagdoll.TryGetManualRecoveryTarget(
                 out Vector3 targetBikePosition,
                 out Quaternion targetBikeRotation,
                 out Vector3 groundNormal
@@ -836,7 +864,8 @@ public class BikeEntry : MonoBehaviour
         }
 
         int groundedSide = arcadeBikeRagdoll.ParkedGroundSide;
-        if (groundedSide == 0) return false;
+        if (groundedSide == 0)
+            groundedSide = Vector3.Dot(transform.right, Vector3.up) >= 0f ? -1 : 1;
 
         Vector3 sideDirection = targetBikeRotation * Vector3.right * groundedSide;
         sideDirection = Vector3.ProjectOnPlane(sideDirection, groundNormal).normalized;
@@ -846,27 +875,34 @@ public class BikeEntry : MonoBehaviour
         Vector3 standProbe = targetBikePosition +
                              sideDirection * fallenBikeStandDistance;
         if (!TryFindRecoveryStandingGround(standProbe, out Vector3 standingGround))
-            return false;
+        {
+            // The interaction button is already limited to a nearby Player. If
+            // a complex MeshCollider or ramp hides the ground ray, preserve the
+            // Player's current foot height and force a short alignment instead
+            // of cancelling the entire lift sequence.
+            standingGround = new Vector3(
+                standProbe.x,
+                character.transform.position.y - character.Motion.Height * 0.5f,
+                standProbe.z
+            );
+        }
 
         Quaternion standingRotation = Quaternion.LookRotation(
             -sideDirection,
             Vector3.up
         );
-        if (!await MoveCharacterToRecoveryPoint(
-                character,
-                standingGround,
-                standingRotation
-            ))
-        {
-            return false;
-        }
+        await MoveCharacterToRecoveryPoint(
+            character,
+            standingGround,
+            standingRotation
+        );
+        if (character == null) return false;
 
         Animator animator = character.GetComponentInChildren<Animator>();
         CharacterIKSetter ikSetter = animator != null
             ? animator.GetComponent<CharacterIKSetter>() ??
               animator.gameObject.AddComponent<CharacterIKSetter>()
             : null;
-        if (ikSetter == null) return false;
 
         bool mirroredRecovery = groundedSide > 0;
         Transform handleTarget = mirroredRecovery
@@ -875,8 +911,22 @@ public class BikeEntry : MonoBehaviour
         Transform bodyTarget = mirroredRecovery
             ? fallenBikeBodyGripRight
             : fallenBikeBodyGripLeft;
-        if (handleTarget == null || bodyTarget == null) return false;
         _activeIkSetter = ikSetter;
+
+        Vector3 fallenStartBikePosition = transform.position;
+        Quaternion fallenStartBikeRotation = transform.rotation;
+        Vector3 bikeAssist = CalculateFallenBikeAssistTranslation(
+            character,
+            handleTarget,
+            bodyTarget,
+            groundNormal
+        );
+        Vector3 assistedFallenPosition = fallenStartBikePosition + bikeAssist;
+        targetBikePosition = arcadeBikeRagdoll.AlignManualRecoveryTargetToGround(
+            targetBikePosition + bikeAssist,
+            targetBikeRotation,
+            groundNormal
+        );
 
         float reachDuration = Mathf.Max(0.2f, fallenBikeReachDuration);
         float raiseDuration = Mathf.Max(0.3f, fallenBikeRaiseDuration);
@@ -914,48 +964,59 @@ public class BikeEntry : MonoBehaviour
                 standingRotation,
                 blend
             );
-            ikSetter.ConfigureManualSpineAdjustment(
-                Vector3.Lerp(Vector3.zero, fallenBikeSpinePositionOffset, blend),
-                Vector3.Lerp(Vector3.zero, fallenBikeSpineRotationOffset, blend)
+            arcadeBikeRagdoll.SetManualRecoveryPose(
+                Vector3.Lerp(fallenStartBikePosition, assistedFallenPosition, blend),
+                fallenStartBikeRotation
             );
-            SetFallenBikeRecoveryHands(
-                ikSetter,
-                mirroredRecovery,
-                handleTarget,
-                bodyTarget,
-                blend
-            );
+            if (ikSetter != null)
+            {
+                ikSetter.ConfigureManualSpineAdjustment(
+                    Vector3.Lerp(Vector3.zero, fallenBikeSpinePositionOffset, blend),
+                    Vector3.Lerp(Vector3.zero, fallenBikeSpineRotationOffset, blend)
+                );
+                SetFallenBikeRecoveryHands(
+                    ikSetter,
+                    mirroredRecovery,
+                    handleTarget,
+                    bodyTarget,
+                    blend
+                );
+            }
             elapsed += Time.deltaTime;
             await Task.Yield();
         }
 
-        Vector3 startBikePosition = transform.position;
-        Quaternion startBikeRotation = transform.rotation;
+        Vector3 raiseStartBikePosition = assistedFallenPosition;
+        Quaternion raiseStartBikeRotation = fallenStartBikeRotation;
         elapsed = 0f;
         while (elapsed < raiseDuration && character != null)
         {
             float progress = Mathf.Clamp01(elapsed / raiseDuration);
             float smooth = progress * progress * (3f - 2f * progress);
             arcadeBikeRagdoll.SetManualRecoveryPose(
-                Vector3.Lerp(startBikePosition, targetBikePosition, smooth),
-                Quaternion.Slerp(startBikeRotation, targetBikeRotation, smooth)
+                Vector3.Lerp(raiseStartBikePosition, targetBikePosition, smooth),
+                Quaternion.Slerp(raiseStartBikeRotation, targetBikeRotation, smooth)
             );
+            character.transform.rotation = standingRotation;
             float standBlend = Mathf.SmoothStep(1f, 0f, Mathf.InverseLerp(
                 0.82f,
                 1f,
                 progress
             ));
-            ikSetter.ConfigureManualSpineAdjustment(
-                Vector3.Lerp(Vector3.zero, fallenBikeSpinePositionOffset, standBlend),
-                Vector3.Lerp(Vector3.zero, fallenBikeSpineRotationOffset, standBlend)
-            );
-            SetFallenBikeRecoveryHands(
-                ikSetter,
-                mirroredRecovery,
-                handleTarget,
-                bodyTarget,
-                standBlend
-            );
+            if (ikSetter != null)
+            {
+                ikSetter.ConfigureManualSpineAdjustment(
+                    Vector3.Lerp(Vector3.zero, fallenBikeSpinePositionOffset, standBlend),
+                    Vector3.Lerp(Vector3.zero, fallenBikeSpineRotationOffset, standBlend)
+                );
+                SetFallenBikeRecoveryHands(
+                    ikSetter,
+                    mirroredRecovery,
+                    handleTarget,
+                    bodyTarget,
+                    standBlend
+                );
+            }
             elapsed += Time.deltaTime;
             await Task.Yield();
         }
@@ -975,12 +1036,60 @@ public class BikeEntry : MonoBehaviour
             targetBikeRotation
         );
         arcadeBikeRagdoll.CompleteManualRecovery();
-        ikSetter.SetIKTargets(null, null, 0f, 0f, 0f, 0f);
-        ikSetter.ConfigureManualSpineAdjustment(Vector3.zero, Vector3.zero);
+        if (ikSetter != null)
+        {
+            ikSetter.SetIKTargets(null, null, 0f, 0f, 0f, 0f);
+            ikSetter.ConfigureManualSpineAdjustment(Vector3.zero, Vector3.zero);
+        }
         _activeIkSetter = null;
         character.Gestures.Stop(0.1f, 0.2f);
         await Task.Yield();
         return true;
+    }
+
+    private Vector3 CalculateFallenBikeAssistTranslation(
+        Character character,
+        Transform handleTarget,
+        Transform bodyTarget,
+        Vector3 groundNormal)
+    {
+        if (character == null || fallenBikeMaxAssistDistance <= 0f)
+            return Vector3.zero;
+
+        Vector3 gripCenter = Vector3.zero;
+        int gripCount = 0;
+        if (handleTarget != null)
+        {
+            gripCenter += handleTarget.position;
+            gripCount++;
+        }
+        if (bodyTarget != null)
+        {
+            gripCenter += bodyTarget.position;
+            gripCount++;
+        }
+        gripCenter = gripCount > 0
+            ? gripCenter / gripCount
+            : transform.position;
+
+        Vector3 normal = groundNormal.sqrMagnitude > 0.001f
+            ? groundNormal.normalized
+            : Vector3.up;
+        Vector3 playerForward = Vector3.ProjectOnPlane(
+            character.transform.forward,
+            normal
+        );
+        if (playerForward.sqrMagnitude < 0.001f)
+            playerForward = Vector3.ProjectOnPlane(-transform.right, normal);
+        playerForward.Normalize();
+
+        Vector3 desiredGripCenter = character.transform.position +
+                                    playerForward * fallenBikeGripReach;
+        Vector3 assist = Vector3.ProjectOnPlane(
+            desiredGripCenter - gripCenter,
+            normal
+        );
+        return Vector3.ClampMagnitude(assist, fallenBikeMaxAssistDistance);
     }
 
     private void SetFallenBikeRecoveryHands(
@@ -996,24 +1105,28 @@ public class BikeEntry : MonoBehaviour
         {
             // True mirror: right hand takes the handlebar and left hand takes
             // the body when the bike rests on its right surface.
+            float leftWeight = bodyTarget != null ? weight : 0f;
+            float rightWeight = handleTarget != null ? weight : 0f;
             ikSetter.SetIKTargets(
                 bodyTarget,
                 handleTarget,
-                weight,
-                weight,
-                rotationWeight,
-                rotationWeight
+                leftWeight,
+                rightWeight,
+                bodyTarget != null ? rotationWeight : 0f,
+                handleTarget != null ? rotationWeight : 0f
             );
         }
         else
         {
+            float leftWeight = handleTarget != null ? weight : 0f;
+            float rightWeight = bodyTarget != null ? weight : 0f;
             ikSetter.SetIKTargets(
                 handleTarget,
                 bodyTarget,
-                weight,
-                weight,
-                rotationWeight,
-                rotationWeight
+                leftWeight,
+                rightWeight,
+                handleTarget != null ? rotationWeight : 0f,
+                bodyTarget != null ? rotationWeight : 0f
             );
         }
     }
@@ -1081,6 +1194,15 @@ public class BikeEntry : MonoBehaviour
             character.Motion.StopToDirection(
                 Mathf.Max(1, entryApproachMotionPriority)
             );
+            // Navigation can fail beside a rotated MeshCollider or wall. The
+            // Player is already within interaction range, so force the same
+            // short alignment instead of cancelling the recovery sequence.
+            await SmoothAlignCharacterToPose(
+                character,
+                targetRootPosition,
+                targetRotation
+            );
+            succeeded = true;
         }
 
         _approachCharacter = null;
@@ -1127,17 +1249,19 @@ public class BikeEntry : MonoBehaviour
         out Vector3 groundPoint)
     {
         groundPoint = probePosition;
-        RaycastHit[] hits = Physics.RaycastAll(
+        int hitCount = Physics.RaycastNonAlloc(
             probePosition + Vector3.up * 2f,
             Vector3.down,
+            _recoveryGroundHits,
             6f,
             ~0,
             QueryTriggerInteraction.Ignore
         );
         float closestDistance = float.PositiveInfinity;
         bool found = false;
-        foreach (RaycastHit hit in hits)
+        for (int index = 0; index < hitCount; index++)
         {
+            RaycastHit hit = _recoveryGroundHits[index];
             if (hit.collider == null || hit.collider.transform.IsChildOf(transform))
                 continue;
             Rigidbody support = hit.collider.attachedRigidbody;
@@ -1156,6 +1280,42 @@ public class BikeEntry : MonoBehaviour
     {
         if (IsTransitioning || character == null || character != _mountedCharacter) return;
         isExiting = true;
+
+        Rigidbody bikeRigidbody = GetComponent<Rigidbody>();
+        float stoppedSpeed = Mathf.Max(0f, stoppedExitSpeedKph) / 3.6f;
+        if (bikeController != null && bikeController.IsVehicleEnabled &&
+            bikeController.SpeedMetersPerSecond > stoppedSpeed)
+        {
+            // Keep the rider seated and ABP active while throttle/steering input
+            // is suppressed. The driver applies mobile-safe planar deceleration
+            // in FixedUpdate and keeps the suspension settled until the bike has
+            // nearly stopped.
+            bikeController.BeginExitStop();
+            float deadline = Time.unscaledTime + Mathf.Max(0.1f, exitStopTimeout);
+            while (character != null && character == _mountedCharacter &&
+                   bikeController.IsVehicleEnabled &&
+                   bikeController.SpeedMetersPerSecond > stoppedSpeed &&
+                   Time.unscaledTime < deadline)
+            {
+                await Task.Yield();
+            }
+
+            if (character == null || character != _mountedCharacter)
+            {
+                bikeController.CancelExitStop();
+                isExiting = false;
+                return;
+            }
+        }
+
+        // Remove the final sub-threshold creep (or force-stop after timeout)
+        // before detaching the rider and starting the exit gesture.
+        if (bikeRigidbody != null && !bikeRigidbody.isKinematic)
+        {
+            bikeRigidbody.linearVelocity = Vector3.zero;
+            bikeRigidbody.angularVelocity = Vector3.zero;
+        }
+
         // Entry may use the opposite side, but bike exit is intentionally never
         // mirrored. From this point onward the original left standing point owns
         // the exit animation landing pose and safe character placement.
@@ -1172,8 +1332,6 @@ public class BikeEntry : MonoBehaviour
                 ikSetter.SetFootIKTargets(null, null, 0f, 0f);
             }
         }
-
-        Rigidbody bikeRigidbody = GetComponent<Rigidbody>();
 
         // Stop Arcade physics before the rider regains collision. A parked bike
         // remains kinematic so GC2's character collision cannot impart velocity.
@@ -1196,8 +1354,23 @@ public class BikeEntry : MonoBehaviour
 
         character.States.Stop(drivingStateLayer, 0f, drivingStateTransitionOut);
 
-        Task animationTask = PlayAnimation(character, exitAnimation, exitAnimationTransitionIn, exitAnimationTransitionOut);
-        await animationTask;
+        // The animation is authored against the exact standing point. Collision
+        // clearance is applied only after it finishes, while Player/Bike
+        // collisions are still ignored during the gesture.
+        Vector3 exitPosition = entryStandingPoint != null
+            ? entryStandingPoint.position
+            : character.transform.position;
+        Quaternion exitRotation = entryStandingPoint != null
+            ? entryStandingPoint.rotation
+            : character.transform.rotation;
+        await PlayExitAnimationAnchored(
+            character,
+            exitAnimation,
+            exitAnimationTransitionIn,
+            exitAnimationTransitionOut,
+            exitPosition,
+            exitRotation
+        );
 
         MoveCharacterToLeftExitPosition(character);
         RestoreCharacterPhysics(character);
@@ -1461,22 +1634,116 @@ public class BikeEntry : MonoBehaviour
 
     private void MoveCharacterToLeftExitPosition(Character character)
     {
-        Transform standingPoint = entryStandingPoint;
-        if (character == null || standingPoint == null) return;
+        if (!TryGetLeftExitPose(
+            character,
+            out Vector3 exitPosition,
+            out Quaternion exitRotation
+        )) return;
 
-        Vector3 exitPosition = standingPoint.position;
+        character.transform.SetPositionAndRotation(exitPosition, exitRotation);
+        character.Driver?.ResetVerticalVelocity();
+    }
+
+    private bool TryGetLeftExitPose(
+        Character character,
+        out Vector3 exitPosition,
+        out Quaternion exitRotation)
+    {
+        Transform standingPoint = entryStandingPoint;
+        exitPosition = character != null
+            ? character.transform.position
+            : transform.position;
+        exitRotation = character != null
+            ? character.transform.rotation
+            : transform.rotation;
+        if (character == null || standingPoint == null) return false;
+
+        exitPosition = standingPoint.position;
+        exitRotation = standingPoint.rotation;
         if (arcadeBikeRagdoll != null && character.Motion != null)
         {
-            exitPosition = arcadeBikeRagdoll.GetCollisionSafeLeftExitPosition(
+            Vector3 leftDirection = mirroredEntryStandingPoint != null
+                ? Vector3.ProjectOnPlane(
+                    entryStandingPoint.position -
+                    mirroredEntryStandingPoint.position,
+                    Vector3.up
+                )
+                : Vector3.ProjectOnPlane(-transform.right, Vector3.up);
+            if (leftDirection.sqrMagnitude < 0.0001f)
+                leftDirection = -transform.right;
+
+            exitPosition = arcadeBikeRagdoll.GetCollisionSafeExitPosition(
                 exitPosition,
+                leftDirection.normalized,
                 character.Motion.Radius + 0.06f
             );
         }
-        character.transform.SetPositionAndRotation(
-            exitPosition,
-            standingPoint.rotation
-        );
+
+        return true;
+    }
+
+    private async Task PlayExitAnimationAnchored(
+        Character character,
+        AnimationClip clip,
+        float transitionIn,
+        float transitionOut,
+        Vector3 targetPosition,
+        Quaternion targetRotation)
+    {
+        if (character == null) return;
+
+        // Character_Exit_Bike is authored around the standing root, not the
+        // seated Character transform. Its first Humanoid RootT is offset back
+        // over the seat (x ~= 0.483 m) and the last RootT returns to zero.
+        // Anchor the Character root at the left standing point before sampling
+        // the clip; the skeleton then starts on the seat and exits left without
+        // the 48 cm visual jump caused by anchoring the root on the seat.
+        character.transform.SetPositionAndRotation(targetPosition, targetRotation);
         character.Driver?.ResetVerticalVelocity();
+
+        float duration = 0f;
+
+        if (clip != null)
+        {
+            const float speed = 1f;
+            var gestureConfig = new ConfigGesture(
+                0f,
+                clip.length,
+                speed,
+                false,
+                transitionIn,
+                transitionOut
+            );
+            _ = character.Gestures.CrossFade(
+                clip,
+                animationMask,
+                BlendMode.Blend,
+                gestureConfig,
+                true
+            );
+            duration = clip.length / speed;
+        }
+
+        float elapsed = 0f;
+        while (elapsed < duration && character != null)
+        {
+            character.transform.SetPositionAndRotation(
+                targetPosition,
+                targetRotation
+            );
+            character.Driver?.ResetVerticalVelocity();
+            elapsed += Time.unscaledDeltaTime;
+            await Task.Yield();
+        }
+
+        if (character != null)
+        {
+            character.transform.SetPositionAndRotation(
+                targetPosition,
+                targetRotation
+            );
+            character.Driver?.ResetVerticalVelocity();
+        }
     }
 
     private async Task PlayEntryAnimationAligned(
@@ -1716,12 +1983,4 @@ public class BikeEntry : MonoBehaviour
         return rootCollider;
     }
 
-    private async Task PlayAnimation(Character character, AnimationClip clip, float transitionIn, float transitionOut)
-    {
-        if (clip == null) return;
-        float speed = 1f;
-        ConfigGesture gestureConfig = new ConfigGesture(0f, clip.length, speed, useRootMotion, transitionIn, transitionOut);
-        _ = character.Gestures.CrossFade(clip, animationMask, BlendMode.Blend, gestureConfig, true);
-        await Task.Delay((int)(clip.length * 1000 / speed));
-    }
 }

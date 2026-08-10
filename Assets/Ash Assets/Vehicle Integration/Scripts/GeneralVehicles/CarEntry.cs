@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using FranklinGame.Animations;
 using FranklinGame.Vehicles;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
@@ -15,7 +16,9 @@ public enum CarEntrySideMode
 {
     Automatic,
     DriverDoor,
-    PassengerDoor
+    PassengerDoor,
+    RearLeftDoor,
+    RearRightDoor
 }
 
 [AddComponentMenu("Game Creator/Mechanics/CarEntry")]
@@ -43,6 +46,29 @@ public class CarEntry : MonoBehaviour
     [Range(0.15f, 0.55f)] public float occupiedDoorOpenGestureNormalizedTime = 0.34f;
     [Min(0f)] public float occupiedDoorReachLeadTime = 0.12f;
     [Min(0.05f)] public float passengerToDriverTransferDuration = 0.22f;
+
+    [Header("Rear Seat Entry (4-door cars)")]
+    [Tooltip("Mirrored exit clip used by doors on the right side of the car.")]
+    public AnimationClip mirroredExitAnimation;
+    public Transform rearLeftEntryStandingPoint;
+    public Transform rearLeftEntryStepPoint;
+    public Transform rearLeftSeatParent;
+    public Transform rearLeftDoorTransform;
+    public Vector3 rearLeftDoorOpenRotation;
+    public Transform rearLeftDoorHandleTarget;
+    public AudioSource rearLeftDoorAudioSource;
+    public Transform rearRightEntryStandingPoint;
+    public Transform rearRightEntryStepPoint;
+    public Transform rearRightSeatParent;
+    public Transform rearRightDoorTransform;
+    public Vector3 rearRightDoorOpenRotation;
+    public Transform rearRightDoorHandleTarget;
+    public AudioSource rearRightDoorAudioSource;
+    public Transform rearLeftLapLeftHandTarget;
+    public Transform rearLeftLapRightHandTarget;
+    public Transform rearRightLapLeftHandTarget;
+    public Transform rearRightLapRightHandTarget;
+    [Range(0f, 1f)] public float rearLapHandIKWeight = 0.92f;
 
     [Header("Animation Transitions")]
     public float entryAnimationTransitionIn = 0.1f;
@@ -179,11 +205,19 @@ public class CarEntry : MonoBehaviour
     private bool isExiting = false;
 
     private Character _seatedChar;
+    private Character _rearLeftSeatedChar;
+    private Character _rearRightSeatedChar;
     private CharacterPhysicsSnapshot _seatedPhysics;
+    private CharacterPhysicsSnapshot _rearLeftPhysics;
+    private CharacterPhysicsSnapshot _rearRightPhysics;
     private CharacterPhysicsSnapshot _passengerCarjackingPhysics;
     private readonly CharacterPhysicsSnapshot _physicsSnapshotBuffer =
         new CharacterPhysicsSnapshot();
     private readonly CharacterPhysicsSnapshot _passengerPhysicsSnapshotBuffer =
+        new CharacterPhysicsSnapshot();
+    private readonly CharacterPhysicsSnapshot _rearLeftPhysicsSnapshotBuffer =
+        new CharacterPhysicsSnapshot();
+    private readonly CharacterPhysicsSnapshot _rearRightPhysicsSnapshotBuffer =
         new CharacterPhysicsSnapshot();
     private readonly List<Collider> _colliderBuffer = new List<Collider>(8);
     private readonly List<Rigidbody> _rigidbodyBuffer = new List<Rigidbody>(4);
@@ -205,10 +239,13 @@ public class CarEntry : MonoBehaviour
     private System.Action<Character, bool> _approachCallback;
     private SeatedSkeletonPoseGuard _seatedPoseGuard;
     private bool _activePassengerEntry;
+    private CarEntrySideMode _activeEntrySide = CarEntrySideMode.DriverDoor;
     private bool _entryStopsAtPassengerCabin;
     private bool _passengerCarjackingSeatOccupied;
     private Quaternion _driverDoorClosedRotation;
     private Quaternion _passengerDoorClosedRotation;
+    private Quaternion _rearLeftDoorClosedRotation;
+    private Quaternion _rearRightDoorClosedRotation;
     private bool _closedDoorRotationsCached;
     private CharacterModelSnapshot _lastBailoutModelSnapshot;
 
@@ -250,8 +287,16 @@ public class CarEntry : MonoBehaviour
     }
 
     public Character SeatedCharacter => _seatedChar;
+    public Character RearLeftSeatedCharacter => _rearLeftSeatedChar;
+    public Character RearRightSeatedCharacter => _rearRightSeatedChar;
+    public Character RearPassengerCharacter =>
+        _rearLeftSeatedChar?.Player != null
+            ? _rearLeftSeatedChar
+            : _rearRightSeatedChar?.Player != null
+                ? _rearRightSeatedChar
+                : _rearLeftSeatedChar ?? _rearRightSeatedChar;
     public bool IsTransitioning => isEntering || isExiting;
-    public bool IsUsingMirroredEntry => _activePassengerEntry &&
+    public bool IsUsingMirroredEntry => IsRightSideEntry() &&
         mirroredEntryAnimation != null;
     public bool IsPassengerCarjackingSeatOccupied =>
         _passengerCarjackingSeatOccupied;
@@ -268,23 +313,70 @@ public class CarEntry : MonoBehaviour
     public bool RequestEnter(Character character, CarEntrySideMode requestedSide)
     {
         if (character == null || IsTransitioning) return false;
+        CarEntrySideMode resolvedSide = ResolveRequestedEntrySide(
+            character,
+            requestedSide
+        );
+        if (resolvedSide == CarEntrySideMode.Automatic) return false;
+        if (IsRearEntrySide(resolvedSide))
+        {
+            if (!CanUseRearSeat(resolvedSide)) return false;
+            _ = EnterRearSeatAsync(character, resolvedSide);
+            return true;
+        }
+
         if (_seatedChar == null)
         {
-            _ = EnterCarAsync(character, true, false, requestedSide);
+            _ = EnterCarAsync(character, true, false, resolvedSide);
             return true;
         }
 
         if (_seatedChar == character) return false;
         if (occupiedEntryHandler == null) CacheVehicleBehaviours();
         return occupiedEntryHandler != null &&
-            occupiedEntryHandler.TryEnterOccupiedCar(character, requestedSide);
+            occupiedEntryHandler.TryEnterOccupiedCar(character, resolvedSide);
     }
 
     public bool RequestExit(Character character)
     {
-        if (character == null || character != _seatedChar || IsTransitioning) return false;
+        if (character == null || !IsCharacterSeated(character) || IsTransitioning)
+            return false;
         ExitCar(character);
         return true;
+    }
+
+    public bool IsCharacterSeated(Character character)
+    {
+        return character != null &&
+            (character == _seatedChar || character == _rearLeftSeatedChar ||
+             character == _rearRightSeatedChar);
+    }
+
+    public bool IsRearPassenger(Character character)
+    {
+        return character != null &&
+            (character == _rearLeftSeatedChar || character == _rearRightSeatedChar);
+    }
+
+    public bool CanRequestEnter(Character character, CarEntrySideMode requestedSide)
+    {
+        if (character == null || IsTransitioning || IsCharacterSeated(character))
+            return false;
+
+        CarEntrySideMode resolved = ResolveRequestedEntrySide(character, requestedSide);
+        if (IsRearEntrySide(resolved)) return CanUseRearSeat(resolved);
+        if (resolved != CarEntrySideMode.DriverDoor &&
+            resolved != CarEntrySideMode.PassengerDoor) return false;
+        if (_seatedChar == null) return true;
+        if (occupiedEntryHandler == null) CacheVehicleBehaviours();
+        return occupiedEntryHandler != null;
+    }
+
+    public CarEntrySideMode ResolveEntrySide(
+        Character character,
+        CarEntrySideMode requestedSide = CarEntrySideMode.Automatic)
+    {
+        return ResolveRequestedEntrySide(character, requestedSide);
     }
 
     /// <summary>
@@ -323,7 +415,11 @@ public class CarEntry : MonoBehaviour
 
     public void ClearPreparedEntrySide()
     {
-        if (!isEntering) _activePassengerEntry = false;
+        if (!isEntering)
+        {
+            _activePassengerEntry = false;
+            _activeEntrySide = CarEntrySideMode.DriverDoor;
+        }
         if (_seatedChar == null) _passengerCarjackingSeatOccupied = false;
         if (_passengerCarjackingPhysics != null &&
             _seatedChar != _passengerCarjackingPhysics.character)
@@ -346,10 +442,14 @@ public class CarEntry : MonoBehaviour
         CarEntrySideMode side,
         bool opening)
     {
-        AudioSource source = side == CarEntrySideMode.PassengerDoor &&
-            passengerDoorAudioSource != null
-                ? passengerDoorAudioSource
-                : doorAudioSource;
+        AudioSource source = side switch
+        {
+            CarEntrySideMode.PassengerDoor => passengerDoorAudioSource,
+            CarEntrySideMode.RearLeftDoor => rearLeftDoorAudioSource,
+            CarEntrySideMode.RearRightDoor => rearRightDoorAudioSource,
+            _ => doorAudioSource
+        };
+        source ??= doorAudioSource;
         PlayDoorSound(source, opening);
     }
 
@@ -614,7 +714,7 @@ public class CarEntry : MonoBehaviour
         _seatedPoseGuard?.ReleaseAfter(seatedPoseGuardReleaseDelay);
         _seatedPoseGuard = null;
         _ = this.onEnter.Run(new Args(this.gameObject));
-        _activePassengerEntry = false;
+        ResetActiveEntrySide();
         isEntering = false;
         return true;
     }
@@ -721,6 +821,10 @@ public class CarEntry : MonoBehaviour
         {
             entryParent.SetParent(vehicleBody, true);
         }
+        if (rearLeftSeatParent != null && vehicleBody != null)
+            rearLeftSeatParent.SetParent(vehicleBody, true);
+        if (rearRightSeatParent != null && vehicleBody != null)
+            rearRightSeatParent.SetParent(vehicleBody, true);
     }
 
     private void LateUpdate()
@@ -733,11 +837,13 @@ public class CarEntry : MonoBehaviour
             _seatedChar.transform.localPosition = Vector3.zero;
             _seatedChar.transform.localRotation = Quaternion.identity;
         }
+        KeepPassengerOnSeat(_rearLeftSeatedChar);
+        KeepPassengerOnSeat(_rearRightSeatedChar);
     }
 
     public void EnterCar(Character character)
     {
-        _ = EnterCarAsync(character, true);
+        RequestEnter(character, CarEntrySideMode.Automatic);
     }
 
     private async Task<bool> EnterCarAsync(
@@ -748,6 +854,8 @@ public class CarEntry : MonoBehaviour
     {
         if (isEntering || character == null ||
             (_seatedChar != null && _seatedChar != character)) return false;
+        if (IsRearEntrySide(requestedSide)) return false;
+        RestoreSharedCharacterModelBaseline(character);
         RestoreBailoutModelTransform(character);
         isEntering = true;
         SelectEntrySide(character, forceDriverDoor, requestedSide);
@@ -765,7 +873,7 @@ public class CarEntry : MonoBehaviour
             if (character != null && character.Player != null)
                 character.Player.IsControllable = true;
             _seatedPoseGuard = null;
-            _activePassengerEntry = false;
+            ResetActiveEntrySide();
             isEntering = false;
             return false;
         }
@@ -870,17 +978,222 @@ public class CarEntry : MonoBehaviour
         _seatedPoseGuard = null;
 
         _ = this.onEnter.Run(new Args(this.gameObject));
-        _activePassengerEntry = false;
+        ResetActiveEntrySide();
         isEntering = false;
         return true;
     }
 
+    private async Task<bool> EnterRearSeatAsync(
+        Character character,
+        CarEntrySideMode side)
+    {
+        if (isEntering || character == null || !IsRearEntrySide(side) ||
+            !CanUseRearSeat(side)) return false;
+
+        RestoreSharedCharacterModelBaseline(character);
+        RestoreBailoutModelTransform(character);
+        SelectEntrySide(character, false, side);
+        Transform seat = GetActiveSeatParent();
+        AnimationClip clip = GetActiveEntryAnimation();
+        if (seat == null || clip == null)
+        {
+            ResetActiveEntrySide();
+            return false;
+        }
+
+        isEntering = true;
+        if (character.Player != null) character.Player.IsControllable = false;
+        _seatedPoseGuard = externalDriveController?.UseSeatEntryAlignment == true
+            ? SeatedSkeletonPoseGuard.Prepare(character)
+            : null;
+
+        if (!await MoveCharacterToEntryStandingPointAsync(character))
+        {
+            if (character != null && character.Player != null)
+                character.Player.IsControllable = true;
+            _seatedPoseGuard = null;
+            ResetActiveEntrySide();
+            isEntering = false;
+            return false;
+        }
+
+        BoxCollider carCollider = cachedCarCollider;
+        Rigidbody carRigidbody = cachedCarRigidbody;
+        bool madeCarTrigger = carCollider != null && !carCollider.isTrigger;
+        bool madeCarKinematic = carRigidbody != null && !carRigidbody.isKinematic;
+        if (madeCarTrigger) carCollider.isTrigger = true;
+        if (madeCarKinematic) carRigidbody.isKinematic = true;
+        Physics.SyncTransforms();
+
+        var seatedConfig = new ConfigState(
+            0f, 1f, 1f,
+            drivingStateTransitionIn,
+            drivingStateTransitionOut
+        );
+        _ = character.States.SetState(
+            drivingState,
+            drivingStateLayer,
+            BlendMode.Blend,
+            seatedConfig
+        );
+
+        Transform activeDoor = GetActiveEntryDoor();
+        if (activeDoor != null)
+        {
+            _ = DoorRotationSequence(
+                activeDoor,
+                GetActiveEntryDoorOpenRotation(),
+                GetActiveEntryDoorAudioSource()
+            );
+        }
+
+        BeginDoorHandleIK(
+            character,
+            clip,
+            entryDoorHandleIKCurve,
+            true,
+            entryAnimationSpeed
+        );
+        BeginEntrySeatAlignment(character, clip, entryAnimationSpeed);
+        Task animationTask = PlayAnimation(
+            character,
+            clip,
+            entryAnimationTransitionIn,
+            entryAnimationTransitionOut,
+            entryAnimationSpeed
+        );
+        await CaptureSeatedPoseNearAnimationEndAsync(
+            character,
+            clip,
+            entryAnimationSpeed
+        );
+        await animationTask;
+        EndDoorHandleIK();
+        CompleteEntrySeatAlignment(character);
+
+        var finalSeatedConfig = new ConfigState(
+            0f, 1f, 1f,
+            0f,
+            drivingStateTransitionOut
+        );
+        _ = character.States.SetState(
+            drivingState,
+            drivingStateLayer,
+            BlendMode.Blend,
+            finalSeatedConfig
+        );
+        AttachRearPassengerToSeat(character, side);
+
+        if (madeCarTrigger && carCollider != null) carCollider.isTrigger = false;
+        if (madeCarKinematic && carRigidbody != null) carRigidbody.isKinematic = false;
+        Physics.SyncTransforms();
+
+        await Task.Yield();
+        await Task.Yield();
+        // Re-sample after GC2 has evaluated the persistent seated state. The
+        // Player model uses a -1 Y offset, so fixed Character-root coordinates
+        // are not reliable lap positions across Humanoid avatars.
+        ConfigureRearLapIK(character, side);
+        (externalDriveController as SimcadeCarDriver)
+            ?.SetPassengerPresentation(true);
+
+        _seatedPoseGuard?.ReleaseAfter(seatedPoseGuardReleaseDelay);
+        _seatedPoseGuard = null;
+        _ = this.onEnter.Run(new Args(this.gameObject));
+        ResetActiveEntrySide();
+        isEntering = false;
+        return true;
+    }
+
+    private async Task ExitRearSeatAsync(Character character)
+    {
+        CarEntrySideMode side = character == _rearLeftSeatedChar
+            ? CarEntrySideMode.RearLeftDoor
+            : CarEntrySideMode.RearRightDoor;
+        SelectEntrySide(character, false, side);
+
+        try
+        {
+            float deadline = Time.unscaledTime + Mathf.Max(0.1f, exitStopTimeout);
+            while (character != null && IsRearPassenger(character) &&
+                   GetVehicleSpeedMetersPerSecond() * 3.6f > stoppedExitSpeedKph)
+            {
+                if (Time.unscaledTime >= deadline) return;
+                await Task.Yield();
+            }
+            if (character == null || !IsRearPassenger(character)) return;
+
+            (externalDriveController as SimcadeCarDriver)
+                ?.SetPassengerPresentation(false);
+
+            BoxCollider carCollider = cachedCarCollider;
+            Rigidbody carRigidbody = cachedCarRigidbody;
+            bool madeCarTrigger = carCollider != null && !carCollider.isTrigger;
+            bool madeCarKinematic = carRigidbody != null && !carRigidbody.isKinematic;
+            if (madeCarTrigger) carCollider.isTrigger = true;
+            if (madeCarKinematic) carRigidbody.isKinematic = true;
+            Physics.SyncTransforms();
+
+            DetachRearPassenger(character, side);
+            character.States.Stop(
+                drivingStateLayer,
+                0f,
+                drivingStateTransitionOut
+            );
+
+            Transform activeDoor = GetActiveEntryDoor();
+            if (activeDoor != null)
+            {
+                _ = DoorRotationSequence(
+                    activeDoor,
+                    GetActiveEntryDoorOpenRotation(),
+                    GetActiveEntryDoorAudioSource()
+                );
+            }
+
+            AnimationClip clip = GetActiveExitAnimation();
+            BeginDoorHandleIK(
+                character,
+                clip,
+                exitDoorHandleIKCurve,
+                false,
+                exitAnimationSpeed
+            );
+            await PlayAnimation(
+                character,
+                clip,
+                exitAnimationTransitionIn,
+                exitAnimationTransitionOut,
+                exitAnimationSpeed
+            );
+            EndDoorHandleIK();
+
+            if (character.Player != null)
+                character.Player.IsControllable = true;
+            if (madeCarTrigger && carCollider != null) carCollider.isTrigger = false;
+            if (madeCarKinematic && carRigidbody != null)
+                carRigidbody.isKinematic = false;
+            Physics.SyncTransforms();
+            _ = this.onExit.Run(new Args(this.gameObject));
+        }
+        finally
+        {
+            ResetActiveEntrySide();
+            isExiting = false;
+        }
+    }
+
     public void ExitCar(Character character)
     {
-        if (isExiting || character == null || character != _seatedChar) return;
+        if (isExiting || character == null || !IsCharacterSeated(character)) return;
         _seatedPoseGuard?.Cancel();
         _seatedPoseGuard = null;
         isExiting = true;
+        if (character == _rearLeftSeatedChar || character == _rearRightSeatedChar)
+        {
+            _ = ExitRearSeatAsync(character);
+            return;
+        }
         _ = ExitCarBySpeedAsync(character);
     }
 
@@ -1155,6 +1468,7 @@ public class CarEntry : MonoBehaviour
                     character.Ragdoll.IsRagdoll)
                 {
                     await character.Ragdoll.StartRecover();
+                    RestoreSharedCharacterModelBaseline(character);
                     RestoreBailoutModelTransform(character);
                 }
             }
@@ -1340,6 +1654,7 @@ public class CarEntry : MonoBehaviour
         if (character == null || entryParent == null) return;
 
         RestoreBailoutModelTransform(character);
+        RestoreSharedCharacterModelBaseline(character);
         LockCharacterPhysics(character);
 
         character.transform.SetParent(entryParent);
@@ -1349,6 +1664,53 @@ public class CarEntry : MonoBehaviour
         _seatedChar = character;
         if (character.Player != null) character.Player.IsControllable = false;
         ConfigureSteeringWheelIK(character);
+    }
+
+    private void AttachRearPassengerToSeat(
+        Character character,
+        CarEntrySideMode side)
+    {
+        Transform seat = side == CarEntrySideMode.RearLeftDoor
+            ? rearLeftSeatParent
+            : rearRightSeatParent;
+        if (character == null || seat == null) return;
+
+        RestoreSharedCharacterModelBaseline(character);
+        LockRearPassengerPhysics(character, side);
+        character.transform.SetParent(seat);
+        character.transform.localPosition = Vector3.zero;
+        character.transform.localRotation = Quaternion.identity;
+        if (side == CarEntrySideMode.RearLeftDoor)
+            _rearLeftSeatedChar = character;
+        else
+            _rearRightSeatedChar = character;
+
+        if (character.Player != null) character.Player.IsControllable = false;
+        ConfigureRearLapIK(character, side);
+    }
+
+    private void DetachRearPassenger(
+        Character character,
+        CarEntrySideMode side)
+    {
+        if (character == null) return;
+        if (side == CarEntrySideMode.RearLeftDoor)
+            _rearLeftSeatedChar = null;
+        else
+            _rearRightSeatedChar = null;
+
+        character.transform.SetParent(null, true);
+        RestoreRearPassengerPhysics(character, side);
+        ClearSteeringWheelIK(character);
+        if (character.Driver != null) character.Driver.Collision = true;
+        Physics.SyncTransforms();
+    }
+
+    private static void KeepPassengerOnSeat(Character character)
+    {
+        if (character == null) return;
+        character.transform.localPosition = Vector3.zero;
+        character.transform.localRotation = Quaternion.identity;
     }
 
     private static CharacterModelSnapshot CaptureCharacterModelTransform(
@@ -1367,6 +1729,12 @@ public class CarEntry : MonoBehaviour
             localRotation = model.localRotation,
             localScale = model.localScale
         };
+    }
+
+    private static void RestoreSharedCharacterModelBaseline(Character character)
+    {
+        character?.GetComponentInChildren<FranklinAnimationBridge>(true)
+            ?.RestoreModelRootBaseline();
     }
 
     private void RestoreBailoutModelTransform(Character character)
@@ -1413,6 +1781,36 @@ public class CarEntry : MonoBehaviour
         CharacterPhysicsSnapshot snapshot = _physicsSnapshotBuffer;
         CaptureAndLockCharacterPhysics(character, snapshot);
         _seatedPhysics = snapshot;
+    }
+
+    private void LockRearPassengerPhysics(
+        Character character,
+        CarEntrySideMode side)
+    {
+        if (character == null) return;
+        CharacterPhysicsSnapshot snapshot = side == CarEntrySideMode.RearLeftDoor
+            ? _rearLeftPhysicsSnapshotBuffer
+            : _rearRightPhysicsSnapshotBuffer;
+        CaptureAndLockCharacterPhysics(character, snapshot);
+        if (side == CarEntrySideMode.RearLeftDoor)
+            _rearLeftPhysics = snapshot;
+        else
+            _rearRightPhysics = snapshot;
+    }
+
+    private void RestoreRearPassengerPhysics(
+        Character character,
+        CarEntrySideMode side)
+    {
+        CharacterPhysicsSnapshot snapshot = side == CarEntrySideMode.RearLeftDoor
+            ? _rearLeftPhysics
+            : _rearRightPhysics;
+        if (snapshot == null || snapshot.character != character) return;
+        RestoreCharacterPhysicsSnapshot(snapshot, false);
+        if (side == CarEntrySideMode.RearLeftDoor)
+            _rearLeftPhysics = null;
+        else
+            _rearRightPhysics = null;
     }
 
     public void LockPassengerCarjackingPhysics(Character character)
@@ -1570,6 +1968,74 @@ public class CarEntry : MonoBehaviour
             leftHandIKWeight,
             rightHandIKWeight
         );
+    }
+
+    private void ConfigureRearLapIK(
+        Character character,
+        CarEntrySideMode side)
+    {
+        if (character == null) return;
+        Transform leftTarget = side == CarEntrySideMode.RearLeftDoor
+            ? rearLeftLapLeftHandTarget
+            : rearRightLapLeftHandTarget;
+        Transform rightTarget = side == CarEntrySideMode.RearLeftDoor
+            ? rearLeftLapRightHandTarget
+            : rearRightLapRightHandTarget;
+        if (leftTarget == null || rightTarget == null) return;
+
+        Animator animator = character.GetComponentInChildren<Animator>();
+        if (animator == null) return;
+        AlignLapTargetToThigh(
+            animator,
+            leftTarget,
+            HumanBodyBones.LeftUpperLeg,
+            HumanBodyBones.LeftLowerLeg,
+            character.transform.up
+        );
+        AlignLapTargetToThigh(
+            animator,
+            rightTarget,
+            HumanBodyBones.RightUpperLeg,
+            HumanBodyBones.RightLowerLeg,
+            character.transform.up
+        );
+        CharacterIKSetter ikSetter = animator.GetComponent<CharacterIKSetter>();
+        if (ikSetter == null)
+            ikSetter = animator.gameObject.AddComponent<CharacterIKSetter>();
+
+        // Position the palms on the thighs but retain the animation's authored
+        // wrist orientation, avoiding twisted hands on differently proportioned
+        // Humanoid avatars.
+        ikSetter.SetIKTargets(
+            leftTarget,
+            rightTarget,
+            rearLapHandIKWeight,
+            rearLapHandIKWeight,
+            0f,
+            0f
+        );
+    }
+
+    private static void AlignLapTargetToThigh(
+        Animator animator,
+        Transform target,
+        HumanBodyBones upperLegBone,
+        HumanBodyBones lowerLegBone,
+        Vector3 up)
+    {
+        if (animator == null || !animator.isHuman || target == null) return;
+        Transform upperLeg = animator.GetBoneTransform(upperLegBone);
+        Transform lowerLeg = animator.GetBoneTransform(lowerLegBone);
+        if (upperLeg == null || lowerLeg == null) return;
+
+        // The middle/front of each thigh is a stable avatar-relative lap point.
+        // A small lift prevents the palm from clipping into trousers while the
+        // wrist rotation remains authored by the seated animation.
+        target.position = Vector3.Lerp(
+            upperLeg.position,
+            lowerLeg.position,
+            0.52f
+        ) + up.normalized * 0.035f;
     }
 
     private static void ClearSteeringWheelIK(Character character)
@@ -1748,10 +2214,16 @@ public class CarEntry : MonoBehaviour
         return IsUsingMirroredEntry ? mirroredEntryAnimation : entryAnimation;
     }
 
+    private AnimationClip GetActiveExitAnimation()
+    {
+        return IsRightSideEntry() && mirroredExitAnimation != null
+            ? mirroredExitAnimation
+            : exitAnimation;
+    }
+
     public AvatarIKGoal GetDoorHandleHand(bool entering)
     {
-        if (!entering || !_activePassengerEntry)
-            return doorHandleHand;
+        if (!IsRightSideEntry()) return doorHandleHand;
 
         return doorHandleHand == AvatarIKGoal.LeftHand
             ? AvatarIKGoal.RightHand
@@ -1763,29 +2235,159 @@ public class CarEntry : MonoBehaviour
         bool forceDriverDoor,
         CarEntrySideMode requestedSide)
     {
-        _activePassengerEntry = false;
-        if (forceDriverDoor || !HasPassengerEntrySetup()) return;
-
-        CarEntrySideMode resolvedSide = requestedSide != CarEntrySideMode.Automatic
-            ? requestedSide
-            : entrySideMode;
-        if (resolvedSide == CarEntrySideMode.PassengerDoor)
+        if (forceDriverDoor)
         {
-            _activePassengerEntry = true;
+            SetActiveEntrySide(CarEntrySideMode.DriverDoor);
             return;
         }
-        if (resolvedSide == CarEntrySideMode.DriverDoor || character == null) return;
 
-        Vector3 characterPosition = character.transform.position;
-        Vector3 driverOffset = Vector3.ProjectOnPlane(
-            entryStandingPoint.position - characterPosition,
+        CarEntrySideMode resolved = ResolveRequestedEntrySide(
+            character,
+            requestedSide
+        );
+        if (resolved == CarEntrySideMode.Automatic)
+            resolved = CarEntrySideMode.DriverDoor;
+        SetActiveEntrySide(resolved);
+    }
+
+    private CarEntrySideMode ResolveRequestedEntrySide(
+        Character character,
+        CarEntrySideMode requestedSide)
+    {
+        if (requestedSide != CarEntrySideMode.Automatic)
+            return IsEntrySideConfigured(requestedSide)
+                ? requestedSide
+                : CarEntrySideMode.Automatic;
+
+        if (entrySideMode != CarEntrySideMode.Automatic &&
+            IsEntrySideAvailable(entrySideMode))
+        {
+            return entrySideMode;
+        }
+        if (character == null) return CarEntrySideMode.Automatic;
+
+        CarEntrySideMode closest = CarEntrySideMode.Automatic;
+        float closestDistance = float.PositiveInfinity;
+        ConsiderNearestEntrySide(
+            character,
+            CarEntrySideMode.DriverDoor,
+            entryStandingPoint,
+            ref closest,
+            ref closestDistance
+        );
+        ConsiderNearestEntrySide(
+            character,
+            CarEntrySideMode.PassengerDoor,
+            passengerEntryStandingPoint,
+            ref closest,
+            ref closestDistance
+        );
+        ConsiderNearestEntrySide(
+            character,
+            CarEntrySideMode.RearLeftDoor,
+            rearLeftEntryStandingPoint,
+            ref closest,
+            ref closestDistance
+        );
+        ConsiderNearestEntrySide(
+            character,
+            CarEntrySideMode.RearRightDoor,
+            rearRightEntryStandingPoint,
+            ref closest,
+            ref closestDistance
+        );
+        return closest;
+    }
+
+    private void ConsiderNearestEntrySide(
+        Character character,
+        CarEntrySideMode side,
+        Transform standingPoint,
+        ref CarEntrySideMode closest,
+        ref float closestDistance)
+    {
+        if (standingPoint == null || !IsEntrySideAvailable(side)) return;
+        Vector3 offset = Vector3.ProjectOnPlane(
+            standingPoint.position - character.transform.position,
             Vector3.up
         );
-        Vector3 passengerOffset = Vector3.ProjectOnPlane(
-            passengerEntryStandingPoint.position - characterPosition,
-            Vector3.up
-        );
-        _activePassengerEntry = passengerOffset.sqrMagnitude < driverOffset.sqrMagnitude;
+        float distance = offset.sqrMagnitude;
+        if (distance >= closestDistance) return;
+        closestDistance = distance;
+        closest = side;
+    }
+
+    private bool IsEntrySideAvailable(CarEntrySideMode side)
+    {
+        if (!IsEntrySideConfigured(side)) return false;
+        if (IsRearEntrySide(side)) return CanUseRearSeat(side);
+        if (_seatedChar == null) return true;
+        if (occupiedEntryHandler == null) CacheVehicleBehaviours();
+        return occupiedEntryHandler != null;
+    }
+
+    private bool IsEntrySideConfigured(CarEntrySideMode side)
+    {
+        return side switch
+        {
+            CarEntrySideMode.DriverDoor => entryStandingPoint != null &&
+                entryStepPoint != null && doorTransform != null && entryParent != null,
+            CarEntrySideMode.PassengerDoor => HasPassengerEntrySetup(),
+            CarEntrySideMode.RearLeftDoor => HasRearSeatSetup() &&
+                rearLeftEntryStandingPoint != null,
+            CarEntrySideMode.RearRightDoor => HasRearSeatSetup() &&
+                rearRightEntryStandingPoint != null,
+            _ => false
+        };
+    }
+
+    private bool CanUseRearSeat(CarEntrySideMode side)
+    {
+        if (!HasRearSeatSetup()) return false;
+        return side switch
+        {
+            CarEntrySideMode.RearLeftDoor => _rearLeftSeatedChar == null,
+            CarEntrySideMode.RearRightDoor => _rearRightSeatedChar == null,
+            _ => false
+        };
+    }
+
+    public bool HasRearSeatSetup()
+    {
+        return mirroredEntryAnimation != null && mirroredExitAnimation != null &&
+            rearLeftEntryStandingPoint != null && rearLeftEntryStepPoint != null &&
+            rearLeftSeatParent != null && rearLeftDoorTransform != null &&
+            rearLeftDoorHandleTarget != null && rearLeftDoorAudioSource != null &&
+            rearRightEntryStandingPoint != null && rearRightEntryStepPoint != null &&
+            rearRightSeatParent != null && rearRightDoorTransform != null &&
+            rearRightDoorHandleTarget != null && rearRightDoorAudioSource != null &&
+            rearLeftLapLeftHandTarget != null &&
+            rearLeftLapRightHandTarget != null &&
+            rearRightLapLeftHandTarget != null &&
+            rearRightLapRightHandTarget != null;
+    }
+
+    private static bool IsRearEntrySide(CarEntrySideMode side)
+    {
+        return side == CarEntrySideMode.RearLeftDoor ||
+            side == CarEntrySideMode.RearRightDoor;
+    }
+
+    private bool IsRightSideEntry()
+    {
+        return _activeEntrySide == CarEntrySideMode.PassengerDoor ||
+            _activeEntrySide == CarEntrySideMode.RearRightDoor;
+    }
+
+    private void SetActiveEntrySide(CarEntrySideMode side)
+    {
+        _activeEntrySide = side;
+        _activePassengerEntry = side == CarEntrySideMode.PassengerDoor;
+    }
+
+    private void ResetActiveEntrySide()
+    {
+        SetActiveEntrySide(CarEntrySideMode.DriverDoor);
     }
 
     private bool HasPassengerEntrySetup()
@@ -1801,44 +2403,79 @@ public class CarEntry : MonoBehaviour
 
     private Transform GetActiveEntryStandingPoint()
     {
-        return _activePassengerEntry && passengerEntryStandingPoint != null
-            ? passengerEntryStandingPoint
-            : entryStandingPoint;
+        return _activeEntrySide switch
+        {
+            CarEntrySideMode.PassengerDoor => passengerEntryStandingPoint,
+            CarEntrySideMode.RearLeftDoor => rearLeftEntryStandingPoint,
+            CarEntrySideMode.RearRightDoor => rearRightEntryStandingPoint,
+            _ => entryStandingPoint
+        };
     }
 
     private Transform GetActiveEntryStepPoint()
     {
-        return _activePassengerEntry && passengerEntryStepPoint != null
-            ? passengerEntryStepPoint
-            : entryStepPoint;
+        return _activeEntrySide switch
+        {
+            CarEntrySideMode.PassengerDoor => passengerEntryStepPoint,
+            CarEntrySideMode.RearLeftDoor => rearLeftEntryStepPoint,
+            CarEntrySideMode.RearRightDoor => rearRightEntryStepPoint,
+            _ => entryStepPoint
+        };
     }
 
     private Transform GetActiveEntryDoor()
     {
-        return _activePassengerEntry && passengerDoorTransform != null
-            ? passengerDoorTransform
-            : doorTransform;
+        return _activeEntrySide switch
+        {
+            CarEntrySideMode.PassengerDoor => passengerDoorTransform,
+            CarEntrySideMode.RearLeftDoor => rearLeftDoorTransform,
+            CarEntrySideMode.RearRightDoor => rearRightDoorTransform,
+            _ => doorTransform
+        };
     }
 
     private Vector3 GetActiveEntryDoorOpenRotation()
     {
-        return _activePassengerEntry
-            ? passengerDoorOpenRotation
-            : doorOpenRotation;
+        return _activeEntrySide switch
+        {
+            CarEntrySideMode.PassengerDoor => passengerDoorOpenRotation,
+            CarEntrySideMode.RearLeftDoor => rearLeftDoorOpenRotation,
+            CarEntrySideMode.RearRightDoor => rearRightDoorOpenRotation,
+            _ => doorOpenRotation
+        };
     }
 
     private AudioSource GetActiveEntryDoorAudioSource()
     {
-        return _activePassengerEntry && passengerDoorAudioSource != null
-            ? passengerDoorAudioSource
-            : doorAudioSource;
+        AudioSource source = _activeEntrySide switch
+        {
+            CarEntrySideMode.PassengerDoor => passengerDoorAudioSource,
+            CarEntrySideMode.RearLeftDoor => rearLeftDoorAudioSource,
+            CarEntrySideMode.RearRightDoor => rearRightDoorAudioSource,
+            _ => doorAudioSource
+        };
+        return source != null ? source : doorAudioSource;
     }
 
     private Transform GetActiveDoorHandleTarget(bool entering)
     {
-        return entering && _activePassengerEntry && passengerDoorHandleTarget != null
-            ? passengerDoorHandleTarget
-            : doorHandleTarget;
+        return _activeEntrySide switch
+        {
+            CarEntrySideMode.PassengerDoor => passengerDoorHandleTarget,
+            CarEntrySideMode.RearLeftDoor => rearLeftDoorHandleTarget,
+            CarEntrySideMode.RearRightDoor => rearRightDoorHandleTarget,
+            _ => doorHandleTarget
+        };
+    }
+
+    private Transform GetActiveSeatParent()
+    {
+        return _activeEntrySide switch
+        {
+            CarEntrySideMode.RearLeftDoor => rearLeftSeatParent,
+            CarEntrySideMode.RearRightDoor => rearRightSeatParent,
+            _ => entryParent
+        };
     }
 
     private void CacheVehicleBehaviours()
@@ -1863,8 +2500,9 @@ public class CarEntry : MonoBehaviour
         AnimationClip clip,
         float speed)
     {
+        Transform seatParent = GetActiveSeatParent();
         if (externalDriveController?.UseSeatEntryAlignment != true ||
-            character == null || clip == null || entryParent == null)
+            character == null || clip == null || seatParent == null)
         {
             _entryAlignCharacter = null;
             return;
@@ -1887,7 +2525,7 @@ public class CarEntry : MonoBehaviour
 
     private void UpdateEntrySeatAlignment()
     {
-        if (_entryAlignCharacter == null || entryParent == null) return;
+        if (_entryAlignCharacter == null || GetActiveSeatParent() == null) return;
 
         float normalized = Mathf.Clamp01(
             (Time.time - _entryAlignStartedAt) / _entryAlignDuration
@@ -1951,7 +2589,7 @@ public class CarEntry : MonoBehaviour
     {
         if (_entryStopsAtPassengerCabin && passengerEntryCabinPoint != null)
             return passengerEntryCabinPoint;
-        return entryParent;
+        return GetActiveSeatParent();
     }
 
     private float GetVehicleSpeedMetersPerSecond()
@@ -2111,11 +2749,12 @@ public class CarEntry : MonoBehaviour
             return;
         }
 
-        Vector3 endPosition = entryParent != null
-            ? entryParent.position
+        Transform activeSeat = GetActiveSeatParent();
+        Vector3 endPosition = activeSeat != null
+            ? activeSeat.position
             : startPosition;
-        Quaternion endRotation = entryParent != null
-            ? entryParent.rotation
+        Quaternion endRotation = activeSeat != null
+            ? activeSeat.rotation
             : startRotation;
         EvaluateQuadraticEntrySegment(
             normalized,
@@ -2212,6 +2851,10 @@ public class CarEntry : MonoBehaviour
             _driverDoorClosedRotation = doorTransform.localRotation;
         if (passengerDoorTransform != null)
             _passengerDoorClosedRotation = passengerDoorTransform.localRotation;
+        if (rearLeftDoorTransform != null)
+            _rearLeftDoorClosedRotation = rearLeftDoorTransform.localRotation;
+        if (rearRightDoorTransform != null)
+            _rearRightDoorClosedRotation = rearRightDoorTransform.localRotation;
         _closedDoorRotationsCached = true;
     }
 
@@ -2221,6 +2864,10 @@ public class CarEntry : MonoBehaviour
         if (activeDoor == doorTransform) return _driverDoorClosedRotation;
         if (activeDoor == passengerDoorTransform)
             return _passengerDoorClosedRotation;
+        if (activeDoor == rearLeftDoorTransform)
+            return _rearLeftDoorClosedRotation;
+        if (activeDoor == rearRightDoorTransform)
+            return _rearRightDoorClosedRotation;
         return activeDoor != null ? activeDoor.localRotation : Quaternion.identity;
     }
 

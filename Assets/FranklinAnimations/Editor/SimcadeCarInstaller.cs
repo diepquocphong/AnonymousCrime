@@ -42,8 +42,12 @@ namespace FranklinGame.Vehicles.Editor
             "Assets/FranklinAnimations/Animations/Vehicles/CarExitLanding_L.anim";
         private const string EntryAnimationPath =
             "Assets/Ash Assets/Vehicle Integration/Animations/Vehicles/Character_Enter_Car.anim";
+        private const string ExitAnimationPath =
+            "Assets/Ash Assets/Vehicle Integration/Animations/Vehicles/Character_Exit_Car.anim";
         private const string MirroredEntryAnimationPath =
             "Assets/FranklinAnimations/Generated/CarEntry/Character_Enter_Car_Mirrored.anim";
+        private const string MirroredExitAnimationPath =
+            "Assets/FranklinAnimations/Generated/CarEntry/Character_Exit_Car_Mirrored.anim";
 
         static SimcadeCarInstaller()
         {
@@ -53,7 +57,16 @@ namespace FranklinGame.Vehicles.Editor
         [MenuItem("Tools/Franklin Game/Install Sim-Cade Car")]
         public static void Install()
         {
-            EnsureMirroredEntryAnimation();
+            EnsureMirroredVehicleAnimation(
+                EntryAnimationPath,
+                MirroredEntryAnimationPath,
+                "Character_Enter_Car_Mirrored"
+            );
+            EnsureMirroredVehicleAnimation(
+                ExitAnimationPath,
+                MirroredExitAnimationPath,
+                "Character_Exit_Car_Mirrored"
+            );
             GameObject carAsset = AssetDatabase.LoadAssetAtPath<GameObject>(CarPrefabPath);
             GameObject presetAsset = AssetDatabase.LoadAssetAtPath<GameObject>(SedanPresetPath);
             GameObject chaseCamera = AssetDatabase.LoadAssetAtPath<GameObject>(ChaseCameraPath);
@@ -73,6 +86,9 @@ namespace FranklinGame.Vehicles.Editor
             );
             AnimationClip mirroredEntry = AssetDatabase.LoadAssetAtPath<AnimationClip>(
                 MirroredEntryAnimationPath
+            );
+            AnimationClip mirroredExit = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                MirroredExitAnimationPath
             );
 
             if (carAsset == null) throw new InvalidOperationException($"Missing car prefab: {CarPrefabPath}");
@@ -95,9 +111,9 @@ namespace FranklinGame.Vehicles.Editor
                 throw new InvalidOperationException(
                     "Moving-car exit animations are missing from FranklinAnimations"
                 );
-            if (mirroredEntry == null)
+            if (mirroredEntry == null || mirroredExit == null)
                 throw new InvalidOperationException(
-                    "The Humanoid-mirrored car-entry animation could not be created"
+                    "The Humanoid-mirrored car entry/exit animations could not be created"
                 );
 
             GameObject presetRoot = PrefabUtility.LoadPrefabContents(SedanPresetPath);
@@ -222,8 +238,10 @@ namespace FranklinGame.Vehicles.Editor
                     // Its former HUD instructions belonged to the removed RVR controller.
                     EnsureEntryAlignmentAnchors(carRoot, entry);
                     entry.mirroredEntryAnimation = mirroredEntry;
+                    entry.mirroredExitAnimation = mirroredExit;
                     entry.entrySideMode = CarEntrySideMode.Automatic;
                     EnsurePassengerDoorEntry(carRoot, entry);
+                    EnsureRearSeatEntry(carRoot, entry);
                     entry.movingExitAnimation = movingExit;
                     entry.movingExitLandingAnimation = movingExitLanding;
                     entry.movingExitLaunchFrameCount = 50;
@@ -357,12 +375,16 @@ namespace FranklinGame.Vehicles.Editor
                 throw new InvalidOperationException(
                     "The passenger-door mirrored entry, door or cabin path is not configured"
                 );
+            if (!HasRearSeatSetup(entry))
+                throw new InvalidOperationException(
+                    "The two rear doors, rear seats, lap-hand targets or rear hotspots are incomplete"
+                );
 
             Debug.Log(
                 "Sim-Cade Car validation passed: isolated controller, four wheels, " +
                 "adaptive low-speed smoke, light/heavy collision audio and pooled impact FX, " +
                 "camera/mobile assets, " +
-                "driver/passenger door entry, door animations/audio and " +
+                "four-door nearest-seat entry, rear lap-hand IK, door animations/audio and " +
                 "live-edit anchors are wired."
             );
         }
@@ -386,6 +408,7 @@ namespace FranklinGame.Vehicles.Editor
                 HasCompleteDriverSetup(car.GetComponent<SimcadeCarDriver>()) &&
                 HasEntryAlignmentSetup(car.GetComponent<CarEntry>()) &&
                 HasMirroredEntrySetup(car.GetComponent<CarEntry>()) &&
+                HasRearSeatSetup(car.GetComponent<CarEntry>()) &&
                 HasDoorAudioSetup(car.GetComponent<CarEntry>()) &&
                 HasImpactAudioSetup(car.GetComponent<SimcadeCarImpactAudio>()) &&
                 car.GetComponent<PhysicsCarController>() == null &&
@@ -578,6 +601,38 @@ namespace FranklinGame.Vehicles.Editor
                     FindTransform(entry.gameObject, "Triggers_Enter/Exit"),
                     FindTransform(entry.gameObject, "Triggers_Enter/Exit Passenger")
                 );
+        }
+
+        private static bool HasRearSeatSetup(CarEntry entry)
+        {
+            if (entry == null || !entry.HasRearSeatSetup()) return false;
+            SerializedObject serializedExit = new SerializedObject(
+                entry.mirroredExitAnimation
+            );
+            SerializedProperty mirroredExit = serializedExit.FindProperty(
+                "m_AnimationClipSettings.m_Mirror"
+            );
+            Transform symmetryRoot = entry.doorTransform != null
+                ? entry.doorTransform.parent
+                : null;
+            return mirroredExit?.boolValue == true && symmetryRoot != null &&
+                IsMirroredPosition(
+                    symmetryRoot,
+                    entry.rearLeftEntryStandingPoint,
+                    entry.rearRightEntryStandingPoint
+                ) &&
+                IsMirroredPosition(
+                    symmetryRoot,
+                    entry.rearLeftEntryStepPoint,
+                    entry.rearRightEntryStepPoint
+                ) &&
+                IsMirroredPosition(
+                    symmetryRoot,
+                    entry.rearLeftSeatParent,
+                    entry.rearRightSeatParent
+                ) &&
+                FindTransform(entry.gameObject, "Triggers_Enter/Exit Rear Left") != null &&
+                FindTransform(entry.gameObject, "Triggers_Enter/Exit Rear Right") != null;
         }
 
         private static bool IsMirroredPosition(
@@ -812,6 +867,259 @@ namespace FranklinGame.Vehicles.Editor
             EnsurePassengerInteractionTrigger(carRoot, mainBody);
         }
 
+        private static void EnsureRearSeatEntry(GameObject carRoot, CarEntry entry)
+        {
+            if (entry.entryStandingPoint == null || entry.entryStepPoint == null ||
+                entry.entryParent == null || entry.doorTransform == null)
+            {
+                return;
+            }
+
+            Transform mainBody = FindTransform(carRoot, "MainBody") ?? carRoot.transform;
+            Transform rearLeftMesh = FindTransform(carRoot, "DoorRL");
+            Transform rearRightMesh = FindTransform(carRoot, "DoorRR");
+            if (rearLeftMesh == null || rearRightMesh == null) return;
+
+            Transform rearLeftHook = EnsureRearDoorHook(
+                carRoot,
+                mainBody,
+                rearLeftMesh,
+                "Rear Left Door Hook"
+            );
+            Transform rearRightHook = EnsureRearDoorHook(
+                carRoot,
+                mainBody,
+                rearRightMesh,
+                "Rear Right Door Hook"
+            );
+            Vector3 rearOffset = Vector3.Project(
+                rearLeftHook.position - entry.doorTransform.position,
+                carRoot.transform.forward
+            );
+            if (rearOffset.sqrMagnitude < 0.01f)
+                rearOffset = rearLeftHook.position - entry.doorTransform.position;
+
+            entry.rearLeftEntryStandingPoint = EnsureOffsetEntryAnchor(
+                carRoot,
+                "Rear Left Entry Standing Point",
+                entry.entryStandingPoint,
+                rearOffset
+            );
+            entry.rearLeftEntryStepPoint = EnsureOffsetEntryAnchor(
+                carRoot,
+                "Rear Left Entry Step Point",
+                entry.entryStepPoint,
+                rearOffset
+            );
+            entry.rearLeftSeatParent = EnsureOffsetEntryAnchor(
+                carRoot,
+                "Rear Left Seat Parent",
+                entry.entryParent,
+                rearOffset
+            );
+            entry.rearRightEntryStandingPoint = EnsureMirroredEntryAnchor(
+                carRoot,
+                "Rear Right Entry Standing Point",
+                entry.rearLeftEntryStandingPoint,
+                mainBody
+            );
+            entry.rearRightEntryStepPoint = EnsureMirroredEntryAnchor(
+                carRoot,
+                "Rear Right Entry Step Point",
+                entry.rearLeftEntryStepPoint,
+                mainBody
+            );
+            entry.rearRightSeatParent = EnsureMirroredEntryAnchor(
+                carRoot,
+                "Rear Right Seat Parent",
+                entry.rearLeftSeatParent,
+                mainBody
+            );
+
+            entry.rearLeftDoorTransform = rearLeftHook;
+            entry.rearRightDoorTransform = rearRightHook;
+            entry.rearLeftDoorOpenRotation = entry.doorOpenRotation;
+            entry.rearRightDoorOpenRotation = new Vector3(
+                entry.doorOpenRotation.x,
+                -entry.doorOpenRotation.y,
+                -entry.doorOpenRotation.z
+            );
+
+            Transform leftHandle = EnsureRearDoorHandle(
+                carRoot,
+                rearLeftHook,
+                "Rear Left Door Handle Target"
+            );
+            Transform rightHandle = FindTransform(
+                rearRightHook.gameObject,
+                "Rear Right Door Handle Target"
+            );
+            if (rightHandle == null)
+            {
+                GameObject handleObject = new GameObject(
+                    "Rear Right Door Handle Target"
+                );
+                rightHandle = handleObject.transform;
+                rightHandle.SetParent(rearRightHook, false);
+            }
+            MirrorTransformAcrossCar(mainBody, leftHandle, rightHandle);
+            entry.rearLeftDoorHandleTarget = leftHandle;
+            entry.rearRightDoorHandleTarget = rightHandle;
+            entry.rearLeftDoorAudioSource = EnsureDoorAudioSource(
+                carRoot,
+                rearLeftHook,
+                "AudioSource-Door-Rear-Left"
+            );
+            entry.rearRightDoorAudioSource = EnsureDoorAudioSource(
+                carRoot,
+                rearRightHook,
+                "AudioSource-Door-Rear-Right"
+            );
+
+            entry.rearLeftLapLeftHandTarget = EnsureLocalAnchor(
+                entry.rearLeftSeatParent,
+                "Rear Lap Left Hand Target",
+                new Vector3(-0.22f, -0.16f, 0.26f)
+            );
+            entry.rearLeftLapRightHandTarget = EnsureLocalAnchor(
+                entry.rearLeftSeatParent,
+                "Rear Lap Right Hand Target",
+                new Vector3(0.22f, -0.16f, 0.26f)
+            );
+            entry.rearRightLapLeftHandTarget = EnsureLocalAnchor(
+                entry.rearRightSeatParent,
+                "Rear Lap Left Hand Target",
+                new Vector3(-0.22f, -0.16f, 0.26f)
+            );
+            entry.rearRightLapRightHandTarget = EnsureLocalAnchor(
+                entry.rearRightSeatParent,
+                "Rear Lap Right Hand Target",
+                new Vector3(0.22f, -0.16f, 0.26f)
+            );
+            entry.rearLapHandIKWeight = 0.92f;
+
+            EnsureRearInteractionTriggers(carRoot, mainBody, rearOffset);
+        }
+
+        private static Transform EnsureRearDoorHook(
+            GameObject carRoot,
+            Transform mainBody,
+            Transform doorMesh,
+            string hookName)
+        {
+            Transform hook = FindTransform(carRoot, hookName);
+            if (hook == null)
+            {
+                GameObject hookObject = new GameObject(hookName);
+                hook = hookObject.transform;
+                hook.SetParent(mainBody, false);
+                hook.SetPositionAndRotation(doorMesh.position, mainBody.rotation);
+            }
+            if (doorMesh.parent != hook) doorMesh.SetParent(hook, true);
+            return hook;
+        }
+
+        private static Transform EnsureRearDoorHandle(
+            GameObject carRoot,
+            Transform doorHook,
+            string targetName)
+        {
+            Transform target = FindTransform(doorHook.gameObject, targetName);
+            if (target != null) return target;
+            GameObject targetObject = new GameObject(targetName);
+            target = targetObject.transform;
+            target.SetParent(doorHook, false);
+            target.SetPositionAndRotation(
+                GuessDoorHandlePosition(carRoot.transform, doorHook),
+                Quaternion.LookRotation(
+                    -carRoot.transform.right,
+                    carRoot.transform.up
+                )
+            );
+            return target;
+        }
+
+        private static Transform EnsureOffsetEntryAnchor(
+            GameObject carRoot,
+            string name,
+            Transform source,
+            Vector3 worldOffset)
+        {
+            Transform anchor = FindTransform(carRoot, name);
+            if (anchor == null)
+            {
+                GameObject anchorObject = new GameObject(name);
+                anchor = anchorObject.transform;
+                anchor.SetParent(carRoot.transform, false);
+            }
+            anchor.SetPositionAndRotation(
+                source.position + worldOffset,
+                source.rotation
+            );
+            return anchor;
+        }
+
+        private static Transform EnsureLocalAnchor(
+            Transform parent,
+            string name,
+            Vector3 localPosition)
+        {
+            Transform anchor = parent != null ? parent.Find(name) : null;
+            if (anchor == null && parent != null)
+            {
+                GameObject anchorObject = new GameObject(name);
+                anchor = anchorObject.transform;
+                anchor.SetParent(parent, false);
+            }
+            if (anchor != null)
+            {
+                anchor.localPosition = localPosition;
+                anchor.localRotation = Quaternion.identity;
+            }
+            return anchor;
+        }
+
+        private static void EnsureRearInteractionTriggers(
+            GameObject carRoot,
+            Transform symmetryRoot,
+            Vector3 rearOffset)
+        {
+            Transform driverTrigger = FindTransform(carRoot, "Triggers_Enter/Exit");
+            if (driverTrigger == null) return;
+            Transform rearLeft = FindTransform(
+                carRoot,
+                "Triggers_Enter/Exit Rear Left"
+            );
+            if (rearLeft == null)
+            {
+                GameObject clone = UnityEngine.Object.Instantiate(
+                    driverTrigger.gameObject,
+                    carRoot.transform
+                );
+                clone.name = "Triggers_Enter/Exit Rear Left";
+                rearLeft = clone.transform;
+            }
+            rearLeft.SetPositionAndRotation(
+                driverTrigger.position + rearOffset,
+                driverTrigger.rotation
+            );
+
+            Transform rearRight = FindTransform(
+                carRoot,
+                "Triggers_Enter/Exit Rear Right"
+            );
+            if (rearRight == null)
+            {
+                GameObject clone = UnityEngine.Object.Instantiate(
+                    driverTrigger.gameObject,
+                    carRoot.transform
+                );
+                clone.name = "Triggers_Enter/Exit Rear Right";
+                rearRight = clone.transform;
+            }
+            MirrorTransformAcrossCar(symmetryRoot, rearLeft, rearRight);
+        }
+
         private static void EnsurePassengerInteractionTrigger(
             GameObject carRoot,
             Transform symmetryRoot)
@@ -948,32 +1256,35 @@ namespace FranklinGame.Vehicles.Editor
             return fallback;
         }
 
-        private static void EnsureMirroredEntryAnimation()
+        private static void EnsureMirroredVehicleAnimation(
+            string sourcePath,
+            string targetPath,
+            string clipName)
         {
             AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(
-                EntryAnimationPath
+                sourcePath
             );
             if (source == null)
                 throw new InvalidOperationException(
-                    $"Car-entry animation is missing: {EntryAnimationPath}"
+                    $"Vehicle animation is missing: {sourcePath}"
                 );
 
             EnsureAssetFolder("Assets/FranklinAnimations", "Generated");
             EnsureAssetFolder("Assets/FranklinAnimations/Generated", "CarEntry");
             if (AssetDatabase.LoadAssetAtPath<AnimationClip>(
-                    MirroredEntryAnimationPath
+                    targetPath
                 ) == null && !AssetDatabase.CopyAsset(
-                    EntryAnimationPath,
-                    MirroredEntryAnimationPath
+                    sourcePath,
+                    targetPath
                 ))
             {
                 throw new InvalidOperationException(
-                    "Unity could not create the mirrored car-entry animation"
+                    $"Unity could not create mirrored vehicle animation: {targetPath}"
                 );
             }
 
             AnimationClip mirrored = AssetDatabase.LoadAssetAtPath<AnimationClip>(
-                MirroredEntryAnimationPath
+                targetPath
             );
             SerializedObject serializedClip = new SerializedObject(mirrored);
             SerializedProperty mirrorProperty = serializedClip.FindProperty(
@@ -986,7 +1297,7 @@ namespace FranklinGame.Vehicles.Editor
 
             mirrorProperty.boolValue = true;
             serializedClip.ApplyModifiedPropertiesWithoutUndo();
-            mirrored.name = "Character_Enter_Car_Mirrored";
+            mirrored.name = clipName;
             EditorUtility.SetDirty(mirrored);
         }
 

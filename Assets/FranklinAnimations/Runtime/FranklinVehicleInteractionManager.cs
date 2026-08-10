@@ -220,20 +220,24 @@ namespace FranklinGame.Animations
 
             if (vehicleEntry is CarEntry carEntry)
             {
-                bool wasOccupied = carEntry.SeatedCharacter != null;
-                CarEntrySideMode requestedSide = IsPassengerDoorTarget(
-                    target?.Instance,
-                    vehicleEntry.transform
-                )
-                    ? CarEntrySideMode.PassengerDoor
-                    : CarEntrySideMode.DriverDoor;
+                // GC2 supplies the nearby car target; CarEntry remains
+                // authoritative and compares every configured free door in
+                // world space so overlapping Hotspots cannot choose the wrong
+                // side of a four-door car.
+                CarEntrySideMode requestedSide = carEntry.ResolveEntrySide(
+                    this.m_Player,
+                    CarEntrySideMode.Automatic
+                );
+                bool startsCarjacking = carEntry.SeatedCharacter != null &&
+                    (requestedSide == CarEntrySideMode.DriverDoor ||
+                     requestedSide == CarEntrySideMode.PassengerDoor);
                 if (!carEntry.RequestEnter(this.m_Player, requestedSide))
                 {
                     this.CancelVehicleInteractionRequest();
                     return false;
                 }
 
-                this.m_ActiveCarjacking = wasOccupied
+                this.m_ActiveCarjacking = startsCarjacking
                     ? carEntry.GetComponent<SimcadeCarjacking>()
                     : null;
                 return true;
@@ -269,6 +273,17 @@ namespace FranklinGame.Animations
                 this.IsAvailableVehicleEntry(vehicleEntry) &&
                 IsDriverDoorTarget(target.Instance, vehicleEntry.transform))
             {
+                if (vehicleEntry is CarEntry carEntry)
+                {
+                    if (!carEntry.CanRequestEnter(
+                            this.m_Player,
+                            CarEntrySideMode.Automatic
+                        ))
+                    {
+                        vehicleEntry = null;
+                        return false;
+                    }
+                }
                 return true;
             }
 
@@ -293,12 +308,6 @@ namespace FranklinGame.Animations
             if (vehicleEntry is CarEntry carEntry)
             {
                 if (carEntry.IsTransitioning) return false;
-                if (carEntry.SeatedCharacter != null)
-                {
-                    SimcadeCarjacking carjacking = carEntry.GetComponent<SimcadeCarjacking>();
-                    if (carjacking == null || !carjacking.CanCarjack(this.m_Player)) return false;
-                }
-
                 SimcadeCarDriver driver = carEntry.GetComponent<SimcadeCarDriver>();
                 if (driver != null && driver.IsVehicleEnabled) return false;
             }
@@ -328,7 +337,9 @@ namespace FranklinGame.Animations
                  current = current.parent)
             {
                 if (current.gameObject.name == "Triggers_Enter/Exit" ||
-                    current.gameObject.name == "Triggers_Enter/Exit Passenger")
+                    current.gameObject.name == "Triggers_Enter/Exit Passenger" ||
+                    current.gameObject.name == "Triggers_Enter/Exit Rear Left" ||
+                    current.gameObject.name == "Triggers_Enter/Exit Rear Right")
                 {
                     return true;
                 }
@@ -379,23 +390,6 @@ namespace FranklinGame.Animations
             return closestBike != null;
         }
 
-        private static bool IsPassengerDoorTarget(
-            GameObject targetInstance,
-            Transform vehicleRoot)
-        {
-            for (Transform current = targetInstance != null
-                     ? targetInstance.transform
-                     : null;
-                 current != null && current != vehicleRoot;
-                 current = current.parent)
-            {
-                if (current.gameObject.name == "Triggers_Enter/Exit Passenger")
-                    return true;
-            }
-
-            return false;
-        }
-
         private void CancelVehicleInteractionRequest()
         {
             this.m_IsVehicleAnimationLocked = false;
@@ -443,7 +437,7 @@ namespace FranklinGame.Animations
         {
             return this.m_Player != null &&
                 ((this.m_ActiveCarEntry != null &&
-                  this.m_ActiveCarEntry.SeatedCharacter == this.m_Player) ||
+                  this.m_ActiveCarEntry.IsCharacterSeated(this.m_Player)) ||
                  (this.m_ActiveBikeEntry != null &&
                   this.m_ActiveBikeEntry.SeatedCharacter == this.m_Player));
         }

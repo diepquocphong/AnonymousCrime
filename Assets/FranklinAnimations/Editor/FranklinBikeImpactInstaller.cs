@@ -73,6 +73,34 @@ internal static class FranklinBikeImpactInstaller
         );
     }
 
+    [MenuItem("Tools/Franklin/Arcade Bikes/Normalize All Bike Feature Hierarchies")]
+    public static void NormalizeAllBikeFeatureHierarchies()
+    {
+        string[] prefabPaths = GetBikePrefabPaths();
+        int organized = 0;
+        foreach (string prefabPath in prefabPaths)
+        {
+            GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
+            try
+            {
+                if (!NormalizeFeatureHierarchy(root)) continue;
+                PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+                organized++;
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log(
+            $"[Arcade Bikes] Normalized shared feature hierarchy and removed obsolete " +
+            $"helpers on {organized}/{prefabPaths.Length} bikes."
+        );
+    }
+
     internal static void ConfigurePrefab(GameObject root)
     {
         AudioClip lightClip = AssetDatabase.LoadAssetAtPath<AudioClip>(
@@ -122,8 +150,10 @@ internal static class FranklinBikeImpactInstaller
             );
         }
 
+        Transform renderedBody = controller.bikeReferences?.BodyMesh;
         SphereCollider frontWheelCollider = EnsureRagdollWheelCollider(
             root,
+            renderedBody,
             controller.bikeReferences?.FrontWheel,
             "Franklin Ragdoll Front Wheel Collider",
             controller.bikeGeometry?.FrontWheelRadius ?? 0.3f,
@@ -131,6 +161,7 @@ internal static class FranklinBikeImpactInstaller
         );
         SphereCollider rearWheelCollider = EnsureRagdollWheelCollider(
             root,
+            renderedBody,
             controller.bikeReferences?.RearWheel,
             "Franklin Ragdoll Rear Wheel Collider",
             controller.bikeGeometry?.RearWheelRadius ?? 0.3f,
@@ -153,9 +184,10 @@ internal static class FranklinBikeImpactInstaller
         ConfigureFallenBikeRecovery(
             entry,
             root,
-            controller.bikeReferences?.BodyMesh,
+            renderedBody,
             renderedBodyBounds
         );
+        NormalizeFeatureHierarchy(root);
         bikeRagdoll.Configure(
             controller,
             driver,
@@ -219,7 +251,8 @@ internal static class FranklinBikeImpactInstaller
             return impact != null && impact.IsConfigured &&
                    bikeRagdoll != null && bikeRagdoll.IsConfigured &&
                    crash != null && crash.IsConfigured &&
-                   crash.HasCurrentConfiguration;
+                   crash.HasCurrentConfiguration &&
+                   HasNormalizedFeatureHierarchy(prefab);
         });
         if (complete) return;
 
@@ -260,12 +293,13 @@ internal static class FranklinBikeImpactInstaller
 
     private static SphereCollider EnsureRagdollWheelCollider(
         GameObject root,
+        Transform renderedBody,
         Transform wheel,
         string objectName,
         float radius,
         PhysicsMaterial zeroFriction)
     {
-        if (root == null || wheel == null)
+        if (root == null || renderedBody == null || wheel == null)
         {
             throw new InvalidOperationException(
                 $"{root?.name ?? "Bike"} is missing a wheel target for bike ragdoll."
@@ -277,9 +311,9 @@ internal static class FranklinBikeImpactInstaller
         {
             GameObject colliderObject = new GameObject(objectName);
             anchor = colliderObject.transform;
-            anchor.SetParent(root.transform, false);
         }
 
+        anchor.SetParent(renderedBody, true);
         anchor.SetPositionAndRotation(wheel.position, root.transform.rotation);
         anchor.localScale = Vector3.one;
         SphereCollider collider = anchor.GetComponent<SphereCollider>();
@@ -414,6 +448,8 @@ internal static class FranklinBikeImpactInstaller
             AssetDatabase.LoadAssetAtPath<AnimationClip>(RecoveryAnimationPath);
         entry.fallenBikeBodyGripLeft = leftGrip;
         entry.fallenBikeBodyGripRight = rightGrip;
+        RemoveUnusedDuplicateMarker(root, leftGrip);
+        RemoveUnusedDuplicateMarker(root, rightGrip);
         EditorUtility.SetDirty(leftGrip);
         EditorUtility.SetDirty(rightGrip);
     }
@@ -425,6 +461,116 @@ internal static class FranklinBikeImpactInstaller
         GameObject child = new GameObject(name);
         child.transform.SetParent(parent, false);
         return child.transform;
+    }
+
+    private static bool NormalizeFeatureHierarchy(GameObject root)
+    {
+        if (root == null) return false;
+        ArcadeBP_Pro.ArcadeBikeControllerPro controller =
+            root.GetComponent<ArcadeBP_Pro.ArcadeBikeControllerPro>();
+        BikeEntry entry = root.GetComponent<BikeEntry>();
+        Transform renderedBody = controller?.bikeReferences?.BodyMesh;
+        if (entry == null || renderedBody == null) return false;
+
+        MoveDirectRootChild(
+            root.transform,
+            renderedBody,
+            "Franklin Ragdoll Front Wheel Collider"
+        );
+        MoveDirectRootChild(
+            root.transform,
+            renderedBody,
+            "Franklin Ragdoll Rear Wheel Collider"
+        );
+        MoveReferencedMarker(renderedBody, entry.fallenBikeBodyGripLeft);
+        MoveReferencedMarker(renderedBody, entry.fallenBikeBodyGripRight);
+        MoveReferencedMarker(renderedBody, entry.entryStandingPoint);
+        MoveReferencedMarker(renderedBody, entry.mirroredEntryStandingPoint);
+        RemoveUnusedDuplicateMarker(root, entry.fallenBikeBodyGripLeft);
+        RemoveUnusedDuplicateMarker(root, entry.fallenBikeBodyGripRight);
+        RemoveObsoleteDirectRootChild(root.transform, "AudioSource-Coillision");
+        VehicleDeformation obsoleteDeformation = root.GetComponent<VehicleDeformation>();
+        if (obsoleteDeformation != null)
+            UnityEngine.Object.DestroyImmediate(obsoleteDeformation);
+        EditorUtility.SetDirty(root);
+        return true;
+    }
+
+    private static bool HasNormalizedFeatureHierarchy(GameObject root)
+    {
+        if (root == null || root.GetComponent<VehicleDeformation>() != null ||
+            root.transform.Find("AudioSource-Coillision") != null) return false;
+
+        ArcadeBP_Pro.ArcadeBikeControllerPro controller =
+            root.GetComponent<ArcadeBP_Pro.ArcadeBikeControllerPro>();
+        BikeEntry entry = root.GetComponent<BikeEntry>();
+        Transform body = controller?.bikeReferences?.BodyMesh;
+        if (entry == null || body == null) return false;
+
+        Transform[] required =
+        {
+            entry.entryStandingPoint,
+            entry.mirroredEntryStandingPoint,
+            entry.fallenBikeBodyGripLeft,
+            entry.fallenBikeBodyGripRight
+        };
+        if (required.Any(item => item == null || item.parent != body)) return false;
+        Transform[] hierarchy = root.GetComponentsInChildren<Transform>(true);
+        Transform front = hierarchy.FirstOrDefault(
+            item => item.name == "Franklin Ragdoll Front Wheel Collider"
+        );
+        Transform rear = hierarchy.FirstOrDefault(
+            item => item.name == "Franklin Ragdoll Rear Wheel Collider"
+        );
+        if (front == null || rear == null || front.parent != body || rear.parent != body ||
+            front.GetComponent<SphereCollider>() == null ||
+            rear.GetComponent<SphereCollider>() == null) return false;
+
+        return hierarchy.Count(item => item.name == "Fallen Bike Body Grip Left") == 1 &&
+               hierarchy.Count(item => item.name == "Fallen Bike Body Grip Right") == 1 &&
+               hierarchy.Count(item => item.name == "Franklin Ragdoll Front Wheel Collider") == 1 &&
+               hierarchy.Count(item => item.name == "Franklin Ragdoll Rear Wheel Collider") == 1;
+    }
+
+    private static void MoveDirectRootChild(
+        Transform root,
+        Transform destination,
+        string objectName
+    )
+    {
+        Transform child = root != null ? root.Find(objectName) : null;
+        if (child == null || destination == null) return;
+        child.SetParent(destination, true);
+        EditorUtility.SetDirty(child);
+    }
+
+    private static void MoveReferencedMarker(Transform destination, Transform marker)
+    {
+        if (destination == null || marker == null || marker.parent == destination) return;
+        marker.SetParent(destination, true);
+        EditorUtility.SetDirty(marker);
+    }
+
+    private static void RemoveUnusedDuplicateMarker(GameObject root, Transform retained)
+    {
+        if (root == null || retained == null) return;
+        Transform[] candidates = root.GetComponentsInChildren<Transform>(true)
+            .Where(candidate => candidate != null && candidate != retained &&
+                                candidate.name == retained.name)
+            .ToArray();
+        foreach (Transform candidate in candidates)
+        {
+            Component[] components = candidate.GetComponents<Component>();
+            if (components.All(component => component is Transform))
+                UnityEngine.Object.DestroyImmediate(candidate.gameObject);
+        }
+    }
+
+    private static void RemoveObsoleteDirectRootChild(Transform root, string objectName)
+    {
+        Transform obsolete = root != null ? root.Find(objectName) : null;
+        if (obsolete == null) return;
+        UnityEngine.Object.DestroyImmediate(obsolete.gameObject);
     }
 
     private static Bounds CalculateLocalRendererBounds(GameObject root)

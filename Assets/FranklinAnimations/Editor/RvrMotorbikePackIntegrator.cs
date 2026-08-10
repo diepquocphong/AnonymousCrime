@@ -370,7 +370,6 @@ public static class RvrMotorbikePackIntegrator
         ConfigureLights(root, bikeBody, frontPosition, axleY, averageRadius, modelBounds);
         ConfigureEntryTrigger(root, modelBounds, axleY, averageRadius, middleZ);
         ConfigureVfx(root, modelBounds, axleY, averageRadius, rearPosition);
-        ConfigureDeformation(root, originalMeshes, wheelMeshes);
         ConfigureFranklinCarInteraction(root);
         ConfigureSilentAudioSources(root);
         ConfigureDefaultRiderPose(root, prefabPath);
@@ -658,24 +657,6 @@ public static class RvrMotorbikePackIntegrator
             axleY + wheelRadius * 0.6f,
             rearPosition.z - wheelRadius * 0.75f
         );
-    }
-
-    private static void ConfigureDeformation(
-        GameObject root,
-        IReadOnlyCollection<MeshFilter> allMeshes,
-        IReadOnlyCollection<MeshFilter> wheelMeshes
-    )
-    {
-        VehicleDeformation deformation = root.GetComponent<VehicleDeformation>();
-        if (deformation == null) return;
-
-        var wheelSet = new HashSet<MeshFilter>(wheelMeshes);
-        deformation.deformableMeshes = allMeshes
-            .Where(mesh => !wheelSet.Contains(mesh) &&
-                           mesh.sharedMesh != null &&
-                           mesh.sharedMesh.name.IndexOf("Glass", StringComparison.OrdinalIgnoreCase) < 0)
-            .Select(mesh => new DeformableMesh { meshFilter = mesh })
-            .ToList();
     }
 
     private static bool ValidateAll(bool logSuccess)

@@ -68,27 +68,20 @@ namespace FranklinGame.Vehicles
         public bool RequiresManualRecovery { get; private set; }
         public int ParkedGroundSide => this.m_ParkedGroundSide;
         /// <summary>
-        /// True when a nearby Player may be offered the lift/enter action. A live
-        /// tumbling bike is deliberately excluded; once both side probes are on
-        /// ground and the body is slow enough, the button may appear even before
-        /// the next FixedUpdate parks the bike for manual recovery.
+        /// True when a nearby Player may be offered the lift/enter action. The
+        /// interaction click itself parks the physical body, so compound ground
+        /// and wall contacts cannot permanently hide the mobile button.
         /// </summary>
         public bool CanInteractWhileFallen
         {
             get
             {
                 if (this.RequiresManualRecovery) return true;
-                if (!this.IsRagdoll || this.m_Body == null) return false;
-
-                bool slowEnough = this.m_Body.linearVelocity.magnitude <=
-                                      this.m_ParkLinearSpeed &&
-                                  this.m_Body.angularVelocity.magnitude <=
-                                      this.m_ParkAngularSpeed;
-                if (!slowEnough) return false;
-
-                float tilt = Vector3.Angle(transform.up, Vector3.up);
-                return tilt >= this.m_MinimumSideTilt &&
-                       this.GetGroundedSide() != 0;
+                // Interaction itself takes ownership of the fallen Rigidbody
+                // and parks it before recovery. Do not hide the mobile button
+                // just because a wall, curb or MeshCollider prevents both strict
+                // side probes from reporting ground.
+                return this.IsRagdoll && this.m_Body != null;
             }
         }
         public bool IsConfigured =>
@@ -203,18 +196,26 @@ namespace FranklinGame.Vehicles
         }
 
         /// <summary>
-        /// Interaction does not need to wait for another full stable-time window
-        /// after the rendered left/right surface is already grounded and still.
-        /// It may park that confirmed physical pose immediately for the authored
-        /// lift sequence. A moving or only partially fallen bike remains dynamic.
+        /// Transfers a live bike ragdoll into the kinematic manual-lift phase.
+        /// Strict surface probes are preferred, with a rendered-side fallback for
+        /// bikes wedged on curbs, walls or compound MeshColliders.
         /// </summary>
         public bool TryPrepareManualRecoveryForInteraction()
         {
             if (this.RequiresManualRecovery) return true;
-            if (!this.CanInteractWhileFallen) return false;
+            this.ResolveReferences();
+            if (!this.IsRagdoll || this.m_Body == null) return false;
 
             int groundedSide = this.GetGroundedSide();
-            if (groundedSide == 0) return false;
+            if (groundedSide == 0)
+            {
+                // A bike wedged against a wall may never satisfy both surface
+                // probes. Infer the lower rendered side and let the authored
+                // mirrored recovery finish the job.
+                groundedSide = Vector3.Dot(transform.right, Vector3.up) >= 0f
+                    ? -1
+                    : 1;
+            }
 
             this.ParkForManualRecovery(groundedSide);
             return true;
@@ -345,28 +346,62 @@ namespace FranklinGame.Vehicles
                     (1 << BODY_COLLIDER_QUERY_LAYER)) == 0;
         }
 
-        public Vector3 GetCollisionSafeLeftExitPosition(
+        public Vector3 GetCollisionSafeExitPosition(
             Vector3 authoredWorldPosition,
+            Vector3 outwardDirection,
             float characterClearance)
         {
-            Transform bodyFrame = this.m_Controller?.bikeReferences?.BodyMesh != null
-                ? this.m_Controller.bikeReferences.BodyMesh
-                : transform;
-            if (!this.TryGetRenderedBodyBoundsInFrame(
-                    bodyFrame,
-                    out Bounds bodyBounds
-                ))
+            outwardDirection = Vector3.ProjectOnPlane(
+                outwardDirection,
+                Vector3.up
+            );
+            if (outwardDirection.sqrMagnitude < 0.0001f)
             {
                 return authoredWorldPosition;
             }
+            outwardDirection.Normalize();
 
-            Vector3 localPosition = bodyFrame.InverseTransformPoint(
-                authoredWorldPosition
+            bool foundBody = false;
+            float furthestBodyProjection = float.NegativeInfinity;
+            if (this.m_BodyMeshColliders != null)
+            {
+                foreach (MeshCollider meshCollider in this.m_BodyMeshColliders)
+                {
+                    if (meshCollider == null || !meshCollider.enabled) continue;
+                    Bounds bounds = meshCollider.bounds;
+                    float projection = Vector3.Dot(
+                        bounds.center,
+                        outwardDirection
+                    ) + Vector3.Dot(
+                        bounds.extents,
+                        new Vector3(
+                            Mathf.Abs(outwardDirection.x),
+                            Mathf.Abs(outwardDirection.y),
+                            Mathf.Abs(outwardDirection.z)
+                        )
+                    );
+                    furthestBodyProjection = Mathf.Max(
+                        furthestBodyProjection,
+                        projection
+                    );
+                    foundBody = true;
+                }
+            }
+            if (!foundBody) return authoredWorldPosition;
+
+            float authoredProjection = Vector3.Dot(
+                authoredWorldPosition,
+                outwardDirection
             );
-            float safeLocalX = bodyBounds.min.x -
-                               Mathf.Max(0.05f, characterClearance);
-            localPosition.x = Mathf.Min(localPosition.x, safeLocalX);
-            return bodyFrame.TransformPoint(localPosition);
+            float requiredProjection = furthestBodyProjection +
+                                       Mathf.Max(0.05f, characterClearance);
+            if (authoredProjection >= requiredProjection)
+                return authoredWorldPosition;
+
+            // Only move farther toward the authored left side. Never let a
+            // collider-clearance correction cross the bike toward the right.
+            return authoredWorldPosition + outwardDirection *
+                   (requiredProjection - authoredProjection);
         }
 
         private void RefreshRenderedBodySurfaceProbes()
@@ -513,16 +548,66 @@ namespace FranklinGame.Vehicles
             groundNormal = Vector3.up;
             if (!this.RequiresManualRecovery || this.m_Body == null) return false;
 
-            if (!this.TryGetSupportingGround(transform.position, out RaycastHit groundHit))
-                return false;
+            Vector3 groundPoint;
+            if (this.TryGetSupportingGround(transform.position, out RaycastHit groundHit))
+            {
+                groundNormal = groundHit.normal.normalized;
+                groundPoint = groundHit.point;
+            }
+            else
+            {
+                // Forced recovery fallback for a bike resting on compound meshes,
+                // curbs or beside a wall where the central ground ray is hidden.
+                Vector3 localSurface = this.m_ParkedGroundSide < 0
+                    ? this.m_LocalLeftSurface
+                    : this.m_LocalRightSurface;
+                groundPoint = transform.TransformPoint(localSurface);
+                groundNormal = Vector3.up;
+            }
 
-            groundNormal = groundHit.normal.normalized;
             Vector3 forward = Vector3.ProjectOnPlane(transform.forward, groundNormal);
             if (forward.sqrMagnitude < 0.0001f)
                 forward = Vector3.ProjectOnPlane(transform.up, groundNormal);
             if (forward.sqrMagnitude < 0.0001f)
                 forward = Vector3.ProjectOnPlane(Vector3.forward, groundNormal);
             targetRotation = Quaternion.LookRotation(forward.normalized, groundNormal);
+
+            targetPosition = this.AlignRecoveryHeight(
+                targetPosition,
+                targetRotation,
+                groundPoint,
+                groundNormal
+            );
+            return true;
+        }
+
+        public Vector3 AlignManualRecoveryTargetToGround(
+            Vector3 desiredPosition,
+            Quaternion targetRotation,
+            Vector3 fallbackNormal)
+        {
+            Vector3 groundNormal = fallbackNormal.sqrMagnitude > 0.001f
+                ? fallbackNormal.normalized
+                : Vector3.up;
+            if (!this.TryGetSupportingGround(desiredPosition, out RaycastHit groundHit))
+                return desiredPosition;
+
+            return this.AlignRecoveryHeight(
+                desiredPosition,
+                targetRotation,
+                groundHit.point,
+                groundHit.normal.sqrMagnitude > 0.001f
+                    ? groundHit.normal.normalized
+                    : groundNormal
+            );
+        }
+
+        private Vector3 AlignRecoveryHeight(
+            Vector3 targetPosition,
+            Quaternion targetRotation,
+            Vector3 groundPoint,
+            Vector3 groundNormal)
+        {
 
             float minimumWheelBottom = float.PositiveInfinity;
             this.AccumulateWheelBottom(
@@ -542,12 +627,12 @@ namespace FranklinGame.Vehicles
 
             float desiredRootDistance = -minimumWheelBottom + 0.015f;
             float currentRootDistance = Vector3.Dot(
-                targetPosition - groundHit.point,
+                targetPosition - groundPoint,
                 groundNormal
             );
             targetPosition += groundNormal *
                               (desiredRootDistance - currentRootDistance);
-            return true;
+            return targetPosition;
         }
 
         public void SetManualRecoveryPose(Vector3 position, Quaternion rotation)
@@ -557,7 +642,6 @@ namespace FranklinGame.Vehicles
             this.m_Body.rotation = rotation;
             this.m_Body.linearVelocity = Vector3.zero;
             this.m_Body.angularVelocity = Vector3.zero;
-            Physics.SyncTransforms();
         }
 
         public void CompleteManualRecovery()
@@ -570,6 +654,7 @@ namespace FranklinGame.Vehicles
             this.SetWheelCollidersEnabled(false);
             this.SetBodyColliderMode(false);
             this.m_Driver?.ParkGroundedRagdoll();
+            Physics.SyncTransforms();
         }
 
         private void AccumulateWheelBottom(
@@ -671,6 +756,12 @@ namespace FranklinGame.Vehicles
             this.m_StableGroundTimer = 0f;
             this.SetWheelCollidersEnabled(false);
             this.m_Driver?.ParkGroundedRagdoll();
+            if (this.m_Body != null && !this.m_Body.isKinematic)
+            {
+                this.m_Body.linearVelocity = Vector3.zero;
+                this.m_Body.angularVelocity = Vector3.zero;
+                this.m_Body.isKinematic = true;
+            }
         }
 
         private int GetGroundedSide()

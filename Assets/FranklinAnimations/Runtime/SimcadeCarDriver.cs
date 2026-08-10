@@ -75,6 +75,7 @@ namespace FranklinGame.Vehicles
         private bool m_VirtualSlowAccelerate;
         private bool m_IsStoppingForExit;
         private bool m_IsCoastingAfterExit;
+        private bool m_IsPassengerPresentation;
         private bool m_HoldCameraDuringBailout;
         private bool m_KeepEngineRunningAfterBailout;
         private float m_AccelerationInput;
@@ -104,6 +105,7 @@ namespace FranklinGame.Vehicles
         private UiButton_SVP m_Handbrake;
 
         public bool IsVehicleEnabled => this.m_IsVehicleEnabled;
+        public bool IsPassengerPresentationActive => this.m_IsPassengerPresentation;
         public bool UseSeatEntryAlignment => true;
         public float SpeedMetersPerSecond => this.m_Rigidbody != null
             ? Vector3.ProjectOnPlane(this.m_Rigidbody.linearVelocity, Vector3.up).magnitude
@@ -151,6 +153,7 @@ namespace FranklinGame.Vehicles
         private void OnDisable()
         {
             this.m_IsVehicleEnabled = false;
+            this.m_IsPassengerPresentation = false;
             this.m_HoldCameraDuringBailout = false;
             this.m_KeepEngineRunningAfterBailout = false;
             this.ResetVirtualInputs();
@@ -171,7 +174,7 @@ namespace FranklinGame.Vehicles
         private void Update()
         {
             this.UpdateControllerExecutionState();
-            if (!this.m_IsVehicleEnabled) return;
+            if (!this.m_IsVehicleEnabled && !this.m_IsPassengerPresentation) return;
 
             if (this.IsExitPressed())
             {
@@ -180,6 +183,7 @@ namespace FranklinGame.Vehicles
             }
 
             this.UpdateCameraOrbit();
+            if (this.m_IsPassengerPresentation) return;
 
             if (this.m_IsStoppingForExit)
             {
@@ -282,6 +286,7 @@ namespace FranklinGame.Vehicles
         {
             if (state)
             {
+                this.m_IsPassengerPresentation = false;
                 this.m_HoldCameraDuringBailout = false;
                 this.m_KeepEngineRunningAfterBailout = false;
             }
@@ -319,7 +324,8 @@ namespace FranklinGame.Vehicles
             {
                 this.SetCameraActive(true);
             }
-            else if (!this.m_HoldCameraDuringBailout)
+            else if (!this.m_HoldCameraDuringBailout &&
+                     !this.m_IsPassengerPresentation)
             {
                 this.SetCameraActive(false);
             }
@@ -329,6 +335,26 @@ namespace FranklinGame.Vehicles
             {
                 this.m_Rigidbody.linearVelocity = Vector3.zero;
                 this.m_Rigidbody.angularVelocity = Vector3.zero;
+            }
+        }
+
+        /// <summary>
+        /// Uses the Sim-Cade chase/orbit camera for a rear-seat Player without
+        /// granting throttle, steering or mobile driving controls.
+        /// </summary>
+        public void SetPassengerPresentation(bool active)
+        {
+            if (active && this.m_IsVehicleEnabled) return;
+            this.m_IsPassengerPresentation = active;
+            if (active)
+            {
+                this.m_ExitInputAvailableAt = Time.unscaledTime + 0.5f;
+                this.ResetCameraOrbit();
+                this.SetCameraActive(true);
+            }
+            else if (!this.m_IsVehicleEnabled && !this.m_HoldCameraDuringBailout)
+            {
+                this.SetCameraActive(false);
             }
         }
 
@@ -447,13 +473,16 @@ namespace FranklinGame.Vehicles
         /// </summary>
         public void RequestExit()
         {
-            if (!this.m_IsVehicleEnabled || this.m_CarEntry == null ||
+            if ((!this.m_IsVehicleEnabled && !this.m_IsPassengerPresentation) ||
+                this.m_CarEntry == null ||
                 this.m_CarEntry.IsTransitioning)
             {
                 return;
             }
 
-            Character character = this.m_CarEntry.SeatedCharacter;
+            Character character = this.m_IsPassengerPresentation
+                ? this.m_CarEntry.RearPassengerCharacter
+                : this.m_CarEntry.SeatedCharacter;
             if (character == null) return;
 
             this.m_CarEntry.RequestExit(character);
