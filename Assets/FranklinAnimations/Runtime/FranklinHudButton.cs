@@ -20,16 +20,20 @@ namespace FranklinGame.UI
         private FranklinMobileHud m_Hud;
         [SerializeField] private FranklinHudAction m_Action;
         [SerializeField] private Image m_Image;
+        [SerializeField] private bool m_IsToggle;
         private bool m_IsPressed;
+        private bool m_IsToggled;
         private int m_ActivePointerId = int.MinValue;
 
         internal void Initialize(
             FranklinMobileHud hud,
             FranklinHudAction action,
-            Image image)
+            Image image,
+            bool isToggle = false)
         {
             this.m_Action = action;
             this.m_Image = image;
+            this.m_IsToggle = isToggle;
             this.Bind(hud);
         }
 
@@ -37,11 +41,19 @@ namespace FranklinGame.UI
         {
             this.m_Hud = hud;
             if (this.m_Image == null) this.m_Image = this.GetComponent<Image>();
-            this.SetVisual(false);
+            this.SetVisual(this.m_IsToggle && this.m_IsToggled);
         }
 
         public void OnPointerDown(PointerEventData eventData)
         {
+            if (this.m_IsToggle)
+            {
+                this.m_IsToggled = !this.m_IsToggled;
+                this.SetVisual(this.m_IsToggled);
+                this.m_Hud?.SetAction(this.m_Action, this.m_IsToggled);
+                return;
+            }
+
             if (this.m_IsPressed) return;
 
             this.m_ActivePointerId = eventData != null
@@ -54,12 +66,15 @@ namespace FranklinGame.UI
 
         public void OnPointerUp(PointerEventData eventData)
         {
+            if (this.m_IsToggle) return;
             if (!this.IsActivePointer(eventData)) return;
             this.Release();
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
+            if (this.m_IsToggle) return;
+
             // Jog and Sprint are hold controls. Keep their original pointer captured until
             // PointerUp so a small thumb drift or a second orbit finger cannot interrupt run.
             if (this.m_Action is FranklinHudAction.Jog or FranklinHudAction.Sprint) return;
@@ -69,6 +84,20 @@ namespace FranklinGame.UI
 
         private void OnDisable()
         {
+            if (this.m_IsToggle)
+            {
+                if (this.m_IsToggled)
+                {
+                    this.m_Hud?.SetAction(this.m_Action, false);
+                }
+
+                this.m_IsToggled = false;
+                this.m_IsPressed = false;
+                this.m_ActivePointerId = int.MinValue;
+                this.SetVisual(false);
+                return;
+            }
+
             this.Release();
             this.SetVisual(false);
         }

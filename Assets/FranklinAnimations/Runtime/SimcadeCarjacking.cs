@@ -20,22 +20,22 @@ namespace FranklinGame.Vehicles
         [SerializeField] private GameObject m_NpcDriverPrefab;
         [SerializeField] private bool m_SpawnNpcDriverOnStart = true;
 
-        [Header("Paired Carjacking Animations - Driver Left Door")]
+        [Header("Paired Carjacking Animations - Both Front Doors")]
         [SerializeField] private AnimationClip m_AttackerKickOut;
         [SerializeField] private AnimationClip m_VictimGetKickedOut;
         [SerializeField] private Transform m_VictimLandingPoint;
-        [SerializeField, Range(0f, 0.5f)] private float m_TransitionIn = 0.05f;
+        [SerializeField, Range(0f, 0.5f)] private float m_TransitionIn = 0.03f;
         [SerializeField, Range(0f, 0.5f)] private float m_TransitionOut = 0.1f;
-        [SerializeField, Range(0.5f, 2f)] private float m_CarjackingAnimationSpeed = 1.7f;
+        [SerializeField, Range(0.5f, 2f)] private float m_CarjackingAnimationSpeed = 2f;
         [Tooltip("Hands control directly to Enter Car before the pull clip fades to idle.")]
-        [SerializeField, Range(0.5f, 0.98f)] private float m_EnterHandoffNormalizedTime = 0.78f;
+        [SerializeField, Range(0.5f, 0.98f)] private float m_EnterHandoffNormalizedTime = 0.7f;
 
         [Header("Player Grab IK")]
         [SerializeField] private AnimationCurve m_PrimaryGrabIKWeight = new AnimationCurve(
             new Keyframe(0f, 0f),
-            new Keyframe(0.1f, 0f),
-            new Keyframe(0.2f, 1f),
-            new Keyframe(0.92f, 1f),
+            new Keyframe(0.025f, 0f),
+            new Keyframe(0.12f, 1f),
+            new Keyframe(0.9f, 1f),
             new Keyframe(1f, 0f)
         );
         [SerializeField] private AnimationCurve m_SecondaryGrabIKWeight = new AnimationCurve(
@@ -50,12 +50,23 @@ namespace FranklinGame.Vehicles
         [SerializeField, Min(0f)] private float m_ShoulderGrabSurfaceOffset = 0.045f;
         [SerializeField, Min(0.1f)] private float m_MaxGrabReach = 1.35f;
 
+        [Header("Passenger-seat push posture")]
+        [Tooltip("Maximum upper-body turn toward the NPC while pushing from the passenger seat.")]
+        [SerializeField, Range(0f, 45f)] private float m_PassengerPushTorsoYaw = 38f;
+        [Tooltip("Small sideways/forward lean used to put body weight behind the push.")]
+        [SerializeField, Range(0f, 25f)] private float m_PassengerPushTorsoLean = 20f;
+        [SerializeField, Range(0f, 1f)] private float m_PassengerPushHeadLookWeight = 0.95f;
+        [Tooltip("Right hand braces on the steering wheel while the left hand pushes the NPC.")]
+        [SerializeField, Range(0f, 1f)] private float m_PassengerPushRightBraceIKWeight = 1f;
+
         [Header("Player Pull Root Control")]
         [SerializeField, Range(0f, 90f)] private float m_MaxPullYawFromEntry = 55f;
         [SerializeField, Min(0f)] private float m_PullFacingSharpness = 18f;
 
         private SimcadeCarDriver m_Driver;
-        private Quaternion m_DoorClosedRotation;
+        private Quaternion m_DriverDoorClosedRotation;
+        private Quaternion m_PassengerDoorClosedRotation;
+        private CarEntrySideMode m_ActiveEntrySide = CarEntrySideMode.DriverDoor;
         private bool m_IsTransitioning;
         private Character m_SpawnedNpcDriver;
         private CharacterIKSetter m_GrabIKSetter;
@@ -63,6 +74,7 @@ namespace FranklinGame.Vehicles
         private Transform m_GrabShoulderTarget;
         private Transform m_VictimNeck;
         private Transform m_VictimShoulder;
+        private Transform m_VictimPushLookTarget;
 
         public bool IsTransitioning => this.m_IsTransitioning;
         public Transform VictimLandingPoint => this.m_VictimLandingPoint;
@@ -73,7 +85,11 @@ namespace FranklinGame.Vehicles
             if (this.m_CarEntry == null) this.m_CarEntry = this.GetComponent<CarEntry>();
             this.m_Driver = this.GetComponent<SimcadeCarDriver>();
             if (this.m_CarEntry?.doorTransform != null)
-                this.m_DoorClosedRotation = this.m_CarEntry.doorTransform.localRotation;
+                this.m_DriverDoorClosedRotation =
+                    this.m_CarEntry.doorTransform.localRotation;
+            if (this.m_CarEntry?.passengerDoorTransform != null)
+                this.m_PassengerDoorClosedRotation =
+                    this.m_CarEntry.passengerDoorTransform.localRotation;
             this.EnsureGrabTargets();
         }
 
@@ -111,17 +127,31 @@ namespace FranklinGame.Vehicles
                 this.m_VictimGetKickedOut != null;
         }
 
-        public bool TryBeginCarjack(Character attacker)
+        public bool TryBeginCarjack(
+            Character attacker,
+            CarEntrySideMode requestedSide = CarEntrySideMode.DriverDoor)
         {
             if (!this.CanCarjack(attacker)) return false;
+            bool passengerSide = requestedSide == CarEntrySideMode.PassengerDoor;
+            if (passengerSide &&
+                this.m_CarEntry.passengerDoorTransform == null)
+            {
+                return false;
+            }
+
+            this.m_ActiveEntrySide = passengerSide
+                ? CarEntrySideMode.PassengerDoor
+                : CarEntrySideMode.DriverDoor;
             this.m_IsTransitioning = true;
             _ = this.RunCarjackingAsync(attacker);
             return true;
         }
 
-        public bool TryEnterOccupiedCar(Character character)
+        public bool TryEnterOccupiedCar(
+            Character character,
+            CarEntrySideMode requestedSide)
         {
-            return this.TryBeginCarjack(character);
+            return this.TryBeginCarjack(character, requestedSide);
         }
 
         private void SpawnInitialNpcDriver()
@@ -154,7 +184,8 @@ namespace FranklinGame.Vehicles
                 ? this.m_CarEntry.SeatedCharacter
                 : null;
             bool attackerSeated = false;
-            bool doorIsOpen = false;
+            bool driverDoorIsOpen = false;
+            bool passengerDoorIsOpen = false;
             bool victimWasReleased = false;
             bool victimPhysicsWasRestored = false;
             Task victimReleaseTask = null;
@@ -165,42 +196,91 @@ namespace FranklinGame.Vehicles
 
                 this.m_Driver?.SetVehicleEnabled(false);
                 if (attacker.Player != null) attacker.Player.IsControllable = false;
+                this.m_CarEntry.PrepareOccupiedEntrySide(
+                    attacker,
+                    this.m_ActiveEntrySide
+                );
                 if (!await this.m_CarEntry.MoveCharacterToEntryStandingPointAsync(attacker))
                     return;
+
+                bool passengerSide = this.m_ActiveEntrySide ==
+                    CarEntrySideMode.PassengerDoor;
+                // Capture the Player's original physics before disabling GC2
+                // collision. The passenger stage cannot reuse the NPC driver's
+                // snapshot because both Characters coexist in the cabin.
+                if (passengerSide)
+                    this.m_CarEntry.LockPassengerCarjackingPhysics(attacker);
                 if (attacker.Driver != null) attacker.Driver.Collision = false;
-
-                if (!this.m_CarEntry.ReleaseOccupantForCarjacking(victim)) return;
-                victimWasReleased = true;
-
-                Transform seat = this.m_CarEntry.entryParent;
-                victim.transform.SetPositionAndRotation(seat.position, seat.rotation);
-
-                await this.SetDoorOpenAsync(true);
-                doorIsOpen = true;
-                await this.PlayPairedCarjackingAsync(attacker, victim);
-
-                // Start landing the NPC and entering the Player in the same
-                // frame. Waiting for the NPC's two-frame grounding handshake
-                // before entry exposed an upright Player pose inside the car.
-                victimReleaseTask = this.CompleteVictimLandingAsync(victim);
-
-                if (attacker == null || this.m_CarEntry == null)
+                if (passengerSide)
                 {
+                    passengerDoorIsOpen = true;
+                    if (!await this.m_CarEntry.EnterPassengerSeatForCarjackingAsync(attacker))
+                        return;
+
+                    await this.SetDoorOpenAsync(
+                        false,
+                        CarEntrySideMode.PassengerDoor
+                    );
+                    passengerDoorIsOpen = false;
+
+                    if (!this.m_CarEntry.ReleaseOccupantForCarjacking(victim)) return;
+                    victimWasReleased = true;
+                    Transform seat = this.m_CarEntry.entryParent;
+                    victim.transform.SetPositionAndRotation(seat.position, seat.rotation);
+
+                    driverDoorIsOpen = true;
+                    await this.PlayPassengerSeatPushAsync(attacker, victim);
+                    victimReleaseTask = this.CompleteVictimLandingAsync(victim);
+
+                    if (attacker == null || this.m_CarEntry == null)
+                    {
+                        await victimReleaseTask;
+                        victimPhysicsWasRestored = true;
+                        return;
+                    }
+
+                    attackerSeated = await this.m_CarEntry
+                        .CompletePassengerCarjackingEntryAsync(attacker);
                     await victimReleaseTask;
                     victimPhysicsWasRestored = true;
-                    return;
                 }
-                if (attacker.Driver != null) attacker.Driver.Collision = true;
+                else
+                {
+                    // Driver-side carjacking uses the opening part of Enter Car
+                    // so the body turns/reaches before the left door moves.
+                    driverDoorIsOpen = true;
+                    if (!await this.m_CarEntry
+                            .OpenPreparedEntryDoorWithCharacterAsync(attacker))
+                    {
+                        return;
+                    }
+                    if (!this.m_CarEntry.ReleaseOccupantForCarjacking(victim)) return;
+                    victimWasReleased = true;
 
-                Task<bool> enterTask = this.m_CarEntry.EnterThroughOpenDoorAsync(attacker);
-                await victimReleaseTask;
-                victimPhysicsWasRestored = true;
-                attackerSeated = await enterTask;
+                    Transform seat = this.m_CarEntry.entryParent;
+                    victim.transform.SetPositionAndRotation(seat.position, seat.rotation);
+                    await this.PlayPairedCarjackingAsync(attacker, victim);
+                    victimReleaseTask = this.CompleteVictimLandingAsync(victim);
 
-                // The same door stays open for pulling the NPC and entering the
-                // seat. It closes exactly once after the Player is attached.
-                await this.SetDoorOpenAsync(false);
-                doorIsOpen = false;
+                    if (attacker == null || this.m_CarEntry == null)
+                    {
+                        await victimReleaseTask;
+                        victimPhysicsWasRestored = true;
+                        return;
+                    }
+                    if (attacker.Driver != null) attacker.Driver.Collision = true;
+
+                    Task<bool> enterTask = this.m_CarEntry.EnterThroughOpenDoorAsync(
+                        attacker,
+                        CarEntrySideMode.DriverDoor
+                    );
+                    await victimReleaseTask;
+                    victimPhysicsWasRestored = true;
+                    attackerSeated = await enterTask;
+                }
+
+                await this.SetDoorOpenAsync(false, CarEntrySideMode.DriverDoor);
+                driverDoorIsOpen = false;
 
                 attackerSeated = attackerSeated && this.m_CarEntry != null &&
                     this.m_CarEntry.SeatedCharacter == attacker;
@@ -212,7 +292,11 @@ namespace FranklinGame.Vehicles
             finally
             {
                 this.ClearGrabIK();
-                if (doorIsOpen) await this.SetDoorOpenAsync(false);
+                this.m_CarEntry?.SetPassengerPushArmFree(false);
+                if (passengerDoorIsOpen)
+                    await this.SetDoorOpenAsync(false, CarEntrySideMode.PassengerDoor);
+                if (driverDoorIsOpen)
+                    await this.SetDoorOpenAsync(false, CarEntrySideMode.DriverDoor);
                 if (victimWasReleased && !victimPhysicsWasRestored &&
                     victim != null && this.m_CarEntry != null)
                 {
@@ -226,6 +310,8 @@ namespace FranklinGame.Vehicles
                     if (attacker.Player != null) attacker.Player.IsControllable = true;
                 }
 
+                this.m_CarEntry?.ClearPreparedEntrySide();
+                this.m_ActiveEntrySide = CarEntrySideMode.DriverDoor;
                 this.m_IsTransitioning = false;
             }
         }
@@ -259,34 +345,42 @@ namespace FranklinGame.Vehicles
         {
             if (attacker == null || victim == null) return;
 
+            AnimationClip attackerClip = this.m_AttackerKickOut;
+            AnimationClip victimClip = this.m_VictimGetKickedOut;
+            Transform victimLanding = this.m_VictimLandingPoint;
+            Transform attackerStanding = this.m_CarEntry.ActiveEntryStandingPoint;
             Vector3 victimStartPosition = this.m_CarEntry.entryParent.position;
             Quaternion victimStartRotation = this.m_CarEntry.entryParent.rotation;
-            Vector3 attackerStartPosition = this.m_CarEntry.entryStandingPoint.position;
-            Quaternion attackerStartRotation = this.m_CarEntry.entryStandingPoint.rotation;
-            Vector3 victimEndPosition = this.m_VictimLandingPoint != null
-                ? this.m_VictimLandingPoint.position
+            Vector3 attackerStartPosition = attackerStanding != null
+                ? attackerStanding.position
+                : attacker.transform.position;
+            Quaternion attackerStartRotation = attackerStanding != null
+                ? attackerStanding.rotation
+                : attacker.transform.rotation;
+            Vector3 victimEndPosition = victimLanding != null
+                ? victimLanding.position
                 : victimStartPosition;
-            Quaternion victimEndRotation = this.m_VictimLandingPoint != null
-                ? this.m_VictimLandingPoint.rotation
+            Quaternion victimEndRotation = victimLanding != null
+                ? victimLanding.rotation
                 : victimStartRotation;
 
             this.BeginGrabIK(attacker, victim);
             _ = this.PlayGestureAsync(
                 attacker,
-                this.m_AttackerKickOut,
+                attackerClip,
                 false
             );
             // The car owns the victim root path. The animation supplies only the
             // Humanoid body motion so GC2 physics/root motion cannot launch the NPC.
             _ = this.PlayGestureAsync(
                 victim,
-                this.m_VictimGetKickedOut,
+                victimClip,
                 false
             );
 
             float fullDuration = Mathf.Max(
-                this.m_AttackerKickOut.length,
-                this.m_VictimGetKickedOut.length
+                attackerClip.length,
+                victimClip.length
             ) / Mathf.Max(0.01f, this.m_CarjackingAnimationSpeed);
             float handoffTime = Mathf.Clamp01(this.m_EnterHandoffNormalizedTime);
             float duration = fullDuration * handoffTime;
@@ -322,6 +416,190 @@ namespace FranklinGame.Vehicles
             // Do not stop the attacker gesture here. EnterCar cross-fades it
             // directly into the entry clip, preventing an idle/standing frame.
             this.ClearGrabIK();
+        }
+
+        private async Task PlayPassengerSeatPushAsync(
+            Character attacker,
+            Character victim)
+        {
+            if (attacker == null || victim == null ||
+                this.m_VictimGetKickedOut == null)
+            {
+                return;
+            }
+
+            Transform landing = this.m_VictimLandingPoint;
+            Vector3 victimStartPosition = this.m_CarEntry.entryParent.position;
+            Quaternion victimStartRotation = this.m_CarEntry.entryParent.rotation;
+            Vector3 victimEndPosition = landing != null
+                ? landing.position
+                : victimStartPosition;
+            Quaternion victimEndRotation = landing != null
+                ? landing.rotation
+                : victimStartRotation;
+            Transform passengerSeat = this.m_CarEntry.passengerEntryCabinPoint;
+
+            this.m_CarEntry.SetPassengerPushArmFree(true);
+            this.BeginPassengerPushIK(attacker, victim);
+            _ = this.PlayGestureAsync(victim, this.m_VictimGetKickedOut, false);
+
+            float duration = this.m_VictimGetKickedOut.length /
+                Mathf.Max(0.01f, this.m_CarjackingAnimationSpeed) *
+                Mathf.Clamp01(this.m_EnterHandoffNormalizedTime);
+            float startedAt = Time.time;
+            float progress = 0f;
+            Task driverDoorTask = null;
+
+            while (progress < 1f && attacker != null && victim != null)
+            {
+                progress = Mathf.Clamp01(
+                    (Time.time - startedAt) / Mathf.Max(0.01f, duration)
+                );
+                if (driverDoorTask == null && progress >= 0.06f)
+                {
+                    // The left door begins opening only when the inside shove
+                    // reaches the NPC; it never opens merely because a seat is occupied.
+                    driverDoorTask = this.SetDoorOpenAsync(
+                        true,
+                        CarEntrySideMode.DriverDoor
+                    );
+                }
+
+                float pushProgress = Mathf.InverseLerp(0.06f, 1f, progress);
+                // Strong ease-out: most of the displacement happens immediately
+                // after contact, then settles naturally at the landing anchor.
+                float positionBlend = 1f -
+                    (1f - pushProgress) * (1f - pushProgress);
+                victim.transform.SetPositionAndRotation(
+                    Vector3.Lerp(victimStartPosition, victimEndPosition, positionBlend),
+                    Quaternion.Slerp(victimStartRotation, victimEndRotation, positionBlend)
+                );
+                if (passengerSeat != null)
+                {
+                    attacker.transform.SetPositionAndRotation(
+                        passengerSeat.position,
+                        passengerSeat.rotation
+                    );
+                }
+                this.UpdatePassengerPushIK(attacker, victim, progress);
+                await Task.Yield();
+            }
+
+            if (driverDoorTask == null)
+            {
+                driverDoorTask = this.SetDoorOpenAsync(
+                    true,
+                    CarEntrySideMode.DriverDoor
+                );
+            }
+            await driverDoorTask;
+
+            if (victim != null)
+            {
+                victim.transform.SetPositionAndRotation(
+                    victimEndPosition,
+                    victimEndRotation
+                );
+            }
+            this.ClearGrabIK();
+            this.m_CarEntry.SetPassengerPushArmFree(false);
+        }
+
+        private void BeginPassengerPushIK(Character attacker, Character victim)
+        {
+            this.ClearGrabIK();
+            this.EnsureGrabTargets();
+            Animator attackerAnimator = attacker?.GetComponentInChildren<Animator>(true);
+            Animator victimAnimator = victim?.GetComponentInChildren<Animator>(true);
+            if (attackerAnimator == null || victimAnimator == null ||
+                !attackerAnimator.isHuman || !victimAnimator.isHuman)
+            {
+                return;
+            }
+
+            this.m_GrabIKSetter = attackerAnimator.GetComponent<CharacterIKSetter>();
+            if (this.m_GrabIKSetter == null)
+                this.m_GrabIKSetter =
+                    attackerAnimator.gameObject.AddComponent<CharacterIKSetter>();
+
+            this.m_GrabIKSetter.SetBeforeHandIK(
+                this.m_CarEntry.ApplyPassengerPushPoseBeforeIK
+            );
+
+            this.m_VictimShoulder = victimAnimator.GetBoneTransform(
+                HumanBodyBones.RightShoulder
+            ) ?? victimAnimator.GetBoneTransform(HumanBodyBones.RightUpperArm);
+            this.m_VictimPushLookTarget = victimAnimator.GetBoneTransform(
+                HumanBodyBones.Head
+            ) ?? victimAnimator.GetBoneTransform(HumanBodyBones.Neck) ??
+                this.m_VictimShoulder;
+            if (this.m_VictimShoulder == null)
+            {
+                this.ClearGrabIK();
+                return;
+            }
+            this.m_GrabShoulderTarget.gameObject.SetActive(true);
+        }
+
+        private void UpdatePassengerPushIK(
+            Character attacker,
+            Character victim,
+            float normalized)
+        {
+            float curveWeight = Mathf.Clamp01(
+                this.m_PrimaryGrabIKWeight?.Evaluate(normalized) ?? 0f
+            );
+            this.m_CarEntry.ConfigurePassengerPushPose(
+                this.m_VictimPushLookTarget,
+                curveWeight,
+                this.m_PassengerPushTorsoYaw,
+                this.m_PassengerPushTorsoLean,
+                this.m_PassengerPushHeadLookWeight
+            );
+
+            if (this.m_GrabIKSetter == null || this.m_GrabShoulderTarget == null ||
+                this.m_VictimShoulder == null)
+            {
+                return;
+            }
+
+            Vector3 towardAttacker = attacker.Eyes - this.m_VictimShoulder.position;
+            if (towardAttacker.sqrMagnitude < 0.0001f)
+                towardAttacker = attacker.transform.right;
+            towardAttacker.Normalize();
+            this.m_GrabShoulderTarget.position = this.m_VictimShoulder.position +
+                towardAttacker * this.m_ShoulderGrabSurfaceOffset;
+            this.m_GrabShoulderTarget.rotation = Quaternion.LookRotation(
+                -towardAttacker,
+                victim.transform.up
+            );
+
+            float reach = Vector3.Distance(
+                attacker.Eyes,
+                this.m_VictimShoulder.position
+            );
+            float reachWeight = 1f - Mathf.SmoothStep(
+                this.m_MaxGrabReach * 0.82f,
+                this.m_MaxGrabReach,
+                reach
+            );
+            float weight = Mathf.Clamp01(curveWeight * reachWeight);
+            Transform steeringBrace = this.m_CarEntry.steeringWheelRightHandTarget;
+            float braceWeight = steeringBrace != null
+                ? curveWeight * this.m_PassengerPushRightBraceIKWeight
+                : 0f;
+            this.m_CarEntry.ConfigurePassengerPushHands(
+                this.m_GrabShoulderTarget,
+                steeringBrace,
+                weight,
+                braceWeight
+            );
+            this.m_GrabIKSetter.SetIKTargets(
+                this.m_GrabShoulderTarget,
+                steeringBrace,
+                weight,
+                braceWeight
+            );
         }
 
         private void UpdateAttackerPullRoot(
@@ -459,7 +737,10 @@ namespace FranklinGame.Vehicles
         private void ClearGrabIK()
         {
             if (this.m_GrabIKSetter != null)
+            {
                 this.m_GrabIKSetter.SetIKTargets(null, null, 0f, 0f);
+                this.m_GrabIKSetter.SetBeforeHandIK(null);
+            }
 
             if (this.m_GrabNeckTarget != null)
                 this.m_GrabNeckTarget.gameObject.SetActive(false);
@@ -469,17 +750,20 @@ namespace FranklinGame.Vehicles
             this.m_GrabIKSetter = null;
             this.m_VictimNeck = null;
             this.m_VictimShoulder = null;
+            this.m_VictimPushLookTarget = null;
+            this.m_CarEntry?.ConfigurePassengerPushPose(null, 0f, 0f, 0f, 0f);
         }
 
         private Task PlaceVictimAtLandingPointAsync(Character victim)
         {
             if (victim == null) return Task.CompletedTask;
-            if (this.m_VictimLandingPoint != null)
+            Transform landing = this.m_VictimLandingPoint;
+            if (landing != null)
             {
                 return this.m_CarEntry.CompleteOccupantReleaseAsync(
                     victim,
-                    this.m_VictimLandingPoint.position,
-                    this.m_VictimLandingPoint.rotation
+                    landing.position,
+                    landing.rotation
                 );
             }
 
@@ -502,17 +786,32 @@ namespace FranklinGame.Vehicles
             }
         }
 
-        private async Task SetDoorOpenAsync(bool open)
+        private async Task SetDoorOpenAsync(
+            bool open,
+            CarEntrySideMode side)
         {
-            if (this.m_CarEntry?.doorTransform == null) return;
+            if (this.m_CarEntry == null) return;
 
-            Transform door = this.m_CarEntry.doorTransform;
+            bool passengerSide = side ==
+                CarEntrySideMode.PassengerDoor;
+            Transform door = passengerSide
+                ? this.m_CarEntry.passengerDoorTransform
+                : this.m_CarEntry.doorTransform;
+            if (door == null) return;
             Quaternion start = door.localRotation;
             Quaternion target = open
-                ? Quaternion.Euler(this.m_CarEntry.doorOpenRotation)
-                : this.m_DoorClosedRotation;
+                ? Quaternion.Euler(
+                    passengerSide
+                        ? this.m_CarEntry.passengerDoorOpenRotation
+                        : this.m_CarEntry.doorOpenRotation
+                )
+                : passengerSide
+                    ? this.m_PassengerDoorClosedRotation
+                    : this.m_DriverDoorClosedRotation;
             float duration = Mathf.Max(0.01f, this.m_CarEntry.doorRotationDuration);
             float elapsed = 0f;
+
+            this.m_CarEntry.PlayEntryDoorSound(side, open);
 
             while (elapsed < duration && door != null)
             {

@@ -15,7 +15,7 @@ namespace FranklinGame.Vehicles.Editor
     {
         private const string PlayerPrefabPath = "Assets/Prefab/Player.prefab";
         private const string CarPrefabPath =
-            "Assets/Plugins/RVRGaming/RapidTemplate/Prefabs/Vehicles/Car.prefab";
+            "Assets/Ash Assets/Vehicle Integration/Prefabs/Vehicles/Car.prefab";
 
         private enum EditAnchor
         {

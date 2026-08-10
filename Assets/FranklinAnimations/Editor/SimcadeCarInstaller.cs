@@ -8,14 +8,14 @@ using UnityEngine;
 namespace FranklinGame.Vehicles.Editor
 {
     /// <summary>
-    /// Converts only RapidTemplate's concrete Car prefab. Other car templates,
-    /// bikes and hover vehicles are deliberately outside this installer's scope.
+    /// Maintains only the migrated concrete Car prefab. Other vehicle templates
+    /// are deliberately outside this installer's scope.
     /// </summary>
     [InitializeOnLoad]
     public static class SimcadeCarInstaller
     {
         private const string CarPrefabPath =
-            "Assets/Plugins/RVRGaming/RapidTemplate/Prefabs/Vehicles/Car.prefab";
+            "Assets/Ash Assets/Vehicle Integration/Prefabs/Vehicles/Car.prefab";
         private const string SedanPresetPath =
             "Assets/Ash Assets/Sim-Cade Vehicle Physics/Prefabs/Car Presets/Ash_Sedan Prefab.prefab";
         private const string ChaseCameraPath =
@@ -26,10 +26,24 @@ namespace FranklinGame.Vehicles.Editor
             "Assets/Ash Assets/Sim-Cade Vehicle Physics/Audios/Engines/simple rev.wav";
         private const string GearAudioPath =
             "Assets/Ash Assets/Sim-Cade Vehicle Physics/Audios/Car Gear switch 2.wav";
+        private const string DoorOpenAudioPath =
+            "Assets/FranklinAnimations/Audio/Vehicles/door_opening.wav";
+        private const string DoorCloseAudioPath =
+            "Assets/FranklinAnimations/Audio/Vehicles/door_closing.wav";
+        private const string LightImpactAudioPath =
+            "Assets/FranklinAnimations/Audio/Vehicles/car_impact_light.wav";
+        private const string HeavyImpactAudioPath =
+            "Assets/FranklinAnimations/Audio/Vehicles/car_impact_heavy.wav";
+        private const string CollisionEffectPath =
+            "Assets/Ash Assets/Sim-Cade Vehicle Physics/Prefabs/Collision Spark.prefab";
         private const string MovingExitAnimationPath =
-            "Assets/FranklinAnimations/Animations/Vehicles/CarExitMoving_L.anim";
+            "Assets/FranklinAnimations/Animations/Vehicles/Carjacking/CarGetKickedOutL.anim";
         private const string MovingExitLandingAnimationPath =
             "Assets/FranklinAnimations/Animations/Vehicles/CarExitLanding_L.anim";
+        private const string EntryAnimationPath =
+            "Assets/Ash Assets/Vehicle Integration/Animations/Vehicles/Character_Enter_Car.anim";
+        private const string MirroredEntryAnimationPath =
+            "Assets/FranklinAnimations/Generated/CarEntry/Character_Enter_Car_Mirrored.anim";
 
         static SimcadeCarInstaller()
         {
@@ -39,26 +53,51 @@ namespace FranklinGame.Vehicles.Editor
         [MenuItem("Tools/Franklin Game/Install Sim-Cade Car")]
         public static void Install()
         {
+            EnsureMirroredEntryAnimation();
             GameObject carAsset = AssetDatabase.LoadAssetAtPath<GameObject>(CarPrefabPath);
             GameObject presetAsset = AssetDatabase.LoadAssetAtPath<GameObject>(SedanPresetPath);
             GameObject chaseCamera = AssetDatabase.LoadAssetAtPath<GameObject>(ChaseCameraPath);
             GameObject mobileInput = AssetDatabase.LoadAssetAtPath<GameObject>(MobileInputPath);
             AudioClip engineClip = AssetDatabase.LoadAssetAtPath<AudioClip>(EngineAudioPath);
             AudioClip gearClip = AssetDatabase.LoadAssetAtPath<AudioClip>(GearAudioPath);
+            AudioClip doorOpenClip = AssetDatabase.LoadAssetAtPath<AudioClip>(DoorOpenAudioPath);
+            AudioClip doorCloseClip = AssetDatabase.LoadAssetAtPath<AudioClip>(DoorCloseAudioPath);
+            AudioClip lightImpactClip = AssetDatabase.LoadAssetAtPath<AudioClip>(LightImpactAudioPath);
+            AudioClip heavyImpactClip = AssetDatabase.LoadAssetAtPath<AudioClip>(HeavyImpactAudioPath);
+            GameObject collisionEffect = AssetDatabase.LoadAssetAtPath<GameObject>(CollisionEffectPath);
             AnimationClip movingExit = AssetDatabase.LoadAssetAtPath<AnimationClip>(
                 MovingExitAnimationPath
             );
             AnimationClip movingExitLanding = AssetDatabase.LoadAssetAtPath<AnimationClip>(
                 MovingExitLandingAnimationPath
             );
+            AnimationClip mirroredEntry = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                MirroredEntryAnimationPath
+            );
 
             if (carAsset == null) throw new InvalidOperationException($"Missing car prefab: {CarPrefabPath}");
             if (presetAsset == null) throw new InvalidOperationException($"Missing Sim-Cade preset: {SedanPresetPath}");
             if (chaseCamera == null) throw new InvalidOperationException($"Missing Sim-Cade chase camera: {ChaseCameraPath}");
             if (mobileInput == null) throw new InvalidOperationException($"Missing Sim-Cade mobile UI: {MobileInputPath}");
+            if (doorOpenClip == null || doorCloseClip == null)
+                throw new InvalidOperationException(
+                    "CC0 car-door open/close audio is missing from FranklinAnimations"
+                );
+            if (lightImpactClip == null || heavyImpactClip == null)
+                throw new InvalidOperationException(
+                    "Light/heavy car-impact audio is missing from FranklinAnimations"
+                );
+            if (collisionEffect == null)
+                throw new InvalidOperationException(
+                    "The Sim-Cade pooled collision spark/debris effect is missing"
+                );
             if (movingExit == null || movingExitLanding == null)
                 throw new InvalidOperationException(
                     "Moving-car exit animations are missing from FranklinAnimations"
+                );
+            if (mirroredEntry == null)
+                throw new InvalidOperationException(
+                    "The Humanoid-mirrored car-entry animation could not be created"
                 );
 
             GameObject presetRoot = PrefabUtility.LoadPrefabContents(SedanPresetPath);
@@ -127,6 +166,10 @@ namespace FranklinGame.Vehicles.Editor
                 controller.VehicleBody = vehicleBody;
                 controller.CenterOfMass_air = centerOfMassAir;
                 controller.wheelRadius = wheelRadius;
+                controller.adaptTireSmokeBySpeed = true;
+                controller.lowSpeedSmokeEndKph = 20f;
+                controller.fullSmokeSpeedKph = 35f;
+                controller.lowSpeedBrakeSmokeIntensity = 0.18f;
 
                 AudioSystem audioSystem = GetOrAdd<AudioSystem>(carRoot);
                 EditorUtility.CopySerialized(presetAudioSystem, audioSystem);
@@ -150,6 +193,15 @@ namespace FranklinGame.Vehicles.Editor
                     steeringWheel
                 );
 
+                AudioSource impactSource = EnsureImpactAudioSource(carRoot);
+                SimcadeCarImpactAudio impactAudio = GetOrAdd<SimcadeCarImpactAudio>(carRoot);
+                impactAudio.Configure(
+                    impactSource,
+                    lightImpactClip,
+                    heavyImpactClip,
+                    collisionEffect
+                );
+
                 Rigidbody rigidbody = carRoot.GetComponent<Rigidbody>();
                 if (rigidbody != null && presetRigidbody != null)
                 {
@@ -169,8 +221,30 @@ namespace FranklinGame.Vehicles.Editor
                     // Door, character entry/exit clips, seat and IK remain on CarEntry.
                     // Its former HUD instructions belonged to the removed RVR controller.
                     EnsureEntryAlignmentAnchors(carRoot, entry);
+                    entry.mirroredEntryAnimation = mirroredEntry;
+                    entry.entrySideMode = CarEntrySideMode.Automatic;
+                    EnsurePassengerDoorEntry(carRoot, entry);
                     entry.movingExitAnimation = movingExit;
                     entry.movingExitLandingAnimation = movingExitLanding;
+                    entry.movingExitLaunchFrameCount = 50;
+                    entry.movingExitAnimationSpeed = 2.5f;
+                    entry.fastExitSpeedKph = 50f;
+                    entry.movingExitDoorReachIKCurve = new AnimationCurve(
+                        new Keyframe(0f, 0f),
+                        new Keyframe(0.15f, 1f),
+                        new Keyframe(0.8f, 1f),
+                        new Keyframe(1f, 0f)
+                    );
+                    entry.movingExitRagdollDuration = 2.25f;
+                    entry.movingExitRagdollTumbleVelocity = 5.5f;
+                    entry.movingExitAutoRecover = true;
+                    entry.movingExitPlayerCameraDelay = 2f;
+                    entry.movingExitDoorPartialCloseDuration = 2f;
+                    entry.movingExitDoorRemainingOpen = 0.15f;
+                    entry.doorAudioSource = EnsureDoorAudioSource(carRoot, entry);
+                    entry.doorOpenSound = doorOpenClip;
+                    entry.doorCloseSound = doorCloseClip;
+                    entry.doorSoundVolume = 0.7f;
                     entry.onEnter = new InstructionList();
                     entry.onExit = new InstructionList();
                 }
@@ -179,6 +253,7 @@ namespace FranklinGame.Vehicles.Editor
                 EditorUtility.SetDirty(audioSystem);
                 EditorUtility.SetDirty(gearSystem);
                 EditorUtility.SetDirty(driver);
+                EditorUtility.SetDirty(impactAudio);
                 if (entry != null) EditorUtility.SetDirty(entry);
 
                 PrefabUtility.SaveAsPrefabAsset(carRoot, CarPrefabPath);
@@ -206,12 +281,17 @@ namespace FranklinGame.Vehicles.Editor
 
             SimcadeVehicleController controller = car.GetComponent<SimcadeVehicleController>();
             SimcadeCarDriver driver = car.GetComponent<SimcadeCarDriver>();
+            SimcadeCarImpactAudio impactAudio = car.GetComponent<SimcadeCarImpactAudio>();
             GearSystem gearSystem = car.GetComponent<GearSystem>();
             AudioSystem audioSystem = car.GetComponent<AudioSystem>();
             CarEntry entry = car.GetComponent<CarEntry>();
 
             if (controller == null || driver == null || gearSystem == null || audioSystem == null)
                 throw new InvalidOperationException("The complete Sim-Cade runtime stack is not installed");
+            if (!HasImpactAudioSetup(impactAudio))
+                throw new InvalidOperationException(
+                    "Light/heavy collision audio is not configured on the exact Car.prefab"
+                );
             if (car.GetComponent<PhysicsCarController>() != null)
                 throw new InvalidOperationException("Legacy PhysicsCarController is still attached");
             if (car.GetComponent<SimcadeRvrCarPhysics>() != null)
@@ -222,6 +302,14 @@ namespace FranklinGame.Vehicles.Editor
                 throw new InvalidOperationException(
                     "Sim-Cade needs four non-null wheel targets and suspension hard points"
                 );
+            if (!controller.adaptTireSmokeBySpeed ||
+                controller.lowSpeedSmokeEndKph < 19.9f ||
+                controller.fullSmokeSpeedKph < 34.9f)
+            {
+                throw new InvalidOperationException(
+                    "Adaptive low-speed tire smoke is not configured on Car.prefab"
+                );
+            }
 
             SerializedObject serializedDriver = new SerializedObject(driver);
             if (serializedDriver.FindProperty("m_ChaseCameraPrefab").objectReferenceValue == null ||
@@ -236,21 +324,47 @@ namespace FranklinGame.Vehicles.Editor
             if (entry == null || entry.doorTransform == null ||
                 entry.entryAnimation == null || entry.exitAnimation == null ||
                 entry.movingExitAnimation == null ||
-                entry.movingExitLandingAnimation == null)
+                entry.movingExitAnimation.name != "CarGetKickedOutL" ||
+                entry.movingExitLaunchFrameCount != 50 ||
+                entry.movingExitAnimationSpeed < 2.49f ||
+                entry.fastExitSpeedKph < 49.9f ||
+                entry.movingExitDoorReachIKCurve == null ||
+                entry.movingExitDoorReachIKCurve.length < 4 ||
+                entry.movingExitRagdollDuration < 2f ||
+                entry.movingExitRagdollTumbleVelocity <= 0f ||
+                entry.movingExitPlayerCameraDelay < 1.99f ||
+                entry.movingExitDoorPartialCloseDuration < 1.99f ||
+                entry.movingExitDoorRemainingOpen < 0.1f)
             {
                 throw new InvalidOperationException(
-                    "CarEntry door, normal exit or moving-car exit animations are not assigned"
+                    "CarEntry door, 50 km/h exit threshold, moving exit or ragdoll are not configured"
                 );
             }
+
+            if (!HasDoorAudioSetup(entry))
+                throw new InvalidOperationException(
+                    "CarEntry door open/close audio is not assigned to its dedicated 3D source"
+                );
 
             if (!HasEntryAlignmentSetup(entry))
             {
                 throw new InvalidOperationException(
-                    "Entry standing, doorway step or exterior door-handle target is not assigned"
+                    "Driver-door standing, doorway or exterior handle targets are incomplete"
                 );
             }
 
-            Debug.Log("Sim-Cade Car validation passed: isolated controller, four wheels, camera/mobile assets, door animations and live-edit anchors are wired.");
+            if (!HasMirroredEntrySetup(entry))
+                throw new InvalidOperationException(
+                    "The passenger-door mirrored entry, door or cabin path is not configured"
+                );
+
+            Debug.Log(
+                "Sim-Cade Car validation passed: isolated controller, four wheels, " +
+                "adaptive low-speed smoke, light/heavy collision audio and pooled impact FX, " +
+                "camera/mobile assets, " +
+                "driver/passenger door entry, door animations/audio and " +
+                "live-edit anchors are wired."
+            );
         }
 
         private static void TryInstallAutomatically()
@@ -271,6 +385,9 @@ namespace FranklinGame.Vehicles.Editor
                 HasCompleteSimcadeSetup(car.GetComponent<SimcadeVehicleController>()) &&
                 HasCompleteDriverSetup(car.GetComponent<SimcadeCarDriver>()) &&
                 HasEntryAlignmentSetup(car.GetComponent<CarEntry>()) &&
+                HasMirroredEntrySetup(car.GetComponent<CarEntry>()) &&
+                HasDoorAudioSetup(car.GetComponent<CarEntry>()) &&
+                HasImpactAudioSetup(car.GetComponent<SimcadeCarImpactAudio>()) &&
                 car.GetComponent<PhysicsCarController>() == null &&
                 car.GetComponentsInChildren<WheelCollider>(true).Length == 0;
 
@@ -409,7 +526,136 @@ namespace FranklinGame.Vehicles.Editor
         private static bool HasEntryAlignmentSetup(CarEntry entry)
         {
             return entry != null && entry.entryStandingPoint != null &&
-                entry.entryStepPoint != null && entry.doorHandleTarget != null;
+                entry.entryStepPoint != null && entry.entryParent != null &&
+                entry.doorHandleTarget != null;
+        }
+
+        private static bool HasMirroredEntrySetup(CarEntry entry)
+        {
+            if (entry == null || entry.mirroredEntryAnimation == null ||
+                entry.passengerEntryStandingPoint == null ||
+                entry.passengerEntryStepPoint == null ||
+                entry.passengerEntryCabinPoint == null ||
+                entry.passengerDoorTransform == null ||
+                entry.passengerDoorHandleTarget == null ||
+                entry.passengerDoorAudioSource == null)
+            {
+                return false;
+            }
+
+            SerializedObject serializedClip = new SerializedObject(
+                entry.mirroredEntryAnimation
+            );
+            SerializedProperty mirror = serializedClip.FindProperty(
+                "m_AnimationClipSettings.m_Mirror"
+            );
+            Transform symmetryRoot = entry.doorTransform != null
+                ? entry.doorTransform.parent
+                : null;
+            return mirror?.boolValue == true && symmetryRoot != null &&
+                IsMirroredPosition(
+                    symmetryRoot,
+                    entry.entryStandingPoint,
+                    entry.passengerEntryStandingPoint
+                ) &&
+                IsMirroredPosition(
+                    symmetryRoot,
+                    entry.entryStepPoint,
+                    entry.passengerEntryStepPoint
+                ) &&
+                IsMirroredPosition(
+                    symmetryRoot,
+                    entry.entryParent,
+                    entry.passengerEntryCabinPoint
+                ) &&
+                IsMirroredPosition(
+                    symmetryRoot,
+                    entry.doorHandleTarget,
+                    entry.passengerDoorHandleTarget
+                ) &&
+                IsMirroredPosition(
+                    symmetryRoot,
+                    FindTransform(entry.gameObject, "Triggers_Enter/Exit"),
+                    FindTransform(entry.gameObject, "Triggers_Enter/Exit Passenger")
+                );
+        }
+
+        private static bool IsMirroredPosition(
+            Transform symmetryRoot,
+            Transform source,
+            Transform candidate)
+        {
+            if (symmetryRoot == null || source == null || candidate == null) return false;
+            Vector3 expected = symmetryRoot.InverseTransformPoint(source.position);
+            expected.x = -expected.x;
+            Vector3 actual = symmetryRoot.InverseTransformPoint(candidate.position);
+            return Vector3.SqrMagnitude(expected - actual) <= 0.0004f;
+        }
+
+        private static bool HasDoorAudioSetup(CarEntry entry)
+        {
+            return entry != null && entry.doorAudioSource != null &&
+                entry.doorOpenSound != null && entry.doorCloseSound != null;
+        }
+
+        private static AudioSource EnsureDoorAudioSource(GameObject carRoot, CarEntry entry)
+        {
+            return EnsureDoorAudioSource(
+                carRoot,
+                entry.doorTransform != null ? entry.doorTransform : carRoot.transform,
+                "AudioSource-Door"
+            );
+        }
+
+        private static AudioSource EnsureDoorAudioSource(
+            GameObject carRoot,
+            Transform parent,
+            string objectName)
+        {
+            Transform audioTransform = FindTransform(carRoot, objectName);
+            if (audioTransform == null)
+            {
+                GameObject audioObject = new GameObject(objectName);
+                audioTransform = audioObject.transform;
+                audioTransform.SetParent(parent, false);
+            }
+
+            AudioSource source = GetOrAdd<AudioSource>(audioTransform.gameObject);
+            source.clip = null;
+            source.loop = false;
+            source.playOnAwake = false;
+            source.spatialBlend = 1f;
+            source.dopplerLevel = 0f;
+            source.minDistance = 1.5f;
+            source.maxDistance = 35f;
+            return source;
+        }
+
+        private static bool HasImpactAudioSetup(SimcadeCarImpactAudio impactAudio)
+        {
+            return impactAudio != null && impactAudio.IsConfigured;
+        }
+
+        private static AudioSource EnsureImpactAudioSource(GameObject carRoot)
+        {
+            Transform audioTransform = FindTransform(carRoot, "AudioSource-Impact");
+            if (audioTransform == null)
+            {
+                GameObject audioObject = new GameObject("AudioSource-Impact");
+                audioTransform = audioObject.transform;
+                audioTransform.SetParent(carRoot.transform, false);
+            }
+
+            AudioSource source = GetOrAdd<AudioSource>(audioTransform.gameObject);
+            source.clip = null;
+            source.loop = false;
+            source.playOnAwake = false;
+            source.spatialBlend = 1f;
+            source.dopplerLevel = 0f;
+            source.priority = 96;
+            source.minDistance = 6f;
+            source.maxDistance = 70f;
+            return source;
         }
 
         private static void EnsureEntryAlignmentAnchors(GameObject carRoot, CarEntry entry)
@@ -463,8 +709,12 @@ namespace FranklinGame.Vehicles.Editor
 
                 entry.entryStepPoint = stepPoint;
             }
+
             entry.useAuthoredEntryPath = true;
             entry.entryStepNormalizedTime = 0.52f;
+            RemoveObsoleteEntryAnchor(carRoot, "Entry Cabin Point");
+            RemoveObsoleteEntryAnchor(carRoot, "Entry Left Foot Target");
+            RemoveObsoleteEntryAnchor(carRoot, "Entry Right Foot Target");
 
             if (entry.doorHandleTarget == null && entry.doorTransform != null)
             {
@@ -483,6 +733,155 @@ namespace FranklinGame.Vehicles.Editor
                 entry.doorHandleTarget = handleTarget;
                 entry.doorHandleHand = AvatarIKGoal.RightHand;
             }
+        }
+
+        private static void EnsurePassengerDoorEntry(GameObject carRoot, CarEntry entry)
+        {
+            if (entry.entryStandingPoint == null || entry.entryStepPoint == null ||
+                entry.entryParent == null || entry.doorTransform == null)
+            {
+                return;
+            }
+
+            // The imported sedan mesh is offset from the prefab root. MainBody's
+            // local YZ plane is the real left/right symmetry plane of the cabin.
+            Transform mainBody = FindTransform(carRoot, "MainBody") ?? carRoot.transform;
+            entry.passengerEntryStandingPoint = EnsureMirroredEntryAnchor(
+                carRoot,
+                "Passenger Entry Standing Point",
+                entry.entryStandingPoint,
+                mainBody
+            );
+            entry.passengerEntryStepPoint = EnsureMirroredEntryAnchor(
+                carRoot,
+                "Passenger Entry Step Point",
+                entry.entryStepPoint,
+                mainBody
+            );
+            entry.passengerEntryCabinPoint = EnsureMirroredEntryAnchor(
+                carRoot,
+                "Passenger Entry Cabin Point",
+                entry.entryParent,
+                mainBody
+            );
+            entry.passengerCabinNormalizedTime = 0.78f;
+
+            Transform passengerHook = FindTransform(carRoot, "Passenger Door Hook");
+            if (passengerHook == null)
+            {
+                GameObject hookObject = new GameObject("Passenger Door Hook");
+                passengerHook = hookObject.transform;
+                passengerHook.SetParent(mainBody, false);
+
+                Vector3 leftHookLocal = mainBody.InverseTransformPoint(
+                    entry.doorTransform.position
+                );
+                leftHookLocal.x = -leftHookLocal.x;
+                passengerHook.localPosition = leftHookLocal;
+                passengerHook.localRotation = Quaternion.identity;
+            }
+
+            Transform passengerDoorMesh = FindTransform(carRoot, "DoorFR");
+            if (passengerDoorMesh != null && passengerDoorMesh != passengerHook &&
+                passengerDoorMesh.parent != passengerHook)
+            {
+                passengerDoorMesh.SetParent(passengerHook, true);
+            }
+
+            entry.passengerDoorTransform = passengerHook;
+            entry.passengerDoorOpenRotation = new Vector3(
+                entry.doorOpenRotation.x,
+                -entry.doorOpenRotation.y,
+                -entry.doorOpenRotation.z
+            );
+
+            Transform handle = FindTransform(passengerHook.gameObject, "Passenger Door Handle Target");
+            if (handle == null)
+            {
+                GameObject handleObject = new GameObject("Passenger Door Handle Target");
+                handle = handleObject.transform;
+                handle.SetParent(passengerHook, false);
+            }
+            MirrorTransformAcrossCar(mainBody, entry.doorHandleTarget, handle);
+            entry.passengerDoorHandleTarget = handle;
+            entry.passengerDoorAudioSource = EnsureDoorAudioSource(
+                carRoot,
+                passengerHook,
+                "AudioSource-Door-Passenger"
+            );
+            EnsurePassengerInteractionTrigger(carRoot, mainBody);
+        }
+
+        private static void EnsurePassengerInteractionTrigger(
+            GameObject carRoot,
+            Transform symmetryRoot)
+        {
+            Transform passengerTrigger = FindTransform(
+                carRoot,
+                "Triggers_Enter/Exit Passenger"
+            );
+            Transform driverTrigger = FindTransform(carRoot, "Triggers_Enter/Exit");
+            if (passengerTrigger == null && driverTrigger != null)
+            {
+                GameObject clone = UnityEngine.Object.Instantiate(
+                    driverTrigger.gameObject,
+                    carRoot.transform
+                );
+                clone.name = "Triggers_Enter/Exit Passenger";
+                passengerTrigger = clone.transform;
+            }
+
+            if (driverTrigger != null && passengerTrigger != null)
+            {
+                MirrorTransformAcrossCar(symmetryRoot, driverTrigger, passengerTrigger);
+            }
+        }
+
+        private static Transform EnsureMirroredEntryAnchor(
+            GameObject carRoot,
+            string name,
+            Transform source,
+            Transform symmetryRoot)
+        {
+            Transform anchor = FindTransform(carRoot, name);
+            if (anchor == null)
+            {
+                GameObject anchorObject = new GameObject(name);
+                anchor = anchorObject.transform;
+                anchor.SetParent(carRoot.transform, false);
+            }
+            MirrorTransformAcrossCar(symmetryRoot, source, anchor);
+            return anchor;
+        }
+
+        private static void MirrorTransformAcrossCar(
+            Transform carRoot,
+            Transform source,
+            Transform target)
+        {
+            if (carRoot == null || source == null || target == null) return;
+
+            Vector3 localPosition = carRoot.InverseTransformPoint(source.position);
+            localPosition.x = -localPosition.x;
+
+            Vector3 localForward = carRoot.InverseTransformDirection(source.forward);
+            Vector3 localUp = carRoot.InverseTransformDirection(source.up);
+            localForward.x = -localForward.x;
+            localUp.x = -localUp.x;
+
+            target.SetPositionAndRotation(
+                carRoot.TransformPoint(localPosition),
+                Quaternion.LookRotation(
+                    carRoot.TransformDirection(localForward),
+                    carRoot.TransformDirection(localUp)
+                )
+            );
+        }
+
+        private static void RemoveObsoleteEntryAnchor(GameObject carRoot, string name)
+        {
+            Transform anchor = FindTransform(carRoot, name);
+            if (anchor != null) UnityEngine.Object.DestroyImmediate(anchor.gameObject);
         }
 
         private static Vector3 GuessDoorHandlePosition(Transform carRoot, Transform door)
@@ -547,6 +946,55 @@ namespace FranklinGame.Vehicles.Editor
             }
 
             return fallback;
+        }
+
+        private static void EnsureMirroredEntryAnimation()
+        {
+            AnimationClip source = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                EntryAnimationPath
+            );
+            if (source == null)
+                throw new InvalidOperationException(
+                    $"Car-entry animation is missing: {EntryAnimationPath}"
+                );
+
+            EnsureAssetFolder("Assets/FranklinAnimations", "Generated");
+            EnsureAssetFolder("Assets/FranklinAnimations/Generated", "CarEntry");
+            if (AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                    MirroredEntryAnimationPath
+                ) == null && !AssetDatabase.CopyAsset(
+                    EntryAnimationPath,
+                    MirroredEntryAnimationPath
+                ))
+            {
+                throw new InvalidOperationException(
+                    "Unity could not create the mirrored car-entry animation"
+                );
+            }
+
+            AnimationClip mirrored = AssetDatabase.LoadAssetAtPath<AnimationClip>(
+                MirroredEntryAnimationPath
+            );
+            SerializedObject serializedClip = new SerializedObject(mirrored);
+            SerializedProperty mirrorProperty = serializedClip.FindProperty(
+                "m_AnimationClipSettings.m_Mirror"
+            );
+            if (mirrorProperty == null)
+                throw new InvalidOperationException(
+                    "Unity did not expose the Humanoid animation mirror setting"
+                );
+
+            mirrorProperty.boolValue = true;
+            serializedClip.ApplyModifiedPropertiesWithoutUndo();
+            mirrored.name = "Character_Enter_Car_Mirrored";
+            EditorUtility.SetDirty(mirrored);
+        }
+
+        private static void EnsureAssetFolder(string parent, string child)
+        {
+            string assetPath = $"{parent}/{child}";
+            if (!AssetDatabase.IsValidFolder(assetPath))
+                AssetDatabase.CreateFolder(parent, child);
         }
 
         private static void RemoveLegacyCarDriving(

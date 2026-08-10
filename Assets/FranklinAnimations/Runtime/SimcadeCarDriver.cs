@@ -18,7 +18,7 @@ namespace FranklinGame.Vehicles
     [DefaultExecutionOrder(100)]
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Rigidbody), typeof(SimcadeVehicleController))]
-    public sealed class SimcadeCarDriver : MonoBehaviour, IRvrVehicleDriveController
+    public sealed class SimcadeCarDriver : MonoBehaviour, IRvrVehicleInputController
     {
         [Header("Sim-Cade")]
         [SerializeField] private SimcadeVehicleController m_Controller;
@@ -75,6 +75,8 @@ namespace FranklinGame.Vehicles
         private bool m_VirtualSlowAccelerate;
         private bool m_IsStoppingForExit;
         private bool m_IsCoastingAfterExit;
+        private bool m_HoldCameraDuringBailout;
+        private bool m_KeepEngineRunningAfterBailout;
         private float m_AccelerationInput;
         private float m_SteeringInput;
         private float m_ExitInputAvailableAt;
@@ -149,6 +151,8 @@ namespace FranklinGame.Vehicles
         private void OnDisable()
         {
             this.m_IsVehicleEnabled = false;
+            this.m_HoldCameraDuringBailout = false;
+            this.m_KeepEngineRunningAfterBailout = false;
             this.ResetVirtualInputs();
             this.SendInputs(0f, 0f, true);
             if (this.m_Controller != null) this.m_Controller.enabled = false;
@@ -276,6 +280,11 @@ namespace FranklinGame.Vehicles
 
         public void SetVehicleEnabled(bool state, bool preserveMomentum)
         {
+            if (state)
+            {
+                this.m_HoldCameraDuringBailout = false;
+                this.m_KeepEngineRunningAfterBailout = false;
+            }
             this.m_IsVehicleEnabled = state;
             this.m_IsStoppingForExit = false;
             this.m_IsCoastingAfterExit = !state && preserveMomentum;
@@ -302,9 +311,18 @@ namespace FranklinGame.Vehicles
 
             this.SendInputs(0f, 0f, !state && !preserveMomentum);
             this.UpdateControllerExecutionState();
-            this.SetAudioActive(state);
+            this.SetAudioActive(
+                state || this.m_KeepEngineRunningAfterBailout
+            );
             this.SetMobileControlsActive(state && this.ShouldShowMobileControls());
-            this.SetCameraActive(state);
+            if (state)
+            {
+                this.SetCameraActive(true);
+            }
+            else if (!this.m_HoldCameraDuringBailout)
+            {
+                this.SetCameraActive(false);
+            }
 
             if (!state && !preserveMomentum && this.m_Rigidbody != null &&
                 !this.m_Rigidbody.isKinematic)
@@ -312,6 +330,25 @@ namespace FranklinGame.Vehicles
                 this.m_Rigidbody.linearVelocity = Vector3.zero;
                 this.m_Rigidbody.angularVelocity = Vector3.zero;
             }
+        }
+
+        public void BeginBailoutCameraHold()
+        {
+            if (!this.m_IsVehicleEnabled) return;
+            this.m_HoldCameraDuringBailout = true;
+        }
+
+        public void KeepEngineRunningAfterBailout()
+        {
+            if (!this.m_IsVehicleEnabled) return;
+            this.m_KeepEngineRunningAfterBailout = true;
+        }
+
+        public void EndBailoutCameraHold()
+        {
+            if (!this.m_HoldCameraDuringBailout) return;
+            this.m_HoldCameraDuringBailout = false;
+            if (!this.m_IsVehicleEnabled) this.SetCameraActive(false);
         }
 
         public void BeginExitStop()

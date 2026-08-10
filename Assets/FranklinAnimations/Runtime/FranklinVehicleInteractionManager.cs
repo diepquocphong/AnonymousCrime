@@ -18,6 +18,7 @@ namespace FranklinGame.Animations
     public sealed class FranklinVehicleInteractionManager : MonoBehaviour
     {
         private const float ENTRY_BEGIN_TIMEOUT = 5f;
+        private const int FALLEN_BIKE_HIT_CAPACITY = 32;
 
         private static readonly FieldInfo THIRD_PERSON_SHOULDER_FIELD =
             typeof(ShotSystemThirdPerson).GetField(
@@ -56,6 +57,14 @@ namespace FranklinGame.Animations
         [SerializeField]
         [Tooltip("The Player locomotion bridge to suspend while a vehicle owns the body animation.")]
         private FranklinAnimationBridge m_MovementBridge;
+        [SerializeField]
+        [Tooltip("Applies bike-only TPS aim values to the current GC2 Main Camera Shot.")]
+        private FranklinBikeMainShotAim m_BikeMainShotAim;
+
+        [Header("Fallen bike interaction")]
+        [SerializeField, Min(0.5f)]
+        [Tooltip("Distance around the Player used to find a grounded fallen bike when its rotated GC2 Hotspot is no longer selected.")]
+        private float m_FallenBikeInteractionRadius = 2.25f;
 
         [Header("Vehicle entry animation")]
         [SerializeField]
@@ -113,9 +122,12 @@ namespace FranklinGame.Animations
         private PropertyGetGameObject m_DefaultVehiclePivot;
         private GameObject m_ActiveVehiclePivot;
         private CarEntry m_ActiveCarEntry;
+        private BikeEntry m_ActiveBikeEntry;
         private SimcadeCarDriver m_ActiveSimcadeDriver;
         private bool m_IsVehicleCameraActive;
         private SimcadeCarjacking m_ActiveCarjacking;
+        private readonly Collider[] m_FallenBikeHits =
+            new Collider[FALLEN_BIKE_HIT_CAPACITY];
 
         private void Awake()
         {
@@ -147,7 +159,7 @@ namespace FranklinGame.Animations
             this.UpdateVehicleAnimationLock();
 
             // Keep the physical desktop shortcut for Editor testing. The old on-screen "E"
-            // prompt is disabled in the RVR car prefab and replaced by FranklinMobileHud.
+            // prompt is disabled in the RVR car/bike prefabs and replaced by FranklinMobileHud.
             if (this.m_IsVehicleAnimationLocked) return;
             if (Keyboard.current?.eKey.wasPressedThisFrame != true) return;
             if (this.m_Player.Player?.IsControllable != true) return;
@@ -156,7 +168,7 @@ namespace FranklinGame.Animations
         }
 
         /// <summary>
-        /// True only while RVR has selected the driver's-door interaction spot on an available car.
+        /// True only while RVR has selected the entry spot on an available car or bike.
         /// The mobile HUD uses this to hide its Enter button everywhere else.
         /// </summary>
         public bool CanRequestVehicleInteraction
@@ -174,8 +186,8 @@ namespace FranklinGame.Animations
         }
 
         /// <summary>
-        /// Requests entry from the selected vehicle. CarEntry remains authoritative
-        /// for alignment, doors, occupied-seat handling and vehicle ownership.
+        /// Requests entry from the selected vehicle. CarEntry/BikeEntry remain
+        /// authoritative for animation, alignment and vehicle ownership.
         /// </summary>
         public bool RequestVehicleInteraction()
         {
@@ -191,7 +203,7 @@ namespace FranklinGame.Animations
         private bool TryStartVehicleInteraction()
         {
             if (!this.TryGetSelectedDriverDoor(
-                    out _,
+                    out IInteractive target,
                     out Component vehicleEntry))
             {
                 return false;
@@ -200,6 +212,7 @@ namespace FranklinGame.Animations
             this.LockMovementAnimation();
             this.m_ActiveVehiclePivot = vehicleEntry.gameObject;
             this.m_ActiveCarEntry = vehicleEntry as CarEntry;
+            this.m_ActiveBikeEntry = vehicleEntry as BikeEntry;
             this.m_ActiveSimcadeDriver = this.m_ActiveCarEntry != null
                 ? this.m_ActiveCarEntry.GetComponent<SimcadeCarDriver>()
                 : null;
@@ -208,7 +221,13 @@ namespace FranklinGame.Animations
             if (vehicleEntry is CarEntry carEntry)
             {
                 bool wasOccupied = carEntry.SeatedCharacter != null;
-                if (!carEntry.RequestEnter(this.m_Player))
+                CarEntrySideMode requestedSide = IsPassengerDoorTarget(
+                    target?.Instance,
+                    vehicleEntry.transform
+                )
+                    ? CarEntrySideMode.PassengerDoor
+                    : CarEntrySideMode.DriverDoor;
+                if (!carEntry.RequestEnter(this.m_Player, requestedSide))
                 {
                     this.CancelVehicleInteractionRequest();
                     return false;
@@ -220,14 +239,19 @@ namespace FranklinGame.Animations
                 return true;
             }
 
-            // Non-car vehicles keep their original RVR/GC2 interaction flow.
-            if (!this.m_Player.Interaction.Interact())
+            if (vehicleEntry is BikeEntry bikeEntry)
             {
-                this.CancelVehicleInteractionRequest();
-                return false;
+                if (!bikeEntry.RequestEnter(this.m_Player))
+                {
+                    this.CancelVehicleInteractionRequest();
+                    return false;
+                }
+
+                return true;
             }
 
-            return true;
+            this.CancelVehicleInteractionRequest();
+            return false;
         }
 
         private bool TryGetSelectedDriverDoor(
@@ -241,27 +265,132 @@ namespace FranklinGame.Animations
             Hotspot hotspot = target?.Instance != null
                 ? target.Instance.GetComponent<Hotspot>()
                 : null;
-            if (hotspot == null || !hotspot.IsActive ||
-                vehicleEntry is not CarEntry carEntry ||
-                carEntry.IsTransitioning)
+            if (hotspot != null && hotspot.IsActive && vehicleEntry != null &&
+                this.IsAvailableVehicleEntry(vehicleEntry) &&
+                IsDriverDoorTarget(target.Instance, vehicleEntry.transform))
+            {
+                return true;
+            }
+
+            // A fallen bike rotates its authored Hotspot with the Rigidbody. GC2
+            // may therefore select no target (or a different nearby target) even
+            // while the Player is touching the bike. Use the physical rendered
+            // body as a fallback, but only after the ragdoll is grounded and slow
+            // enough to begin the manual lift sequence.
+            target = null;
+            if (this.TryGetNearbyFallenBike(out BikeEntry fallenBike))
+            {
+                vehicleEntry = fallenBike;
+                return true;
+            }
+
+            vehicleEntry = null;
+            return false;
+        }
+
+        private bool IsAvailableVehicleEntry(Component vehicleEntry)
+        {
+            if (vehicleEntry is CarEntry carEntry)
+            {
+                if (carEntry.IsTransitioning) return false;
+                if (carEntry.SeatedCharacter != null)
+                {
+                    SimcadeCarjacking carjacking = carEntry.GetComponent<SimcadeCarjacking>();
+                    if (carjacking == null || !carjacking.CanCarjack(this.m_Player)) return false;
+                }
+
+                SimcadeCarDriver driver = carEntry.GetComponent<SimcadeCarDriver>();
+                if (driver != null && driver.IsVehicleEnabled) return false;
+            }
+            else if (vehicleEntry is BikeEntry bikeEntry)
+            {
+                if (bikeEntry.IsTransitioning || bikeEntry.SeatedCharacter != null) return false;
+                FranklinArcadeBikeDriver driver =
+                    bikeEntry.GetComponent<FranklinArcadeBikeDriver>();
+                if (driver != null && driver.IsVehicleEnabled) return false;
+            }
+            else
             {
                 return false;
             }
 
-            if (carEntry.SeatedCharacter != null)
-            {
-                SimcadeCarjacking carjacking = carEntry.GetComponent<SimcadeCarjacking>();
-                if (carjacking == null || !carjacking.CanCarjack(this.m_Player)) return false;
-            }
+            return true;
+        }
 
-            SimcadeCarDriver driver = carEntry.GetComponent<SimcadeCarDriver>();
-            if (driver != null && driver.IsVehicleEnabled) return false;
-
-            for (Transform current = target.Instance.transform;
-                 current != null && current != vehicleEntry.transform;
+        private static bool IsDriverDoorTarget(
+            GameObject targetInstance,
+            Transform vehicleRoot)
+        {
+            for (Transform current = targetInstance != null
+                     ? targetInstance.transform
+                     : null;
+                 current != null && current != vehicleRoot;
                  current = current.parent)
             {
-                if (current.gameObject.name == "Triggers_Enter/Exit") return true;
+                if (current.gameObject.name == "Triggers_Enter/Exit" ||
+                    current.gameObject.name == "Triggers_Enter/Exit Passenger")
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool TryGetNearbyFallenBike(out BikeEntry closestBike)
+        {
+            closestBike = null;
+            if (this.m_Player == null) return false;
+
+            Vector3 playerPosition = this.m_Player.transform.position;
+            int hitCount = Physics.OverlapSphereNonAlloc(
+                playerPosition,
+                Mathf.Max(0.5f, this.m_FallenBikeInteractionRadius),
+                this.m_FallenBikeHits,
+                ~0,
+                QueryTriggerInteraction.Collide
+            );
+            float closestDistance = float.PositiveInfinity;
+
+            for (int index = 0; index < hitCount; index++)
+            {
+                Collider hit = this.m_FallenBikeHits[index];
+                if (hit == null) continue;
+
+                BikeEntry bikeEntry = hit.GetComponentInParent<BikeEntry>();
+                if (bikeEntry == null || bikeEntry == closestBike ||
+                    !this.IsAvailableVehicleEntry(bikeEntry))
+                {
+                    continue;
+                }
+
+                FranklinArcadeBikeRagdoll ragdoll =
+                    bikeEntry.GetComponent<FranklinArcadeBikeRagdoll>();
+                if (ragdoll == null || !ragdoll.CanInteractWhileFallen) continue;
+
+                Vector3 closestPoint = hit.ClosestPoint(playerPosition);
+                float distance = (closestPoint - playerPosition).sqrMagnitude;
+                if (distance >= closestDistance) continue;
+
+                closestDistance = distance;
+                closestBike = bikeEntry;
+            }
+
+            return closestBike != null;
+        }
+
+        private static bool IsPassengerDoorTarget(
+            GameObject targetInstance,
+            Transform vehicleRoot)
+        {
+            for (Transform current = targetInstance != null
+                     ? targetInstance.transform
+                     : null;
+                 current != null && current != vehicleRoot;
+                 current = current.parent)
+            {
+                if (current.gameObject.name == "Triggers_Enter/Exit Passenger")
+                    return true;
             }
 
             return false;
@@ -274,8 +403,10 @@ namespace FranklinGame.Animations
             this.ClearDelayedDrivingState();
             this.m_ActiveVehiclePivot = null;
             this.m_ActiveCarEntry = null;
+            this.m_ActiveBikeEntry = null;
             this.m_ActiveSimcadeDriver = null;
             this.m_ActiveCarjacking = null;
+            this.m_BikeMainShotAim?.Deactivate();
         }
 
         private void LateUpdate()
@@ -284,15 +415,23 @@ namespace FranklinGame.Animations
             // The carjacking sequence remains active while its door closes. Seat
             // ownership is the real handoff boundary: once Player owns the seat,
             // never remove the driving pose again.
-            if (this.IsPlayerSeatedInActiveCar()) return;
+            if (this.IsPlayerSeatedInActiveVehicle()) return;
+            // Passenger-side carjacking has a short, real seated stage before
+            // the driver seat changes ownership. Its Driving state is intentional
+            // and remains paired with the passenger physics lock during the push.
+            if (this.m_ActiveCarEntry?.IsPassengerCarjackingSeatOccupied == true)
+                return;
 
             bool pairedCarjackingIsRunning = this.m_ActiveCarjacking != null &&
                 this.m_ActiveCarjacking.IsTransitioning;
             bool carEntryIsTransitioning = this.m_ActiveCarEntry != null &&
                 this.m_ActiveCarEntry.IsTransitioning;
+            bool bikeEntryIsTransitioning = this.m_ActiveBikeEntry != null &&
+                this.m_ActiveBikeEntry.IsTransitioning;
             if (this.m_Player?.Player?.IsControllable != true &&
                 !pairedCarjackingIsRunning &&
-                !carEntryIsTransitioning) return;
+                !carEntryIsTransitioning &&
+                !bikeEntryIsTransitioning) return;
 
             // CarEntry/BikeEntry sets its driving state before playing the entry gesture.
             // LateUpdate removes that state before rendering, leaving the door/entry gesture in
@@ -300,10 +439,13 @@ namespace FranklinGame.Animations
             this.m_Player.States?.Stop(this.m_DelayedDrivingStateLayer, 0f, 0f);
         }
 
-        private bool IsPlayerSeatedInActiveCar()
+        private bool IsPlayerSeatedInActiveVehicle()
         {
-            return this.m_Player != null && this.m_ActiveCarEntry != null &&
-                this.m_ActiveCarEntry.SeatedCharacter == this.m_Player;
+            return this.m_Player != null &&
+                ((this.m_ActiveCarEntry != null &&
+                  this.m_ActiveCarEntry.SeatedCharacter == this.m_Player) ||
+                 (this.m_ActiveBikeEntry != null &&
+                  this.m_ActiveBikeEntry.SeatedCharacter == this.m_Player));
         }
 
         private bool ResolvePlayer()
@@ -318,6 +460,10 @@ namespace FranklinGame.Animations
                 this.m_MovementBridge = this.m_Player.GetComponentInChildren<
                     FranklinAnimationBridge
                 >(true);
+            }
+            if (this.m_BikeMainShotAim == null)
+            {
+                this.m_BikeMainShotAim = this.GetComponent<FranklinBikeMainShotAim>();
             }
 
             return this.m_Player != null;
@@ -338,12 +484,14 @@ namespace FranklinGame.Animations
             bool isControllable = this.m_Player.Player?.IsControllable == true;
             if (!this.m_HasEnteredVehicle)
             {
-                bool playerIsSeatedInActiveCar = this.IsPlayerSeatedInActiveCar();
+                bool playerIsSeatedInActiveVehicle = this.IsPlayerSeatedInActiveVehicle();
                 // The paired Player/NPC gestures deliberately make the Player
                 // uncontrollable before the driver seat changes ownership.
-                if (!playerIsSeatedInActiveCar &&
+                if (!playerIsSeatedInActiveVehicle &&
                     ((this.m_ActiveCarEntry != null &&
                       this.m_ActiveCarEntry.IsTransitioning) ||
+                     (this.m_ActiveBikeEntry != null &&
+                      this.m_ActiveBikeEntry.IsTransitioning) ||
                      (this.m_ActiveCarjacking != null &&
                       this.m_ActiveCarjacking.IsTransitioning)))
                 {
@@ -358,7 +506,7 @@ namespace FranklinGame.Animations
                     // before assigning SeatedCharacter. Replaying that same
                     // state here rebuilds the GC2 playable graph one frame before
                     // the Sim-Cade camera switch and creates a tiny vertical pop.
-                    if (playerIsSeatedInActiveCar) this.ClearDelayedDrivingState();
+                    if (playerIsSeatedInActiveVehicle) this.ClearDelayedDrivingState();
                     else this.RestoreVehicleDrivingIdle();
                     this.ActivateVehicleCamera();
                     return;
@@ -384,6 +532,7 @@ namespace FranklinGame.Animations
             this.RestorePlayerCamera();
             this.m_ActiveVehiclePivot = null;
             this.m_ActiveCarEntry = null;
+            this.m_ActiveBikeEntry = null;
             this.m_ActiveSimcadeDriver = null;
             this.m_ActiveCarjacking = null;
         }
@@ -447,6 +596,13 @@ namespace FranklinGame.Animations
 
         private void ActivateVehicleCamera()
         {
+            // Bikes always remain on the Player's current GC2 Main Camera Shot.
+            // Only its Third Person aim values are temporarily overridden.
+            if (this.m_ActiveBikeEntry != null)
+            {
+                this.m_BikeMainShotAim?.Activate(this.m_ActiveBikeEntry);
+                return;
+            }
             if (!this.m_UseVehicleCamera || this.m_IsVehicleCameraActive) return;
             if (this.m_ActiveSimcadeDriver != null)
             {
@@ -466,6 +622,14 @@ namespace FranklinGame.Animations
 
         private void RestorePlayerCamera()
         {
+            // No camera was changed for a bike, so its exit must not touch the
+            // current Main Camera Shot. Restore only the TPS values captured on enter.
+            if (this.m_ActiveBikeEntry != null)
+            {
+                this.m_BikeMainShotAim?.Deactivate();
+                return;
+            }
+
             if (!this.m_IsVehicleCameraActive) return;
 
             if (this.ResolveMainCamera() && this.m_PreVehicleShot != null &&
@@ -522,8 +686,13 @@ namespace FranklinGame.Animations
             SetDecimalField(thirdPerson, THIRD_PERSON_SHOULDER_FIELD, this.m_VehicleShoulder);
             SetDecimalField(thirdPerson, THIRD_PERSON_LIFT_FIELD, this.m_VehicleLift);
             SetDecimalField(thirdPerson, THIRD_PERSON_RADIUS_FIELD, this.m_VehicleRadius);
-            SetDecimalField(thirdPerson, THIRD_PERSON_SMOOTH_TIME_FIELD, this.m_VehicleSmoothTime);
             this.ApplyVehicleCameraPivot(thirdPerson);
+
+            SetDecimalField(
+                thirdPerson,
+                THIRD_PERSON_SMOOTH_TIME_FIELD,
+                this.m_VehicleSmoothTime
+            );
 
             if (!this.m_UseGlobalVehicleSensitivity)
             {
@@ -538,10 +707,11 @@ namespace FranklinGame.Animations
             thirdPerson.Alignment.Delay = this.m_VehicleAlignDelay;
             thirdPerson.Alignment.SmoothTime = this.m_VehicleAlignSmoothTime;
 
-            if (THIRD_PERSON_MAX_YAW_FIELD?.GetValue(thirdPerson) is EnablerAngle180 maxYaw)
+            if (THIRD_PERSON_MAX_YAW_FIELD?.GetValue(thirdPerson) is
+                EnablerAngle180 maxYawSetting)
             {
-                maxYaw.IsEnabled = this.m_EnableVehicleMaxYaw;
-                maxYaw.Value = this.m_VehicleMaxYaw;
+                maxYawSetting.IsEnabled = this.m_EnableVehicleMaxYaw;
+                maxYawSetting.Value = this.m_VehicleMaxYaw;
             }
         }
 

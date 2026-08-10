@@ -10,7 +10,8 @@ namespace FranklinGame.UI
 {
     /// <summary>
     /// Creates the Franklin touch HUD from the ImageGen sprites in Resources. It reuses the
-    /// existing Tactile movement stick while on foot and swaps to Sim-Cade controls in a car.
+    /// existing Tactile movement stick while on foot and swaps to the shared car controls
+    /// while driving either a Sim-Cade car or an RVR bike.
     /// </summary>
     [DefaultExecutionOrder(500)]
     [DisallowMultipleComponent]
@@ -26,9 +27,10 @@ namespace FranklinGame.UI
         private RectTransform m_VehicleGroup;
         private GameObject m_EnterVehicleButton;
         private FranklinHudButton m_SlowDriveButton;
+        private FranklinHudButton m_BikeHeadlightButton;
         private FranklinAnimationBridge m_MovementBridge;
         private FranklinVehicleInteractionManager m_VehicleInteraction;
-        private SimcadeCarDriver m_ActiveDriver;
+        private IRvrVehicleInputController m_ActiveDriver;
         private GameObject m_TactileCanvas;
         private GameObject m_TactileMoveStick;
         private float m_NextReferenceRefresh;
@@ -101,14 +103,14 @@ namespace FranklinGame.UI
         {
             this.RefreshReferences(false);
 
-            bool isDriving = this.m_ActiveDriver != null &&
-                             this.m_ActiveDriver.IsVehicleEnabled;
+            bool isDriving = IsUsableDriver(this.m_ActiveDriver);
             if (!this.m_HasAppliedMode || isDriving != this.m_WasDriving)
             {
                 this.ApplyMode(isDriving);
             }
 
             this.UpdateEnterVehicleButton(isDriving);
+            this.UpdateBikeOnlyControls(isDriving);
         }
 
         internal void SetAction(FranklinHudAction action, bool active)
@@ -141,6 +143,12 @@ namespace FranklinGame.UI
                     break;
                 case FranklinHudAction.SlowDrive:
                     this.m_ActiveDriver?.SetVirtualSlowAccelerateInput(active);
+                    break;
+                case FranklinHudAction.BikeHeadlight:
+                    if (this.m_ActiveDriver is FranklinArcadeBikeDriver bikeDriver)
+                    {
+                        bikeDriver.SetHeadlightEnabled(active);
+                    }
                     break;
                 case FranklinHudAction.VehicleInteraction:
                     if (!active) break;
@@ -278,6 +286,16 @@ namespace FranklinGame.UI
                 new Vector2(-155f, 82f),
                 new Vector2(163f, 163f)
             );
+            this.m_BikeHeadlightButton = this.CreateButton(
+                this.m_VehicleGroup,
+                "Bike Headlight",
+                "vehicle-control-headlight",
+                FranklinHudAction.BikeHeadlight,
+                new Vector2(1f, 1f),
+                new Vector2(-115f, -315f),
+                new Vector2(155f, 155f),
+                true
+            );
         }
 
         private bool TryBindPrefabControls()
@@ -294,6 +312,7 @@ namespace FranklinGame.UI
             this.m_VehicleGroup = vehicle;
             this.m_EnterVehicleButton = FindChild("Enter Vehicle")?.gameObject;
             this.m_SlowDriveButton = FindButton("Slow Drive");
+            this.m_BikeHeadlightButton = FindButton("Bike Headlight");
 
             if (this.m_SlowDriveButton == null)
             {
@@ -305,6 +324,20 @@ namespace FranklinGame.UI
                     new Vector2(1f, 0f),
                     new Vector2(-155f, 82f),
                     new Vector2(163f, 163f)
+                );
+            }
+
+            if (this.m_BikeHeadlightButton == null)
+            {
+                this.m_BikeHeadlightButton = this.CreateButton(
+                    this.m_VehicleGroup,
+                    "Bike Headlight",
+                    "vehicle-control-headlight",
+                    FranklinHudAction.BikeHeadlight,
+                    new Vector2(1f, 1f),
+                    new Vector2(-115f, -315f),
+                    new Vector2(155f, 155f),
+                    true
                 );
             }
 
@@ -366,7 +399,8 @@ namespace FranklinGame.UI
             FranklinHudAction action,
             Vector2 anchor,
             Vector2 position,
-            Vector2 size)
+            Vector2 size,
+            bool isToggle = false)
         {
             GameObject buttonObject = new GameObject(
                 buttonName,
@@ -389,7 +423,7 @@ namespace FranklinGame.UI
             image.raycastTarget = true;
 
             FranklinHudButton button = buttonObject.GetComponent<FranklinHudButton>();
-            button.Initialize(this, action, image);
+            button.Initialize(this, action, image, isToggle);
             return button;
         }
 
@@ -456,8 +490,8 @@ namespace FranklinGame.UI
                 this.m_TactileMoveStick = this.transform.Find("MoveStick")?.gameObject;
             }
 
-            SimcadeCarDriver previousDriver = this.m_ActiveDriver;
-            if (this.m_ActiveDriver == null || !this.m_ActiveDriver.IsVehicleEnabled)
+            IRvrVehicleInputController previousDriver = this.m_ActiveDriver;
+            if (!IsUsableDriver(this.m_ActiveDriver))
             {
                 this.m_ActiveDriver = null;
                 foreach (SimcadeCarDriver driver in FindObjectsByType<SimcadeCarDriver>(
@@ -467,6 +501,19 @@ namespace FranklinGame.UI
                     {
                         this.m_ActiveDriver = driver;
                         break;
+                    }
+                }
+
+                if (this.m_ActiveDriver == null)
+                {
+                    foreach (FranklinArcadeBikeDriver driver in
+                             FindObjectsByType<FranklinArcadeBikeDriver>(FindObjectsSortMode.None))
+                    {
+                        if (driver != null && driver.IsVehicleEnabled)
+                        {
+                            this.m_ActiveDriver = driver;
+                            break;
+                        }
                     }
                 }
             }
@@ -513,6 +560,19 @@ namespace FranklinGame.UI
             }
         }
 
+        private void UpdateBikeOnlyControls(bool isDriving)
+        {
+            if (this.m_BikeHeadlightButton == null) return;
+
+            bool shouldShow = isDriving &&
+                              this.m_ActiveDriver is FranklinArcadeBikeDriver;
+            GameObject buttonObject = this.m_BikeHeadlightButton.gameObject;
+            if (buttonObject.activeSelf != shouldShow)
+            {
+                buttonObject.SetActive(shouldShow);
+            }
+        }
+
         private void ReleaseMovementInputs()
         {
             this.m_MovementBridge?.SetVirtualJogInput(false);
@@ -520,7 +580,7 @@ namespace FranklinGame.UI
             this.m_MovementBridge?.StopVirtualAutoRun();
         }
 
-        private void ReleaseVehicleInputs(SimcadeCarDriver driver)
+        private void ReleaseVehicleInputs(IRvrVehicleInputController driver)
         {
             if (driver == null) return;
             driver.SetVirtualAccelerateInput(false);
@@ -529,6 +589,16 @@ namespace FranklinGame.UI
             driver.SetVirtualSteerLeftInput(false);
             driver.SetVirtualSteerRightInput(false);
             driver.SetVirtualHandbrakeInput(false);
+            if (driver is FranklinArcadeBikeDriver bikeDriver)
+            {
+                bikeDriver.SetHeadlightEnabled(false);
+            }
+        }
+
+        private static bool IsUsableDriver(IRvrVehicleInputController driver)
+        {
+            return driver is MonoBehaviour behaviour && behaviour != null &&
+                   driver.IsVehicleEnabled;
         }
 
         private void EnsureEventSystem()
@@ -555,7 +625,8 @@ namespace FranklinGame.UI
         Handbrake,
         VehicleInteraction,
         Jump,
-        SlowDrive
+        SlowDrive,
+        BikeHeadlight
     }
 
 }

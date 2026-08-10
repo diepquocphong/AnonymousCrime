@@ -25,6 +25,7 @@ namespace FranklinGame.UI.Editor
             public readonly Vector2 Anchor;
             public readonly Vector2 Position;
             public readonly Vector2 Size;
+            public readonly bool IsToggle;
 
             public ButtonDefinition(
                 string name,
@@ -32,7 +33,8 @@ namespace FranklinGame.UI.Editor
                 int action,
                 Vector2 anchor,
                 Vector2 position,
-                Vector2 size)
+                Vector2 size,
+                bool isToggle = false)
             {
                 this.Name = name;
                 this.SpriteName = spriteName;
@@ -40,6 +42,7 @@ namespace FranklinGame.UI.Editor
                 this.Anchor = anchor;
                 this.Position = position;
                 this.Size = size;
+                this.IsToggle = isToggle;
             }
         }
 
@@ -70,7 +73,9 @@ namespace FranklinGame.UI.Editor
             new("Exit Vehicle", "vehicle-control-5", 7, new Vector2(1f, 1f),
                 new Vector2(-115f, -120f), new Vector2(190f, 190f)),
             new("Slow Drive", "vehicle-control-slow", 9, new Vector2(1f, 0f),
-                new Vector2(-155f, 82f), new Vector2(163f, 163f))
+                new Vector2(-155f, 82f), new Vector2(163f, 163f)),
+            new("Bike Headlight", "vehicle-control-headlight", 10, new Vector2(1f, 1f),
+                new Vector2(-115f, -315f), new Vector2(155f, 155f), true)
         };
 
         static FranklinMobileHudPrefabInstaller()
@@ -82,6 +87,7 @@ namespace FranklinGame.UI.Editor
         public static void Install()
         {
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-slow.png");
+            EnsureSpriteImporter(UI_ROOT + "vehicle-control-headlight.png");
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PLAYER_CANVAS_PATH);
             if (prefab == null)
             {
@@ -145,7 +151,8 @@ namespace FranklinGame.UI.Editor
                    HasButton(root.Find(ON_FOOT_GROUP), "Jump") &&
                    HasButton(root.Find(ON_FOOT_GROUP), "Enter Vehicle") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Exit Vehicle") &&
-                   HasButton(root.Find(VEHICLE_GROUP), "Slow Drive");
+                   HasButton(root.Find(VEHICLE_GROUP), "Slow Drive") &&
+                   HasButton(root.Find(VEHICLE_GROUP), "Bike Headlight");
         }
 
         private static void EnsureSpriteImporter(string assetPath)
@@ -222,6 +229,7 @@ namespace FranklinGame.UI.Editor
             SerializedObject serializedButton = new SerializedObject(hudButton);
             serializedButton.FindProperty("m_Action").intValue = definition.Action;
             serializedButton.FindProperty("m_Image").objectReferenceValue = image;
+            serializedButton.FindProperty("m_IsToggle").boolValue = definition.IsToggle;
             serializedButton.ApplyModifiedPropertiesWithoutUndo();
         }
 

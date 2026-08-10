@@ -56,6 +56,12 @@ namespace Ashsvp
         public float wheelRadius;
         public float maxWheelTravel = 0.2f;
         public float skidmarkWidth;
+        [Header("Adaptive Tire Smoke")]
+        [Tooltip("Keeps original smoke at speed while suppressing low-speed wheel-slip smoke.")]
+        public bool adaptTireSmokeBySpeed;
+        [Min(0f)] public float lowSpeedSmokeEndKph = 20f;
+        [Min(0f)] public float fullSmokeSpeedKph = 35f;
+        [Range(0f, 1f)] public float lowSpeedBrakeSmokeIntensity = 0.18f;
         public Transform[] HardPoints = new Transform[4];
         public Transform[] Wheels;
 
@@ -169,6 +175,7 @@ namespace Ashsvp
         {
             localVehicleVelocity = transform.InverseTransformDirection(rb.linearVelocity);
             driftAngle = Mathf.Abs(Vector3.Angle(transform.forward, Vector3.ProjectOnPlane(rb.linearVelocity, transform.up)));
+            float tireSmokeIntensity = CalculateTireSmokeIntensity();
 
             AckermannSteering(steerInput);
 
@@ -193,7 +200,13 @@ namespace Ashsvp
                 GroundedCheckPerWheel(wheelIsGrounded);
 
                 tireVisual(wheelIsGrounded, Wheels[i], HardPoints[i], wheelHits[i].distance, i);
-                setWheelSkidvalues_Update(i, skidTotal[i], wheelHits[i].point, wheelHits[i].normal);
+                setWheelSkidvalues_Update(
+                    i,
+                    skidTotal[i],
+                    wheelHits[i].point,
+                    wheelHits[i].normal,
+                    tireSmokeIntensity
+                );
 
             }
 
@@ -672,11 +685,43 @@ namespace Ashsvp
             wheelSkids[wheelNum].skidmarks = skidmarks;
             wheelSkids[wheelNum].radius = wheelRadius;
         }
-        void setWheelSkidvalues_Update(int wheelNum, float skidTotal, Vector3 skidPoint, Vector3 normal)
+        void setWheelSkidvalues_Update(
+            int wheelNum,
+            float skidTotal,
+            Vector3 skidPoint,
+            Vector3 normal,
+            float smokeIntensity)
         {
             wheelSkids[wheelNum].skidTotal = skidTotal;
             wheelSkids[wheelNum].skidPoint = skidPoint;
             wheelSkids[wheelNum].normal = normal;
+            wheelSkids[wheelNum].smokeIntensityMultiplier = smokeIntensity;
+        }
+
+        float CalculateTireSmokeIntensity()
+        {
+            if (!adaptTireSmokeBySpeed) return 1f;
+
+            float speedKph = Vector3.ProjectOnPlane(
+                rb.linearVelocity,
+                transform.up
+            ).magnitude * 3.6f;
+            float speedBlend = Mathf.InverseLerp(
+                lowSpeedSmokeEndKph,
+                Mathf.Max(lowSpeedSmokeEndKph + 0.1f, fullSmokeSpeedKph),
+                speedKph
+            );
+            speedBlend = Mathf.SmoothStep(0f, 1f, speedBlend);
+
+            bool serviceBrake =
+                (localVehicleVelocity.z > 0.25f && accelerationInput < -0.1f) ||
+                (localVehicleVelocity.z < -0.25f && accelerationInput > 0.1f);
+            bool isBraking = handbrakeInput > 0.1f || serviceBrake;
+            float lowSpeedIntensity = isBraking
+                ? lowSpeedBrakeSmokeIntensity
+                : 0f;
+
+            return Mathf.Lerp(lowSpeedIntensity, 1f, speedBlend);
         }
 
 

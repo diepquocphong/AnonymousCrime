@@ -1,0 +1,13 @@
+Car impact sound sources
+
+car_impact_light.wav
+- Derived from: Assets/Ash Assets/Vehicle Integration/Audio/Vehicles/Bump.wav
+- Processing: trimmed to 1.18 seconds, mono, 32 kHz, PCM 16-bit.
+
+car_impact_heavy.wav
+- Derived from: Assets/Ash Assets/Sim-Cade Vehicle Physics/Audios/car crash sound.wav
+- Processing: mono, 32 kHz, PCM 16-bit.
+
+Both source assets already belong to packages installed in this Unity project.
+The derived files are isolated under FranklinAnimations so their import settings
+do not alter audio used by any other vehicle.

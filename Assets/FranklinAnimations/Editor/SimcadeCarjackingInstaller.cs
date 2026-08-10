@@ -8,7 +8,7 @@ namespace FranklinGame.Vehicles.Editor
     public static class SimcadeCarjackingInstaller
     {
         private const string CarPrefabPath =
-            "Assets/Plugins/RVRGaming/RapidTemplate/Prefabs/Vehicles/Car.prefab";
+            "Assets/Ash Assets/Vehicle Integration/Prefabs/Vehicles/Car.prefab";
         private const string NpcPrefabPath = "Assets/Prefab/NPC.prefab";
         private const string AnimationFolder =
             "Assets/FranklinAnimations/Animations/Vehicles/Carjacking/";
@@ -55,6 +55,12 @@ namespace FranklinGame.Vehicles.Editor
                     landing.SetParent(carRoot.transform, false);
                     SetDefaultLandingTransform(carRoot.transform, entry, landing);
                 }
+                Transform obsoleteRightLanding = FindChild(
+                    carRoot.transform,
+                    "Carjack Victim Landing Point Passenger"
+                );
+                if (obsoleteRightLanding != null)
+                    UnityEngine.Object.DestroyImmediate(obsoleteRightLanding.gameObject);
 
                 SerializedObject serialized = new SerializedObject(carjacking);
                 serialized.FindProperty("m_CarEntry").objectReferenceValue = entry;
@@ -63,15 +69,19 @@ namespace FranklinGame.Vehicles.Editor
                 serialized.FindProperty("m_AttackerKickOut").objectReferenceValue = attacker;
                 serialized.FindProperty("m_VictimGetKickedOut").objectReferenceValue = victim;
                 serialized.FindProperty("m_VictimLandingPoint").objectReferenceValue = landing;
-                serialized.FindProperty("m_TransitionIn").floatValue = 0.05f;
+                serialized.FindProperty("m_TransitionIn").floatValue = 0.03f;
                 serialized.FindProperty("m_TransitionOut").floatValue = 0.1f;
-                serialized.FindProperty("m_CarjackingAnimationSpeed").floatValue = 1.7f;
-                serialized.FindProperty("m_EnterHandoffNormalizedTime").floatValue = 0.78f;
+                serialized.FindProperty("m_CarjackingAnimationSpeed").floatValue = 2f;
+                serialized.FindProperty("m_EnterHandoffNormalizedTime").floatValue = 0.7f;
                 serialized.FindProperty("m_PrimaryGrabIKWeight").animationCurveValue =
                     CreatePrimaryGrabCurve();
                 serialized.FindProperty("m_SecondaryGrabIKWeight").animationCurveValue =
                     CreateSecondaryGrabCurve();
                 serialized.FindProperty("m_MaxGrabReach").floatValue = 1.35f;
+                serialized.FindProperty("m_PassengerPushTorsoYaw").floatValue = 38f;
+                serialized.FindProperty("m_PassengerPushTorsoLean").floatValue = 20f;
+                serialized.FindProperty("m_PassengerPushHeadLookWeight").floatValue = 0.95f;
+                serialized.FindProperty("m_PassengerPushRightBraceIKWeight").floatValue = 1f;
                 serialized.FindProperty("m_MaxPullYawFromEntry").floatValue = 55f;
                 serialized.FindProperty("m_PullFacingSharpness").floatValue = 18f;
                 serialized.ApplyModifiedPropertiesWithoutUndo();
@@ -82,13 +92,33 @@ namespace FranklinGame.Vehicles.Editor
                 entry.exitAnimationTransitionOut = 0.12f;
                 entry.entryAnimationSpeed = 1.7f;
                 entry.exitAnimationSpeed = 1.7f;
-                entry.movingExitAnimationSpeed = 1.75f;
+                entry.seatedPoseGuardLeadTime = 0.16f;
+                entry.seatedPoseGuardReleaseDelay = 0.18f;
+                entry.movingExitAnimationSpeed = 2.5f;
                 entry.movingExitLandingSpeed = 1.9f;
+                entry.movingExitAnimation = victim;
+                entry.movingExitLaunchFrameCount = 50;
                 entry.movingExitDoorLeadTime = 0.18f;
+                entry.movingExitDoorReachIKCurve = new AnimationCurve(
+                    new Keyframe(0f, 0f),
+                    new Keyframe(0.15f, 1f),
+                    new Keyframe(0.8f, 1f),
+                    new Keyframe(1f, 0f)
+                );
                 entry.movingExitLandingClipDuration = 1.6f;
+                entry.fastExitSpeedKph = 50f;
+                entry.movingExitRagdollDuration = 2.25f;
+                entry.movingExitRagdollTumbleVelocity = 5.5f;
+                entry.movingExitAutoRecover = true;
+                entry.movingExitPlayerCameraDelay = 2f;
+                entry.movingExitDoorPartialCloseDuration = 2f;
+                entry.movingExitDoorRemainingOpen = 0.15f;
                 entry.doorRotationDuration = 0.32f;
                 entry.doorRotationStartDelay = 0.1f;
                 entry.doorResetDelay = 0.65f;
+                entry.occupiedDoorOpenGestureNormalizedTime = 0.34f;
+                entry.occupiedDoorReachLeadTime = 0.12f;
+                entry.passengerToDriverTransferDuration = 0.22f;
 
                 EditorUtility.SetDirty(carjacking);
                 EditorUtility.SetDirty(entry);
@@ -105,8 +135,8 @@ namespace FranklinGame.Vehicles.Editor
             ValidateInstallation();
             Debug.Log(
                 "NPC carjacking installed on Car.prefab: NPC shares the CarEntry driving " +
-                "state with Player; paired CarKickOutL/CarGetKickedOutL gestures and " +
-                "victim landing anchor are wired."
+                "state with Player; the left-door paired pull and passenger-seat " +
+                "inside push sequence are wired."
             );
         }
 
@@ -141,16 +171,37 @@ namespace FranklinGame.Vehicles.Editor
             CarEntry entry = car.GetComponent<CarEntry>();
             if (entry == null || entry.entryAnimationSpeed < 1.69f ||
                 entry.exitAnimationSpeed < 1.69f ||
-                serialized.FindProperty("m_CarjackingAnimationSpeed").floatValue < 1.69f)
+                entry.seatedPoseGuardLeadTime < 0.1f ||
+                entry.seatedPoseGuardReleaseDelay < 0.1f ||
+                entry.movingExitDoorReachIKCurve == null ||
+                entry.movingExitDoorReachIKCurve.length < 4 ||
+                entry.movingExitAnimation == null ||
+                entry.movingExitAnimation.name != "CarGetKickedOutL" ||
+                entry.movingExitLaunchFrameCount != 50 ||
+                entry.movingExitAnimationSpeed < 2.49f ||
+                entry.passengerEntryCabinPoint == null ||
+                entry.steeringWheelRightHandTarget == null ||
+                entry.fastExitSpeedKph < 49.9f ||
+                entry.movingExitRagdollDuration < 2f ||
+                entry.movingExitRagdollTumbleVelocity <= 0f ||
+                entry.movingExitPlayerCameraDelay < 1.99f ||
+                entry.movingExitDoorPartialCloseDuration < 1.99f ||
+                entry.movingExitDoorRemainingOpen < 0.1f ||
+                serialized.FindProperty("m_PassengerPushTorsoYaw").floatValue < 37.9f ||
+                serialized.FindProperty("m_PassengerPushTorsoLean").floatValue < 19.9f ||
+                serialized.FindProperty("m_PassengerPushHeadLookWeight").floatValue <= 0f ||
+                serialized.FindProperty("m_PassengerPushRightBraceIKWeight").floatValue <= 0f ||
+                serialized.FindProperty("m_CarjackingAnimationSpeed").floatValue < 1.99f)
             {
                 throw new InvalidOperationException(
-                    "Car entry, exit and carjacking animation speeds are not configured"
+                    "Car entry timing or passenger push body/steering targets are not configured"
                 );
             }
 
             Debug.Log(
                 "NPC carjacking validation passed: exact Car.prefab, GC2 NPC, paired " +
-                "left-door animations, faster interaction timing and landing point are assigned."
+                "driver-door pull, seated passenger push pose, right-hand steering brace, " +
+                "50 km/h seated bailout ragdoll, faster timing and landing point are assigned."
             );
         }
 
@@ -158,9 +209,9 @@ namespace FranklinGame.Vehicles.Editor
         {
             return new AnimationCurve(
                 new Keyframe(0f, 0f),
-                new Keyframe(0.1f, 0f),
-                new Keyframe(0.2f, 1f),
-                new Keyframe(0.92f, 1f),
+                new Keyframe(0.025f, 0f),
+                new Keyframe(0.12f, 1f),
+                new Keyframe(0.9f, 1f),
                 new Keyframe(1f, 0f)
             );
         }

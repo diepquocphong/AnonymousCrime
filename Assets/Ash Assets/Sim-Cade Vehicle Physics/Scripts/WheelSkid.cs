@@ -17,7 +17,7 @@ namespace Ashsvp
 		private float lastFixedUpdateTime;
 
 		[HideInInspector]
-		public float radius, skidTotal;
+		public float radius, skidTotal, smokeIntensityMultiplier = 1f;
 		[HideInInspector]
 		public Vector3 skidPoint, normal;
 
@@ -48,9 +48,11 @@ namespace Ashsvp
 			if (skidTotal > 0)
 			{
 				lastSkid = skidmarks.AddSkidMark(skidPoint, normal, intensity, lastSkid);
+				float smokeIntensity = Mathf.Clamp01(smokeIntensityMultiplier);
 				if (smoke && intensity > 0.4f)
 				{
-					smoke.playSmoke();
+					if (smokeIntensity > 0.001f) smoke.playSmoke(smokeIntensity);
+					else smoke.stopSmoke();
 					skidSound.mute = false;
                     skidSound.volume = Mathf.Clamp01(intensity / 3);
                 }
