@@ -26,11 +26,11 @@ namespace FranklinGame.Vehicles
         [Header("Impact Damage")]
         [SerializeField] private FranklinBikeImpactAudio m_ImpactAudio;
         [SerializeField] private bool m_ApplyImpactDamage = true;
-        [SerializeField, Min(0f)] private float m_LightDamageMin = 0.75f;
-        [SerializeField, Min(0f)] private float m_LightDamageMax = 4f;
-        [SerializeField, Min(0f)] private float m_HeavyDamageMin = 8f;
-        [SerializeField, Min(0f)] private float m_HeavyDamageMax = 24f;
-        [SerializeField, Min(0.1f)] private float m_FullDamageSeverity = 12f;
+        [SerializeField, Min(0f)] private float m_LightDamageMin = 0.35f;
+        [SerializeField, Min(0f)] private float m_LightDamageMax = 2f;
+        [SerializeField, Min(0f)] private float m_HeavyDamageMin = 4f;
+        [SerializeField, Min(0f)] private float m_HeavyDamageMax = 12f;
+        [SerializeField, Min(0.1f)] private float m_FullDamageSeverity = 14f;
 
         [Header("Seated Player Impact Damage")]
         [SerializeField] private BikeEntry m_BikeEntry;
@@ -55,6 +55,12 @@ namespace FranklinGame.Vehicles
 
         public bool IsConfigured => m_Traits != null && m_ImpactAudio != null &&
             m_Driver != null && !string.IsNullOrWhiteSpace(m_HealthAttributeId);
+        public bool HasReducedBikeDamageProfile =>
+            Mathf.Abs(m_LightDamageMin - 0.35f) < 0.001f &&
+            Mathf.Abs(m_LightDamageMax - 2f) < 0.001f &&
+            Mathf.Abs(m_HeavyDamageMin - 4f) < 0.001f &&
+            Mathf.Abs(m_HeavyDamageMax - 12f) < 0.001f &&
+            Mathf.Abs(m_FullDamageSeverity - 14f) < 0.001f;
 
         public float CurrentHealth => m_RuntimeHealth != null
             ? (float)m_RuntimeHealth.Value
@@ -148,6 +154,15 @@ namespace FranklinGame.Vehicles
             m_HealthAttributeId = string.IsNullOrWhiteSpace(healthAttributeId)
                 ? "health-attribute-id"
                 : healthAttributeId;
+        }
+
+        public void ConfigureReducedBikeDamageProfile()
+        {
+            m_LightDamageMin = 0.35f;
+            m_LightDamageMax = 2f;
+            m_HeavyDamageMin = 4f;
+            m_HeavyDamageMax = 12f;
+            m_FullDamageSeverity = 14f;
         }
 
         private void ResolveReferences()

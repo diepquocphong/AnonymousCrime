@@ -82,7 +82,7 @@ internal static class FranklinBikeImpactInstaller
         AssetDatabase.Refresh();
         Debug.Log(
             $"[Arcade Bikes] Configured light/heavy collision audio and pooled " +
-            $"spark/flash/debris FX, smoke/fire/explosion, Player damage, visual " +
+            $"spark/flash/debris FX, fuel, smoke/fire/explosion, Player damage, visual " +
             $"deformation, rider ejection and in-place " +
             $"ABP bike ragdoll on " +
             $"{configured}/10 bikes."
@@ -171,6 +171,12 @@ internal static class FranklinBikeImpactInstaller
         FranklinBikeHealth health = root.GetComponent<FranklinBikeHealth>();
         if (health == null) health = root.AddComponent<FranklinBikeHealth>();
         health.Configure(traits, impact, driver, entry, "health-attribute-id");
+        health.ConfigureReducedBikeDamageProfile();
+
+        FranklinBikeFuel fuel = root.GetComponent<FranklinBikeFuel>();
+        if (fuel == null) fuel = root.AddComponent<FranklinBikeFuel>();
+        fuel.Configure(traits, driver, "fuel-attribute-id");
+        driver.ConfigureFuel(fuel);
 
         Transform renderedBody = controller.bikeReferences?.BodyMesh;
         SphereCollider frontWheelCollider = EnsureRagdollWheelCollider(
@@ -260,6 +266,8 @@ internal static class FranklinBikeImpactInstaller
         EditorUtility.SetDirty(source);
         EditorUtility.SetDirty(impact);
         EditorUtility.SetDirty(health);
+        EditorUtility.SetDirty(fuel);
+        EditorUtility.SetDirty(driver);
         EditorUtility.SetDirty(frontWheelCollider);
         EditorUtility.SetDirty(rearWheelCollider);
         foreach (MeshCollider meshCollider in bodyMeshColliders)
@@ -290,6 +298,8 @@ internal static class FranklinBikeImpactInstaller
                 prefab != null ? prefab.GetComponent<FranklinBikeCrashRagdoll>() : null;
             FranklinBikeHealth health =
                 prefab != null ? prefab.GetComponent<FranklinBikeHealth>() : null;
+            FranklinBikeFuel fuel =
+                prefab != null ? prefab.GetComponent<FranklinBikeFuel>() : null;
             FranklinArcadeBikeRagdoll bikeRagdoll =
                 prefab != null ? prefab.GetComponent<FranklinArcadeBikeRagdoll>() : null;
             FranklinBikeDamageEffects damageEffects =
@@ -300,10 +310,13 @@ internal static class FranklinBikeImpactInstaller
                 prefab != null ? prefab.GetComponent<FranklinBikeDeformation>() : null;
             return impact != null && impact.IsConfigured &&
                    health != null && health.IsConfigured &&
+                   fuel != null && fuel.IsConfigured &&
+                   health.HasReducedBikeDamageProfile &&
                    bikeRagdoll != null && bikeRagdoll.IsConfigured &&
                    crash != null && crash.IsConfigured &&
                    crash.HasCurrentConfiguration &&
                    damageEffects != null && damageEffects.IsConfigured &&
+                   damageEffects.HasCurrentConfiguration &&
                    destruction != null && destruction.IsConfigured &&
                    deformation != null && deformation.IsConfigured &&
                    deformation.HasCurrentConfiguration &&

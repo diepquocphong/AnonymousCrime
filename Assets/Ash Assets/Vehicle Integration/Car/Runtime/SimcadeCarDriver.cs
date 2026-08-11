@@ -71,6 +71,9 @@ namespace FranklinGame.Vehicles
         [Header("Car Dashboard")]
         [SerializeField] private SimcadeCarDashboard m_Dashboard;
 
+        [Header("Fuel")]
+        [SerializeField] private SimcadeCarFuel m_Fuel;
+
         private Rigidbody m_Rigidbody;
         private CarEntry m_CarEntry;
         private bool m_IsVehicleEnabled;
@@ -88,6 +91,7 @@ namespace FranklinGame.Vehicles
         private bool m_HoldCameraDuringBailout;
         private bool m_HoldCameraDuringDestruction;
         private bool m_KeepEngineRunningAfterBailout;
+        private bool m_HasFuel = true;
         private float m_AccelerationInput;
         private float m_SteeringInput;
         private float m_ExitInputAvailableAt;
@@ -118,6 +122,8 @@ namespace FranklinGame.Vehicles
         public bool IsVehicleEnabled => this.m_IsVehicleEnabled;
         public bool IsPassengerPresentationActive => this.m_IsPassengerPresentation;
         public bool IsDestroyed => this.m_IsDestroyed;
+        public bool HasFuel => this.m_HasFuel;
+        public float ThrottleMagnitude => Mathf.Abs(this.m_AccelerationInput);
         public float DamageSteeringBias => this.m_DamageSteeringBias;
         public float MaximumDamageSteeringBias => this.m_MaxDamageSteeringBias;
         public bool UseSeatEntryAlignment => true;
@@ -135,6 +141,8 @@ namespace FranklinGame.Vehicles
             this.m_CarEntry = this.GetComponent<CarEntry>();
             if (this.m_Dashboard == null)
                 this.m_Dashboard = this.GetComponent<SimcadeCarDashboard>();
+            if (this.m_Fuel == null)
+                this.m_Fuel = this.GetComponent<SimcadeCarFuel>();
             if (this.m_Controller == null)
             {
                 this.m_Controller = this.GetComponent<SimcadeVehicleController>();
@@ -185,6 +193,7 @@ namespace FranklinGame.Vehicles
             this.SetMobileControlsActive(false);
             this.SetDashboardActive(false);
             this.SetAudioActive(false);
+            this.m_Fuel?.SetEngineActive(false);
             this.ResetSteeringWheel();
         }
 
@@ -340,13 +349,15 @@ namespace FranklinGame.Vehicles
             {
                 if (state) this.m_Controller.enabled = true;
                 this.m_Controller.CanDrive = state || preserveMomentum;
-                this.m_Controller.CanAccelerate = state;
+                this.m_Controller.CanAccelerate = state && this.m_HasFuel;
             }
 
             this.SendInputs(0f, 0f, !state && !preserveMomentum);
             this.UpdateControllerExecutionState();
+            bool engineRequested = state || this.m_KeepEngineRunningAfterBailout;
+            this.m_Fuel?.SetEngineActive(engineRequested);
             this.SetAudioActive(
-                state || this.m_KeepEngineRunningAfterBailout
+                engineRequested && this.m_HasFuel
             );
             this.SetMobileControlsActive(state && this.ShouldShowMobileControls());
             this.SetDashboardActive(state);
@@ -559,7 +570,7 @@ namespace FranklinGame.Vehicles
             if (this.m_Controller != null && this.m_IsVehicleEnabled)
             {
                 this.m_Controller.CanDrive = true;
-                this.m_Controller.CanAccelerate = true;
+                this.m_Controller.CanAccelerate = this.m_HasFuel;
             }
             this.SendInputs(0f, 0f, false);
         }
@@ -567,6 +578,28 @@ namespace FranklinGame.Vehicles
         public void SetHandbrakeInput(bool active)
         {
             this.m_ExternalHandbrake = active;
+        }
+
+        /// <summary>
+        /// Called by SimcadeCarFuel when the GC2 fuel Attribute crosses empty.
+        /// Steering, braking and momentum remain available; engine and throttle stop.
+        /// </summary>
+        public void SetFuelAvailable(bool available)
+        {
+            this.m_HasFuel = available;
+            if (!available) this.m_AccelerationInput = 0f;
+
+            if (this.m_Controller != null && this.m_IsVehicleEnabled)
+            {
+                this.m_Controller.CanDrive = true;
+                this.m_Controller.CanAccelerate = available &&
+                    !this.m_IsStoppingForExit;
+            }
+
+            bool engineRequested = this.m_IsVehicleEnabled ||
+                this.m_KeepEngineRunningAfterBailout;
+            this.SetAudioActive(engineRequested && available && !this.m_IsDestroyed);
+            if (!available) this.SendInputs(0f, this.m_SteeringInput, false);
         }
 
         /// <summary>
@@ -751,6 +784,7 @@ namespace FranklinGame.Vehicles
         private void SendInputs(float acceleration, float steering, bool handbrake)
         {
             if (this.m_Controller == null) return;
+            if (!this.m_HasFuel) acceleration = 0f;
             this.m_Controller.ProvideInputs(acceleration, steering, handbrake ? 1f : 0f);
         }
 

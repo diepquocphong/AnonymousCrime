@@ -65,8 +65,9 @@ Các thành phần dưới đây có liên quan tới luồng Car nhưng còn đ
 |---|---|---|
 | `CarEntry` | [`Car/Runtime/CarEntry.cs`](Car/Runtime/CarEntry.cs) | Chủ sở hữu enter/exit, bốn cửa/ghế, door animation, mirror entry và speed-aware bailout. |
 | `SimcadeCarDriver` | [`Car/Runtime/SimcadeCarDriver.cs`](Car/Runtime/SimcadeCarDriver.cs) | Adapter input, camera, mobile control, speed và presentation cho Sim-Cade. |
-| `SimcadeCarDashboard` | [`Car/Runtime/SimcadeCarDashboard.cs`](Car/Runtime/SimcadeCarDashboard.cs) | HUD tốc độ, thanh máu, radio, safe area và giới hạn tần suất cập nhật UI. |
+| `SimcadeCarDashboard` | [`Car/Runtime/SimcadeCarDashboard.cs`](Car/Runtime/SimcadeCarDashboard.cs) | Một Canvas HUD dùng chung cho mọi instance Car; tự bind driver/health/fuel/radio của Car đang lái. |
 | `SimcadeCarHealth` | [`Car/Runtime/SimcadeCarHealth.cs`](Car/Runtime/SimcadeCarHealth.cs) | Nối impact đã phân loại với GC2 `health-attribute-id`; API damage/repair. |
+| `SimcadeCarFuel` | [`Car/Runtime/SimcadeCarFuel.cs`](Car/Runtime/SimcadeCarFuel.cs) | Nối GC2 `fuel-attribute-id`, hao xăng theo garanti/ga/tốc độ và khóa ga/engine khi cạn. |
 | `SimcadeCarDamageEffects` | [`Car/Runtime/SimcadeCarDamageEffects.cs`](Car/Runtime/SimcadeCarDamageEffects.cs) | Event-driven khói dưới 32% máu, explosion một lần và lửa khi xe hết máu. |
 | `SimcadeCarDestruction` | [`Car/Runtime/SimcadeCarDestruction.cs`](Car/Runtime/SimcadeCarDestruction.cs) | Phá hủy terminal: cháy đen riêng instance, văng bốn bánh, cưỡng chế Player ragdoll/cháy/Traits về 0 và khóa UI/điều khiển. |
 | `SimcadeCarParticleWind` | [`Car/Runtime/SimcadeCarParticleWind.cs`](Car/Runtime/SimcadeCarParticleWind.cs) | Lực gió world-space cho smoke/fire, cộng airflow ngược vận tốc xe và chỉ cập nhật 8 Hz khi VFX hoạt động. |
@@ -115,6 +116,10 @@ flowchart LR
     Driver --> Camera["Sim-Cade chase camera"]
     Driver --> Mobile["Sim-Cade mobile controls"]
     Driver --> Dashboard["SimcadeCarDashboard"]
+    Driver --> Fuel["SimcadeCarFuel"]
+    Fuel --> FuelTraits["GC2 fuel-attribute-id"]
+    Fuel --> FuelGauge["Curved vertical fuel gauge"]
+    FuelGauge --> Dashboard
     Impact["SimcadeCarImpactAudio"] --> Audio["Light / heavy impact SFX"]
     Impact --> FX["Pooled spark + debris FX"]
     Impact --> Health["SimcadeCarHealth"]
@@ -122,7 +127,8 @@ flowchart LR
     Dent --> SteeringDamage["Persistent small steering bias"]
     SteeringDamage --> Driver
     Health --> Traits["GC2 health-attribute-id"]
-    Health --> Dashboard
+    Health --> HealthGauge["Larger mirrored vertical health gauge"]
+    HealthGauge --> Dashboard
     Health --> DamageFX["SimcadeCarDamageEffects"]
     DamageFX --> WeakSmoke["Smoke <= 32%"]
     DamageFX --> CriticalFire["Warning fire <= 14%"]
@@ -243,6 +249,18 @@ Va chạm lệch trái/phải từ severity `4.5` trở lên cộng một steeri
 
 Thuộc tính đọc: `CurrentHealth`, `MaximumHealth`, `HealthRatio`, `IsDestroyed`. Impact nhẹ gây `0.35–2.25` damage, impact nặng gây `4.5–14` damage theo severity (giảm khoảng 35% so với profile ban đầu); chỉ impact đã vượt ngưỡng/cooldown của `SimcadeCarImpactAudio` mới được tính. Phân loại âm thanh, VFX va chạm và deformation vẫn dùng severity gốc nên không bị làm yếu theo lượng máu trừ.
 
+### `SimcadeCarFuel`
+
+| API | Ý nghĩa |
+|---|---|
+| `Consume(float amount)` | Trừ trực tiếp GC2 `fuel-attribute-id` và tự clamp. |
+| `Refuel(float amount)` / `RefuelFull()` | Thêm xăng hoặc đổ đầy bình. |
+| `SetNormalizedFuel(float ratio)` | Đặt nhiên liệu theo tỷ lệ `0..1`, dùng cho save/load hoặc trạm xăng. |
+| `SetEngineActive(bool)` | API nội bộ từ Driver để chỉ chạy tiêu hao khi động cơ thực sự hoạt động. |
+| `EventFuelChanged(current, maximum)` | Cập nhật thanh xăng theo event, không poll GC2 mỗi frame. |
+
+Mỗi instance Car mới khởi tạo `Starting Fuel = 100` đúng một lần; GC2 `Fuel` Stat cũng có base `100` và `FuelAtr` có start percent `1`. Disable/enable component không tự đổ đầy lại. Profile mặc định tiêu hao `0.02` đơn vị/giây ở garanti, cộng tối đa `0.1` theo mức ga và `0.03` theo tốc độ so với mốc `120 km/h`. Coroutine chỉ tồn tại khi engine được yêu cầu chạy và tick mỗi `0.25s`; Car đỗ/tắt máy không có công việc fuel theo frame. Khi cạn xăng, `SimcadeCarDriver` khóa ga/lùi và dừng engine audio nhưng vẫn giữ phanh, lái và quán tính. Nếu `Refuel` trong lúc Player vẫn ngồi, engine và khả năng tăng tốc được khôi phục tự động.
+
 ### `FranklinBikeHealth`
 
 Bike dùng cùng kiến trúc event-driven của Car nhưng giữ profile riêng phù hợp khối lượng và ngưỡng impact của Arcade Bike. `FranklinBikeImpactAudio` tiếp tục là nơi duy nhất phân loại collision, áp cooldown, phát âm thanh và pooled spark; `FranklinBikeHealth` chỉ nhận `EventImpactAccepted` nên một contact không bị tính damage hai lần.
@@ -257,14 +275,16 @@ Bike dùng cùng kiến trúc event-driven của Car nhưng giữ profile riêng
 | `SpeedMetersPerSecond × 3.6` | Hiển thị tốc độ Bike theo `km/h` trên UI mobile chung, cùng style với Car. |
 | `EventDestroyed` / `EventRestored` | Phát đúng một lần khi đi qua biên 0 HP. |
 
-Thuộc tính đọc: `CurrentHealth`, `MaximumHealth`, `HealthRatio`, `IsDestroyed`. Profile mặc định: impact nhẹ gây `0.75–4` damage, impact nặng gây `8–24` damage và đạt mức tối đa ở severity `12`. Impact nặng còn trừ `4–18 HP` của GC2 Player đang ngồi. Khi HP bằng 0, `FranklinArcadeBikeDriver` giữ suspension/exit flow nhưng bỏ toàn bộ input ga, lùi, lái, wheelie và burnout; `BikeEntry` từ chối lượt enter mới. Repair chỉ mở khóa, không tự enter hoặc tự bật điều khiển.
+Thuộc tính đọc: `CurrentHealth`, `MaximumHealth`, `HealthRatio`, `IsDestroyed`. Profile mặc định đã giảm: impact nhẹ gây `0.35–2` damage, impact nặng gây `4–12` damage và đạt mức tối đa ở severity `14`. Impact nặng còn trừ `4–18 HP` của GC2 Player đang ngồi. Khi HP bằng 0, `FranklinArcadeBikeDriver` giữ suspension/exit flow nhưng bỏ toàn bộ input ga, lùi, lái, wheelie và burnout; `BikeEntry` từ chối lượt enter mới. Repair chỉ mở khóa, không tự enter hoặc tự bật điều khiển.
 
 ### Bike damage VFX, destruction và deformation
 
 `FranklinBikeDamageEffects` tái sử dụng asset Hovl và audio 3D của Car nhưng có
 ngân sách nhỏ hơn: Smoke1 tối đa 22 hạt, warning Fire3 12, destroyed Fire3 18,
 Player burn 10 và Explosion11 tổng tối đa 60. Ngưỡng là smoke `<=32%`, warning
-fire `<=14%`; tại 0 HP luôn cảnh báo thêm `1.35s` rồi mới nổ một lần.
+fire `<=14%`. Trong critical fire, Bike tự mất `1.5%` maximum HP mỗi giây theo
+tick `0.25s`; Repair vượt 14% sẽ dừng drain. Tại 0 HP luôn cảnh báo thêm `1.35s`
+rồi mới nổ một lần. Critical drain chỉ trừ Bike health, không trừ Player lần hai.
 
 `FranklinBikeDestruction` lưu rider ở thời điểm `EventDestroyed`, nên vụ nổ vẫn
 trừ đúng Player dù `FranklinBikeCrashRagdoll` đã nhả rider khỏi seat. Xe thật
@@ -281,7 +301,7 @@ lớn nhất hiện tại (30.320 vertices). `ResetDeformation()` phục hồi m
 
 ### `SimcadeCarDamageEffects`
 
-Component không có `Update`: chỉ nhận `EventHealthChanged`. Dưới hoặc bằng 32% máu, Hovl `Smoke1` được bật. Dưới hoặc bằng 14%, một `Critical Warning Fire` nhỏ bắt đầu cháy để báo xe sắp nổ. Khi health chạm 0, smoke và warning fire luôn được giữ thêm `1.35s` rồi `Explosion11` mới chạy đúng một lần; vì vậy damage lớn nhảy thẳng về 0 vẫn không nổ tức thời. Nếu Repair đưa health lên trên 0 trong khoảng cảnh báo này, pending explosion được hủy. Sau explosion, warning/smoke tắt và `Destroyed Fire` duy trì cùng `SimcadeCarDestruction`. Wreck là trạng thái terminal: Repair không hồi sinh điều khiển hoặc arm lại explosion; muốn dùng lại phải respawn prefab Car.
+Component không có `Update`: chỉ nhận `EventHealthChanged`. Dưới hoặc bằng 32% máu, Hovl `Smoke1` được bật. Dưới hoặc bằng 14%, một `Critical Warning Fire` nhỏ bắt đầu cháy và tự rút máu theo tick `0.25s`; tốc độ được tính theo phần trăm maximum health nên từ đúng ngưỡng 14% sẽ mất khoảng `7s` để về 0. Nếu Repair đưa máu lên trên 14%, coroutine dừng mà không trừ thêm. Khi health chạm 0, smoke và warning fire luôn được giữ thêm `1.35s` rồi `Explosion11` mới chạy đúng một lần; vì vậy lửa tiếp tục báo nguy hiểm cho tới đúng lúc nổ. Sau explosion, warning/smoke tắt và `Destroyed Fire` duy trì cùng `SimcadeCarDestruction`. Wreck là trạng thái terminal: Repair không hồi sinh điều khiển hoặc arm lại explosion; muốn dùng lại phải respawn prefab Car.
 
 Explosion audio dùng bản ghi thực tế từ một lần thử nghiệm nổ xe của `eth131`, giấy phép CC0. Bản dùng trong game được cắt khoảng lặng, downmix mono, resample `32 kHz` và giữ dynamic transient/đuôi vang tự nhiên; Unity nén Vorbis `Compressed In Memory` để phù hợp mobile. AudioSource là 3D logarithmic, không Doppler, nghe đầy ở gần trong `7m` và giảm tự nhiên đến `110m`. Nguồn và quy trình xử lý được lưu tại `Car/Audio/SFX/CarExplosionSfx_SOURCE.txt`.
 
@@ -302,17 +322,20 @@ Chỉ các asset/dependency cần thiết được lấy từ `3D Fire and Explo
 | API | Ý nghĩa |
 |---|---|
 | `SetPresentationActive(bool)` | Hiện/ẩn dashboard cùng trạng thái driver/passenger Car. |
+| `IsSharedHudActive` | Cho HUD vehicle dùng chung biết Car đang sở hữu Canvas; dùng để loại trừ telemetry Bike trong lúc chuyển vehicle. |
 | `SetSpeedHudPosition(float left, float height, Vector2 screenOffset)` | Chỉnh điểm bám world và bù vị trí pixel của km/h bằng code. |
+| `SetHealthHudPosition(float right, float height, Vector2 screenOffset)` | Chỉnh độc lập thanh máu bám bên phải thân xe và bù vị trí pixel. |
 | `ToggleRadio()` / `SetRadioEnabled(bool)` | Bật hoặc tắt radio. |
 | `PreviousTrack()` / `NextTrack()` | Chuyển track và bắt đầu phát. |
 | `SelectTrack(int index, bool play)` | Chọn track bằng code, hỗ trợ mở rộng playlist. |
 
-Dashboard có Canvas riêng với sorting order `1210`. Không có radio panel hoặc health background chiếm diện tích: chỉ còn sprite disc/button, tên station và health frame mảnh. Canvas dùng `ScaleWithScreenSize` ở mốc `1920x1080` và tự áp dụng `Screen.safeArea` cho màn hình tai thỏ.
+Dashboard dùng đúng một Canvas static dùng chung với sorting order `1210`, không tạo một Canvas cho từng Car. Khi đổi xe, `s_ActiveDashboard` chỉ rebind telemetry/radio sang `SimcadeCarDashboard` của xe đang lái; các Car còn lại không update HUD và event của chúng không được phép ghi lên UI. Khi Canvas Car active, `FranklinMobileHud` ưu tiên driver Car và tắt ngay speed/fuel/health cùng ba nút riêng của Bike; khi trở lại Bike, HUD Bike mới được bind lại. Vì vậy cung máu xanh lá của Bike không thể chồng lên dấu cộng/thanh máu xanh da trời của Car, kể cả trong frame handoff. Canvas dùng `ScaleWithScreenSize` ở mốc `1920x1080` và tự áp dụng `Screen.safeArea` cho màn hình tai thỏ.
 
-- Tốc độ lấy từ `SimcadeCarDriver.SpeedKph`, cập nhật text tối đa 10 Hz. Vị trí được project từ world point bên trái thân xe ở local height `0.82m`—ngang tầm kính—và `SmoothDamp` `0.11s`, vì vậy số bám xe/camera với độ trễ target nhẹ thay vì khóa ở góc màn hình. Trong component `SimcadeCarDashboard`, nhóm `Speed Position (Editable)` cho phép chỉnh `World Left Offset`, `World Height` và `Screen Offset` theo pixel ngay trong Inspector.
+- Tốc độ lấy từ `SimcadeCarDriver.SpeedKph`, cập nhật text tối đa 10 Hz. Tâm HUD lấy từ bounds của renderer thật thay vì pivot prefab, loại trừ particle/trail/line; khoảng cách trái/phải còn tự cộng half-width nhìn thấy theo góc camera. Vì vậy cùng một HUD giữ đúng tâm và kích thước trên các mẫu Car khác nhau. World target dùng local height `0.82m` và `SmoothDamp` `0.11s`.
 - Typography dùng `Josefin Sans Bold`; speed `56px`, hậu tố `km/h` `29px` và shadow nhẹ `1px`/alpha `0.34` để không tạo quầng đen trên màn hình nhỏ.
-- Máu cập nhật hoàn toàn bằng event; fill xanh–vàng–đỏ gần sát mép một khung charcoal bo tròn rất mảnh theo ảnh tham chiếu, không có bevel/neon, rectangle background hoặc text thừa.
-- Đĩa radio quay `38°/s` khi phát. Bốn button PNG alpha có vùng chạm `88x88`; trạng thái Off được thể hiện bằng tint và tên station.
+- Thanh xăng nằm ngay dưới `km/h`, dùng sprite ImageGen flat vàng `VehicleFuelArc.png` kích thước nguồn `71x512`, alpha trong suốt, cong nhẹ sang trái (đã flip ngược hướng Car) và chỉ giữ shadow charcoal rất mềm. Không còn highlight, bevel hoặc gradient 3D. Một Image tối mờ làm rãnh nền; Image vàng phía trên dùng `Filled/Vertical` từ `E` lên `F`, nên `EventFuelChanged` chỉ đổi `fillAmount` và không rebuild custom mesh. Không có panel nền; texture tắt mipmap, clamp, giới hạn `512px` và nén cho mobile. Có thể chỉnh `Fuel Gauge Offset` trong Inspector.
+- Thanh xăng đi theo world target bên trái Car cùng cụm `km/h`; thanh máu xanh da trời dùng world target đối xứng bên phải. Hai phía dùng chung tâm renderer và cùng side offset thích ứng, sau đó bù theo tâm sprite và mép đáy nên không còn lệch do pivot của từng model. `Health Screen Offset` chỉ là fine-tuning, mặc định `(0,0)`. Bar máu cao `184px`, dày `40px`, icon dấu cộng xanh da trời nằm chính giữa trên đỉnh; `EventHealthChanged` chỉ đổi `fillAmount`, không poll hay custom mesh.
+- Cụm radio neo cách đáy safe area `70px`, gần sát cạnh dưới nhưng vẫn tránh home indicator/tai thỏ ngang. Đĩa radio quay `38°/s` khi phát. Bốn button PNG alpha có vùng chạm `88x88`; trạng thái Off được thể hiện bằng tint và tên station.
 - Ba station CC0 dùng một `AudioSource` 2D, Vorbis quality `0.48`, `Streaming`, `loadInBackground=true`, `preloadAudioData=false`.
 - Static dò sóng dài `0.55s` dùng source 2D riêng, mono PCM/preload vì file rất nhỏ; chỉ phát khi bật/tắt/chuyển station.
 - Radio dừng khi rời Car và không giữ audio voice.
@@ -342,9 +365,11 @@ driver.SetVirtualSlowAccelerateInput(false);
 
 ```csharp
 SimcadeCarHealth health = carObject.GetComponent<SimcadeCarHealth>();
+SimcadeCarFuel fuel = carObject.GetComponent<SimcadeCarFuel>();
 SimcadeCarDashboard dashboard = carObject.GetComponent<SimcadeCarDashboard>();
 
 health.RepairFull();
+fuel.RefuelFull();
 dashboard.SetRadioEnabled(true);
 dashboard.NextTrack();
 ```
@@ -370,7 +395,7 @@ flowchart LR
     Impact --> SoundFx["Audio + pooled sparks/debris"]
     Impact --> Damage["SimcadeCarHealth.ApplyDamage"]
     Damage --> GC2["GC2 health-attribute-id"]
-    GC2 -->|"EventHealthChanged"| HealthBar["Health fill + color"]
+    GC2 -->|"EventHealthChanged"| HealthBar["Larger mirrored vertical health fill + color"]
     RadioButtons["Power / Prev / Play / Next"] --> Tune["0.55 s radio static"]
     RadioButtons --> RadioSource["Một 2D music AudioSource"]
     RadioSource --> Stream["3 Vorbis Streaming station"]
@@ -492,7 +517,7 @@ Prefab chính: `Car/Prefabs/Car.prefab`.
 | Va chạm | Âm nhẹ/nặng nghe rõ hơn động cơ theo mức va chạm; spark/debris được pool; panel gần contact móp theo severity. |
 | Deformation mobile | Từ `2.5m/s` trở lên phải thấy panel trong radius móp, ánh sáng/mesh bounds cập nhật ngay; quá 12 impact không tiếp tục sửa vertex. |
 | Lệch lái do hỏng | Tông lệch trái/phải đủ mạnh làm xe kéo nhẹ về phía hỏng; bias không vượt `±0.16`, counter-steer và Reset API hoạt động. |
-| Máu Car | Va chạm nhẹ/nặng trừ đúng một lần; fill đổi xanh–vàng–đỏ và Repair API cập nhật ngay. |
+| Máu Car | Va chạm nhẹ/nặng trừ đúng một lần; fill/icon xanh da trời và Repair API cập nhật ngay trên HUD dùng chung. |
 | Damage VFX | <=32% có khói; <=14% có warning fire; health 0 phải cảnh báo thêm 1.35s mới nổ; wreck terminal không nổ lại hoặc lái lại sau Repair. |
 | Gió VFX | Khi đứng yên smoke/fire nghiêng theo world wind; khi xe chạy, luồng khí bẻ ngược hướng vận tốc; hạt cũ ở world-space không bị kéo cứng theo xe. |
 | Phá hủy Car rỗng | Toàn bộ renderer Car cháy đen riêng instance; bốn bánh tách/văng, nằm phẳng, khóa physics 5 giây rồi chìm/ẩn; camera, dashboard và Car control ẩn. |

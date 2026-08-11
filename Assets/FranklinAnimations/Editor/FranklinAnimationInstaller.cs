@@ -491,6 +491,7 @@ namespace FranklinGame.Animations.Editor
                 if (bridge == null) bridge = root.AddComponent<FranklinAnimationBridge>();
 
                 SerializedObject serializedBridge = new SerializedObject(bridge);
+                serializedBridge.FindProperty("m_WalkSpeed").floatValue = 2f;
                 serializedBridge.FindProperty("m_JogState").objectReferenceValue = jogState;
                 serializedBridge.FindProperty("m_JogSpeed").floatValue = 4f;
                 serializedBridge.FindProperty("m_SprintState").objectReferenceValue = sprintState;
@@ -625,6 +626,13 @@ namespace FranklinGame.Animations.Editor
                 }
 
                 SerializedObject serializedBridge = new SerializedObject(bridge);
+                SerializedProperty walkSpeed = serializedBridge.FindProperty("m_WalkSpeed");
+                if (walkSpeed == null || !Mathf.Approximately(walkSpeed.floatValue, 2f))
+                {
+                    throw new InvalidOperationException(
+                        "Bridge Walk Speed must match GC2's stock Walk state speed (2)"
+                    );
+                }
                 if (serializedBridge.FindProperty("m_JogState")?.objectReferenceValue != jogState)
                 {
                     throw new InvalidOperationException("Bridge does not reference GC2's stock Run state for Jog");

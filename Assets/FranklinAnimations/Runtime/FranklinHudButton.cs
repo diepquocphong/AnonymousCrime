@@ -21,6 +21,7 @@ namespace FranklinGame.UI
         [SerializeField] private FranklinHudAction m_Action;
         [SerializeField] private Image m_Image;
         [SerializeField] private bool m_IsToggle;
+        [SerializeField] private bool m_UseOpaqueVisual;
         private bool m_IsPressed;
         private bool m_IsToggled;
         private int m_ActivePointerId = int.MinValue;
@@ -29,11 +30,13 @@ namespace FranklinGame.UI
             FranklinMobileHud hud,
             FranklinHudAction action,
             Image image,
-            bool isToggle = false)
+            bool isToggle = false,
+            bool useOpaqueVisual = false)
         {
             this.m_Action = action;
             this.m_Image = image;
             this.m_IsToggle = isToggle;
+            this.m_UseOpaqueVisual = useOpaqueVisual;
             this.Bind(hud);
         }
 
@@ -121,9 +124,13 @@ namespace FranklinGame.UI
         {
             if (this.m_Image != null)
             {
-                this.m_Image.color = isPressed
-                    ? PRESSED_COLOR
-                    : NORMAL_COLOR;
+                this.m_Image.color = this.m_UseOpaqueVisual
+                    ? isPressed
+                        ? new Color(0.88f, 0.98f, 1f, 1f)
+                        : Color.white
+                    : isPressed
+                        ? PRESSED_COLOR
+                        : NORMAL_COLOR;
             }
             this.transform.localScale = isPressed ? Vector3.one * 0.93f : Vector3.one;
         }

@@ -16,6 +16,10 @@ namespace FranklinGame.Vehicles
         [SerializeField, Range(0.01f, 0.5f)] private float m_CriticalFireThreshold = 0.14f;
         [SerializeField, Min(0.1f)] private float m_PreExplosionWarningDuration = 1.35f;
 
+        [Header("Critical Fire Health Drain")]
+        [SerializeField, Min(1f)] private float m_CriticalBurnDuration = 7f;
+        [SerializeField, Range(0.1f, 0.5f)] private float m_CriticalBurnTickInterval = 0.25f;
+
         [Header("Loop Effects")]
         [SerializeField] private GameObject m_WeakHealthSmoke;
         [SerializeField] private GameObject m_CriticalWarningFire;
@@ -46,6 +50,7 @@ namespace FranklinGame.Vehicles
 
         private bool m_HasExploded;
         private Coroutine m_PendingExplosion;
+        private Coroutine m_CriticalHealthDrain;
 
         public bool IsConfigured => m_Health != null && m_WeakHealthSmoke != null &&
             m_CriticalWarningFire != null && m_DestroyedFire != null &&
@@ -60,6 +65,8 @@ namespace FranklinGame.Vehicles
         public float SmokeHealthThreshold => m_SmokeHealthThreshold;
         public float CriticalFireThreshold => m_CriticalFireThreshold;
         public float PreExplosionWarningDuration => m_PreExplosionWarningDuration;
+        public float CriticalBurnDuration => m_CriticalBurnDuration;
+        public float CriticalBurnTickInterval => m_CriticalBurnTickInterval;
         public float SmokeLoopVolume => m_SmokeLoopVolume;
         public float CriticalFireLoopVolume => m_CriticalFireLoopVolume;
         public float DestroyedFireLoopVolume => m_DestroyedFireLoopVolume;
@@ -94,6 +101,7 @@ namespace FranklinGame.Vehicles
             if (m_Health != null)
                 m_Health.EventHealthChanged -= OnHealthChanged;
             CancelPendingExplosion();
+            StopCriticalHealthDrain();
             m_ParticleWind?.SetWindActive(false);
             StopLoopAudio(m_SmokeAudioSource);
             StopLoopAudio(m_FireAudioSource);
@@ -145,6 +153,8 @@ namespace FranklinGame.Vehicles
                 0.1f,
                 preExplosionWarningDuration
             );
+            m_CriticalBurnDuration = 7f;
+            m_CriticalBurnTickInterval = 0.25f;
             m_MinimumExplosionCameraHold = 0.9f;
             m_MaximumExplosionCameraHold = 2.5f;
             m_Destruction = destruction;
@@ -237,6 +247,7 @@ namespace FranklinGame.Vehicles
             if (terminalWreck)
             {
                 CancelPendingExplosion();
+                StopCriticalHealthDrain();
                 SetLoopEffectActive(m_WeakHealthSmoke, false);
                 SetLoopEffectActive(m_CriticalWarningFire, false);
                 SetLoopEffectActive(m_DestroyedFire, true);
@@ -258,6 +269,8 @@ namespace FranklinGame.Vehicles
             else
             {
                 CancelPendingExplosion();
+                if (ratio <= m_CriticalFireThreshold)
+                    EnsureCriticalHealthDrain();
                 // Terminal destruction is deliberately permanent. A repaired
                 // wreck may stop emitting loop VFX, but it must never explode a
                 // second time or become driveable again without respawning it.
@@ -265,6 +278,51 @@ namespace FranklinGame.Vehicles
                     m_HasExploded = false;
             }
             RefreshWindActivity();
+        }
+
+        private void EnsureCriticalHealthDrain()
+        {
+            if (m_CriticalHealthDrain != null || m_Health == null) return;
+            m_CriticalHealthDrain = StartCoroutine(DrainCriticalHealth());
+        }
+
+        private IEnumerator DrainCriticalHealth()
+        {
+            float tickInterval = Mathf.Clamp(m_CriticalBurnTickInterval, 0.1f, 0.5f);
+            WaitForSeconds wait = new WaitForSeconds(tickInterval);
+
+            while (isActiveAndEnabled && m_Health != null)
+            {
+                yield return wait;
+
+                if (!isActiveAndEnabled || m_Health == null ||
+                    (m_Destruction != null && m_Destruction.IsDestroyed))
+                {
+                    break;
+                }
+
+                float maximum = m_Health.MaximumHealth;
+                if (maximum <= 0.001f) break;
+
+                float ratio = m_Health.CurrentHealth / maximum;
+                if (ratio <= 0.001f || ratio > m_CriticalFireThreshold) break;
+
+                // Drain a fixed percentage of maximum health. Entering the fire
+                // threshold at 14% therefore reaches zero in about 7 seconds,
+                // independent of the Car's configured maximum health.
+                float damagePerSecond = maximum * m_CriticalFireThreshold /
+                    Mathf.Max(1f, m_CriticalBurnDuration);
+                m_Health.ApplyDamage(damagePerSecond * tickInterval);
+            }
+
+            m_CriticalHealthDrain = null;
+        }
+
+        private void StopCriticalHealthDrain()
+        {
+            if (m_CriticalHealthDrain == null) return;
+            StopCoroutine(m_CriticalHealthDrain);
+            m_CriticalHealthDrain = null;
         }
 
         private void ScheduleExplosionAfterWarning()
@@ -429,6 +487,12 @@ namespace FranklinGame.Vehicles
                 m_SmokeHealthThreshold
             );
             m_PreExplosionWarningDuration = Mathf.Max(0.1f, m_PreExplosionWarningDuration);
+            m_CriticalBurnDuration = Mathf.Max(1f, m_CriticalBurnDuration);
+            m_CriticalBurnTickInterval = Mathf.Clamp(
+                m_CriticalBurnTickInterval,
+                0.1f,
+                0.5f
+            );
             m_SmokeLoopVolume = Mathf.Clamp01(m_SmokeLoopVolume);
             m_CriticalFireLoopVolume = Mathf.Clamp01(m_CriticalFireLoopVolume);
             m_DestroyedFireLoopVolume = Mathf.Clamp01(m_DestroyedFireLoopVolume);

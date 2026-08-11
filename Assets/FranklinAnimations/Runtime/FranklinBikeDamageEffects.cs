@@ -16,6 +16,13 @@ namespace FranklinGame.Vehicles
         [SerializeField, Range(0.01f, 0.5f)] private float m_CriticalFireThreshold = 0.14f;
         [SerializeField, Min(0.1f)] private float m_PreExplosionWarningDuration = 1.35f;
 
+        [Header("Critical Fire Health Drain")]
+        [Tooltip("Fraction of maximum Bike HP removed each second while critical fire is active. 0.015 drains the final 14% in about 9.3 seconds.")]
+        [SerializeField, Range(0.005f, 0.2f)]
+        private float m_CriticalHealthDrainPerSecond = 0.015f;
+        [Tooltip("Low-frequency damage tick used instead of a per-frame health update.")]
+        [SerializeField, Range(0.1f, 1f)] private float m_CriticalHealthDrainTick = 0.25f;
+
         [Header("Loop Effects")]
         [SerializeField] private GameObject m_WeakHealthSmoke;
         [SerializeField] private GameObject m_CriticalWarningFire;
@@ -40,6 +47,7 @@ namespace FranklinGame.Vehicles
 
         private bool m_HasExploded;
         private Coroutine m_PendingExplosion;
+        private Coroutine m_CriticalHealthDrain;
 
         public bool IsConfigured => m_Health != null && m_WeakHealthSmoke != null &&
             m_CriticalWarningFire != null && m_DestroyedFire != null &&
@@ -52,6 +60,11 @@ namespace FranklinGame.Vehicles
         public bool HasExploded => m_HasExploded;
         public float SmokeHealthThreshold => m_SmokeHealthThreshold;
         public float CriticalFireThreshold => m_CriticalFireThreshold;
+        public float CriticalHealthDrainPerSecond =>
+            m_CriticalHealthDrainPerSecond;
+        public bool HasCurrentConfiguration =>
+            Mathf.Abs(m_CriticalHealthDrainPerSecond - 0.015f) < 0.0001f &&
+            Mathf.Abs(m_CriticalHealthDrainTick - 0.25f) < 0.001f;
 
         public void Configure(
             FranklinBikeHealth health,
@@ -85,6 +98,8 @@ namespace FranklinGame.Vehicles
             m_SmokeHealthThreshold = 0.32f;
             m_CriticalFireThreshold = 0.14f;
             m_PreExplosionWarningDuration = 1.35f;
+            m_CriticalHealthDrainPerSecond = 0.015f;
+            m_CriticalHealthDrainTick = 0.25f;
             m_SmokeLoopVolume = 0.18f;
             m_CriticalFireLoopVolume = 0.5f;
             m_DestroyedFireLoopVolume = 0.8f;
@@ -116,6 +131,7 @@ namespace FranklinGame.Vehicles
             if (m_Health != null)
                 m_Health.EventHealthChanged -= OnHealthChanged;
             CancelPendingExplosion();
+            StopCriticalHealthDrain();
             m_ParticleWind?.SetWindActive(false);
             StopLoopAudio(m_SmokeAudioSource);
             StopLoopAudio(m_FireAudioSource);
@@ -136,6 +152,7 @@ namespace FranklinGame.Vehicles
             if (terminalWreck)
             {
                 CancelPendingExplosion();
+                StopCriticalHealthDrain();
                 SetLoopEffectActive(m_WeakHealthSmoke, false);
                 SetLoopEffectActive(m_CriticalWarningFire, false);
                 SetLoopEffectActive(m_DestroyedFire, true);
@@ -150,13 +167,58 @@ namespace FranklinGame.Vehicles
             );
             SetLoopEffectActive(m_DestroyedFire, false);
 
-            if (destroyed) ScheduleExplosionAfterWarning();
+            if (destroyed)
+            {
+                StopCriticalHealthDrain();
+                ScheduleExplosionAfterWarning();
+            }
             else
             {
                 CancelPendingExplosion();
                 m_HasExploded = false;
+                if (ratio <= m_CriticalFireThreshold)
+                    StartCriticalHealthDrain();
+                else
+                    StopCriticalHealthDrain();
             }
             RefreshLoopState();
+        }
+
+        private void StartCriticalHealthDrain()
+        {
+            if (m_CriticalHealthDrain != null || !isActiveAndEnabled) return;
+            m_CriticalHealthDrain = StartCoroutine(DrainCriticalHealth());
+        }
+
+        private void StopCriticalHealthDrain()
+        {
+            if (m_CriticalHealthDrain == null) return;
+            StopCoroutine(m_CriticalHealthDrain);
+            m_CriticalHealthDrain = null;
+        }
+
+        private IEnumerator DrainCriticalHealth()
+        {
+            WaitForSecondsRealtime wait = new WaitForSecondsRealtime(
+                Mathf.Clamp(m_CriticalHealthDrainTick, 0.1f, 1f)
+            );
+            while (m_Health != null && !m_Health.IsDestroyed &&
+                   m_Health.MaximumHealth > 0.001f &&
+                   m_Health.HealthRatio <= m_CriticalFireThreshold)
+            {
+                yield return wait;
+                if (m_Health == null || m_Health.IsDestroyed ||
+                    m_Health.HealthRatio > m_CriticalFireThreshold)
+                {
+                    break;
+                }
+
+                float damage = m_Health.MaximumHealth *
+                    m_CriticalHealthDrainPerSecond *
+                    Mathf.Clamp(m_CriticalHealthDrainTick, 0.1f, 1f);
+                m_Health.ApplyDamage(damage);
+            }
+            m_CriticalHealthDrain = null;
         }
 
         private void ScheduleExplosionAfterWarning()
@@ -276,6 +338,16 @@ namespace FranklinGame.Vehicles
                 m_SmokeHealthThreshold
             );
             m_PreExplosionWarningDuration = Mathf.Max(0.1f, m_PreExplosionWarningDuration);
+            m_CriticalHealthDrainPerSecond = Mathf.Clamp(
+                m_CriticalHealthDrainPerSecond,
+                0.005f,
+                0.2f
+            );
+            m_CriticalHealthDrainTick = Mathf.Clamp(
+                m_CriticalHealthDrainTick,
+                0.1f,
+                1f
+            );
         }
     }
 }

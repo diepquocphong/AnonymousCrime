@@ -28,12 +28,22 @@ namespace FranklinGame.Animations
             Sprint = 2
         }
 
+        private enum LocomotionMode
+        {
+            Walk = 0,
+            Jog = 1,
+            Sprint = 2
+        }
+
         [Header("Character target")]
         [SerializeField]
         [Tooltip("The GC2 Character driven by this bridge. It is resolved from a parent when omitted.")]
         private Character m_Player;
 
         [Header("GTA locomotion")]
+        [SerializeField, Min(0.1f)]
+        [Tooltip("Exact GC2 Walk State speed restored whenever Sprint ends")]
+        private float m_WalkSpeed = 2f;
         [SerializeField]
         [Tooltip("GC2's stock Run state, used as the light jog while Left Shift is held")]
         private State m_JogState;
@@ -145,6 +155,7 @@ namespace FranklinGame.Animations
         private float m_NextIdleVariation;
         private int m_LastIdleVariation = -1;
         private bool m_WasIdle;
+        private LocomotionMode m_LocomotionMode;
         private bool m_IsJogging;
         private bool m_IsSprinting;
         private bool m_VirtualJogHeld;
@@ -197,6 +208,12 @@ namespace FranklinGame.Animations
         {
             get => this.m_RunSpeed;
             set => this.m_RunSpeed = Mathf.Max(0.1f, value);
+        }
+
+        public float WalkSpeed
+        {
+            get => this.m_WalkSpeed;
+            set => this.m_WalkSpeed = Mathf.Max(0.1f, value);
         }
 
         public bool IsSprintRunning => this.m_IsSprinting &&
@@ -292,6 +309,9 @@ namespace FranklinGame.Animations
             if (!isLocked) return;
 
             this.StopVirtualAutoRun();
+            this.m_VirtualJogHeld = false;
+            this.m_VirtualSprintHeld = false;
+            this.ResetSprintTapSequence();
             this.StopTrackingIdle();
             this.StopOwnedCustomGesture();
             this.m_RunStartPending = false;
@@ -362,6 +382,7 @@ namespace FranklinGame.Animations
         private void OnValidate()
         {
             this.ResolveCharacter();
+            this.m_WalkSpeed = Mathf.Max(0.1f, this.m_WalkSpeed);
             this.m_RunSpeed = Mathf.Max(0.1f, this.m_RunSpeed);
             this.m_JogSpeed = Mathf.Max(0.1f, this.m_JogSpeed);
             this.m_SprintTapWindow = Mathf.Clamp(this.m_SprintTapWindow, 0.1f, 1f);
@@ -407,6 +428,7 @@ namespace FranklinGame.Animations
             this.m_VirtualJogHeld = false;
             this.m_VirtualSprintHeld = false;
             this.StopVirtualAutoRun();
+            this.ResetSprintTapSequence();
             if (this.m_Character == null) return;
 
             this.m_Character.EventJump -= this.OnCharacterJump;
@@ -448,8 +470,7 @@ namespace FranklinGame.Animations
             this.UpdateIdleGestureInterruption();
             this.UpdateSprintTapInput();
             this.UpdateSprintCameraDirection();
-            this.UpdateSprint();
-            this.UpdateJog();
+            this.UpdateLocomotionMode();
             this.UpdateRunTransitions();
             this.UpdateSprintAcceleration();
             this.UpdateRunStopEaseOut();
@@ -518,127 +539,193 @@ namespace FranklinGame.Animations
             return Mathf.Sqrt(2f * gravity * height);
         }
 
-        private void UpdateSprint()
+        private void UpdateLocomotionMode()
         {
-            bool canSprint = this.m_Character?.Driver?.IsGrounded == true &&
-                             this.m_Character.Motion?.IsJumping != true;
-            bool canStartSprint = this.m_HasForwardSprintInput && this.m_IsRunCameraAligned;
-            // Holding Shift is only GC2's light jog. Sprint is deliberately opt-in through a
-            // quick sequence of Shift taps, matching the GTA-style keyboard control scheme.
-            bool wantsSprint = canSprint && this.HasSprintRequest() &&
-                               (this.m_IsSprinting || canStartSprint);
-            if (wantsSprint == this.m_IsSprinting) return;
+            if (this.m_Character?.States == null || this.m_Character.Motion == null) return;
 
-            if (this.m_SprintState == null ||
-                this.m_Character?.States == null ||
+            bool canUseGroundLocomotion = this.m_Character.Driver?.IsGrounded == true &&
+                                          !this.m_Character.Motion.IsJumping;
+            bool sprintRequested = this.HasSprintRequest();
+            bool canStartSprint = this.m_HasForwardSprintInput &&
+                                  this.m_IsRunCameraAligned;
+
+            LocomotionMode desiredMode = LocomotionMode.Walk;
+            if (canUseGroundLocomotion && sprintRequested &&
+                (this.m_LocomotionMode == LocomotionMode.Sprint || canStartSprint))
+            {
+                desiredMode = this.m_SprintState != null
+                    ? LocomotionMode.Sprint
+                    : LocomotionMode.Jog;
+            }
+            else if (canUseGroundLocomotion && this.ShouldUseJog(sprintRequested))
+            {
+                desiredMode = LocomotionMode.Jog;
+            }
+
+            if (desiredMode == LocomotionMode.Jog && this.m_JogState == null)
+            {
+                desiredMode = LocomotionMode.Walk;
+            }
+            if (desiredMode == this.m_LocomotionMode) return;
+
+            switch (desiredMode)
+            {
+                case LocomotionMode.Sprint:
+                    this.EnterSprintMode();
+                    break;
+                case LocomotionMode.Jog:
+                    this.EnterJogMode();
+                    break;
+                default:
+                    this.EnterWalkMode(this.m_LocomotionMode == LocomotionMode.Sprint
+                        ? this.m_SprintTransition
+                        : this.m_JogTransition);
+                    break;
+            }
+        }
+
+        private bool ShouldUseJog(bool sprintRequested)
+        {
+            VirtualAutoRunMode autoRunMode = this.GetVirtualAutoRunMode();
+            return this.m_IsHealthDanger ||
+                   this.m_VirtualJogHeld ||
+                   autoRunMode == VirtualAutoRunMode.Jog ||
+                   this.m_Keyboard?.leftShiftKey.isPressed == true ||
+                   // Sprint waits in Jog while the body turns into the camera direction.
+                   (sprintRequested && this.m_HasForwardSprintInput);
+        }
+
+        private void EnterSprintMode()
+        {
+            if (this.m_SprintState == null || this.m_Character?.States == null ||
                 this.m_Character.Motion == null)
             {
                 return;
             }
-            if (wantsSprint)
-            {
-                // A quick Shift tap may begin from the Walk state after the first Shift was
-                // released. Sprint must still accelerate from the stock GC2 Run/Jog speed.
-                this.m_PreSprintSpeed = Mathf.Max(
-                    this.m_Character.Motion.LinearSpeed,
-                    this.m_JogSpeed
-                );
-                this.m_IsSprinting = true;
-                this.m_RunStartPending = true;
-                this.m_RunStopPending = false;
-                this.m_HasSprintMovement = false;
 
-                ConfigState config = new ConfigState(
+            this.CancelActiveRunTransitionGesture();
+            this.FinishRunStopEaseOut(false);
+
+            // Always start from the configured Jog baseline. Reading the current speed here can
+            // capture a stale Sprint value left by a previous blend and skip acceleration.
+            this.m_PreSprintSpeed = this.m_JogSpeed;
+            this.m_SprintTargetSpeed = this.m_RunSpeed;
+            this.m_RunStartPending = true;
+            this.m_RunStopPending = false;
+            this.m_HasSprintMovement = false;
+            this.m_RunStartAccelerationElapsed = 0f;
+            this.m_IsSprintAccelerating = false;
+            this.SetLocomotionMode(LocomotionMode.Sprint);
+
+            _ = this.m_Character.States.SetState(
+                this.m_SprintState,
+                this.m_SprintLayer,
+                BlendMode.Blend,
+                new ConfigState(
                     0f,
                     this.m_SprintAnimationSpeed,
                     1f,
                     this.m_SprintTransition,
                     this.m_SprintTransition
-                );
+                )
+            );
 
-                _ = this.m_Character.States.SetState(
-                    this.m_SprintState,
-                    this.m_SprintLayer,
-                    BlendMode.Blend,
-                    config
-                );
-
-                // The State enables the sprint animation. The bridge owns this Player's
-                // configurable run speed, then restores normal speed until Run Start begins.
-                this.m_SprintTargetSpeed = this.m_RunSpeed;
-                this.m_Character.Motion.LinearSpeed = this.m_PreSprintSpeed;
-                this.m_RunStartAccelerationElapsed = 0f;
-                this.m_IsSprintAccelerating = false;
-            }
-            else
-            {
-                this.m_RunStartPending = false;
-                // If input is still held, the player simply falls back to Jog/Walk. Run Stop is
-                // reserved for an actual movement stop, rather than interrupting locomotion.
-                this.m_RunStopPending = this.m_HasSprintMovement && !this.HasMovementInput();
-                this.m_RunStopDeadline = UnityEngine.Time.time + RUN_STOP_GRACE_SECONDS;
-                this.m_HasSprintMovement = false;
-                this.StopSprint(this.m_SprintTransition);
-            }
+            this.m_Character.Motion.LinearSpeed = this.m_PreSprintSpeed;
         }
 
-        private void UpdateJog()
+        private void EnterJogMode()
         {
-            if (this.m_IsSprinting)
+            if (this.m_JogState == null || this.m_Character?.States == null ||
+                this.m_Character.Motion == null)
             {
-                // Sprint replaces Jog on the same GC2 State layer. Do not stop that layer here.
-                this.m_IsJogging = false;
                 return;
             }
 
-            bool canJog = this.m_Character?.Driver?.IsGrounded == true &&
-                          this.m_Character.Motion?.IsJumping != true;
-            VirtualAutoRunMode autoRunMode = this.GetVirtualAutoRunMode();
-            // After taking damage, Jog is the temporary baseline for both keyboard and mobile
-            // joystick input. Outside danger mode, only held Shift requests the GC2 Run state.
-            bool wantsJog = canJog && (this.m_IsHealthDanger ||
-                                        this.m_VirtualJogHeld ||
-                                        autoRunMode == VirtualAutoRunMode.Jog ||
-                                        this.m_Keyboard?.leftShiftKey.isPressed == true);
-            if (wantsJog == this.m_IsJogging) return;
-
-            if (wantsJog)
+            if (this.m_LocomotionMode == LocomotionMode.Sprint)
             {
-                if (this.m_JogState == null || this.m_Character?.States == null) return;
-
-                _ = this.m_Character.States.SetState(
-                    this.m_JogState,
-                    this.m_SprintLayer,
-                    BlendMode.Blend,
-                    new ConfigState(
-                        0f,
-                        1f,
-                        1f,
-                        this.m_JogTransition,
-                        this.m_JogTransition
-                    )
-                );
-                this.m_IsJogging = true;
+                this.PrepareSprintExit();
             }
             else
             {
-                this.StopJog(this.m_JogTransition);
+                this.CancelActiveRunTransitionGesture();
+                this.FinishRunStopEaseOut(false);
             }
+
+            this.SetLocomotionMode(LocomotionMode.Jog);
+            // SetState directly replaces Sprint on layer 0. Calling Stop first would briefly
+            // reveal Walk and create the three-way blend seen during rapid Shift input.
+            _ = this.m_Character.States.SetState(
+                this.m_JogState,
+                this.m_SprintLayer,
+                BlendMode.Blend,
+                new ConfigState(
+                    0f,
+                    1f,
+                    1f,
+                    this.m_JogTransition,
+                    this.m_JogTransition
+                )
+            );
+            this.m_Character.Motion.LinearSpeed = this.m_JogSpeed;
+        }
+
+        private void EnterWalkMode(float transition)
+        {
+            if (this.m_LocomotionMode == LocomotionMode.Sprint)
+            {
+                this.PrepareSprintExit();
+            }
+            else
+            {
+                this.CancelActiveRunTransitionGesture();
+                this.FinishRunStopEaseOut(false);
+            }
+
+            this.SetLocomotionMode(LocomotionMode.Walk);
+            // Walk is GC2's permanent Start State on layer -1. Layer 0 is stopped only here.
+            this.m_Character?.States?.Stop(this.m_SprintLayer, 0f, transition);
+            if (this.m_Character?.Motion != null)
+            {
+                this.m_Character.Motion.LinearSpeed = this.m_WalkSpeed;
+            }
+        }
+
+        private void PrepareSprintExit()
+        {
+            bool stoppedMoving = !this.HasMovementInput();
+            this.m_RunStartPending = false;
+            this.m_RunStopPending = this.m_HasSprintMovement && stoppedMoving;
+            this.m_RunStopDeadline = UnityEngine.Time.time + RUN_STOP_GRACE_SECONDS;
+            this.m_HasSprintMovement = false;
+            this.CancelSprintAcceleration();
+            this.CancelActiveRunTransitionGesture();
+            this.FinishRunStopEaseOut(false);
+        }
+
+        private void SetLocomotionMode(LocomotionMode mode)
+        {
+            this.m_LocomotionMode = mode;
+            this.m_IsJogging = mode == LocomotionMode.Jog;
+            this.m_IsSprinting = mode == LocomotionMode.Sprint;
         }
 
         private void StopJog(float transition)
         {
-            if (!this.m_IsJogging) return;
-
-            // Player's Start State is GC2 Walk at layer -1. Releasing this temporary layer
-            // restores both the stock walk animation and its configured speed (2).
-            this.m_Character?.States?.Stop(this.m_SprintLayer, 0f, transition);
-            this.m_IsJogging = false;
+            if (this.m_LocomotionMode != LocomotionMode.Jog && !this.m_IsJogging) return;
+            this.EnterWalkMode(transition);
         }
 
         private void UpdateSprintTapInput()
         {
             if (this.m_IsHealthDanger) return;
+
+            // Releasing movement ends the current keyboard tap sequence. Otherwise returning to
+            // movement inside the old grace window can unexpectedly jump Walk straight to Sprint.
+            if (!this.HasMovementInput())
+            {
+                this.ResetSprintTapSequence();
+                return;
+            }
 
             if (UnityEngine.Time.time - this.m_LastSprintTapTime > this.m_SprintTapWindow)
             {
@@ -662,6 +749,13 @@ namespace FranklinGame.Animations
             if (this.m_SprintTapCount < this.m_SprintTapsRequired) return;
 
             this.m_SprintTapDeadline = now + this.m_SprintTapGrace;
+        }
+
+        private void ResetSprintTapSequence()
+        {
+            this.m_SprintTapCount = 0;
+            this.m_LastSprintTapTime = float.NegativeInfinity;
+            this.m_SprintTapDeadline = float.NegativeInfinity;
         }
 
         private bool IsSprintTapSequenceActive()
@@ -741,6 +835,9 @@ namespace FranklinGame.Animations
             double nextHealth = this.m_HealthAttribute.Value;
             if (nextHealth < this.m_LastHealth)
             {
+                // Damage mode changes Shift from repeated taps to hold-to-sprint. Discard the
+                // normal tap session so it cannot reactivate Sprint when safety mode is restored.
+                this.ResetSprintTapSequence();
                 this.m_IsHealthDanger = true;
                 this.m_HealthDangerDeadline = UnityEngine.Time.time + this.m_DamageJogDuration;
             }
@@ -775,11 +872,11 @@ namespace FranklinGame.Animations
 
             // Alignment only gates the initial Sprint start. Once running, camera orbit must
             // not repeatedly fire Run Stop/Run Start while the body catches up with the camera.
-            bool hasMovementInput = this.m_HasForwardSprintInput;
+            bool hasSprintMovementInput = this.m_HasForwardSprintInput;
 
             if (this.m_IsSprinting)
             {
-                if (hasMovementInput)
+                if (hasSprintMovementInput)
                 {
                     if (!this.m_HasSprintMovement)
                     {
@@ -825,7 +922,13 @@ namespace FranklinGame.Animations
                 this.m_RunStopPending = false;
                 return;
             }
-            if (hasMovementInput) return;
+            // Once Sprint has exited, ordinary Walk/Jog input no longer sets the Sprint-forward
+            // flag. Check the real input source or a pending Run Stop can play over Walk/Jog.
+            if (this.HasMovementInput())
+            {
+                this.m_RunStopPending = false;
+                return;
+            }
 
             this.m_RunStopPending = false;
             this.PlayRunStop();
@@ -1009,6 +1112,7 @@ namespace FranklinGame.Animations
                 this.m_Character.Facing.DeleteLayer(this.m_RunCameraFacingLayer);
             }
             bool preserveStopMomentum = this.m_IsSprinting &&
+                                        !this.HasMovementInput() &&
                                         (this.m_HasSprintMovement || this.m_IsRunStopEasing);
             if (this.m_HasSprintCameraMotionControl && this.m_Character?.Motion != null)
             {
@@ -1086,6 +1190,18 @@ namespace FranklinGame.Animations
             }
 
             return false;
+        }
+
+        private void CancelActiveRunTransitionGesture()
+        {
+            if (this.m_ActiveCustomGesture != this.m_RunStart &&
+                this.m_ActiveCustomGesture != this.m_RunStopLeft &&
+                this.m_ActiveCustomGesture != this.m_RunStopRight)
+            {
+                return;
+            }
+
+            this.StopOwnedCustomGesture();
         }
 
         private void CancelSprintAcceleration()
@@ -1167,6 +1283,16 @@ namespace FranklinGame.Animations
         {
             if (!this.m_IsRunStopEasing || this.m_Character?.Motion == null) return;
 
+            if (this.HasMovementInput())
+            {
+                // Any resumed Walk/Jog/Sprint input immediately owns locomotion again. Leaving
+                // this ease alive allowed it to write Walk speed over a newly-entered Jog state.
+                this.CancelActiveRunTransitionGesture();
+                this.FinishRunStopEaseOut(false);
+                this.m_Character.Motion.LinearSpeed = this.GetLocomotionModeSpeed();
+                return;
+            }
+
             this.m_RunStopEaseOutElapsed += UnityEngine.Time.deltaTime;
             float progress = Mathf.Clamp01(
                 this.m_RunStopEaseOutElapsed / Mathf.Max(0.05f, this.m_RunStopEaseOutTime)
@@ -1176,16 +1302,13 @@ namespace FranklinGame.Animations
                 this.m_RunStopEaseOutPower
             );
 
-            // While Shift remains held, bring the sprint speed cap back to the normal GC2 speed.
-            // GC2 itself remains responsible for easing the real MoveDirection to zero.
-            if (this.m_IsSprinting)
-            {
-                this.m_Character.Motion.LinearSpeed = Mathf.Lerp(
-                    this.m_RunStopStartLinearSpeed,
-                    this.m_PreSprintSpeed,
-                    easedProgress
-                );
-            }
+            // Run Stop only survives while there is no movement input, so Walk is the sole
+            // destination and cannot be overwritten by a simultaneous Jog/Sprint transition.
+            this.m_Character.Motion.LinearSpeed = Mathf.Lerp(
+                this.m_RunStopStartLinearSpeed,
+                this.m_WalkSpeed,
+                easedProgress
+            );
 
             if (progress >= 1f) this.FinishRunStopEaseOut(true);
         }
@@ -1200,27 +1323,42 @@ namespace FranklinGame.Animations
 
             if (applyNormalSpeed && this.m_Character?.Motion != null)
             {
-                this.m_Character.Motion.LinearSpeed = this.m_PreSprintSpeed;
+                this.m_Character.Motion.LinearSpeed = this.GetLocomotionModeSpeed();
             }
 
-            bool shouldExitSprintState = applyNormalSpeed && this.m_IsSprinting &&
-                                         !this.m_HasForwardSprintInput;
             this.m_HasRunStopMotionOverride = false;
             this.m_IsRunStopEasing = false;
             this.m_RunStopEaseOutElapsed = 0f;
+        }
 
-            if (shouldExitSprintState) this.StopSprint(this.m_SprintTransition);
+        private float GetLocomotionModeSpeed()
+        {
+            return this.m_LocomotionMode switch
+            {
+                LocomotionMode.Sprint => this.m_RunSpeed,
+                LocomotionMode.Jog => this.m_JogSpeed,
+                _ => this.m_WalkSpeed
+            };
         }
 
         private void StopSprint(float transition)
         {
-            // The default GC2 Walk State runs at layer -1. Stopping Sprint reveals Walk, while
-            // UpdateJog may replace it with GC2's Run State if Shift is still held.
-            this.m_Character.States?.Stop(this.m_SprintLayer, 0f, transition);
+            if (this.m_LocomotionMode != LocomotionMode.Sprint && !this.m_IsSprinting) return;
 
-            this.m_IsSprintAccelerating = false;
-            this.m_RunStartAccelerationElapsed = 0f;
-            this.m_IsSprinting = false;
+            // Forced exits (jump, vehicle lock or component disable) always return atomically to
+            // GC2 Walk. Normal Sprint -> Jog transitions use EnterJogMode and never stop first.
+            this.CancelActiveRunTransitionGesture();
+            this.m_Character.States?.Stop(this.m_SprintLayer, 0f, transition);
+            if (this.m_Character.Motion != null)
+            {
+                this.m_Character.Motion.LinearSpeed = this.m_WalkSpeed;
+            }
+
+            this.SetLocomotionMode(LocomotionMode.Walk);
+            this.CancelSprintAcceleration();
+            this.m_RunStartPending = false;
+            this.m_RunStopPending = false;
+            this.m_HasSprintMovement = false;
         }
 
         private bool CanPlayIdleVariation()
@@ -1286,6 +1424,7 @@ namespace FranklinGame.Animations
                              this.m_Character.Driver.WorldMoveDirection.sqrMagnitude >
                              MOVEMENT_EPSILON_SQR;
 
+            this.ResetSprintTapSequence();
             this.StopTrackingIdle();
             this.m_RunStartPending = false;
             this.m_RunStopPending = false;

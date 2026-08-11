@@ -248,10 +248,14 @@ namespace FranklinGame.Vehicles.Editor
                 throw new InvalidOperationException("Car smoke threshold must stay near 32% health");
             if (effects.CriticalFireThreshold < 0.12f ||
                 effects.CriticalFireThreshold > 0.16f ||
-                effects.PreExplosionWarningDuration < 1.25f)
+                effects.PreExplosionWarningDuration < 1.25f ||
+                effects.CriticalBurnDuration < 5f ||
+                effects.CriticalBurnDuration > 10f ||
+                effects.CriticalBurnTickInterval < 0.1f ||
+                effects.CriticalBurnTickInterval > 0.5f)
             {
                 throw new InvalidOperationException(
-                    "Critical fire must start near 14% and warn before the explosion"
+                    "Critical fire must start near 14%, drain health gradually and warn before explosion"
                 );
             }
 
@@ -370,7 +374,8 @@ namespace FranklinGame.Vehicles.Editor
             Debug.Log(
                 "Car damage effects validation passed: Hovl Smoke1/Fire3/Explosion11, " +
                 "world-space physical wind at 8 Hz, 32% smoke, 14% critical fire, 1.35s " +
-                "guaranteed pre-explosion warning, delayed camera hold + Player return blend, " +
+                "guaranteed pre-explosion warning, 7s event-driven critical health drain, " +
+                "delayed camera hold + Player return blend, " +
                 "wheel/wreck cleanup, occupant ragdoll/fire, " +
                 "3D smoke/fire/explosion audio and <=60 explosion particles are configured."
             );

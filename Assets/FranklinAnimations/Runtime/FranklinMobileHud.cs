@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using FranklinGame.Animations;
 using FranklinGame.Vehicles;
@@ -19,22 +20,40 @@ namespace FranklinGame.UI
     {
         private const float REFERENCE_REFRESH_SECONDS = 0.5f;
         private const string RESOURCE_ROOT = "FranklinMobileUI/";
-        private const float BIKE_HEALTH_FILL_WIDTH = 732f;
         private const float BIKE_SPEED_UPDATE_SECONDS = 0.1f;
+        private const float BIKE_FUEL_GAUGE_WIDTH = 74f;
+        private const float BIKE_FUEL_GAUGE_HEIGHT = 152f;
+        private const float BIKE_HEALTH_LAYOUT_WIDTH = 104f;
+        private const float BIKE_HEALTH_LAYOUT_HEIGHT = 230f;
+        private const float BIKE_HEALTH_GAUGE_WIDTH = 40f;
+        private const float BIKE_HEALTH_GAUGE_HEIGHT = 184f;
+        private const float BIKE_HEALTH_BAR_OFFSET_X = 18f;
+        private const float BIKE_HEALTH_BAR_OFFSET_Y = -23f;
 
-        private static readonly Color BIKE_HEALTH_GREEN =
-            new Color(0.55f, 0.96f, 0.16f, 1f);
-        private static readonly Color BIKE_HEALTH_YELLOW =
-            new Color(1f, 0.68f, 0.05f, 1f);
-        private static readonly Color BIKE_HEALTH_RED =
-            new Color(0.96f, 0.08f, 0.08f, 1f);
+        private static readonly Color VEHICLE_HEALTH_SKY_BLUE =
+            new Color(0.16f, 0.72f, 1f, 1f);
+        private static readonly Color SPEED_BACKGROUND_COLOR =
+            new Color(0f, 0f, 0f, 0.32f);
+        private static readonly Color SPEED_BACKGROUND_BORDER_COLOR =
+            new Color(1f, 1f, 1f, 0.12f);
+        private static readonly Vector2 SPEED_BACKGROUND_MAX_SIZE =
+            new Vector2(176f, 48f);
+        private static readonly Vector2 SPEED_BACKGROUND_OFFSET =
+            new Vector2(0f, 3f);
 
         private static readonly Dictionary<string, Sprite> SPRITES = new();
         private static FranklinMobileHud s_Instance;
         private static bool s_ControlsSuppressed;
 
-        [Header("Bike Health UI")]
-        [SerializeField] private Sprite m_BikeHealthFrameSprite;
+        [Header("Bike Curved Health + Fuel UI")]
+        [SerializeField] private Sprite m_BikeGaugeSprite;
+        [SerializeField] private Material m_BikeGaugeAlphaTintMaterial;
+        [SerializeField] private Vector2 m_BikeFuelGaugeOffset = new Vector2(-45f, -112f);
+        [Tooltip("Khoảng cách world-space sang phải thân Bike của thanh máu.")]
+        [SerializeField, Min(0.5f)] private float m_BikeHealthWorldRightOffset = 2.35f;
+        [SerializeField] private float m_BikeHealthWorldHeight = 0.82f;
+        [Tooltip("Bù pixel của thanh máu sau khi mirror vị trí thanh xăng.")]
+        [SerializeField] private Vector2 m_BikeHealthScreenOffset = Vector2.zero;
 
         [Header("Bike Speed UI - Font (Editable)")]
         [SerializeField] private Font m_BikeSpeedFont;
@@ -63,8 +82,10 @@ namespace FranklinGame.UI
         private RectTransform m_OnFootGroup;
         private RectTransform m_VehicleGroup;
         private RectTransform m_BikeHealthRoot;
-        private RectTransform m_BikeHealthFill;
         private Image m_BikeHealthFillImage;
+        private RectTransform m_BikeFuelRoot;
+        private Image m_BikeFuelFillImage;
+        private RectTransform m_BikeSpeedBackground;
         private RectTransform m_BikeSpeedRoot;
         private Text m_BikeSpeedText;
         private GameObject m_EnterVehicleButton;
@@ -77,6 +98,8 @@ namespace FranklinGame.UI
         private IRvrVehicleInputController m_ActiveDriver;
         private FranklinArcadeBikeDriver m_BikeHealthDriver;
         private FranklinBikeHealth m_ActiveBikeHealth;
+        private FranklinArcadeBikeDriver m_BikeFuelDriver;
+        private FranklinBikeFuel m_ActiveBikeFuel;
         private FranklinArcadeBikeDriver m_BikeSpeedDriver;
         private Camera m_BikeSpeedCamera;
         private GameObject m_TactileCanvas;
@@ -86,16 +109,26 @@ namespace FranklinGame.UI
         private int m_LastDisplayedBikeSpeed = int.MinValue;
         private Vector2 m_BikeSpeedPosition;
         private Vector2 m_BikeSpeedVelocity;
+        private Vector2 m_BikeHealthPosition;
+        private Vector2 m_BikeHealthVelocity;
         private bool m_WasDriving;
         private bool m_WasPassengerMode;
         private bool m_HasAppliedMode;
         private bool m_UsesCanvasPlayerControl;
         private bool m_HasAppliedSuppression;
         private bool m_HasBikeSpeedPosition;
+        private bool m_HasBikeHealthPosition;
 
         public static bool IsActive => s_Instance != null &&
                                        s_Instance.isActiveAndEnabled;
         public static bool ControlsSuppressed => s_ControlsSuppressed;
+
+        /// <summary>Raised when the HUD phone button is pressed.</summary>
+        public event Action EventPhoneRequested;
+        /// <summary>Raised when the HUD home button is pressed.</summary>
+        public event Action EventHomeRequested;
+        /// <summary>Raised when the HUD settings button is pressed.</summary>
+        public event Action EventSettingsRequested;
 
         public static void SetControlsSuppressed(bool suppressed)
         {
@@ -161,6 +194,7 @@ namespace FranklinGame.UI
         private void OnDestroy()
         {
             this.BindBikeHealth(null);
+            this.BindBikeFuel(null);
             this.UpdateBikeSpeed(null);
             this.ReleaseMovementInputs();
             this.ReleaseVehicleInputs(this.m_ActiveDriver);
@@ -236,6 +270,15 @@ namespace FranklinGame.UI
                     break;
                 case FranklinHudAction.Jump:
                     if (active) this.m_MovementBridge?.RequestVirtualJump();
+                    break;
+                case FranklinHudAction.Phone:
+                    if (active) this.EventPhoneRequested?.Invoke();
+                    break;
+                case FranklinHudAction.Home:
+                    if (active) this.EventHomeRequested?.Invoke();
+                    break;
+                case FranklinHudAction.Settings:
+                    if (active) this.EventSettingsRequested?.Invoke();
                     break;
                 case FranklinHudAction.SteerLeft:
                     this.m_ActiveDriver?.SetVirtualSteerLeftInput(active);
@@ -330,7 +373,7 @@ namespace FranklinGame.UI
                 FranklinHudAction.Sprint,
                 new Vector2(0f, 0f),
                 new Vector2(173.4f, 561.13f),
-                new Vector2(215f, 215f)
+                new Vector2(165f, 165f)
             );
             this.CreateButton(
                 this.m_OnFootGroup,
@@ -403,8 +446,8 @@ namespace FranklinGame.UI
                 "vehicle-control-5",
                 FranklinHudAction.VehicleInteraction,
                 new Vector2(1f, 1f),
-                new Vector2(-115f, -120f),
-                new Vector2(190f, 190f)
+                new Vector2(-125f, -385f),
+                new Vector2(170f, 170f)
             );
             this.m_SlowDriveButton = this.CreateButton(
                 this.m_VehicleGroup,
@@ -421,7 +464,7 @@ namespace FranklinGame.UI
                 "vehicle-control-headlight",
                 FranklinHudAction.BikeHeadlight,
                 new Vector2(1f, 1f),
-                new Vector2(-115f, -315f),
+                new Vector2(-115f, -575f),
                 new Vector2(155f, 155f),
                 true
             );
@@ -431,7 +474,7 @@ namespace FranklinGame.UI
                 "vehicle-control-wheelie",
                 FranklinHudAction.BikeWheelie,
                 new Vector2(1f, 1f),
-                new Vector2(-285f, -315f),
+                new Vector2(-285f, -575f),
                 new Vector2(155f, 155f)
             );
             this.m_BikeBurnoutButton = this.CreateButton(
@@ -440,11 +483,12 @@ namespace FranklinGame.UI
                 "vehicle-control-burnout",
                 FranklinHudAction.BikeBurnout,
                 new Vector2(1f, 1f),
-                new Vector2(-455f, -315f),
+                new Vector2(-455f, -575f),
                 new Vector2(155f, 155f)
             );
-            this.EnsureBikeHealthUi();
             this.EnsureBikeSpeedUi();
+            this.EnsureBikeHealthUi();
+            this.EnsureBikeFuelUi();
         }
 
         private bool TryBindPrefabControls()
@@ -486,7 +530,7 @@ namespace FranklinGame.UI
                     "vehicle-control-headlight",
                     FranklinHudAction.BikeHeadlight,
                     new Vector2(1f, 1f),
-                    new Vector2(-115f, -315f),
+                    new Vector2(-115f, -575f),
                     new Vector2(155f, 155f),
                     true
                 );
@@ -500,7 +544,7 @@ namespace FranklinGame.UI
                     "vehicle-control-wheelie",
                     FranklinHudAction.BikeWheelie,
                     new Vector2(1f, 1f),
-                    new Vector2(-285f, -315f),
+                    new Vector2(-285f, -575f),
                     new Vector2(155f, 155f)
                 );
             }
@@ -513,13 +557,14 @@ namespace FranklinGame.UI
                     "vehicle-control-burnout",
                     FranklinHudAction.BikeBurnout,
                     new Vector2(1f, 1f),
-                    new Vector2(-455f, -315f),
+                    new Vector2(-455f, -575f),
                     new Vector2(155f, 155f)
                 );
             }
 
-            this.EnsureBikeHealthUi();
             this.EnsureBikeSpeedUi();
+            this.EnsureBikeHealthUi();
+            this.EnsureBikeFuelUi();
 
             if (this.m_EnterVehicleButton == null || FindButton("Jog") == null ||
                 FindButton("Sprint") == null || FindButton("Jump") == null)
@@ -671,30 +716,35 @@ namespace FranklinGame.UI
             }
 
             IRvrVehicleInputController previousDriver = this.m_ActiveDriver;
-            if (!IsUsableDriver(this.m_ActiveDriver))
+            SimcadeCarDriver activeCar = null;
+            foreach (SimcadeCarDriver driver in FindObjectsByType<SimcadeCarDriver>(
+                         FindObjectsSortMode.None))
+            {
+                if (driver != null && (driver.IsVehicleEnabled ||
+                                       driver.IsPassengerPresentationActive))
+                {
+                    activeCar = driver;
+                    break;
+                }
+            }
+
+            // A Car owns the shared vehicle HUD while its presentation is active. This also
+            // prevents a Bike driver that is still enabled for one handoff frame from keeping
+            // the Bike controls/telemetry bound over the Car HUD.
+            if (activeCar != null)
+            {
+                this.m_ActiveDriver = activeCar;
+            }
+            else if (!IsUsableDriver(this.m_ActiveDriver))
             {
                 this.m_ActiveDriver = null;
-                foreach (SimcadeCarDriver driver in FindObjectsByType<SimcadeCarDriver>(
-                    FindObjectsSortMode.None))
+                foreach (FranklinArcadeBikeDriver driver in
+                         FindObjectsByType<FranklinArcadeBikeDriver>(FindObjectsSortMode.None))
                 {
-                    if (driver != null && (driver.IsVehicleEnabled ||
-                                           driver.IsPassengerPresentationActive))
+                    if (driver != null && driver.IsVehicleEnabled)
                     {
                         this.m_ActiveDriver = driver;
                         break;
-                    }
-                }
-
-                if (this.m_ActiveDriver == null)
-                {
-                    foreach (FranklinArcadeBikeDriver driver in
-                             FindObjectsByType<FranklinArcadeBikeDriver>(FindObjectsSortMode.None))
-                    {
-                        if (driver != null && driver.IsVehicleEnabled)
-                        {
-                            this.m_ActiveDriver = driver;
-                            break;
-                        }
                     }
                 }
             }
@@ -743,7 +793,8 @@ namespace FranklinGame.UI
 
         private void UpdateBikeOnlyControls(bool isDriving)
         {
-            FranklinArcadeBikeDriver bikeDriver = isDriving
+            FranklinArcadeBikeDriver bikeDriver = isDriving &&
+                                                     !SimcadeCarDashboard.IsSharedHudActive
                 ? this.m_ActiveDriver as FranklinArcadeBikeDriver
                 : null;
             bool shouldShow = bikeDriver != null;
@@ -751,7 +802,9 @@ namespace FranklinGame.UI
             SetButtonActive(this.m_BikeWheelieButton, shouldShow);
             SetButtonActive(this.m_BikeBurnoutButton, shouldShow);
             this.BindBikeHealth(bikeDriver);
+            this.BindBikeFuel(bikeDriver);
             this.UpdateBikeSpeed(bikeDriver);
+            this.UpdateBikeGaugePositions(bikeDriver);
         }
 
         private void EnsureBikeHealthUi()
@@ -762,17 +815,16 @@ namespace FranklinGame.UI
             if (existingRoot is RectTransform root)
             {
                 this.m_BikeHealthRoot = root;
-                Transform background = root.Find("Background");
-                if (background != null) background.gameObject.SetActive(false);
-                Transform existingFill = root.Find("Fill");
+                Transform existingFill = root.Find("Health Arc Fill");
                 if (existingFill is RectTransform fill)
                 {
-                    this.m_BikeHealthFill = fill;
                     this.m_BikeHealthFillImage = fill.GetComponent<Image>();
                 }
 
-                if (this.m_BikeHealthFill != null && this.m_BikeHealthFillImage != null)
+                if (this.m_BikeHealthFillImage != null)
                 {
+                    this.ConfigureBikeHealthFill(this.m_BikeHealthFillImage);
+                    ApplyBikeHealthIconColor(this.m_BikeHealthRoot);
                     this.m_BikeHealthRoot.gameObject.SetActive(false);
                     return;
                 }
@@ -788,42 +840,165 @@ namespace FranklinGame.UI
                 this.m_BikeHealthRoot.SetParent(this.m_VehicleGroup, false);
             }
 
-            this.m_BikeHealthRoot.anchorMin = new Vector2(0.5f, 0f);
-            this.m_BikeHealthRoot.anchorMax = new Vector2(0.5f, 0f);
+            this.m_BikeHealthRoot.anchorMin = new Vector2(0.5f, 0.5f);
+            this.m_BikeHealthRoot.anchorMax = new Vector2(0.5f, 0.5f);
             this.m_BikeHealthRoot.pivot = new Vector2(0.5f, 0.5f);
-            this.m_BikeHealthRoot.anchoredPosition = new Vector2(0f, 48f);
-            this.m_BikeHealthRoot.sizeDelta = new Vector2(760f, 74f);
-
-            GameObject fillObject = new GameObject(
-                "Fill",
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(Image)
+            this.m_BikeHealthRoot.anchoredPosition = Vector2.zero;
+            this.m_BikeHealthRoot.sizeDelta = new Vector2(
+                BIKE_HEALTH_LAYOUT_WIDTH,
+                BIKE_HEALTH_LAYOUT_HEIGHT
             );
-            this.m_BikeHealthFill = fillObject.GetComponent<RectTransform>();
-            this.m_BikeHealthFill.SetParent(this.m_BikeHealthRoot, false);
-            this.m_BikeHealthFill.anchorMin = new Vector2(0f, 0.5f);
-            this.m_BikeHealthFill.anchorMax = new Vector2(0f, 0.5f);
-            this.m_BikeHealthFill.pivot = new Vector2(0f, 0.5f);
-            this.m_BikeHealthFill.anchoredPosition = new Vector2(14f, 0f);
-            this.m_BikeHealthFill.sizeDelta = new Vector2(BIKE_HEALTH_FILL_WIDTH, 38f);
-            this.m_BikeHealthFillImage = fillObject.GetComponent<Image>();
-            this.m_BikeHealthFillImage.color = BIKE_HEALTH_GREEN;
-            this.m_BikeHealthFillImage.raycastTarget = false;
 
-            CreateBikeHealthImage(
-                "Generated Health Frame",
+            this.m_BikeHealthFillImage = CreateBikeGaugeImage(
+                "Health Arc Fill",
                 this.m_BikeHealthRoot,
-                new Vector2(760f, 74f),
-                this.m_BikeHealthFrameSprite,
-                this.m_BikeHealthFrameSprite != null ? Color.white : Color.clear
+                new Vector2(BIKE_HEALTH_BAR_OFFSET_X, BIKE_HEALTH_BAR_OFFSET_Y),
+                new Vector2(BIKE_HEALTH_GAUGE_WIDTH, BIKE_HEALTH_GAUGE_HEIGHT),
+                this.m_BikeGaugeSprite,
+                VEHICLE_HEALTH_SKY_BLUE
             );
+            this.ConfigureBikeHealthFill(this.m_BikeHealthFillImage);
+            RectTransform iconRoot = CreateBikeGaugeRect(
+                "Bike Health Icon",
+                this.m_BikeHealthRoot,
+                new Vector2(BIKE_HEALTH_BAR_OFFSET_X, 91f),
+                new Vector2(34f, 34f)
+            );
+            CreateBikeSolidImage(
+                "Health Icon Vertical",
+                iconRoot,
+                new Vector2(9f, 30f),
+                VEHICLE_HEALTH_SKY_BLUE
+            );
+            CreateBikeSolidImage(
+                "Health Icon Horizontal",
+                iconRoot,
+                new Vector2(30f, 9f),
+                VEHICLE_HEALTH_SKY_BLUE
+            );
+            ApplyBikeHealthIconColor(this.m_BikeHealthRoot);
             this.m_BikeHealthRoot.gameObject.SetActive(false);
         }
 
-        private static Image CreateBikeHealthImage(
+        private static void ApplyBikeHealthIconColor(RectTransform healthRoot)
+        {
+            if (healthRoot == null) return;
+            Transform iconRoot = healthRoot.Find("Bike Health Icon");
+            if (iconRoot == null) return;
+
+            Image vertical = iconRoot.Find("Health Icon Vertical")?.GetComponent<Image>();
+            Image horizontal = iconRoot.Find("Health Icon Horizontal")?.GetComponent<Image>();
+            if (vertical != null) vertical.color = VEHICLE_HEALTH_SKY_BLUE;
+            if (horizontal != null) horizontal.color = VEHICLE_HEALTH_SKY_BLUE;
+        }
+
+        private void EnsureBikeFuelUi()
+        {
+            if (this.m_VehicleGroup == null) return;
+
+            Transform existingRoot = this.m_VehicleGroup.Find("Bike Fuel UI");
+            if (existingRoot is RectTransform root)
+            {
+                this.m_BikeFuelRoot = root;
+                this.m_BikeFuelFillImage = root.Find("Fuel Arc Fill")?.GetComponent<Image>();
+                if (this.m_BikeFuelFillImage != null)
+                {
+                    this.ConfigureBikeFuelFill(this.m_BikeFuelFillImage);
+                    this.m_BikeFuelRoot.gameObject.SetActive(false);
+                    return;
+                }
+            }
+
+            if (this.m_BikeFuelRoot == null)
+            {
+                GameObject fuelObject = new GameObject("Bike Fuel UI", typeof(RectTransform));
+                this.m_BikeFuelRoot = fuelObject.GetComponent<RectTransform>();
+                this.m_BikeFuelRoot.SetParent(this.m_VehicleGroup, false);
+            }
+
+            this.m_BikeFuelRoot.anchorMin = new Vector2(0.5f, 0.5f);
+            this.m_BikeFuelRoot.anchorMax = new Vector2(0.5f, 0.5f);
+            this.m_BikeFuelRoot.pivot = new Vector2(0.5f, 0.5f);
+            this.m_BikeFuelRoot.anchoredPosition = Vector2.zero;
+            this.m_BikeFuelRoot.sizeDelta = new Vector2(
+                BIKE_FUEL_GAUGE_WIDTH,
+                BIKE_FUEL_GAUGE_HEIGHT
+            );
+
+            this.m_BikeFuelFillImage = CreateBikeGaugeImage(
+                "Fuel Arc Fill",
+                this.m_BikeFuelRoot,
+                Vector2.zero,
+                new Vector2(BIKE_FUEL_GAUGE_WIDTH, BIKE_FUEL_GAUGE_HEIGHT),
+                this.m_BikeGaugeSprite,
+                Color.white
+            );
+            this.ConfigureBikeFuelFill(this.m_BikeFuelFillImage);
+            CreateBikeGaugeLabel(
+                "Full",
+                this.m_BikeFuelRoot,
+                "F",
+                new Vector2(29f, 59f),
+                new Color(1f, 1f, 1f, 0.78f)
+            );
+            CreateBikeGaugeLabel(
+                "Empty",
+                this.m_BikeFuelRoot,
+                "E",
+                new Vector2(29f, -59f),
+                new Color(1f, 1f, 1f, 0.62f)
+            );
+            this.m_BikeFuelRoot.gameObject.SetActive(false);
+        }
+
+        private void ConfigureBikeHealthFill(Image image)
+        {
+            image.sprite = this.m_BikeGaugeSprite;
+            image.material = this.m_BikeGaugeAlphaTintMaterial;
+            image.preserveAspect = false;
+            image.rectTransform.localScale = new Vector3(-1f, 1f, 1f);
+            image.type = Image.Type.Filled;
+            image.fillMethod = Image.FillMethod.Vertical;
+            image.fillOrigin = (int)Image.OriginVertical.Bottom;
+            image.fillClockwise = true;
+            image.color = VEHICLE_HEALTH_SKY_BLUE;
+            image.raycastTarget = false;
+        }
+
+        private void ConfigureBikeFuelFill(Image image)
+        {
+            image.sprite = this.m_BikeGaugeSprite;
+            image.preserveAspect = true;
+            image.rectTransform.localScale = Vector3.one;
+            image.type = Image.Type.Filled;
+            image.fillMethod = Image.FillMethod.Vertical;
+            image.fillOrigin = (int)Image.OriginVertical.Bottom;
+            image.fillClockwise = true;
+            image.color = Color.white;
+            image.raycastTarget = false;
+        }
+
+        private static RectTransform CreateBikeGaugeRect(
             string objectName,
             Transform parent,
+            Vector2 position,
+            Vector2 size)
+        {
+            GameObject rectObject = new GameObject(objectName, typeof(RectTransform));
+            RectTransform rect = rectObject.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+            return rect;
+        }
+
+        private static Image CreateBikeGaugeImage(
+            string objectName,
+            Transform parent,
+            Vector2 position,
             Vector2 size,
             Sprite sprite,
             Color color)
@@ -839,7 +1014,7 @@ namespace FranklinGame.UI
             rect.anchorMin = new Vector2(0.5f, 0.5f);
             rect.anchorMax = new Vector2(0.5f, 0.5f);
             rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = Vector2.zero;
+            rect.anchoredPosition = position;
             rect.sizeDelta = size;
 
             Image image = imageObject.GetComponent<Image>();
@@ -850,9 +1025,62 @@ namespace FranklinGame.UI
             return image;
         }
 
+        private static Image CreateBikeSolidImage(
+            string objectName,
+            Transform parent,
+            Vector2 size,
+            Color color)
+        {
+            return CreateBikeGaugeImage(
+                objectName,
+                parent,
+                Vector2.zero,
+                size,
+                null,
+                color
+            );
+        }
+
+        private void CreateBikeGaugeLabel(
+            string objectName,
+            Transform parent,
+            string value,
+            Vector2 position,
+            Color color)
+        {
+            GameObject labelObject = new GameObject(
+                objectName,
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Text)
+            );
+            RectTransform rect = labelObject.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = new Vector2(24f, 22f);
+            Text label = labelObject.GetComponent<Text>();
+            label.font = this.m_BikeSpeedFont != null
+                ? this.m_BikeSpeedFont
+                : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            label.fontSize = 15;
+            label.fontStyle = FontStyle.Bold;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = color;
+            label.text = value;
+            label.raycastTarget = false;
+        }
+
         private void BindBikeHealth(FranklinArcadeBikeDriver bikeDriver)
         {
-            if (this.m_BikeHealthDriver == bikeDriver) return;
+            if (this.m_BikeHealthDriver == bikeDriver)
+            {
+                this.SetBikeHealthVisible(bikeDriver != null &&
+                                          this.m_ActiveBikeHealth != null);
+                return;
+            }
 
             if (this.m_ActiveBikeHealth != null)
                 this.m_ActiveBikeHealth.EventHealthChanged -= this.OnBikeHealthChanged;
@@ -862,12 +1090,7 @@ namespace FranklinGame.UI
                 ? bikeDriver.GetComponent<FranklinBikeHealth>()
                 : null;
 
-            bool visible = this.m_ActiveBikeHealth != null;
-            if (this.m_BikeHealthRoot != null &&
-                this.m_BikeHealthRoot.gameObject.activeSelf != visible)
-            {
-                this.m_BikeHealthRoot.gameObject.SetActive(visible);
-            }
+            this.SetBikeHealthVisible(this.m_ActiveBikeHealth != null);
 
             if (this.m_ActiveBikeHealth == null) return;
             this.m_ActiveBikeHealth.EventHealthChanged += this.OnBikeHealthChanged;
@@ -880,18 +1103,64 @@ namespace FranklinGame.UI
         private void OnBikeHealthChanged(float current, float maximum)
         {
             float ratio = maximum > 0.001f ? Mathf.Clamp01(current / maximum) : 0f;
-            if (this.m_BikeHealthFill != null)
-            {
-                this.m_BikeHealthFill.sizeDelta = new Vector2(
-                    BIKE_HEALTH_FILL_WIDTH * ratio,
-                    this.m_BikeHealthFill.sizeDelta.y
-                );
-            }
             if (this.m_BikeHealthFillImage != null)
             {
-                this.m_BikeHealthFillImage.color = ratio > 0.5f
-                    ? Color.Lerp(BIKE_HEALTH_YELLOW, BIKE_HEALTH_GREEN, (ratio - 0.5f) * 2f)
-                    : Color.Lerp(BIKE_HEALTH_RED, BIKE_HEALTH_YELLOW, ratio * 2f);
+                this.m_BikeHealthFillImage.fillAmount = ratio;
+                this.m_BikeHealthFillImage.color = VEHICLE_HEALTH_SKY_BLUE;
+            }
+        }
+
+        private void SetBikeHealthVisible(bool visible)
+        {
+            visible &= !SimcadeCarDashboard.IsSharedHudActive;
+            if (this.m_BikeHealthRoot != null &&
+                this.m_BikeHealthRoot.gameObject.activeSelf != visible)
+            {
+                this.m_BikeHealthRoot.gameObject.SetActive(visible);
+            }
+        }
+
+        private void BindBikeFuel(FranklinArcadeBikeDriver bikeDriver)
+        {
+            if (this.m_BikeFuelDriver == bikeDriver)
+            {
+                this.SetBikeFuelVisible(bikeDriver != null &&
+                                        this.m_ActiveBikeFuel != null);
+                return;
+            }
+
+            if (this.m_ActiveBikeFuel != null)
+                this.m_ActiveBikeFuel.EventFuelChanged -= this.OnBikeFuelChanged;
+
+            this.m_BikeFuelDriver = bikeDriver;
+            this.m_ActiveBikeFuel = bikeDriver != null
+                ? bikeDriver.GetComponent<FranklinBikeFuel>()
+                : null;
+
+            this.SetBikeFuelVisible(this.m_ActiveBikeFuel != null);
+
+            if (this.m_ActiveBikeFuel == null) return;
+            this.m_ActiveBikeFuel.EventFuelChanged += this.OnBikeFuelChanged;
+            this.OnBikeFuelChanged(
+                this.m_ActiveBikeFuel.CurrentFuel,
+                this.m_ActiveBikeFuel.MaximumFuel
+            );
+        }
+
+        private void OnBikeFuelChanged(float current, float maximum)
+        {
+            float ratio = maximum > 0.001f ? Mathf.Clamp01(current / maximum) : 0f;
+            if (this.m_BikeFuelFillImage != null)
+                this.m_BikeFuelFillImage.fillAmount = ratio;
+        }
+
+        private void SetBikeFuelVisible(bool visible)
+        {
+            visible &= !SimcadeCarDashboard.IsSharedHudActive;
+            if (this.m_BikeFuelRoot != null &&
+                this.m_BikeFuelRoot.gameObject.activeSelf != visible)
+            {
+                this.m_BikeFuelRoot.gameObject.SetActive(visible);
             }
         }
 
@@ -908,7 +1177,9 @@ namespace FranklinGame.UI
                     this.m_BikeSpeedRoot = existingRect;
                     this.m_BikeSpeedText = existingText;
                     this.ApplyBikeSpeedStyle();
+                    this.EnsureBikeSpeedBackground();
                     this.m_BikeSpeedRoot.gameObject.SetActive(false);
+                    this.m_BikeSpeedBackground.gameObject.SetActive(false);
                     return;
                 }
             }
@@ -932,7 +1203,66 @@ namespace FranklinGame.UI
             this.m_BikeSpeedText = speedObject.GetComponent<Text>() ??
                                    speedObject.AddComponent<Text>();
             this.ApplyBikeSpeedStyle();
+            this.EnsureBikeSpeedBackground();
             this.m_BikeSpeedRoot.gameObject.SetActive(false);
+            this.m_BikeSpeedBackground.gameObject.SetActive(false);
+        }
+
+        private void EnsureBikeSpeedBackground()
+        {
+            if (this.m_VehicleGroup == null || this.m_BikeSpeedRoot == null) return;
+
+            Transform existing = this.m_VehicleGroup.Find("Bike Speed Background");
+            Image backgroundImage = existing != null ? existing.GetComponent<Image>() : null;
+            if (backgroundImage == null)
+            {
+                GameObject backgroundObject = new GameObject(
+                    "Bike Speed Background",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image)
+                );
+                this.m_BikeSpeedBackground =
+                    backgroundObject.GetComponent<RectTransform>();
+                this.m_BikeSpeedBackground.SetParent(this.m_VehicleGroup, false);
+                backgroundImage = backgroundObject.GetComponent<Image>();
+            }
+            else
+            {
+                this.m_BikeSpeedBackground = (RectTransform)existing;
+            }
+
+            backgroundImage.color = SPEED_BACKGROUND_COLOR;
+            backgroundImage.raycastTarget = false;
+            Outline border = backgroundImage.GetComponent<Outline>() ??
+                             backgroundImage.gameObject.AddComponent<Outline>();
+            border.effectColor = SPEED_BACKGROUND_BORDER_COLOR;
+            border.effectDistance = new Vector2(2f, -2f);
+            border.useGraphicAlpha = true;
+
+            this.SyncBikeSpeedBackgroundTransform();
+            int speedIndex = this.m_BikeSpeedRoot.GetSiblingIndex();
+            if (this.m_BikeSpeedBackground.GetSiblingIndex() < speedIndex)
+                speedIndex--;
+            this.m_BikeSpeedBackground.SetSiblingIndex(Mathf.Max(0, speedIndex));
+        }
+
+        private void SyncBikeSpeedBackgroundTransform()
+        {
+            if (this.m_BikeSpeedBackground == null || this.m_BikeSpeedRoot == null) return;
+
+            this.m_BikeSpeedBackground.anchorMin = this.m_BikeSpeedRoot.anchorMin;
+            this.m_BikeSpeedBackground.anchorMax = this.m_BikeSpeedRoot.anchorMax;
+            this.m_BikeSpeedBackground.pivot = this.m_BikeSpeedRoot.pivot;
+            this.m_BikeSpeedBackground.anchoredPosition =
+                this.m_BikeSpeedRoot.anchoredPosition + SPEED_BACKGROUND_OFFSET;
+            Vector2 speedSize = this.m_BikeSpeedRoot.sizeDelta;
+            this.m_BikeSpeedBackground.sizeDelta = new Vector2(
+                Mathf.Min(speedSize.x, SPEED_BACKGROUND_MAX_SIZE.x),
+                Mathf.Min(speedSize.y, SPEED_BACKGROUND_MAX_SIZE.y)
+            );
+            this.m_BikeSpeedBackground.localRotation = this.m_BikeSpeedRoot.localRotation;
+            this.m_BikeSpeedBackground.localScale = this.m_BikeSpeedRoot.localScale;
         }
 
         private void UpdateBikeSpeed(FranklinArcadeBikeDriver bikeDriver)
@@ -942,6 +1272,11 @@ namespace FranklinGame.UI
                 this.m_BikeSpeedRoot.gameObject.activeSelf != visible)
             {
                 this.m_BikeSpeedRoot.gameObject.SetActive(visible);
+            }
+            if (this.m_BikeSpeedBackground != null &&
+                this.m_BikeSpeedBackground.gameObject.activeSelf != visible)
+            {
+                this.m_BikeSpeedBackground.gameObject.SetActive(visible);
             }
 
             if (!visible)
@@ -985,12 +1320,91 @@ namespace FranklinGame.UI
                 this.m_BikeSpeedRoot.anchoredPosition =
                     this.m_BikeSpeedFixedScreenPosition;
             }
+
+            this.SyncBikeSpeedBackgroundTransform();
+        }
+
+        private void UpdateBikeGaugePositions(FranklinArcadeBikeDriver bikeDriver)
+        {
+            if (bikeDriver == null)
+            {
+                this.m_HasBikeHealthPosition = false;
+                this.m_BikeHealthVelocity = Vector2.zero;
+                return;
+            }
+
+            if (this.m_BikeFuelRoot != null && this.m_BikeSpeedRoot != null)
+            {
+                this.m_BikeFuelRoot.anchoredPosition =
+                    this.m_BikeSpeedRoot.anchoredPosition + this.m_BikeFuelGaugeOffset;
+            }
+
+            if (this.m_BikeHealthRoot == null || this.m_VehicleGroup == null) return;
+            if (this.m_BikeSpeedCamera == null || !this.m_BikeSpeedCamera.isActiveAndEnabled)
+                this.m_BikeSpeedCamera = Camera.main;
+            if (this.m_BikeSpeedCamera == null) return;
+
+            Vector3 worldTarget = bikeDriver.transform.position +
+                                  Vector3.up * this.m_BikeHealthWorldHeight +
+                                  this.m_BikeSpeedCamera.transform.right *
+                                  this.m_BikeHealthWorldRightOffset;
+            Vector3 screenPoint = this.m_BikeSpeedCamera.WorldToScreenPoint(worldTarget);
+            if (screenPoint.z <= 0.01f) return;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    this.m_VehicleGroup,
+                    screenPoint,
+                    null,
+                    out Vector2 localPoint))
+            {
+                return;
+            }
+
+            float mirroredX = -(this.m_BikeSpeedScreenOffset.x +
+                                this.m_BikeFuelGaugeOffset.x) -
+                              BIKE_HEALTH_BAR_OFFSET_X;
+            float alignedBottomY = this.m_BikeSpeedScreenOffset.y +
+                                   this.m_BikeFuelGaugeOffset.y -
+                                   BIKE_FUEL_GAUGE_HEIGHT * 0.5f -
+                                   BIKE_HEALTH_BAR_OFFSET_Y +
+                                   BIKE_HEALTH_GAUGE_HEIGHT * 0.5f;
+            localPoint += new Vector2(mirroredX, alignedBottomY) +
+                          this.m_BikeHealthScreenOffset;
+
+            Rect canvasRect = this.GetBikeHudSafeRect();
+            Vector2 half = this.m_BikeHealthRoot.rect.size * 0.5f;
+            localPoint.x = Mathf.Clamp(
+                localPoint.x,
+                canvasRect.xMin + half.x,
+                canvasRect.xMax - half.x
+            );
+            localPoint.y = Mathf.Clamp(
+                localPoint.y,
+                canvasRect.yMin + half.y,
+                canvasRect.yMax - half.y
+            );
+
+            if (!this.m_HasBikeHealthPosition)
+            {
+                this.m_BikeHealthPosition = localPoint;
+                this.m_HasBikeHealthPosition = true;
+            }
+            else
+            {
+                this.m_BikeHealthPosition = Vector2.SmoothDamp(
+                    this.m_BikeHealthPosition,
+                    localPoint,
+                    ref this.m_BikeHealthVelocity,
+                    this.m_BikeSpeedFollowSmooth,
+                    Mathf.Infinity,
+                    Time.unscaledDeltaTime
+                );
+            }
+
+            this.m_BikeHealthRoot.anchoredPosition = this.m_BikeHealthPosition;
         }
 
         private void ApplyBikeSpeedStyle()
         {
-            if (this.m_BikeSpeedRoot != null)
-                this.m_BikeSpeedRoot.sizeDelta = this.m_BikeSpeedRectSize;
             if (this.m_BikeSpeedText == null) return;
 
             this.m_BikeSpeedText.font = this.m_BikeSpeedFont != null
@@ -1043,17 +1457,37 @@ namespace FranklinGame.UI
             }
 
             localPoint += this.m_BikeSpeedScreenOffset;
-            Rect canvasRect = this.m_VehicleGroup.rect;
+            Rect canvasRect = this.GetBikeHudSafeRect();
             Vector2 half = this.m_BikeSpeedRoot.rect.size * 0.5f;
+            float minimumX = Mathf.Max(
+                canvasRect.xMin + half.x,
+                canvasRect.xMin - this.m_BikeFuelGaugeOffset.x +
+                BIKE_FUEL_GAUGE_WIDTH * 0.5f
+            );
+            float maximumX = Mathf.Min(
+                canvasRect.xMax - half.x,
+                canvasRect.xMax - this.m_BikeFuelGaugeOffset.x -
+                BIKE_FUEL_GAUGE_WIDTH * 0.5f
+            );
+            float minimumY = Mathf.Max(
+                canvasRect.yMin + half.y,
+                canvasRect.yMin - this.m_BikeFuelGaugeOffset.y +
+                BIKE_FUEL_GAUGE_HEIGHT * 0.5f
+            );
+            float maximumY = Mathf.Min(
+                canvasRect.yMax - half.y,
+                canvasRect.yMax - this.m_BikeFuelGaugeOffset.y -
+                BIKE_FUEL_GAUGE_HEIGHT * 0.5f
+            );
             localPoint.x = Mathf.Clamp(
                 localPoint.x,
-                canvasRect.xMin + half.x,
-                canvasRect.xMax - half.x
+                minimumX,
+                Mathf.Max(minimumX, maximumX)
             );
             localPoint.y = Mathf.Clamp(
                 localPoint.y,
-                canvasRect.yMin + half.y,
-                canvasRect.yMax - half.y
+                minimumY,
+                Mathf.Max(minimumY, maximumY)
             );
 
             if (!this.m_HasBikeSpeedPosition)
@@ -1073,6 +1507,36 @@ namespace FranklinGame.UI
                 );
             }
             this.m_BikeSpeedRoot.anchoredPosition = this.m_BikeSpeedPosition;
+        }
+
+        private Rect GetBikeHudSafeRect()
+        {
+            Rect fallback = this.m_VehicleGroup != null
+                ? this.m_VehicleGroup.rect
+                : new Rect(-960f, -540f, 1920f, 1080f);
+            if (this.m_VehicleGroup == null) return fallback;
+
+            Rect safeArea = Screen.safeArea;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    this.m_VehicleGroup,
+                    safeArea.min,
+                    null,
+                    out Vector2 localMinimum) ||
+                !RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    this.m_VehicleGroup,
+                    safeArea.max,
+                    null,
+                    out Vector2 localMaximum))
+            {
+                return fallback;
+            }
+
+            return Rect.MinMaxRect(
+                Mathf.Min(localMinimum.x, localMaximum.x),
+                Mathf.Min(localMinimum.y, localMaximum.y),
+                Mathf.Max(localMinimum.x, localMaximum.x),
+                Mathf.Max(localMinimum.y, localMaximum.y)
+            );
         }
 
         private static void SetButtonActive(FranklinHudButton button, bool state)
@@ -1191,7 +1655,10 @@ namespace FranklinGame.UI
         SlowDrive,
         BikeHeadlight,
         BikeWheelie,
-        BikeBurnout
+        BikeBurnout,
+        Phone,
+        Home,
+        Settings
     }
 
 }

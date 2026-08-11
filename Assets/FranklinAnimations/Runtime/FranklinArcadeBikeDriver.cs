@@ -22,6 +22,7 @@ namespace FranklinGame.Vehicles
         [SerializeField] private ArcadeBikeControllerPro m_Controller;
         [SerializeField] private BikeEntry m_BikeEntry;
         [SerializeField] private VehicleLights m_VehicleLights;
+        [SerializeField] private FranklinBikeFuel m_Fuel;
         [SerializeField, Range(0.1f, 1f)] private float m_SlowThrottle = 0.35f;
         [SerializeField] private bool m_ReadKeyboardInput = true;
 
@@ -60,6 +61,8 @@ namespace FranklinGame.Vehicles
         private bool m_HasCapturedDrivingPhysics;
         private bool m_IsCrashEngineRunning;
         private bool m_IsDamageLocked;
+        private bool m_HasFuel = true;
+        private float m_CurrentThrottle;
 
         public bool IsVehicleEnabled => this.m_IsVehicleEnabled;
         public bool IsDamageLocked => this.m_IsDamageLocked;
@@ -89,6 +92,8 @@ namespace FranklinGame.Vehicles
         public float SpeedMetersPerSecond => this.m_Rigidbody != null
             ? Vector3.ProjectOnPlane(this.m_Rigidbody.linearVelocity, Vector3.up).magnitude
             : 0f;
+        public float SpeedKph => this.SpeedMetersPerSecond * 3.6f;
+        public float ThrottleMagnitude => this.m_CurrentThrottle;
 
         private void Awake()
         {
@@ -110,6 +115,7 @@ namespace FranklinGame.Vehicles
         {
             this.ResetVirtualInputs();
             this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
+            this.m_Fuel?.SetEngineActive(false);
             this.m_VehicleLights?.FrontLightsOff();
         }
 
@@ -166,6 +172,12 @@ namespace FranklinGame.Vehicles
                 }
             }
 #endif
+
+            if (!this.m_HasFuel)
+            {
+                accelerate = 0f;
+                wheelie = 0f;
+            }
 
             if (this.m_IsStoppingForExit)
             {
@@ -225,6 +237,7 @@ namespace FranklinGame.Vehicles
                 this.ResetVirtualInputs();
                 this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
                 this.ApplyVehicleState();
+                this.m_Fuel?.SetEngineActive(false);
                 return;
             }
 
@@ -257,6 +270,7 @@ namespace FranklinGame.Vehicles
             }
 
             this.ApplyVehicleState();
+            this.m_Fuel?.SetEngineActive(state);
         }
 
         /// <summary>
@@ -277,6 +291,7 @@ namespace FranklinGame.Vehicles
             this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
             this.m_VehicleLights?.FrontLightsOff();
             this.ApplyVehicleState();
+            this.m_Fuel?.SetEngineActive(this.m_IsCrashEngineRunning);
 
             if (this.m_Rigidbody != null)
             {
@@ -397,6 +412,44 @@ namespace FranklinGame.Vehicles
             this.m_VehicleLights?.FrontLightsOff();
         }
 
+        public void ConfigureFuel(FranklinBikeFuel fuel)
+        {
+            this.m_Fuel = fuel;
+        }
+
+        /// <summary>
+        /// Fuel only disables propulsion. Steering, braking, suspension and the
+        /// normal exit flow remain available when the tank reaches empty.
+        /// </summary>
+        public void SetFuelAvailable(bool available)
+        {
+            this.m_HasFuel = available;
+            if (!available)
+            {
+                this.m_VirtualAccelerate = false;
+                this.m_VirtualSlowAccelerate = false;
+                this.m_VirtualWheelie = false;
+                this.m_VirtualBurnout = false;
+                this.m_CurrentThrottle = 0f;
+            }
+
+            if (this.m_Controller != null)
+                this.m_Controller.canAccelerate = this.m_IsVehicleEnabled &&
+                                                  !this.m_IsDamageLocked && available;
+
+            AudioSource engine = this.m_Controller?.bikeAudio?.engineSound;
+            if (!available)
+            {
+                engine?.Stop();
+            }
+            else if (this.m_IsVehicleEnabled && engine != null &&
+                     !engine.isPlaying && engine.clip != null)
+            {
+                engine.mute = false;
+                engine.Play();
+            }
+        }
+
         public void SetHeadlightEnabled(bool active)
         {
             if (this.m_VehicleLights == null)
@@ -455,6 +508,7 @@ namespace FranklinGame.Vehicles
             if (this.m_BikeEntry == null) this.m_BikeEntry = this.GetComponent<BikeEntry>();
             if (this.m_VehicleLights == null)
                 this.m_VehicleLights = this.GetComponent<VehicleLights>();
+            if (this.m_Fuel == null) this.m_Fuel = this.GetComponent<FranklinBikeFuel>();
             if (this.m_Rigidbody == null) this.m_Rigidbody = this.GetComponent<Rigidbody>();
             return this.m_Controller != null && this.m_Rigidbody != null;
         }
@@ -497,7 +551,9 @@ namespace FranklinGame.Vehicles
             if (this.m_Controller == null) return;
 
             this.m_Controller.enabled = this.m_IsVehicleEnabled;
-            this.m_Controller.canAccelerate = this.m_IsVehicleEnabled;
+            this.m_Controller.canAccelerate = this.m_IsVehicleEnabled &&
+                                              !this.m_IsDamageLocked &&
+                                              this.m_HasFuel;
             this.m_Controller.canTurn = this.m_IsVehicleEnabled;
 
             // A normal empty bike is parked kinematically so GC2 character pushes
@@ -543,7 +599,7 @@ namespace FranklinGame.Vehicles
 
             AudioSource engine = this.m_Controller.bikeAudio?.engineSound;
             AudioSource skid = this.m_Controller.bikeAudio?.SkidSound;
-            if (this.m_IsVehicleEnabled)
+            if (this.m_IsVehicleEnabled && this.m_HasFuel)
             {
                 if (engine != null)
                 {
@@ -555,7 +611,7 @@ namespace FranklinGame.Vehicles
             else
             {
                 if (skid != null) skid.Stop();
-                if (this.m_IsCrashEngineRunning)
+                if (this.m_IsCrashEngineRunning && this.m_HasFuel)
                 {
                     this.EnsureCrashEngineAudioPlaying(engine);
                 }
@@ -576,7 +632,11 @@ namespace FranklinGame.Vehicles
 
         private void UpdateCrashEngineAudio()
         {
-            if (!this.m_IsCrashEngineRunning || this.m_Controller == null) return;
+            if (!this.m_IsCrashEngineRunning || !this.m_HasFuel ||
+                this.m_Controller == null)
+            {
+                return;
+            }
 
             AudioSource engine = this.m_Controller.bikeAudio?.engineSound;
             if (engine == null) return;
@@ -620,6 +680,7 @@ namespace FranklinGame.Vehicles
             float steerRight,
             float wheelie)
         {
+            this.m_CurrentThrottle = Mathf.Clamp01(accelerate);
             this.m_Controller?.provideInput(
                 accelerate,
                 reverse,

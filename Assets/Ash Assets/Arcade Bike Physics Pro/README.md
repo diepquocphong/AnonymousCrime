@@ -447,10 +447,13 @@ Car; tắt tùy chọn này để dùng `Fixed Screen Position`. Các giá trị
 ### Damage VFX, destruction và deformation
 
 `FranklinBikeDamageEffects` dùng cùng ngưỡng với Car: smoke ở `<=32%`, warning
-fire ở `<=14%`, và khi HP bằng 0 chờ `1.35s` rồi mới phát `Explosion11` đúng một
-lần. Smoke/fire/audio chỉ đổi trạng thái khi nhận `EventHealthChanged`; gió hạt
-chỉ cập nhật tối đa `8 Hz` khi VFX đang hiện. Các ParticleSystem đã được author
-sẵn dưới `BikeBody/Bike Damage Effects`, không instantiate tại thời điểm nổ.
+fire ở `<=14%`. Khi warning fire bắt đầu, Bike mất `1.5%` maximum HP mỗi giây,
+theo tick `0.25s`, nên 14% HP cuối cháy hết trong khoảng 9,3 giây. Repair đưa HP
+vượt 14% sẽ dừng drain. Khi HP bằng 0, hệ thống chờ thêm `1.35s` rồi mới phát
+`Explosion11` đúng một lần. Smoke/fire/audio chỉ đổi trạng thái khi nhận
+`EventHealthChanged`; gió hạt chỉ cập nhật tối đa `8 Hz` khi VFX đang hiện. Các
+ParticleSystem đã được author sẵn dưới `BikeBody/Bike Damage Effects`, không
+instantiate tại thời điểm nổ.
 
 `FranklinBikeDestruction` ghi nhớ rider ngay lúc HP về 0, kể cả khi crash-ragdoll
 đã văng rider khỏi yên trước khi vụ nổ chạy. Explosion đặt Rigidbody Bike về
@@ -465,6 +468,10 @@ và dùng kernel Edy giống Car, nhưng profile nhỏ hơn cho thân Bike: radi
 displacement tối đa `0.12m`, fracture `0.018m`, tối đa 10 dents. Chỉ render mesh
 thân được clone/deform ở runtime; mâm, lốp, glass và MeshCollider vật lý giữ nguyên.
 API sửa hình là `ResetDeformation()`.
+
+Profile damage Bike mặc định đã giảm: impact nhẹ `0.35–2 HP`, impact nặng
+`4–12 HP`, và chỉ đạt damage tối đa từ severity `14`. Damage Player của impact
+nặng không thay đổi.
 
 ### `BikeEntry`
 

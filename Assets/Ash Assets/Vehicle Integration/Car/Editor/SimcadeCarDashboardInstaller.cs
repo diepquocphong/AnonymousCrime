@@ -38,7 +38,7 @@ namespace FranklinGame.Vehicles.Editor
             UiFolder + "/RadioPrevious.png",
             UiFolder + "/RadioPlay.png",
             UiFolder + "/RadioNext.png",
-            UiFolder + "/VehicleHealthFrame.png"
+            UiFolder + "/VehicleFuelArc.png"
         };
 
         public static void Install()
@@ -59,6 +59,8 @@ namespace FranklinGame.Vehicles.Editor
 
                 SimcadeCarHealth health = GetOrAdd<SimcadeCarHealth>(carRoot);
                 health.Configure(traits, impact, "health-attribute-id");
+                SimcadeCarFuel fuel = GetOrAdd<SimcadeCarFuel>(carRoot);
+                fuel.Configure(traits, driver, "fuel-attribute-id");
 
                 AudioSource radioSource = EnsureAudioSource(
                     carRoot,
@@ -79,6 +81,7 @@ namespace FranklinGame.Vehicles.Editor
                 dashboard.Configure(
                     driver,
                     health,
+                    fuel,
                     radioSource,
                     tuningSource,
                     radioStatic,
@@ -99,9 +102,11 @@ namespace FranklinGame.Vehicles.Editor
 
                 SerializedObject serializedDriver = new SerializedObject(driver);
                 serializedDriver.FindProperty("m_Dashboard").objectReferenceValue = dashboard;
+                serializedDriver.FindProperty("m_Fuel").objectReferenceValue = fuel;
                 serializedDriver.ApplyModifiedPropertiesWithoutUndo();
 
                 EditorUtility.SetDirty(health);
+                EditorUtility.SetDirty(fuel);
                 EditorUtility.SetDirty(dashboard);
                 EditorUtility.SetDirty(radioSource);
                 EditorUtility.SetDirty(tuningSource);
@@ -124,23 +129,34 @@ namespace FranklinGame.Vehicles.Editor
             if (car == null) throw new InvalidOperationException("Car.prefab is missing");
 
             SimcadeCarHealth health = car.GetComponent<SimcadeCarHealth>();
+            SimcadeCarFuel fuel = car.GetComponent<SimcadeCarFuel>();
             SimcadeCarDashboard dashboard = car.GetComponent<SimcadeCarDashboard>();
             SimcadeCarDriver driver = car.GetComponent<SimcadeCarDriver>();
             Traits traits = car.GetComponent<Traits>();
             if (health == null || !health.IsConfigured)
                 throw new InvalidOperationException("Car health is not connected to GC2 Traits");
+            if (fuel == null || !fuel.IsConfigured)
+                throw new InvalidOperationException("Car fuel is not connected to GC2 Traits");
             if (dashboard == null || !dashboard.IsConfigured)
                 throw new InvalidOperationException("Car dashboard/radio or generated HUD sprites are incomplete");
 
             SerializedObject serializedDriver = new SerializedObject(driver);
-            if (serializedDriver.FindProperty("m_Dashboard").objectReferenceValue != dashboard)
-                throw new InvalidOperationException("SimcadeCarDriver dashboard link is missing");
+            if (serializedDriver.FindProperty("m_Dashboard").objectReferenceValue != dashboard ||
+                serializedDriver.FindProperty("m_Fuel").objectReferenceValue != fuel)
+            {
+                throw new InvalidOperationException(
+                    "SimcadeCarDriver dashboard/fuel link is missing"
+                );
+            }
 
             SerializedObject serializedDashboard = new SerializedObject(dashboard);
             if (serializedDashboard.FindProperty("m_UpdateInterval").floatValue < 0.099f ||
                 serializedDashboard.FindProperty("m_SpeedFollowSmooth").floatValue < 0.03f ||
                 serializedDashboard.FindProperty("m_SpeedWorldLeftOffset").floatValue < 0.5f ||
                 serializedDashboard.FindProperty("m_SpeedWorldHeight").floatValue > 0.85f ||
+                serializedDashboard.FindProperty("m_HealthWorldRightOffset").floatValue < 0.5f ||
+                serializedDashboard.FindProperty("m_HealthWorldHeight").floatValue > 0.85f ||
+                serializedDashboard.FindProperty("m_Fuel").objectReferenceValue != fuel ||
                 serializedDashboard.FindProperty("m_RadioSource").objectReferenceValue is not
                     AudioSource radioSource ||
                 serializedDashboard.FindProperty("m_RadioTuningSource").objectReferenceValue is not
@@ -155,6 +171,15 @@ namespace FranklinGame.Vehicles.Editor
 
             if (dashboard.RadioTrackCount < 3)
                 throw new InvalidOperationException("The three CC0 radio stations are missing");
+            if (fuel.ConsumptionTickInterval < 0.2f ||
+                fuel.MaximumConsumptionPerSecond <= 0f ||
+                !fuel.InitializesOnFirstEnable ||
+                Mathf.Abs(fuel.StartingFuel - 100f) > 0.01f)
+            {
+                throw new InvalidOperationException(
+                    "Car fuel must start at 100 and consume at a low frequency"
+                );
+            }
             if (serializedDashboard.FindProperty("m_HudFont").objectReferenceValue == null)
                 throw new InvalidOperationException("Josefin Sans Car HUD font is missing");
             foreach (string path in RadioTrackPaths)
@@ -165,24 +190,27 @@ namespace FranklinGame.Vehicles.Editor
 
             try
             {
-                if (traits == null || traits.RuntimeAttributes.Get("health-attribute-id") == null)
+                if (traits == null ||
+                    traits.RuntimeAttributes.Get("health-attribute-id") == null ||
+                    traits.RuntimeAttributes.Get("fuel-attribute-id") == null)
                 {
                     throw new InvalidOperationException(
-                        "GC2 health-attribute-id is missing from the Car Class"
+                        "GC2 health/fuel Attributes are missing from the Car Class"
                     );
                 }
             }
             catch (Exception exception)
             {
                 throw new InvalidOperationException(
-                    "GC2 Car health Attribute validation failed",
+                    "GC2 Car health/fuel Attribute validation failed",
                     exception
                 );
             }
 
             Debug.Log(
-                "Car dashboard validation passed: world-follow speedometer, borderless ImageGen HUD, " +
-                "GC2 health, three streamed CC0 stations and radio tuning SFX are configured."
+                "Car dashboard validation passed: one shared renderer-bounds-centered HUD for all " +
+                "Car instances, left fuel/right sky-blue health gauges, fuel consumption, three streamed " +
+                "CC0 stations and radio tuning SFX are configured."
             );
         }
 
@@ -249,8 +277,10 @@ namespace FranklinGame.Vehicles.Editor
                 importer.npotScale = TextureImporterNPOTScale.None;
                 importer.wrapMode = TextureWrapMode.Clamp;
                 importer.textureCompression = TextureImporterCompression.CompressedHQ;
-                importer.maxTextureSize = path.EndsWith("VehicleHealthFrame.png", StringComparison.Ordinal)
-                    ? 1024
+                importer.maxTextureSize = path.EndsWith(
+                        "VehicleFuelArc.png",
+                        StringComparison.Ordinal)
+                    ? 512
                     : 256;
                 importer.SaveAndReimport();
                 sprites[i] = AssetDatabase.LoadAssetAtPath<Sprite>(path);
