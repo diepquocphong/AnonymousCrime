@@ -314,6 +314,9 @@ namespace FranklinGame.Animations
             else if (vehicleEntry is BikeEntry bikeEntry)
             {
                 if (bikeEntry.IsTransitioning || bikeEntry.SeatedCharacter != null) return false;
+                FranklinBikeHealth health =
+                    bikeEntry.GetComponent<FranklinBikeHealth>();
+                if (health != null && health.IsDestroyed) return false;
                 FranklinArcadeBikeDriver driver =
                     bikeEntry.GetComponent<FranklinArcadeBikeDriver>();
                 if (driver != null && driver.IsVehicleEnabled) return false;

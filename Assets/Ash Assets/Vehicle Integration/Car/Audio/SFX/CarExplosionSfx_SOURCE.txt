@@ -1,0 +1,22 @@
+Car explosion sound source
+
+File:
+- car_explosion_test_vehicle_cc0.wav
+
+Title: Explosion!!!.mp3
+Author: eth131
+Source: https://freesound.org/people/eth131/sounds/127187/
+License: Creative Commons Zero (CC0 1.0 Universal)
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+
+The source page describes this as audio recorded from a test car explosion.
+Downloaded for Franklin Game on 2026-08-11. Attribution is not required by
+CC0; this file is retained to document the source and license.
+
+Game processing:
+- Removed leading and trailing silence.
+- Downmixed to mono for accurate Unity 3D spatialization.
+- High-pass filtered at 28 Hz and low-pass filtered at 14.5 kHz.
+- Resampled to 32 kHz PCM 16-bit with a short natural fade at the end.
+- Peak limited to -1 dB without flattening the explosion transient.
+- Imported by Unity as Vorbis, Compressed In Memory, with preload enabled.

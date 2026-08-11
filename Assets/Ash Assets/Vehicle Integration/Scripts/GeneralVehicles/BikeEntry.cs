@@ -103,6 +103,8 @@ public class BikeEntry : MonoBehaviour
 
     [Tooltip("Where the left foot should go when planted on the ground.")]
     public Transform groundLeftFootTarget;
+    [Tooltip("The left foot moves to the ground target while bike speed is below this value in km/h.")]
+    [Min(0f)] public float groundFootSpeedKph = 3f;
     [Tooltip("How long, in seconds, to move the left foot from ground back to peg.")]
     public float footSmoothingTime = 0.5f;
     [Tooltip("Target transform for the left foot on the bike's footpeg.")]
@@ -199,6 +201,7 @@ public class BikeEntry : MonoBehaviour
     private IRvrVehicleDriveController bikeController;
     private IRvrVehicleAirborneState airborneState;
     private FranklinArcadeBikeRagdoll arcadeBikeRagdoll;
+    private FranklinBikeHealth bikeHealth;
     private HoverVehicleController hoverController;
     private Transform bikeBody;
     private Collider bikeCollider;
@@ -287,7 +290,8 @@ public class BikeEntry : MonoBehaviour
     public bool RequestEnter(Character character)
     {
         if (character == null || IsTransitioning || _mountedCharacter != null ||
-            character.Motion == null || entryParent == null || entryStandingPoint == null)
+            character.Motion == null || entryParent == null || entryStandingPoint == null ||
+            (bikeHealth != null && bikeHealth.IsDestroyed))
         {
             return false;
         }
@@ -378,6 +382,7 @@ public class BikeEntry : MonoBehaviour
 
         hoverController = GetComponent<HoverVehicleController>();
         arcadeBikeRagdoll = GetComponent<FranklinArcadeBikeRagdoll>();
+        bikeHealth = GetComponent<FranklinBikeHealth>();
         bikeBody = bikeController?.VehicleBody;
         bikeCollider = ResolvePhysicsCollider();
 
@@ -425,6 +430,7 @@ public class BikeEntry : MonoBehaviour
         fallenBikeGripReach = Mathf.Max(0.2f, fallenBikeGripReach);
         fallenBikeMaxAssistDistance = Mathf.Max(0f, fallenBikeMaxAssistDistance);
         fallenBikeHandRotationWeight = Mathf.Clamp01(fallenBikeHandRotationWeight);
+        groundFootSpeedKph = Mathf.Max(0f, groundFootSpeedKph);
         stoppedExitSpeedKph = Mathf.Max(0f, stoppedExitSpeedKph);
         exitStopTimeout = Mathf.Max(0.1f, exitStopTimeout);
         enterAlignmentDuration = Mathf.Max(0.05f, enterAlignmentDuration);
@@ -491,8 +497,8 @@ public class BikeEntry : MonoBehaviour
     {
         if (!_inBike || bikeController == null || bikeBody == null) return;
 
-        float speed = bikeController.SpeedMetersPerSecond;
-        bool shouldBeGrounded = speed < 0.01f;
+        float speedKph = Mathf.Abs(bikeController.SpeedMetersPerSecond) * 3.6f;
+        bool shouldBeGrounded = speedKph < groundFootSpeedKph;
 
         if (shouldBeGrounded != _footOnGround)
         {
@@ -674,7 +680,11 @@ public class BikeEntry : MonoBehaviour
 
     public async void EnterBike(Character character)
     {
-        if (IsTransitioning || character == null || _mountedCharacter != null) return;
+        if (IsTransitioning || character == null || _mountedCharacter != null ||
+            (bikeHealth != null && bikeHealth.IsDestroyed))
+        {
+            return;
+        }
         character.GetComponentInChildren<FranklinAnimationBridge>(true)
             ?.RestoreModelRootBaseline();
         isEntering = true;

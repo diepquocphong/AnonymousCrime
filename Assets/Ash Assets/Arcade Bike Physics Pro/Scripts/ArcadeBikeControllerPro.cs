@@ -208,11 +208,15 @@ namespace ArcadeBP_Pro
             [Tooltip("Gravity force applied to the bike.")]
             public float gravity = 9.81f;
 
-            [Tooltip("Speed of rotation during a burnout.")]
-            public float burnoutRotationSpeed = 10f;
+            [Tooltip("Pivot speed during a burnout, in degrees per second. Steering left/right selects the rotation direction while the front wheel contact point remains the pivot.")]
+            public float burnoutRotationSpeed = 36f;
 
             [Tooltip("Smoothness of the burnout transition.")]
             public float burnoutSmoothness = 1f;
+
+            [Tooltip("Visual lean angle while pivoting during a burnout. Steering left/right controls the lean direction.")]
+            [Range(0f, 15f)]
+            public float burnoutLeanAngle = 8f;
 
             [Tooltip("Maximum angle for performing a wheelie. upto 45 works best, above 45 rear wheel will go inside the ground a bit.")]
             [Range(0,60)]
@@ -436,8 +440,6 @@ namespace ArcadeBP_Pro
             }
 
             //=======================================================================================================================//
-
-            ApplyBurnoutRotation();
 
             wheelieAnimation();
 
@@ -896,7 +898,7 @@ namespace ArcadeBP_Pro
             bool isTurningRight = bikeInput.SteeringRight > 0;
 
             isDoingBurnout = isAccelerating && isReversing && frontWheelIsGrounded && rearWheelIsGrounded;
-            isBournoutRotating = (isTurningLeft || isTurningRight) && isAccelerating && isReversing && localBikeVelocity.magnitude < 1f;
+            isBournoutRotating = isDoingBurnout && localBikeVelocity.magnitude < 1f;
 
             if (isDoingBurnout)
             {
@@ -908,43 +910,72 @@ namespace ArcadeBP_Pro
 
                 if (isBournoutRotating)
                 {
-                    // Calculate the force and rotation amount
-                    rotationDirection = isTurningLeft ? -1f : 1f;
+                    // Steering selects the direction. Burnout without steering
+                    // defaults to a slow clockwise circle.
+                    if (isTurningLeft != isTurningRight)
+                    {
+                        rotationDirection = isTurningLeft ? -1f : 1f;
+                    }
+                    else if (rotationDirection == 0f)
+                    {
+                        rotationDirection = 1f;
+                    }
+
                     burnoutLerp = Mathf.MoveTowards(burnoutLerp, 1f, Time.fixedDeltaTime * bikeSettings.burnoutSmoothness);
-
-                    rotationAmount = bikeSettings.burnoutRotationSpeed * Time.fixedDeltaTime; // Amount of rotation in this frame
-
-
-                    // Calculate the distance between the front wheel and the rotator
-                    float distance = Vector3.Distance(bikeReferences.FrontWheel.position, bikeReferences.Rotator.position);
-
-                    float speed = rotationAmount * distance;
-
-                    Vector3 speedDirection = -rotationDirection * bikeReferences.Rotator.right;
-                    bikeReferences.BikeRb.linearVelocity = speedDirection * speed * burnoutLerp;
-
-                    // Rotate the rotator
-                    //bikeReferences.Rotator.Rotate(Vector3.up, rotationAmount * rotationDirection * burnoutLerp, Space.World);
+                    ApplyBurnoutPivotMotion();
                 }
                 else
                 {
                     burnoutLerp = 0;
-                    rotationAmount = 0;
                 }
+            }
+            else
+            {
+                burnoutLerp = 0f;
+                rotationDirection = 0f;
             }
         }
 
-        float rotationAmount = 0;
         float rotationDirection = 0;
 
-        void ApplyBurnoutRotation()
+        private void ApplyBurnoutPivotMotion()
         {
-            float timeFactor = Time.deltaTime / Time.fixedDeltaTime;
+            Transform rotator = bikeReferences.Rotator;
+            Rigidbody bikeRigidbody = bikeReferences.BikeRb;
+            if (rotator == null || bikeRigidbody == null) return;
 
-            if (isBournoutRotating)
-            {
-                bikeReferences.Rotator.Rotate(Vector3.up, rotationAmount * rotationDirection * burnoutLerp * timeFactor, Space.World);
-            }
+            Vector3 pivotAxis = projectedBikeUp.sqrMagnitude > 0.0001f
+                ? projectedBikeUp.normalized
+                : Vector3.up;
+            Vector3 frontWheelPivot = frontWheelIsGrounded
+                ? frontWheelHit.point
+                : bikeReferences.FrontWheel.position;
+            Vector3 pivotRadius = Vector3.ProjectOnPlane(
+                rotator.position - frontWheelPivot,
+                pivotAxis
+            );
+
+            float angularSpeedDegrees = bikeSettings.burnoutRotationSpeed *
+                                        rotationDirection * burnoutLerp;
+            float angularSpeedRadians = angularSpeedDegrees * Mathf.Deg2Rad;
+
+            // This tangential velocity cancels the velocity caused by rotating
+            // the front-wheel offset, so the front contact point remains fixed.
+            Vector3 pivotVelocity = Vector3.Cross(
+                pivotAxis * angularSpeedRadians,
+                pivotRadius
+            );
+            Vector3 normalVelocity = Vector3.Project(
+                bikeRigidbody.linearVelocity,
+                pivotAxis
+            );
+            bikeRigidbody.linearVelocity = pivotVelocity + normalVelocity;
+
+            rotator.Rotate(
+                pivotAxis,
+                angularSpeedDegrees * Time.fixedDeltaTime,
+                Space.World
+            );
 
         }
 
@@ -959,6 +990,33 @@ namespace ArcadeBP_Pro
 
         private void leaningAnimation(float direction)
         {
+            if (isBournoutRotating)
+            {
+                float targetDirection = Mathf.Abs(rotationDirection) > 0.001f
+                    ? rotationDirection
+                    : direction;
+                leanSmoother = Mathf.MoveTowards(
+                    leanSmoother,
+                    targetDirection,
+                    Time.deltaTime * 10f
+                );
+
+                float burnoutLeanAngle = -bikeSettings.burnoutLeanAngle *
+                                         leanSmoother * burnoutLerp;
+                Quaternion burnoutTargetRotation = Quaternion.Euler(
+                    0f,
+                    0f,
+                    burnoutLeanAngle
+                );
+                bikeReferences.LeanTransform.localRotation = Quaternion.Slerp(
+                    bikeReferences.LeanTransform.localRotation,
+                    burnoutTargetRotation,
+                    Time.deltaTime * bikeSettings.leaningAnimationSpeed
+                );
+                currentLeanAngle = burnoutLeanAngle;
+                return;
+            }
+
             // Smoothly interpolate the leanSmoother towards the target direction
             leanSmoother = Mathf.MoveTowards(leanSmoother, direction, Time.deltaTime * 10);
 
@@ -1247,11 +1305,12 @@ namespace ArcadeBP_Pro
         {
             if (tireSmoke_ps == null) return;
 
-            if (TotalSlip_rearWheel > 0.5f)
+            bool shouldEmitSmoke = isDoingBurnout || TotalSlip_rearWheel >= 0.5f;
+            if (shouldEmitSmoke)
             {
-                tireSmoke_ps.Play();
+                if (!tireSmoke_ps.isPlaying) tireSmoke_ps.Play();
             }
-            else
+            else if (tireSmoke_ps.isPlaying)
             {
                 tireSmoke_ps.Stop();
             }

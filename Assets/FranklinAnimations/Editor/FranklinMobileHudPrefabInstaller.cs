@@ -14,8 +14,15 @@ namespace FranklinGame.UI.Editor
     {
         private const string PLAYER_CANVAS_PATH = "Assets/Prefab/CanvasPlayerControl.prefab";
         private const string UI_ROOT = "Assets/UI/FranklinMobile/Resources/FranklinMobileUI/";
+        private const string HEALTH_FRAME_PATH =
+            "Assets/Ash Assets/Vehicle Integration/Car/UI/Generated/VehicleHealthFrame.png";
+        private const string HUD_FONT_PATH =
+            "Assets/Plugins/GameCreator/Installs/GameCreator.Blockout@1.6.12/UI/_Fonts/JosefinSans-Bold.ttf";
         private const string ON_FOOT_GROUP = "Franklin On Foot Controls";
         private const string VEHICLE_GROUP = "Franklin Vehicle Controls";
+        private const string BIKE_HEALTH_UI = "Bike Health UI";
+        private const string BIKE_SPEED_UI = "Bike Speed UI";
+        private const float BIKE_HEALTH_FILL_WIDTH = 732f;
 
         private readonly struct ButtonDefinition
         {
@@ -75,7 +82,11 @@ namespace FranklinGame.UI.Editor
             new("Slow Drive", "vehicle-control-slow", 9, new Vector2(1f, 0f),
                 new Vector2(-155f, 82f), new Vector2(163f, 163f)),
             new("Bike Headlight", "vehicle-control-headlight", 10, new Vector2(1f, 1f),
-                new Vector2(-115f, -315f), new Vector2(155f, 155f), true)
+                new Vector2(-115f, -315f), new Vector2(155f, 155f), true),
+            new("Bike Wheelie", "vehicle-control-wheelie", 11, new Vector2(1f, 1f),
+                new Vector2(-285f, -315f), new Vector2(155f, 155f)),
+            new("Bike Burnout", "vehicle-control-burnout", 12, new Vector2(1f, 1f),
+                new Vector2(-455f, -315f), new Vector2(155f, 155f))
         };
 
         static FranklinMobileHudPrefabInstaller()
@@ -88,6 +99,8 @@ namespace FranklinGame.UI.Editor
         {
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-slow.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-headlight.png");
+            EnsureSpriteImporter(UI_ROOT + "vehicle-control-wheelie.png");
+            EnsureSpriteImporter(UI_ROOT + "vehicle-control-burnout.png");
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PLAYER_CANVAS_PATH);
             if (prefab == null)
             {
@@ -98,11 +111,13 @@ namespace FranklinGame.UI.Editor
             GameObject canvasRoot = PrefabUtility.LoadPrefabContents(PLAYER_CANVAS_PATH);
             try
             {
-                _ = canvasRoot.GetComponent<FranklinMobileHud>() ??
+                FranklinMobileHud hud = canvasRoot.GetComponent<FranklinMobileHud>() ??
                     canvasRoot.AddComponent<FranklinMobileHud>();
 
                 RectTransform onFoot = EnsureGroup(canvasRoot.transform, ON_FOOT_GROUP);
                 RectTransform vehicle = EnsureGroup(canvasRoot.transform, VEHICLE_GROUP);
+                Sprite healthFrame = AssetDatabase.LoadAssetAtPath<Sprite>(HEALTH_FRAME_PATH);
+                Font hudFont = AssetDatabase.LoadAssetAtPath<Font>(HUD_FONT_PATH);
 
                 foreach (ButtonDefinition button in ON_FOOT_BUTTONS)
                 {
@@ -112,6 +127,14 @@ namespace FranklinGame.UI.Editor
                 {
                     EnsureButton(vehicle, button);
                 }
+                EnsureBikeHealthUi(vehicle, healthFrame);
+                EnsureBikeSpeedUi(vehicle, hudFont);
+
+                SerializedObject serializedHud = new SerializedObject(hud);
+                serializedHud.FindProperty("m_BikeHealthFrameSprite").objectReferenceValue =
+                    healthFrame;
+                serializedHud.FindProperty("m_BikeSpeedFont").objectReferenceValue = hudFont;
+                serializedHud.ApplyModifiedPropertiesWithoutUndo();
 
                 onFoot.gameObject.SetActive(true);
                 FindDirectChild(onFoot, "Enter Vehicle")?.gameObject.SetActive(false);
@@ -133,6 +156,7 @@ namespace FranklinGame.UI.Editor
             if (EditorApplication.isCompiling || EditorApplication.isUpdating ||
                 EditorApplication.isPlayingOrWillChangePlaymode)
             {
+                EditorApplication.delayCall += InstallIfNeeded;
                 return;
             }
 
@@ -152,7 +176,11 @@ namespace FranklinGame.UI.Editor
                    HasButton(root.Find(ON_FOOT_GROUP), "Enter Vehicle") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Exit Vehicle") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Slow Drive") &&
-                   HasButton(root.Find(VEHICLE_GROUP), "Bike Headlight");
+                   HasButton(root.Find(VEHICLE_GROUP), "Bike Headlight") &&
+                   HasButton(root.Find(VEHICLE_GROUP), "Bike Wheelie") &&
+                   HasButton(root.Find(VEHICLE_GROUP), "Bike Burnout") &&
+                   HasBikeHealthUi(root.Find(VEHICLE_GROUP)) &&
+                   HasBikeSpeedUi(root.Find(VEHICLE_GROUP));
         }
 
         private static void EnsureSpriteImporter(string assetPath)
@@ -231,6 +259,140 @@ namespace FranklinGame.UI.Editor
             serializedButton.FindProperty("m_Image").objectReferenceValue = image;
             serializedButton.FindProperty("m_IsToggle").boolValue = definition.IsToggle;
             serializedButton.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void EnsureBikeHealthUi(RectTransform parent, Sprite healthFrame)
+        {
+            Transform existing = FindDirectChild(parent, BIKE_HEALTH_UI);
+            GameObject healthObject = existing != null
+                ? existing.gameObject
+                : new GameObject(BIKE_HEALTH_UI, typeof(RectTransform));
+            healthObject.layer = 5;
+
+            RectTransform healthRoot = healthObject.GetComponent<RectTransform>();
+            healthRoot.SetParent(parent, false);
+            healthRoot.anchorMin = new Vector2(0.5f, 0f);
+            healthRoot.anchorMax = new Vector2(0.5f, 0f);
+            healthRoot.pivot = new Vector2(0.5f, 0.5f);
+            healthRoot.anchoredPosition = new Vector2(0f, 48f);
+            healthRoot.sizeDelta = new Vector2(760f, 74f);
+
+            Transform background = FindDirectChild(healthRoot, "Background");
+            if (background != null) Object.DestroyImmediate(background.gameObject);
+
+            Image fill = EnsureHealthImage(
+                healthRoot,
+                "Fill",
+                new Vector2(BIKE_HEALTH_FILL_WIDTH, 38f),
+                null,
+                new Color(0.55f, 0.96f, 0.16f, 1f),
+                true
+            );
+            RectTransform fillRect = fill.rectTransform;
+            fillRect.anchorMin = new Vector2(0f, 0.5f);
+            fillRect.anchorMax = new Vector2(0f, 0.5f);
+            fillRect.pivot = new Vector2(0f, 0.5f);
+            fillRect.anchoredPosition = new Vector2(14f, 0f);
+
+            EnsureHealthImage(
+                healthRoot,
+                "Generated Health Frame",
+                new Vector2(760f, 74f),
+                healthFrame,
+                healthFrame != null ? Color.white : Color.clear,
+                false
+            );
+            healthRoot.gameObject.SetActive(false);
+        }
+
+        private static Image EnsureHealthImage(
+            RectTransform parent,
+            string objectName,
+            Vector2 size,
+            Sprite sprite,
+            Color color,
+            bool leftAnchored)
+        {
+            Transform existing = FindDirectChild(parent, objectName);
+            GameObject imageObject = existing != null
+                ? existing.gameObject
+                : new GameObject(
+                    objectName,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image)
+                );
+            imageObject.layer = 5;
+            RectTransform rect = imageObject.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.anchorMin = leftAnchored ? new Vector2(0f, 0.5f) : new Vector2(0.5f, 0.5f);
+            rect.anchorMax = rect.anchorMin;
+            rect.pivot = leftAnchored ? new Vector2(0f, 0.5f) : new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = size;
+
+            Image image = imageObject.GetComponent<Image>();
+            image.sprite = sprite;
+            image.color = color;
+            image.preserveAspect = sprite != null;
+            image.raycastTarget = false;
+            rect.SetAsLastSibling();
+            return image;
+        }
+
+        private static bool HasBikeHealthUi(Transform vehicleGroup)
+        {
+            Transform root = FindDirectChild(vehicleGroup, BIKE_HEALTH_UI);
+            return root != null &&
+                   FindDirectChild(root, "Background") == null &&
+                   FindDirectChild(root, "Fill")?.GetComponent<Image>() != null &&
+                   FindDirectChild(root, "Generated Health Frame")?.GetComponent<Image>() != null;
+        }
+
+        private static void EnsureBikeSpeedUi(RectTransform parent, Font hudFont)
+        {
+            Transform existing = FindDirectChild(parent, BIKE_SPEED_UI);
+            GameObject speedObject = existing != null
+                ? existing.gameObject
+                : new GameObject(
+                    BIKE_SPEED_UI,
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Text)
+                );
+            speedObject.layer = 5;
+
+            RectTransform rect = speedObject.GetComponent<RectTransform>();
+            rect.SetParent(parent, false);
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(286f, 78f);
+
+            Text text = speedObject.GetComponent<Text>() ?? speedObject.AddComponent<Text>();
+            text.font = hudFont;
+            text.fontSize = 56;
+            text.fontStyle = FontStyle.Normal;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = Color.white;
+            text.supportRichText = true;
+            text.raycastTarget = false;
+            text.text = "0<size=29> km/h</size>";
+
+            Shadow shadow = speedObject.GetComponent<Shadow>() ??
+                            speedObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.34f);
+            shadow.effectDistance = new Vector2(1f, -1f);
+            shadow.useGraphicAlpha = true;
+            rect.SetAsLastSibling();
+            speedObject.SetActive(false);
+        }
+
+        private static bool HasBikeSpeedUi(Transform vehicleGroup)
+        {
+            Transform speed = FindDirectChild(vehicleGroup, BIKE_SPEED_UI);
+            return speed != null && speed.GetComponent<Text>() != null;
         }
 
         private static Transform FindDirectChild(Transform parent, string childName)

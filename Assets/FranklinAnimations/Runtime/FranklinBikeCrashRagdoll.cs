@@ -177,7 +177,7 @@ namespace FranklinGame.Vehicles
                 await this.WaitUnscaled(this.m_MinRagdollTime, version);
                 if (!this.IsCurrent(version) || rider == null) return;
 
-                if (this.m_AutoRecover && rider.Ragdoll.IsRagdoll)
+                if (this.m_AutoRecover && !rider.IsDead && rider.Ragdoll.IsRagdoll)
                 {
                     FranklinBikeMainShotAim cameraAim = rider.GetComponentInChildren<
                         FranklinBikeMainShotAim
@@ -196,7 +196,7 @@ namespace FranklinGame.Vehicles
                 }
                 if (!this.IsCurrent(version) || rider == null) return;
 
-                if (this.m_AutoRecover && rider.Player != null)
+                if (this.m_AutoRecover && !rider.IsDead && rider.Player != null)
                     rider.Player.IsControllable = true;
             }
             catch (Exception exception)

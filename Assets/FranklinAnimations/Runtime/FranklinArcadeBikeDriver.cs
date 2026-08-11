@@ -46,6 +46,8 @@ namespace FranklinGame.Vehicles
         private bool m_VirtualSteerLeft;
         private bool m_VirtualSteerRight;
         private bool m_VirtualHandbrake;
+        private bool m_VirtualWheelie;
+        private bool m_VirtualBurnout;
         private bool m_ExternalHandbrake;
         private bool m_IsStoppingForExit;
         private bool m_KeepDynamicWhenDisabled;
@@ -57,8 +59,10 @@ namespace FranklinGame.Vehicles
         private Vector3 m_DrivingCenterOfMass;
         private bool m_HasCapturedDrivingPhysics;
         private bool m_IsCrashEngineRunning;
+        private bool m_IsDamageLocked;
 
         public bool IsVehicleEnabled => this.m_IsVehicleEnabled;
+        public bool IsDamageLocked => this.m_IsDamageLocked;
         public bool IsAirborne => this.m_IsVehicleEnabled &&
                                   this.m_Controller != null &&
                                   !this.m_Controller.frontWheelIsGrounded &&
@@ -120,13 +124,25 @@ namespace FranklinGame.Vehicles
                 return;
             }
 
-            float accelerate = this.m_VirtualAccelerate
+            if (this.m_IsDamageLocked)
+            {
+                // Keep suspension and the seated exit flow alive, but a bike at
+                // zero GC2 health cannot receive any propulsion or steering.
+                this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
+                return;
+            }
+
+            float accelerate = this.m_VirtualBurnout
                 ? 1f
-                : this.m_VirtualSlowAccelerate ? this.m_SlowThrottle : 0f;
-            float reverse = this.m_VirtualBrakeReverse ? 1f : 0f;
+                : this.m_VirtualAccelerate
+                    ? 1f
+                    : this.m_VirtualSlowAccelerate ? this.m_SlowThrottle : 0f;
+            float reverse = this.m_VirtualBurnout || this.m_VirtualBrakeReverse
+                ? 1f
+                : 0f;
             float steerLeft = this.m_VirtualSteerLeft ? 1f : 0f;
             float steerRight = this.m_VirtualSteerRight ? 1f : 0f;
-            float wheelie = 0f;
+            float wheelie = this.m_VirtualWheelie ? 1f : 0f;
             float handbrake = this.m_VirtualHandbrake || this.m_ExternalHandbrake ||
                               this.m_IsStoppingForExit
                 ? 1f
@@ -202,6 +218,16 @@ namespace FranklinGame.Vehicles
         public void SetVehicleEnabled(bool state, bool preserveMomentum)
         {
             this.ResolveReferences();
+            if (state && this.m_IsDamageLocked)
+            {
+                this.m_IsVehicleEnabled = false;
+                this.m_IsStoppingForExit = false;
+                this.ResetVirtualInputs();
+                this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
+                this.ApplyVehicleState();
+                return;
+            }
+
             FranklinArcadeBikeRagdoll bikeRagdoll =
                 this.GetComponent<FranklinArcadeBikeRagdoll>();
             if (state)
@@ -342,6 +368,33 @@ namespace FranklinGame.Vehicles
         public void SetVirtualHandbrakeInput(bool active)
         {
             this.m_VirtualHandbrake = active;
+        }
+
+        public void SetVirtualWheelieInput(bool active)
+        {
+            this.m_VirtualWheelie = active;
+        }
+
+        public void SetVirtualBurnoutInput(bool active)
+        {
+            this.m_VirtualBurnout = active;
+        }
+
+        /// <summary>
+        /// Locks propulsion at zero Bike health without breaking the normal exit
+        /// request. Repair clears the lock but never auto-mounts or auto-enables.
+        /// </summary>
+        public void SetDamageLocked(bool locked)
+        {
+            if (this.m_IsDamageLocked == locked) return;
+            this.m_IsDamageLocked = locked;
+            if (!locked) return;
+
+            this.m_IsStoppingForExit = false;
+            this.ResetVirtualInputs();
+            this.m_ExternalHandbrake = false;
+            this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
+            this.m_VehicleLights?.FrontLightsOff();
         }
 
         public void SetHeadlightEnabled(bool active)
@@ -585,6 +638,8 @@ namespace FranklinGame.Vehicles
             this.m_VirtualSteerLeft = false;
             this.m_VirtualSteerRight = false;
             this.m_VirtualHandbrake = false;
+            this.m_VirtualWheelie = false;
+            this.m_VirtualBurnout = false;
         }
     }
 }

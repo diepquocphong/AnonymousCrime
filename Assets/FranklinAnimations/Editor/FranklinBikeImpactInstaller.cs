@@ -3,8 +3,10 @@ using System;
 using System.IO;
 using System.Linq;
 using FranklinGame.Vehicles;
+using GameCreator.Runtime.Stats;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 [InitializeOnLoad]
 internal static class FranklinBikeImpactInstaller
@@ -12,17 +14,29 @@ internal static class FranklinBikeImpactInstaller
     private const string BikesFolder =
         "Assets/Model/DQP_MotorBikePack_URP14/Generated/Prefabs/Bikes";
     private const string LightImpactAudioPath =
-        "Assets/FranklinAnimations/Audio/Vehicles/car_impact_light.wav";
+        "Assets/Ash Assets/Vehicle Integration/Car/Audio/SFX/car_impact_light.wav";
     private const string HeavyImpactAudioPath =
-        "Assets/FranklinAnimations/Audio/Vehicles/car_impact_heavy.wav";
+        "Assets/Ash Assets/Vehicle Integration/Car/Audio/SFX/car_impact_heavy.wav";
     private const string CollisionEffectPath =
-        "Assets/Ash Assets/Sim-Cade Vehicle Physics/Prefabs/Collision Spark.prefab";
+        "Assets/Ash Assets/Vehicle Integration/ThirdParty/Sim-Cade Vehicle Physics/Prefabs/Collision Spark.prefab";
     private const string ZeroFrictionMaterialPath =
         "Assets/Ash Assets/Arcade Bike Physics Pro/Materials/zero Friction.physicMaterial";
     private const string RagdollBodyMaterialPath =
         "Assets/FranklinAnimations/Generated/BikeRagdoll/Franklin_Bike_Ragdoll_Body.physicMaterial";
     private const string RecoveryAnimationPath =
         "Assets/Plugins/GameCreator/Packages/Core/Runtime/Characters/Assets/3D/Animations/Locomotion/Human@Crouch_Idle.anim";
+    private const string ExplosionAudioPath =
+        "Assets/Ash Assets/Vehicle Integration/Car/Audio/SFX/car_explosion_test_vehicle_cc0.wav";
+    private const string SmokeLoopAudioPath =
+        "Assets/Ash Assets/Vehicle Integration/Car/Audio/SFX/car_smoke_hiss_loop_cc0.wav";
+    private const string FireLoopAudioPath =
+        "Assets/Ash Assets/Vehicle Integration/Car/Audio/SFX/car_fire_crackle_loop_cc0.wav";
+    private const string DamageVfxRoot =
+        "Assets/Ash Assets/Vehicle Integration/Car/VFX/Hovl Studio/3D Fire and Explosions/Prefabs";
+    private const string SmokePrefabPath = DamageVfxRoot + "/Smoke1.prefab";
+    private const string FirePrefabPath = DamageVfxRoot + "/Fire3.prefab";
+    private const string ExplosionPrefabPath = DamageVfxRoot + "/Explosion11.prefab";
+    private static readonly int[] ExplosionParticleCaps = { 18, 18, 24 };
 
     static FranklinBikeImpactInstaller()
     {
@@ -68,7 +82,9 @@ internal static class FranklinBikeImpactInstaller
         AssetDatabase.Refresh();
         Debug.Log(
             $"[Arcade Bikes] Configured light/heavy collision audio and pooled " +
-            $"spark/flash/debris FX plus GC2 rider and in-place ABP bike ragdoll on " +
+            $"spark/flash/debris FX, smoke/fire/explosion, Player damage, visual " +
+            $"deformation, rider ejection and in-place " +
+            $"ABP bike ragdoll on " +
             $"{configured}/10 bikes."
         );
     }
@@ -135,6 +151,7 @@ internal static class FranklinBikeImpactInstaller
 
         FranklinArcadeBikeDriver driver =
             root.GetComponent<FranklinArcadeBikeDriver>();
+        Traits traits = root.GetComponent<Traits>();
         ArcadeBP_Pro.ArcadeBikeControllerPro controller =
             root.GetComponent<ArcadeBP_Pro.ArcadeBikeControllerPro>();
         BikeEntry entry = root.GetComponent<BikeEntry>();
@@ -143,12 +160,17 @@ internal static class FranklinBikeImpactInstaller
             ZeroFrictionMaterialPath
         );
         PhysicsMaterial bodyFriction = EnsureRagdollBodyMaterial();
-        if (driver == null || controller == null || entry == null || body == null)
+        if (driver == null || traits == null || controller == null ||
+            entry == null || body == null)
         {
             throw new InvalidOperationException(
                 $"{root.name} must be integrated before crash ragdoll is configured."
             );
         }
+
+        FranklinBikeHealth health = root.GetComponent<FranklinBikeHealth>();
+        if (health == null) health = root.AddComponent<FranklinBikeHealth>();
+        health.Configure(traits, impact, driver, entry, "health-attribute-id");
 
         Transform renderedBody = controller.bikeReferences?.BodyMesh;
         SphereCollider frontWheelCollider = EnsureRagdollWheelCollider(
@@ -217,8 +239,27 @@ internal static class FranklinBikeImpactInstaller
         crash.Configure(impact, driver, bikeRagdoll, entry, body);
         crash.UpgradeConfigurationIfNeeded();
 
+        MeshFilter[] deformablePanels = ResolveDeformableBodyPanels(renderedBody);
+        FranklinBikeDeformation deformation =
+            root.GetComponent<FranklinBikeDeformation>();
+        if (deformation == null)
+            deformation = root.AddComponent<FranklinBikeDeformation>();
+        deformation.Configure(impact, renderedBody, deformablePanels);
+
+        ConfigureDamagePipeline(
+            root,
+            renderedBody,
+            renderedBodyBounds,
+            health,
+            driver,
+            bikeRagdoll,
+            entry,
+            body
+        );
+
         EditorUtility.SetDirty(source);
         EditorUtility.SetDirty(impact);
+        EditorUtility.SetDirty(health);
         EditorUtility.SetDirty(frontWheelCollider);
         EditorUtility.SetDirty(rearWheelCollider);
         foreach (MeshCollider meshCollider in bodyMeshColliders)
@@ -226,6 +267,7 @@ internal static class FranklinBikeImpactInstaller
         EditorUtility.SetDirty(entry);
         EditorUtility.SetDirty(bikeRagdoll);
         EditorUtility.SetDirty(crash);
+        EditorUtility.SetDirty(deformation);
         EditorUtility.SetDirty(root);
     }
 
@@ -246,12 +288,25 @@ internal static class FranklinBikeImpactInstaller
                 prefab != null ? prefab.GetComponent<FranklinBikeImpactAudio>() : null;
             FranklinBikeCrashRagdoll crash =
                 prefab != null ? prefab.GetComponent<FranklinBikeCrashRagdoll>() : null;
+            FranklinBikeHealth health =
+                prefab != null ? prefab.GetComponent<FranklinBikeHealth>() : null;
             FranklinArcadeBikeRagdoll bikeRagdoll =
                 prefab != null ? prefab.GetComponent<FranklinArcadeBikeRagdoll>() : null;
+            FranklinBikeDamageEffects damageEffects =
+                prefab != null ? prefab.GetComponent<FranklinBikeDamageEffects>() : null;
+            FranklinBikeDestruction destruction =
+                prefab != null ? prefab.GetComponent<FranklinBikeDestruction>() : null;
+            FranklinBikeDeformation deformation =
+                prefab != null ? prefab.GetComponent<FranklinBikeDeformation>() : null;
             return impact != null && impact.IsConfigured &&
+                   health != null && health.IsConfigured &&
                    bikeRagdoll != null && bikeRagdoll.IsConfigured &&
                    crash != null && crash.IsConfigured &&
                    crash.HasCurrentConfiguration &&
+                   damageEffects != null && damageEffects.IsConfigured &&
+                   destruction != null && destruction.IsConfigured &&
+                   deformation != null && deformation.IsConfigured &&
+                   deformation.HasCurrentConfiguration &&
                    HasNormalizedFeatureHierarchy(prefab);
         });
         if (complete) return;
@@ -289,6 +344,378 @@ internal static class FranklinBikeImpactInstaller
         source.minDistance = 4f;
         source.maxDistance = 55f;
         return source;
+    }
+
+    private static void ConfigureDamagePipeline(
+        GameObject root,
+        Transform renderedBody,
+        Bounds renderedBodyBounds,
+        FranklinBikeHealth health,
+        FranklinArcadeBikeDriver driver,
+        FranklinArcadeBikeRagdoll bikeRagdoll,
+        BikeEntry entry,
+        Rigidbody body)
+    {
+        AudioClip explosionClip = RequireAsset<AudioClip>(ExplosionAudioPath);
+        AudioClip smokeLoopClip = RequireAsset<AudioClip>(SmokeLoopAudioPath);
+        AudioClip fireLoopClip = RequireAsset<AudioClip>(FireLoopAudioPath);
+
+        Transform effectsRoot = GetOrCreateChild(renderedBody, "Bike Damage Effects");
+        ResetLocalTransform(effectsRoot, Vector3.zero, Vector3.one);
+        Vector3 rootLocalEffectPosition = renderedBodyBounds.center + new Vector3(
+            0f,
+            renderedBodyBounds.extents.y * 0.12f,
+            0f
+        );
+        Vector3 worldEffectPosition = root.transform.TransformPoint(
+            rootLocalEffectPosition
+        );
+        Vector3 effectPosition = effectsRoot.InverseTransformPoint(worldEffectPosition);
+
+        Transform loopAudioRoot = GetOrCreateChild(effectsRoot, "Loop Audio");
+        ResetLocalTransform(loopAudioRoot, effectPosition, Vector3.one);
+        AudioSource smokeAudio = EnsureLoopAudioSource(
+            GetOrCreateChild(loopAudioRoot, "Smoke Hiss").gameObject,
+            smokeLoopClip,
+            0.18f,
+            2.5f,
+            30f,
+            96
+        );
+        AudioSource fireAudio = EnsureLoopAudioSource(
+            GetOrCreateChild(loopAudioRoot, "Fire Crackle").gameObject,
+            fireLoopClip,
+            0.5f,
+            3.5f,
+            48f,
+            72
+        );
+
+        Transform smokeRoot = GetOrCreateChild(effectsRoot, "Weak Health Smoke");
+        ParticleSystem smokeParticles = ConfigureLoopEffect(
+            ReplaceWithImportedEffect(
+                smokeRoot,
+                SmokePrefabPath,
+                effectPosition,
+                0.46f
+            ),
+            22,
+            6f
+        );
+
+        Transform warningFireRoot = GetOrCreateChild(
+            effectsRoot,
+            "Critical Warning Fire"
+        );
+        ParticleSystem warningFireParticles = ConfigureLoopEffect(
+            ReplaceWithImportedEffect(
+                warningFireRoot,
+                FirePrefabPath,
+                effectPosition + new Vector3(0f, 0.02f, -0.05f),
+                0.3f
+            ),
+            12,
+            6f
+        );
+
+        Transform destroyedFireRoot = GetOrCreateChild(
+            effectsRoot,
+            "Destroyed Fire"
+        );
+        ParticleSystem destroyedFireParticles = ConfigureLoopEffect(
+            ReplaceWithImportedEffect(
+                destroyedFireRoot,
+                FirePrefabPath,
+                effectPosition,
+                0.4f
+            ),
+            18,
+            9f
+        );
+
+        Transform explosionRoot = GetOrCreateChild(effectsRoot, "Explosion Burst");
+        ParticleSystem[] explosionParticles = ConfigureExplosion(
+            ReplaceWithImportedEffect(
+                explosionRoot,
+                ExplosionPrefabPath,
+                effectPosition,
+                0.52f
+            )
+        );
+        AudioSource explosionAudio = EnsureExplosionAudioSource(
+            explosionRoot.gameObject,
+            explosionClip
+        );
+
+        Transform occupantFireRoot = GetOrCreateChild(
+            effectsRoot,
+            "Occupant Burn Fire"
+        );
+        ParticleSystem occupantFireParticles = ConfigureLoopEffect(
+            ReplaceWithImportedEffect(
+                occupantFireRoot,
+                FirePrefabPath,
+                Vector3.zero,
+                0.3f
+            ),
+            10,
+            5f
+        );
+
+        smokeRoot.gameObject.SetActive(false);
+        warningFireRoot.gameObject.SetActive(false);
+        destroyedFireRoot.gameObject.SetActive(false);
+        explosionRoot.gameObject.SetActive(true);
+        occupantFireRoot.gameObject.SetActive(false);
+
+        Renderer[] bikeRenderers = root.GetComponentsInChildren<Renderer>(true)
+            .Where(renderer => renderer != null &&
+                renderer is not ParticleSystemRenderer &&
+                renderer is not TrailRenderer &&
+                renderer is not LineRenderer &&
+                !renderer.transform.IsChildOf(effectsRoot))
+            .ToArray();
+
+        FranklinBikeDestruction destruction =
+            root.GetComponent<FranklinBikeDestruction>();
+        if (destruction == null)
+            destruction = root.AddComponent<FranklinBikeDestruction>();
+        destruction.Configure(
+            health,
+            driver,
+            bikeRagdoll,
+            entry,
+            body,
+            bikeRenderers,
+            occupantFireRoot.gameObject,
+            "hp"
+        );
+
+        FranklinBikeParticleWind particleWind =
+            root.GetComponent<FranklinBikeParticleWind>();
+        if (particleWind == null)
+            particleWind = root.AddComponent<FranklinBikeParticleWind>();
+        particleWind.Configure(
+            body,
+            new[]
+            {
+                smokeParticles,
+                warningFireParticles,
+                destroyedFireParticles,
+                occupantFireParticles
+            }
+        );
+
+        FranklinBikeDamageEffects damageEffects =
+            root.GetComponent<FranklinBikeDamageEffects>();
+        if (damageEffects == null)
+            damageEffects = root.AddComponent<FranklinBikeDamageEffects>();
+        damageEffects.Configure(
+            health,
+            smokeRoot.gameObject,
+            warningFireRoot.gameObject,
+            destroyedFireRoot.gameObject,
+            particleWind,
+            smokeAudio,
+            smokeLoopClip,
+            fireAudio,
+            fireLoopClip,
+            explosionParticles,
+            explosionAudio,
+            explosionClip,
+            destruction
+        );
+
+        EditorUtility.SetDirty(smokeAudio);
+        EditorUtility.SetDirty(fireAudio);
+        EditorUtility.SetDirty(explosionAudio);
+        EditorUtility.SetDirty(destruction);
+        EditorUtility.SetDirty(particleWind);
+        EditorUtility.SetDirty(damageEffects);
+    }
+
+    private static MeshFilter[] ResolveDeformableBodyPanels(Transform renderedBody)
+    {
+        if (renderedBody == null) return Array.Empty<MeshFilter>();
+        MeshFilter[] panels = renderedBody.GetComponentsInChildren<MeshFilter>(true)
+            .Where(filter => filter != null && filter.sharedMesh != null &&
+                filter.GetComponent<MeshRenderer>() != null &&
+                !IsUnderNamedAncestor(filter.transform, "Bike Damage Effects") &&
+                !ContainsIgnoreCase(filter.name, "wheel") &&
+                !ContainsIgnoreCase(filter.name, "glass") &&
+                !ContainsIgnoreCase(filter.name, "collider"))
+            .ToArray();
+        if (panels.Length == 0)
+        {
+            throw new InvalidOperationException(
+                $"{renderedBody.root.name} has no readable render-body panels for deformation."
+            );
+        }
+        return panels;
+    }
+
+    private static bool ContainsIgnoreCase(string value, string fragment)
+    {
+        return value != null && value.IndexOf(
+            fragment,
+            StringComparison.OrdinalIgnoreCase
+        ) >= 0;
+    }
+
+    private static bool IsUnderNamedAncestor(Transform target, string ancestorName)
+    {
+        for (Transform current = target; current != null; current = current.parent)
+        {
+            if (string.Equals(current.name, ancestorName, StringComparison.Ordinal))
+                return true;
+        }
+        return false;
+    }
+
+    private static T RequireAsset<T>(string path) where T : UnityEngine.Object
+    {
+        T asset = AssetDatabase.LoadAssetAtPath<T>(path);
+        if (asset == null)
+            throw new InvalidOperationException("Missing Bike damage asset: " + path);
+        return asset;
+    }
+
+    private static GameObject ReplaceWithImportedEffect(
+        Transform wrapper,
+        string prefabPath,
+        Vector3 localPosition,
+        float localScale)
+    {
+        for (int i = wrapper.childCount - 1; i >= 0; --i)
+            UnityEngine.Object.DestroyImmediate(wrapper.GetChild(i).gameObject);
+        ResetLocalTransform(wrapper, localPosition, Vector3.one);
+
+        GameObject source = RequireAsset<GameObject>(prefabPath);
+        GameObject instance = UnityEngine.Object.Instantiate(source, wrapper, false);
+        instance.name = source.name;
+        ResetLocalTransform(instance.transform, Vector3.zero, Vector3.one * localScale);
+        Light[] lights = instance.GetComponentsInChildren<Light>(true);
+        for (int i = lights.Length - 1; i >= 0; --i)
+            UnityEngine.Object.DestroyImmediate(lights[i]);
+        return instance;
+    }
+
+    private static ParticleSystem ConfigureLoopEffect(
+        GameObject root,
+        int maxParticles,
+        float maxEmissionRate)
+    {
+        ParticleSystem[] systems = root.GetComponentsInChildren<ParticleSystem>(true);
+        if (systems.Length != 1)
+            throw new InvalidOperationException(root.name + " requires one ParticleSystem.");
+
+        ParticleSystem.MainModule main = systems[0].main;
+        main.loop = true;
+        main.playOnAwake = false;
+        main.maxParticles = maxParticles;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+        main.stopAction = ParticleSystemStopAction.None;
+        ParticleSystem.EmissionModule emission = systems[0].emission;
+        emission.rateOverTime = Mathf.Min(
+            emission.rateOverTime.constantMax,
+            maxEmissionRate
+        );
+        ParticleSystem.ForceOverLifetimeModule force = systems[0].forceOverLifetime;
+        force.enabled = true;
+        force.space = ParticleSystemSimulationSpace.World;
+        force.x = new ParticleSystem.MinMaxCurve(0f);
+        force.y = new ParticleSystem.MinMaxCurve(0f);
+        force.z = new ParticleSystem.MinMaxCurve(0f);
+        ConfigureParticleRenderer(systems[0]);
+        systems[0].Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        return systems[0];
+    }
+
+    private static ParticleSystem[] ConfigureExplosion(GameObject root)
+    {
+        ParticleSystem[] systems = root.GetComponentsInChildren<ParticleSystem>(true);
+        if (systems.Length != ExplosionParticleCaps.Length)
+            throw new InvalidOperationException("Explosion11 requires three ParticleSystems.");
+        for (int i = 0; i < systems.Length; ++i)
+        {
+            ParticleSystem.MainModule main = systems[i].main;
+            main.loop = false;
+            main.playOnAwake = false;
+            main.maxParticles = ExplosionParticleCaps[i];
+            main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+            main.stopAction = ParticleSystemStopAction.None;
+            ConfigureParticleRenderer(systems[i]);
+            systems[i].Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        }
+        return systems;
+    }
+
+    private static void ConfigureParticleRenderer(ParticleSystem particles)
+    {
+        ParticleSystemRenderer renderer = particles.GetComponent<ParticleSystemRenderer>();
+        if (renderer == null)
+            throw new InvalidOperationException(particles.name + " requires a renderer.");
+        renderer.shadowCastingMode = ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
+        renderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
+        renderer.allowOcclusionWhenDynamic = false;
+        renderer.sortingOrder = 5;
+    }
+
+    private static AudioSource EnsureLoopAudioSource(
+        GameObject target,
+        AudioClip clip,
+        float volume,
+        float minDistance,
+        float maxDistance,
+        int priority)
+    {
+        ResetLocalTransform(target.transform, Vector3.zero, Vector3.one);
+        AudioSource source = target.GetComponent<AudioSource>();
+        if (source == null) source = target.AddComponent<AudioSource>();
+        source.clip = clip;
+        source.playOnAwake = false;
+        source.loop = true;
+        source.spatialBlend = 1f;
+        source.dopplerLevel = 0f;
+        source.rolloffMode = AudioRolloffMode.Logarithmic;
+        source.minDistance = minDistance;
+        source.maxDistance = maxDistance;
+        source.volume = volume;
+        source.priority = priority;
+        source.Stop();
+        return source;
+    }
+
+    private static AudioSource EnsureExplosionAudioSource(
+        GameObject target,
+        AudioClip clip)
+    {
+        AudioSource source = target.GetComponent<AudioSource>();
+        if (source == null) source = target.AddComponent<AudioSource>();
+        source.clip = clip;
+        source.playOnAwake = false;
+        source.loop = false;
+        source.spatialBlend = 1f;
+        source.dopplerLevel = 0f;
+        source.rolloffMode = AudioRolloffMode.Logarithmic;
+        source.minDistance = 5f;
+        source.maxDistance = 90f;
+        source.volume = 1f;
+        source.priority = 24;
+        return source;
+    }
+
+    private static void ResetLocalTransform(
+        Transform target,
+        Vector3 localPosition,
+        Vector3 localScale)
+    {
+        target.localPosition = localPosition;
+        target.localRotation = Quaternion.identity;
+        target.localScale = localScale;
     }
 
     private static SphereCollider EnsureRagdollWheelCollider(
@@ -370,6 +797,10 @@ internal static class FranklinBikeImpactInstaller
         return renderedBody.GetComponentsInChildren<MeshFilter>(true)
             .Where(filter => filter != null && filter.sharedMesh != null &&
                              filter.sharedMesh.vertexCount >= 4 &&
+                             !IsUnderNamedAncestor(
+                                 filter.transform,
+                                 "Bike Damage Effects"
+                             ) &&
                              filter.GetComponent<MeshRenderer>() != null)
             .Select(filter =>
             {
@@ -486,6 +917,7 @@ internal static class FranklinBikeImpactInstaller
         MoveReferencedMarker(renderedBody, entry.fallenBikeBodyGripRight);
         MoveReferencedMarker(renderedBody, entry.entryStandingPoint);
         MoveReferencedMarker(renderedBody, entry.mirroredEntryStandingPoint);
+        MoveDirectRootChild(root.transform, renderedBody, "Bike Damage Effects");
         RemoveUnusedDuplicateMarker(root, entry.fallenBikeBodyGripLeft);
         RemoveUnusedDuplicateMarker(root, entry.fallenBikeBodyGripRight);
         RemoveObsoleteDirectRootChild(root.transform, "AudioSource-Coillision");
@@ -522,7 +954,11 @@ internal static class FranklinBikeImpactInstaller
         Transform rear = hierarchy.FirstOrDefault(
             item => item.name == "Franklin Ragdoll Rear Wheel Collider"
         );
+        Transform damageEffects = hierarchy.FirstOrDefault(
+            item => item.name == "Bike Damage Effects"
+        );
         if (front == null || rear == null || front.parent != body || rear.parent != body ||
+            damageEffects == null || damageEffects.parent != body ||
             front.GetComponent<SphereCollider>() == null ||
             rear.GetComponent<SphereCollider>() == null) return false;
 

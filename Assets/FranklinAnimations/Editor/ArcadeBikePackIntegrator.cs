@@ -664,7 +664,7 @@ public static class ArcadeBikePackIntegrator
         controller.bikeSettings.driftTurnFactor = 1.75f;
         controller.bikeSettings.rollingResistance = 1f;
         controller.bikeSettings.gravity = 15f;
-        controller.bikeSettings.burnoutRotationSpeed = 50f;
+        controller.bikeSettings.burnoutRotationSpeed = 18f;
         controller.bikeSettings.burnoutSmoothness = 1f;
         controller.bikeSettings.maxWheelieAngle = 30f;
         controller.bikeSettings.wheelieAnimationSpeed = 3f;
