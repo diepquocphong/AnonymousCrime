@@ -1,55 +1,109 @@
 # Franklin Game — Vehicle Integration
 
-Thư mục này là điểm sở hữu duy nhất cho phần tích hợp **Car** của Franklin Game. Các asset đã được di chuyển bằng `AssetDatabase.MoveAsset`, vì vậy GUID trong `.meta` được giữ nguyên và reference từ prefab/scene không thay đổi.
+Đây là module tập trung cho hạ tầng vehicle của Franklin Game: code dùng chung,
+Car, Bike, Hover vehicle, nội dung shared và package bên thứ ba. Asset được phân
+loại theo **domain trước, loại file sau** để dễ tìm nhưng không trộn code tự viết
+với vendor package. Mỗi asset luôn được di chuyển cùng `.meta`, vì vậy GUID và
+reference từ prefab/scene vẫn được giữ nguyên.
 
 ## Cấu trúc
 
 ```text
 Vehicle Integration/
-├── Car/
-│   ├── Animations/
-│   │   ├── EntryExit/       # Vào/ra xe, bailout đang chạy
-│   │   ├── Carjacking/      # Player kéo/đẩy NPC khỏi ghế lái
-│   │   └── Generated/       # Clip mirror cho cửa bên phải
-│   ├── Audio/
-│   │   ├── SFX/             # Mở/đóng cửa, va chạm nhẹ/nặng, giấy phép
-│   │   └── Radio/
-│   │       ├── Stations/    # Ba station CC0, import Streaming cho mobile
-│   │       └── SFX/         # Static ngắn khi bật/chuyển kênh
-│   ├── Editor/              # Installer, validator và Car Entry Live Setup
-│   ├── Legacy/
-│   │   └── PhysicsCarController/
-│   │                          # Mã RVR cũ, chỉ lưu để tham khảo; không gắn lên Car
-│   ├── Prefabs/Car.prefab   # Prefab Car chính thức
-│   ├── Runtime/             # API vào/ra xe, Sim-Cade adapter, impact, carjacking
-│   ├── Stats/               # Stats GC2 được migrate từ cấu trúc cũ
-│   ├── UI/
-│   │   └── Generated/       # Sprite ImageGen: disc, radio button, health frame
-│   ├── VFX/                 # Khói, lửa, skidmark và VFX liên quan Car
-│   └── Visuals/Models/      # Car.FBX và material
+├── Core/
+│   ├── Data/
+│   │   ├── Input/           # Input Actions dùng chung
+│   │   ├── Stats/           # GC2 health/fuel/car/bike stats
+│   │   └── Variables/       # GC2 global vehicle variables
+│   ├── Runtime/
+│   │   ├── Conditions/      # Điều kiện Visual Scripting
+│   │   ├── Input/           # Mobile/Input System bridge
+│   │   ├── Instructions/    # Instruction dùng chung
+│   │   ├── Vehicle/         # Contract và component vehicle dùng chung
+│   │   └── Legacy/          # Script cũ còn phải giữ để tương thích
+│   └── Editor/
+│       ├── Input/           # Property drawer
+│       └── Styles/          # USS dùng chung cho custom inspector
+├── Vehicles/
+│   ├── Car/
+│   │   ├── Runtime/         # Enter/exit, Sim-Cade adapter, health, fuel, damage
+│   │   ├── Editor/          # Installer, validator và Scene preview
+│   │   ├── Prefabs/         # Car.prefab, UI prefab và VFX prefab
+│   │   ├── Models/          # Car.FBX
+│   │   ├── Materials/       # Vehicle materials và VFX materials
+│   │   ├── Textures/        # UI generated/source và VFX textures
+│   │   ├── Animations/      # EntryExit, Carjacking và clip Generated
+│   │   ├── Audio/           # Door/impact/damage SFX và Radio
+│   │   ├── VFX/             # VFX Graph, subgraph và Hovl subset
+│   │   └── Legacy/          # PhysicsCarController cũ, không gắn lên Car chính
+│   ├── Bike/
+│   │   ├── Animations/      # Enter/exit/idle Bike
+│   │   ├── Prefabs/         # Empty-Motorbike template
+│   │   ├── Textures/UI/     # Icon editor riêng của Bike
+│   │   └── Legacy/          # PhysicsBikeController cũ
+│   └── Hover/
+│       ├── Runtime/         # Hoverbike/hoverboard/hovercar controller
+│       └── Editor/          # Custom editor Hover
+├── Shared/
+│   ├── Audio/               # Mixer, engine, bump và drift dùng lại
+│   ├── Materials/           # Material không thuộc riêng một vehicle
+│   ├── Textures/            # Texture utility dùng chung
+│   ├── Shaders/             # Shader/Shader Graph dùng chung
+│   └── UI/Sprites/          # Sprite editor/UI dùng chung
+├── Stations/
+│   └── Fuel/Runtime/        # Marker trigger, hold button và giao dịch xăng
 ├── ThirdParty/
 │   └── Sim-Cade Vehicle Physics/
-│                              # Package Sim-Cade nguyên bản, giữ cấu trúc nội bộ
-├── Editor/
-│   └── VehicleCarAssetConsolidator.cs
-├── Scripts/                 # API dùng chung cho nhiều loại vehicle
-├── Animations/              # Animation Bike/shared còn lại
-├── Audio/                   # Mixer và audio shared
-├── UI/                      # UI Bike/shared còn lại
-├── Variables/               # GC2 variables dùng chung
+│                              # Vendor package nguyên bản, không trộn custom code
 └── README.md
 ```
 
-### Asset không chuyển vào `Car/`
+### Chỉ mục nhanh theo loại asset
 
-Các thành phần dưới đây có liên quan tới luồng Car nhưng còn được Bike, Player hoặc GC2 dùng chung. Chúng được giữ ở vị trí shared để không tạo phụ thuộc sai:
+| Cần tìm | Đường dẫn chuẩn |
+|---|---|
+| Prefab Car chính | [`Vehicles/Car/Prefabs/Car.prefab`](Vehicles/Car/Prefabs/Car.prefab) |
+| Prefab UI Car | [`Vehicles/Car/Prefabs/UI/`](Vehicles/Car/Prefabs/UI/) |
+| Prefab VFX Car | [`Vehicles/Car/Prefabs/VFX/`](Vehicles/Car/Prefabs/VFX/) |
+| Model Car | [`Vehicles/Car/Models/`](Vehicles/Car/Models/) |
+| Material thân xe | [`Vehicles/Car/Materials/Vehicle/`](Vehicles/Car/Materials/Vehicle/) |
+| Material đèn dùng chung | [`Shared/Materials/VehicleLights/`](Shared/Materials/VehicleLights/) |
+| Material VFX | [`Vehicles/Car/Materials/VFX/`](Vehicles/Car/Materials/VFX/) |
+| Texture UI runtime | [`Vehicles/Car/Textures/UI/Generated/`](Vehicles/Car/Textures/UI/Generated/) |
+| File nguồn UI | [`Vehicles/Car/Textures/UI/Source/`](Vehicles/Car/Textures/UI/Source/) |
+| Texture VFX | [`Vehicles/Car/Textures/VFX/`](Vehicles/Car/Textures/VFX/) |
+| Animation Car | [`Vehicles/Car/Animations/`](Vehicles/Car/Animations/) |
+| Audio Car | [`Vehicles/Car/Audio/`](Vehicles/Car/Audio/) |
+| Graph và subgraph VFX | [`Vehicles/Car/VFX/Graphs/`](Vehicles/Car/VFX/Graphs/) |
+| Stats/Input/Variables | [`Core/Data/`](Core/Data/) |
+| Asset dùng chung | [`Shared/`](Shared/) |
+| Logic trạm xăng | [`Stations/Fuel/Runtime/`](Stations/Fuel/Runtime/) |
+| Sim-Cade nguyên bản | [`ThirdParty/Sim-Cade Vehicle Physics/`](ThirdParty/Sim-Cade%20Vehicle%20Physics/) |
 
-- `Scripts/GeneralVehicles/CharacterIKSetter.cs`
-- `Scripts/GeneralVehicles/IRvrVehicleDriveController.cs`
-- `Scripts/GeneralVehicles/InstructionEnterVehicle.cs`
-- `Scripts/GeneralVehicles/InstructionExitVehicle.cs`
-- `Scripts/GeneralVehicles/VehicleLights.cs`
-- `InputSystem_RT.inputactions`, `Variables/Global Variable - Vehicles.asset`
+### Quy ước phân loại
+
+- `Runtime` không chứa `UnityEditor`; mọi custom inspector/installer nằm trong `Editor`.
+- `Prefabs`, `Models`, `Materials`, `Textures`, `Animations` và `Audio` là các
+  điểm tìm duy nhất trong từng vehicle domain; không đặt texture lẫn trong
+  `Materials` hoặc prefab lẫn trong `UI`.
+- Asset chỉ dùng cho một vehicle nằm dưới `Vehicles/<Type>`; asset dùng lại cho
+  nhiều loại nằm dưới `Core` hoặc `Shared`.
+- `ThirdParty` giữ nguyên cấu trúc vendor để dễ audit license và nâng cấp package.
+- File tạo bằng ImageGen nằm trong `Textures/UI/Generated`; PSD/file nguồn nằm
+  trong `Textures/UI/Source`.
+
+### Dependency nằm ngoài `Vehicles/Car/`
+
+Các thành phần dưới đây có liên quan tới luồng Car nhưng còn được Bike, Player
+hoặc GC2 dùng chung, nên không được đưa vào domain Car:
+
+- `../Arcade Bike Physics Pro/Scripts/Integration/Rider/CharacterIKSetter.cs`
+- `Core/Runtime/Vehicle/IRvrVehicleDriveController.cs`
+- `Core/Runtime/Instructions/InstructionEnterVehicle.cs`
+- `Core/Runtime/Instructions/InstructionExitVehicle.cs`
+- `Core/Runtime/Vehicle/VehicleLights.cs`
+- `Core/Data/Input/InputSystem_RT.inputactions`
+- `Core/Data/Variables/Global Variable - Vehicles.asset`
 - `Assets/FranklinAnimations/Runtime/FranklinVehicleInteractionManager.cs`
 - `Assets/FranklinAnimations/Runtime/FranklinMobileHud.cs`
 - `Assets/Prefab/Player.prefab`, `Assets/Prefab/NPC.prefab`
@@ -63,45 +117,48 @@ Các thành phần dưới đây có liên quan tới luồng Car nhưng còn đ
 
 | Script | Đường dẫn | Trách nhiệm |
 |---|---|---|
-| `CarEntry` | [`Car/Runtime/CarEntry.cs`](Car/Runtime/CarEntry.cs) | Chủ sở hữu enter/exit, bốn cửa/ghế, door animation, mirror entry và speed-aware bailout. |
-| `SimcadeCarDriver` | [`Car/Runtime/SimcadeCarDriver.cs`](Car/Runtime/SimcadeCarDriver.cs) | Adapter input, camera, mobile control, speed và presentation cho Sim-Cade. |
-| `SimcadeCarDashboard` | [`Car/Runtime/SimcadeCarDashboard.cs`](Car/Runtime/SimcadeCarDashboard.cs) | Một Canvas HUD dùng chung cho mọi instance Car; tự bind driver/health/fuel/radio của Car đang lái. |
-| `SimcadeCarHealth` | [`Car/Runtime/SimcadeCarHealth.cs`](Car/Runtime/SimcadeCarHealth.cs) | Nối impact đã phân loại với GC2 `health-attribute-id`; API damage/repair. |
-| `SimcadeCarFuel` | [`Car/Runtime/SimcadeCarFuel.cs`](Car/Runtime/SimcadeCarFuel.cs) | Nối GC2 `fuel-attribute-id`, hao xăng theo garanti/ga/tốc độ và khóa ga/engine khi cạn. |
-| `SimcadeCarDamageEffects` | [`Car/Runtime/SimcadeCarDamageEffects.cs`](Car/Runtime/SimcadeCarDamageEffects.cs) | Event-driven khói dưới 32% máu, explosion một lần và lửa khi xe hết máu. |
-| `SimcadeCarDestruction` | [`Car/Runtime/SimcadeCarDestruction.cs`](Car/Runtime/SimcadeCarDestruction.cs) | Phá hủy terminal: cháy đen riêng instance, văng bốn bánh, cưỡng chế Player ragdoll/cháy/Traits về 0 và khóa UI/điều khiển. |
-| `SimcadeCarParticleWind` | [`Car/Runtime/SimcadeCarParticleWind.cs`](Car/Runtime/SimcadeCarParticleWind.cs) | Lực gió world-space cho smoke/fire, cộng airflow ngược vận tốc xe và chỉ cập nhật 8 Hz khi VFX hoạt động. |
-| `SimcadeDetachedWheelCleanup` | [`Car/Runtime/SimcadeDetachedWheelCleanup.cs`](Car/Runtime/SimcadeDetachedWheelCleanup.cs) | Vòng đời debris bánh: văng, nằm phẳng theo ground, khóa physics 5 giây, chìm và tự dọn. |
-| `SimcadeCarImpactAudio` | [`Car/Runtime/SimcadeCarImpactAudio.cs`](Car/Runtime/SimcadeCarImpactAudio.cs) | Phân loại va chạm, audio, pooled spark/debris và phát event impact dùng chung. |
-| `SimcadeCarDeformation` | [`Car/Runtime/SimcadeCarDeformation.cs`](Car/Runtime/SimcadeCarDeformation.cs) | Adapter event Sim-Cade gọi thuật toán deformation Edy cho các render mesh gần contact, đồng thời giữ sai lệch lái nhỏ. |
-| `EdysVehicleMeshDeformation` | [`Car/Runtime/EdysVehicleMeshDeformation.cs`](Car/Runtime/EdysVehicleMeshDeformation.cs) | Phần duy nhất port từ `VehicleDamage.cs` của Edy's 5.5.3: falloff theo bán kính, impact velocity, fracture và giới hạn displacement. |
-| `SimcadeCarjacking` | [`Car/Runtime/SimcadeCarjacking.cs`](Car/Runtime/SimcadeCarjacking.cs) | Kéo NPC cửa trái và nhánh ghế phụ đẩy NPC sang trái. |
-| `SeatedSkeletonPoseGuard` | [`Car/Runtime/SeatedSkeletonPoseGuard.cs`](Car/Runtime/SeatedSkeletonPoseGuard.cs) | Giữ pelvis/spine/head đúng ghế trong camera handoff và bailout. |
-| `ConditionCarEnabled` | [`Car/Runtime/ConditionCarEnabled.cs`](Car/Runtime/ConditionCarEnabled.cs) | Điều kiện Visual Scripting kiểm tra trạng thái Car. |
+| `CarEntry` | [`Vehicles/Car/Runtime/CarEntry.cs`](Vehicles/Car/Runtime/CarEntry.cs) | Chủ sở hữu enter/exit, bốn cửa/ghế, door animation, mirror entry và speed-aware bailout. |
+| `SimcadeCarDriver` | [`Vehicles/Car/Runtime/SimcadeCarDriver.cs`](Vehicles/Car/Runtime/SimcadeCarDriver.cs) | Adapter input, camera, mobile control, speed và presentation cho Sim-Cade. |
+| `SimcadeCarDashboard` | [`Vehicles/Car/Runtime/SimcadeCarDashboard.cs`](Vehicles/Car/Runtime/SimcadeCarDashboard.cs) | Một Canvas HUD dùng chung cho mọi instance Car; tự bind driver/health/fuel/radio của Car đang lái. |
+| `SimcadeCarHealth` | [`Vehicles/Car/Runtime/SimcadeCarHealth.cs`](Vehicles/Car/Runtime/SimcadeCarHealth.cs) | Nối impact đã phân loại với GC2 `health-attribute-id`; API damage/repair. |
+| `SimcadeCarFuel` | [`Vehicles/Car/Runtime/SimcadeCarFuel.cs`](Vehicles/Car/Runtime/SimcadeCarFuel.cs) | Nối GC2 `fuel-attribute-id`, hao xăng theo garanti/ga/tốc độ và khóa ga/engine khi cạn. |
+| `SimcadeCarDamageEffects` | [`Vehicles/Car/Runtime/SimcadeCarDamageEffects.cs`](Vehicles/Car/Runtime/SimcadeCarDamageEffects.cs) | Event-driven khói dưới 32% máu, explosion một lần và lửa khi xe hết máu. |
+| `SimcadeCarDestruction` | [`Vehicles/Car/Runtime/SimcadeCarDestruction.cs`](Vehicles/Car/Runtime/SimcadeCarDestruction.cs) | Phá hủy terminal: cháy đen riêng instance, văng bốn bánh, cưỡng chế Player ragdoll/cháy/Traits về 0 và khóa UI/điều khiển. |
+| `SimcadeCarParticleWind` | [`Vehicles/Car/Runtime/SimcadeCarParticleWind.cs`](Vehicles/Car/Runtime/SimcadeCarParticleWind.cs) | Lực gió world-space cho smoke/fire, cộng airflow ngược vận tốc xe và chỉ cập nhật 8 Hz khi VFX hoạt động. |
+| `SimcadeDetachedWheelCleanup` | [`Vehicles/Car/Runtime/SimcadeDetachedWheelCleanup.cs`](Vehicles/Car/Runtime/SimcadeDetachedWheelCleanup.cs) | Vòng đời debris bánh: văng, nằm phẳng theo ground, khóa physics 5 giây, chìm và tự dọn. |
+| `SimcadeCarImpactAudio` | [`Vehicles/Car/Runtime/SimcadeCarImpactAudio.cs`](Vehicles/Car/Runtime/SimcadeCarImpactAudio.cs) | Phân loại va chạm, audio, pooled spark/debris và phát event impact dùng chung. |
+| `SimcadeCarDeformation` | [`Vehicles/Car/Runtime/SimcadeCarDeformation.cs`](Vehicles/Car/Runtime/SimcadeCarDeformation.cs) | Adapter event Sim-Cade gọi thuật toán deformation Edy cho các render mesh gần contact, đồng thời giữ sai lệch lái nhỏ. |
+| `EdysVehicleMeshDeformation` | [`Vehicles/Car/Runtime/EdysVehicleMeshDeformation.cs`](Vehicles/Car/Runtime/EdysVehicleMeshDeformation.cs) | Phần duy nhất port từ `VehicleDamage.cs` của Edy's 5.5.3: falloff theo bán kính, impact velocity, fracture và giới hạn displacement. |
+| `SimcadeCarjacking` | [`Vehicles/Car/Runtime/SimcadeCarjacking.cs`](Vehicles/Car/Runtime/SimcadeCarjacking.cs) | Kéo NPC cửa trái và nhánh ghế phụ đẩy NPC sang trái. |
+| `SeatedSkeletonPoseGuard` | [`Vehicles/Car/Runtime/SeatedSkeletonPoseGuard.cs`](Vehicles/Car/Runtime/SeatedSkeletonPoseGuard.cs) | Giữ pelvis/spine/head đúng ghế trong camera handoff và bailout. |
+| `ConditionCarEnabled` | [`Vehicles/Car/Runtime/ConditionCarEnabled.cs`](Vehicles/Car/Runtime/ConditionCarEnabled.cs) | Điều kiện Visual Scripting kiểm tra trạng thái Car. |
 
 ### Car editor
 
 | Script | Đường dẫn | Trách nhiệm |
 |---|---|---|
-| `SimcadeCarInstaller` | [`Car/Editor/SimcadeCarInstaller.cs`](Car/Editor/SimcadeCarInstaller.cs) | Gắn và xác thực Sim-Cade stack, camera, mobile UI, audio/VFX. |
-| `SimcadeCarDashboardInstaller` | [`Car/Editor/SimcadeCarDashboardInstaller.cs`](Car/Editor/SimcadeCarDashboardInstaller.cs) | Gắn HUD ImageGen, health, ba station CC0, radio tuning và validator mobile. |
-| `SimcadeCarDamageEffectsInstaller` | [`Car/Editor/SimcadeCarDamageEffectsInstaller.cs`](Car/Editor/SimcadeCarDamageEffectsInstaller.cs) | Author/validate CPU particles và 3D explosion audio trực tiếp trong Car prefab. |
-| `SimcadeCarDeformationInstaller` | [`Car/Editor/SimcadeCarDeformationInstaller.cs`](Car/Editor/SimcadeCarDeformationInstaller.cs) | Gắn 10 visible exterior meshes, profile Edy Sport Coupe và xác thực không có dependency EVP ngoài deformation kernel. |
-| `SimcadeCarjackingInstaller` | [`Car/Editor/SimcadeCarjackingInstaller.cs`](Car/Editor/SimcadeCarjackingInstaller.cs) | Cấu hình animation, GC2 NPC, landing point và passenger push. |
-| `SimcadeCarEntrySceneTool` | [`Car/Editor/SimcadeCarEntrySceneTool.cs`](Car/Editor/SimcadeCarEntrySceneTool.cs) | Preview/chỉnh anchor, cửa, IK và animation trực tiếp trong Scene view. |
-| `CarEntryEditor` | [`Car/Editor/CarEntryEditor.cs`](Car/Editor/CarEntryEditor.cs) | Custom Inspector cho `CarEntry`. |
-| `VehicleCarAssetConsolidator` | [`Editor/VehicleCarAssetConsolidator.cs`](Editor/VehicleCarAssetConsolidator.cs) | Migration giữ GUID và validator tổng hợp. |
+| `SimcadeCarInstaller` | [`Vehicles/Car/Editor/SimcadeCarInstaller.cs`](Vehicles/Car/Editor/SimcadeCarInstaller.cs) | Gắn và xác thực Sim-Cade stack, camera, mobile UI, audio/VFX. |
+| `SimcadeCarDashboardInstaller` | [`Vehicles/Car/Editor/SimcadeCarDashboardInstaller.cs`](Vehicles/Car/Editor/SimcadeCarDashboardInstaller.cs) | Gắn HUD ImageGen, health, ba station CC0, radio tuning và validator mobile. |
+| `SimcadeCarDamageEffectsInstaller` | [`Vehicles/Car/Editor/SimcadeCarDamageEffectsInstaller.cs`](Vehicles/Car/Editor/SimcadeCarDamageEffectsInstaller.cs) | Author/validate CPU particles và 3D explosion audio trực tiếp trong Car prefab. |
+| `SimcadeCarDeformationInstaller` | [`Vehicles/Car/Editor/SimcadeCarDeformationInstaller.cs`](Vehicles/Car/Editor/SimcadeCarDeformationInstaller.cs) | Gắn 10 visible exterior meshes, profile Edy Sport Coupe và xác thực không có dependency EVP ngoài deformation kernel. |
+| `SimcadeCarjackingInstaller` | [`Vehicles/Car/Editor/SimcadeCarjackingInstaller.cs`](Vehicles/Car/Editor/SimcadeCarjackingInstaller.cs) | Cấu hình animation, GC2 NPC, landing point và passenger push. |
+| `SimcadeCarEntrySceneTool` | [`Vehicles/Car/Editor/SimcadeCarEntrySceneTool.cs`](Vehicles/Car/Editor/SimcadeCarEntrySceneTool.cs) | Preview/chỉnh anchor, cửa, IK và animation trực tiếp trong Scene view. |
+| `CarEntryEditor` | [`Vehicles/Car/Editor/CarEntryEditor.cs`](Vehicles/Car/Editor/CarEntryEditor.cs) | Custom Inspector cho `CarEntry`. |
+| `VehicleCarAssetConsolidator` | [`Vehicles/Car/Editor/VehicleCarAssetConsolidator.cs`](Vehicles/Car/Editor/VehicleCarAssetConsolidator.cs) | Migration giữ GUID và validator tổng hợp. |
 
 ### Script dùng chung ngoài `Car/`
 
 | Script | Đường dẫn | Trách nhiệm |
 |---|---|---|
-| `IRvrVehicleDriveController` | [`Scripts/GeneralVehicles/IRvrVehicleDriveController.cs`](Scripts/GeneralVehicles/IRvrVehicleDriveController.cs) | Contract điều khiển dùng chung Car/Bike/vehicle interaction. |
-| `CharacterIKSetter` | [`Scripts/GeneralVehicles/CharacterIKSetter.cs`](Scripts/GeneralVehicles/CharacterIKSetter.cs) | Cầu nối IK humanoid dùng chung. |
+| `IRvrVehicleDriveController` | [`Core/Runtime/Vehicle/IRvrVehicleDriveController.cs`](Core/Runtime/Vehicle/IRvrVehicleDriveController.cs) | Contract điều khiển dùng chung Car/Bike/vehicle interaction. |
+| `CharacterIKSetter` | [`../Arcade Bike Physics Pro/Scripts/Integration/Rider/CharacterIKSetter.cs`](../Arcade%20Bike%20Physics%20Pro/Scripts/Integration/Rider/CharacterIKSetter.cs) | Cầu nối IK humanoid dùng chung. |
 | `FranklinVehicleInteractionManager` | [`../../FranklinAnimations/Runtime/FranklinVehicleInteractionManager.cs`](../../FranklinAnimations/Runtime/FranklinVehicleInteractionManager.cs) | Phát hiện vehicle gần Player và gọi API enter/exit. |
 | `FranklinMobileHud` | [`../../FranklinAnimations/Runtime/FranklinMobileHud.cs`](../../FranklinAnimations/Runtime/FranklinMobileHud.cs) | HUD điều khiển Player/Car/Bike dùng chung; không chứa logic riêng của Car dashboard. |
-| `FranklinBikeImpactInstaller` | [`../../FranklinAnimations/Editor/FranklinBikeImpactInstaller.cs`](../../FranklinAnimations/Editor/FranklinBikeImpactInstaller.cs) | Bike tái sử dụng impact SFX/FX nhưng không phụ thuộc runtime dashboard Car. |
-| `FranklinBikeHealth` | [`../../FranklinAnimations/Runtime/FranklinBikeHealth.cs`](../../FranklinAnimations/Runtime/FranklinBikeHealth.cs) | Nối impact Bike đã qua phân loại/cooldown với GC2 `health-attribute-id`; API damage/repair và khóa ga/lái ở 0 HP. |
+| `FranklinBikeImpactInstaller` | [`../Arcade Bike Physics Pro/Editor/Installation/FranklinBikeImpactInstaller.cs`](../Arcade%20Bike%20Physics%20Pro/Editor/Installation/FranklinBikeImpactInstaller.cs) | Bike tái sử dụng impact SFX/FX nhưng không phụ thuộc runtime dashboard Car. |
+| `FranklinBikeHealth` | [`../Arcade Bike Physics Pro/Scripts/Integration/Damage/FranklinBikeHealth.cs`](../Arcade%20Bike%20Physics%20Pro/Scripts/Integration/Damage/FranklinBikeHealth.cs) | Nối impact Bike đã qua phân loại/cooldown với GC2 `health-attribute-id`; API damage/repair và khóa ga/lái ở 0 HP. |
+| `FranklinFuelStation` | [`Stations/Fuel/Runtime/FranklinFuelStation.cs`](Stations/Fuel/Runtime/FranklinFuelStation.cs) | Tạo trigger tại GC2 Marker, hiển thị nút hold mobile và thực hiện giao dịch xăng cho Car/Bike. |
+| `IFranklinFuelTank` | [`Stations/Fuel/Runtime/IFranklinFuelTank.cs`](Stations/Fuel/Runtime/IFranklinFuelTank.cs) | Contract nhiên liệu dùng chung để trạm xăng không phụ thuộc controller Car hoặc Bike. |
+| `FranklinPlayerStatusHud` | [`../../FranklinAnimations/Runtime/FranklinPlayerStatusHud.cs`](../../FranklinAnimations/Runtime/FranklinPlayerStatusHud.cs) | Wallet API và HUD tiền dùng chung; thay đổi tiền phát event ngay lập tức. |
 
 ## Sơ đồ thành phần
 
@@ -200,7 +257,7 @@ Trạng thái đọc nhanh:
 | `SetDestroyed()` | Khóa vĩnh viễn input/controller/audio/dashboard của wreck; camera chỉ tắt ngay nếu không có destruction hold. |
 | `RequestExit()` | Chuyển yêu cầu thoát từ UI/input về `CarEntry`. |
 | `SetVirtualAccelerateInput(bool)` | Hold ga nhanh trên mobile. |
-| `SetVirtualSlowAccelerateInput(bool)` | Hold ga chậm; giới hạn lực kéo tự nhiên, không giả lập bằng phanh. |
+| `SetVirtualSlowAccelerateInput(bool)` | Hold ga chậm; taper lực kéo tự nhiên và giới hạn ở `60 km/h`, không giả lập bằng phanh. |
 | `SetVirtualBrakeReverseInput(bool)` | Hold phanh/lùi. |
 | `SetVirtualSteerLeftInput(bool)` / `SetVirtualSteerRightInput(bool)` | Điều khiển lái mobile. |
 | `SetVirtualHandbrakeInput(bool)` | Phanh tay mobile. |
@@ -227,7 +284,7 @@ Component tự phân loại va chạm nhẹ/nặng theo impulse, điều chỉnh
 
 ### `SimcadeCarDeformation`
 
-Car có đúng một collider thân xe: `BoxCollider` ở root, size `(1.7317466, 1.2402761, 4.327468)`, center `(-0.43742472, -0.08479142, 0.027270794)`. Không có `MeshCollider`, `SphereCollider` hoặc `CapsuleCollider` trong prefab. Collider primitive này chỉ giải quyết physics của Rigidbody; mesh bị móp là render mesh readable lấy từ `Car/Visuals/Models/Car.FBX`, không phải collider mesh.
+Car có đúng một collider thân xe: `BoxCollider` ở root, size `(1.7317466, 1.2402761, 4.327468)`, center `(-0.43742472, -0.08479142, 0.027270794)`. Không có `MeshCollider`, `SphereCollider` hoặc `CapsuleCollider` trong prefab. Collider primitive này chỉ giải quyết physics của Rigidbody; mesh bị móp là render mesh readable lấy từ `Vehicles/Car/Models/Car.FBX`, không phải collider mesh.
 
 Lý do không đổi sang MeshCollider: tài liệu Unity 6 xếp convex MeshCollider tốn CPU hơn primitive, còn non-convex MeshCollider không được gắn lên non-kinematic Rigidbody; mỗi lần thay đổi mesh collider còn có nguy cơ runtime cooking spike. Xem [Collider types and performance](https://docs.unity3d.com/kr/current/Manual/physics-optimization-cpu-collider-types.html) và [Mesh Collider cooking optimization](https://docs.unity3d.com/jp/current/Manual/physics-optimization-cpu-mesh-cooking-options.html).
 
@@ -260,6 +317,36 @@ Thuộc tính đọc: `CurrentHealth`, `MaximumHealth`, `HealthRatio`, `IsDestro
 | `EventFuelChanged(current, maximum)` | Cập nhật thanh xăng theo event, không poll GC2 mỗi frame. |
 
 Mỗi instance Car mới khởi tạo `Starting Fuel = 100` đúng một lần; GC2 `Fuel` Stat cũng có base `100` và `FuelAtr` có start percent `1`. Disable/enable component không tự đổ đầy lại. Profile mặc định tiêu hao `0.02` đơn vị/giây ở garanti, cộng tối đa `0.1` theo mức ga và `0.03` theo tốc độ so với mốc `120 km/h`. Coroutine chỉ tồn tại khi engine được yêu cầu chạy và tick mỗi `0.25s`; Car đỗ/tắt máy không có công việc fuel theo frame. Khi cạn xăng, `SimcadeCarDriver` khóa ga/lùi và dừng engine audio nhưng vẫn giữ phanh, lái và quán tính. Nếu `Refuel` trong lúc Player vẫn ngồi, engine và khả năng tăng tốc được khôi phục tự động.
+
+### Trạm xăng và Money Wallet API
+
+`fuel_station_mobile.prefab` có bốn GC2 Marker. `FranklinFuelStation` giữ nguyên
+Marker và tạo `BoxCollider` trigger nhẹ tại runtime. Khi Car/Bike do Player điều
+khiển đi vào vùng, nút ImageGen “hold to refuel” xuất hiện trên Canvas mobile.
+Xe phải chậm hơn `3 km/h`; giữ nút sẽ bơm `5` đơn vị/giây theo tick `0.2s`.
+Giá mặc định `$5` cho mỗi đơn vị, nên mỗi tick xăng tăng `1` và tiền giảm `$5`.
+Nút bám sát đáy màn hình và hiển thị chi phí còn thiếu để đầy bình; con số này
+giảm theo lượng xăng vừa nhận. `FranklinPlayerStatusHud` giữ balance thật nhưng
+tween số tiền hiển thị bằng unscaled time, còn fuel gauge của Car/Bike SmoothDamp
+về giá trị mới để thanh xăng tăng liên tục thay vì nhảy theo từng tick.
+Rời marker, thả/ngắt pointer, xe chạy, đầy bình hoặc hết tiền đều dừng giao dịch.
+
+Project chưa có GC2 `Currency` asset hoặc `Bag Wealth` được cấu hình làm nguồn
+tiền. Vì HUD trước đây chỉ giữ số demo `m_Money`, nó đã được nâng thành Wallet
+API dùng chung thay vì tạo hai nguồn tiền độc lập:
+
+| API | Ý nghĩa |
+|---|---|
+| `CurrentMoney` | Số tiền hiện tại đang hiển thị trên HUD. |
+| `CanAfford(int amount)` | Kiểm tra khả năng thanh toán mà không thay đổi tiền. |
+| `TrySpendMoney(int amount)` | Trừ tiền nguyên tử nếu đủ; trả `false` nếu thiếu. |
+| `AddMoney(int amount)` / `SetMoney(int amount)` | Cộng hoặc đặt tiền an toàn, không cho số âm/tràn `int`. |
+| `EventMoneyChanged(int current)` | Event realtime cho UI/save system. |
+
+`IFranklinFuelTank.TryRefuel(float)` trả lại đúng lượng xăng thực nhận. Trạm chỉ
+tính tiền theo lượng này, vì vậy bình gần đầy không bị tính dư. Sau này nếu chuyển
+nguồn tiền sang GC2 Inventory, chỉ cần adapter Wallet gọi `Bag.Wealth`; logic
+marker, UI hold và fuel tank không cần thay đổi.
 
 ### `FranklinBikeHealth`
 
@@ -416,12 +503,12 @@ Playlist không còn dùng menu background `Franklin_FM.wav`. Các file runtime 
 
 | Asset | Nguồn / giấy phép | Import mobile |
 |---|---|---|
-| [`City_Loop_CC0.mp3`](Car/Audio/Radio/Stations/City_Loop_CC0.mp3) | [City Loop — OpenGameArt](https://opengameart.org/content/city-loop-0), CC0/Public Domain | Vorbis `0.48`, Streaming, không preload |
-| [`Vision_CC0.mp3`](Car/Audio/Radio/Stations/Vision_CC0.mp3) | [Vision — OpenGameArt](https://opengameart.org/content/vision), CC0 | Vorbis `0.48`, Streaming, không preload |
-| [`Iso1nhab1tans_CC0.mp3`](Car/Audio/Radio/Stations/Iso1nhab1tans_CC0.mp3) | [Iso1nhab1tans — OpenGameArt](https://opengameart.org/content/iso1nhab1tans), CC0 | Vorbis `0.48`, Streaming, không preload |
-| [`Radio_Tune_Static_CC0.mp3`](Car/Audio/Radio/SFX/Radio_Tune_Static_CC0.mp3) | [Static — OpenGameArt](https://opengameart.org/content/static), CC0; cắt/fade thành cue `0.55s` | Mono PCM, Decompress On Load, preload |
+| [`City_Loop_CC0.mp3`](Vehicles/Car/Audio/Radio/Stations/City_Loop_CC0.mp3) | [City Loop — OpenGameArt](https://opengameart.org/content/city-loop-0), CC0/Public Domain | Vorbis `0.48`, Streaming, không preload |
+| [`Vision_CC0.mp3`](Vehicles/Car/Audio/Radio/Stations/Vision_CC0.mp3) | [Vision — OpenGameArt](https://opengameart.org/content/vision), CC0 | Vorbis `0.48`, Streaming, không preload |
+| [`Iso1nhab1tans_CC0.mp3`](Vehicles/Car/Audio/Radio/Stations/Iso1nhab1tans_CC0.mp3) | [Iso1nhab1tans — OpenGameArt](https://opengameart.org/content/iso1nhab1tans), CC0 | Vorbis `0.48`, Streaming, không preload |
+| [`Radio_Tune_Static_CC0.mp3`](Vehicles/Car/Audio/Radio/SFX/Radio_Tune_Static_CC0.mp3) | [Static — OpenGameArt](https://opengameart.org/content/static), CC0; cắt/fade thành cue `0.55s` | Mono PCM, Decompress On Load, preload |
 
-Sprite [`Car/UI/Generated/`](Car/UI/Generated/) được tạo bằng built-in ImageGen theo ảnh HUD tham chiếu, sau đó tách chroma thành PNG alpha. Runtime chỉ giữ các texture đã crop/downscale: disc `256²`, button `192²`, health frame `1024x100`; không đưa ảnh nguồn độ phân giải lớn vào build.
+Sprite [`Vehicles/Car/Textures/UI/Generated/`](Vehicles/Car/Textures/UI/Generated/) được tạo bằng built-in ImageGen theo ảnh HUD tham chiếu, sau đó tách chroma thành PNG alpha. Runtime chỉ giữ các texture đã crop/downscale: disc `256²`, button `192²`, health frame `1024x100`; không đưa ảnh nguồn độ phân giải lớn vào build.
 
 ## Luồng enter
 
@@ -478,12 +565,12 @@ Các menu Car được giữ tối thiểu trong Unity:
 
 Các installer/validator thành phần vẫn là API Editor nội bộ để installer tổng gọi, nhưng không tạo thêm mục trong menu. `Consolidate()` cũng được giữ làm API migration nội bộ vì asset đã gom xong.
 
-Prefab chính: `Car/Prefabs/Car.prefab`.
+Prefab chính: `Vehicles/Car/Prefabs/Car.prefab`.
 
 ## Quy tắc mở rộng
 
-1. Logic chỉ dành cho sedan Car đặt trong `Car/Runtime` hoặc `Car/Editor`.
-2. API dùng từ hai loại vehicle trở lên đặt trong `Scripts/GeneralVehicles` hoặc layer shared tương ứng.
+1. Logic chỉ dành cho sedan Car đặt trong `Vehicles/Car/Runtime` hoặc `Vehicles/Car/Editor`.
+2. API dùng từ hai loại vehicle trở lên đặt trong `Core/Runtime/Vehicle`, `Core/Runtime/Instructions` hoặc layer shared tương ứng.
 3. Không sửa trực tiếp mã trong `ThirdParty/Sim-Cade Vehicle Physics` trừ adapter đường dẫn/package compatibility; gameplay tùy biến đặt ở `SimcadeCarDriver`.
 4. Không gắn `Legacy/PhysicsCarController` hoặc `SimcadeRvrCarPhysics` lên prefab Car chính thức.
 5. Khi thêm asset, luôn di chuyển trong Unity/`AssetDatabase` để giữ `.meta` và GUID.
@@ -499,7 +586,7 @@ Prefab chính: `Car/Prefabs/Car.prefab`.
 15. Wreck cleanup chỉ kiểm tra mỗi `0.5s` sau mốc 15 giây; không dùng kiểm tra camera/khoảng cách mỗi frame.
 16. Smoke/fire dùng world-space `Force over Lifetime`; cập nhật airflow tối đa 8 Hz và dừng coroutine khi không có loop VFX hoạt động.
 17. Car động giữ primitive `BoxCollider`; visual dent không được cập nhật MeshCollider hoặc gọi runtime mesh cooking.
-18. Deformation dùng 10 render mesh visible từ `Car/Visuals/Models/Car.FBX`; cửa lái phải là `DoorFL (1)` active, không phải `DoorFL` inactive.
+18. Deformation dùng 10 render mesh visible từ `Vehicles/Car/Models/Car.FBX`; cửa lái phải là `DoorFL (1)` active, không phải `DoorFL` inactive.
 19. Mỗi impact Edy chỉ quét panel có renderer bounds nằm trong radius, tối đa 12 impact; mesh thay đổi phải tính lại normals và bounds để vết móp hiển thị đúng.
 20. Không tạo thêm `MenuItem`, EditorWindow, wizard hoặc tool preview mới nếu người dùng chưa yêu cầu rõ. Ưu tiên API/component, installer tổng và validator tổng hiện có để menu không bị rối.
 

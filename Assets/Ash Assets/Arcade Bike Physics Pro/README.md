@@ -3,7 +3,7 @@
 Tài liệu này mô tả source Arcade Bike Physics Pro (ABP) đang có trong project,
 cấu trúc prefab chuẩn và lớp tích hợp dành riêng cho Franklin Game.
 
-> Source of truth của cấu hình hiện tại là `Bike_01_Sport.prefab`. Các bike khác
+> Source of truth của cấu hình hiện tại là `Prefabs/Bikes/Bike_01.prefab`. Các bike khác
 > phải giữ cùng cấu trúc và mapping component; chỉ mesh/model được phép khác.
 
 ## 1. Tổng quan
@@ -25,35 +25,75 @@ entry, mobile input, camera, đèn và ragdoll được nối qua lớp adapter 
 
 ```text
 Arcade Bike Physics Pro/
-├── Scripts/
-│   ├── ArcadeBikeControllerPro.cs   # Physics/controller chính
-│   ├── BikerAnimationTargets.cs     # Bộ target pose của rider ABP gốc
-│   ├── CameraController.cs          # Camera Cinemachine riêng của ABP gốc
-│   ├── RagdollActivator.cs          # Ragdoll kiểu dummy prefab của ABP gốc
-│   ├── SkidmarkController.cs        # Sinh mesh vệt bánh xe runtime
-│   └── UiButton_ABP_Pro.cs          # Pointer button đơn giản cho mobile
-├── Prefabs/
-│   ├── Skidmark Controller.prefab
-│   └── TireSmoke.prefab
+├── README.md                       # Tài liệu chính, luôn nằm ở package root
+├── Animations/
+│   ├── Entry/                      # Animation enter mirror
+│   └── RiderPoses/                 # Rider Fit đang dùng và pose Legacy
+├── Audio/
+│   ├── Engine/                     # Âm thanh động cơ
+│   ├── Tires/                      # Skid/burnout loop
+│   └── Transmission/               # Chuyển số
+├── Data/
+│   └── Lighting/                   # Flare/light data
+├── Editor/
+│   ├── Installation/               # Installer, integrator, validation
+│   └── RiderTools/                 # Rider Fit và IK mirror tools
 ├── Materials/
-│   ├── Skidmark Material.mat
-│   ├── Skidmark Shader.shader
-│   ├── ParticleSmokeMaterial.mat
-│   └── zero Friction.physicMaterial
-├── Textures/
-│   ├── ParticleSmokeTexture.png
-│   └── SkidmarksTexture.psd
-└── Audios/
-    ├── motocross-engine.wav
-    ├── skid loop 1.wav
-    └── Car Gear switch 3.wav
+│   ├── Bikes/
+│   │   ├── Bike_01/ ... Bike_10/  # Material riêng của từng model
+│   │   └── Shared/                 # Glass/body dùng chung
+│   ├── Effects/                    # Skidmark và tire smoke
+│   ├── Helmets/                    # Helmet_01 ... Helmet_10
+│   └── Physics/                    # Zero friction và ragdoll body
+├── Models/
+│   ├── Bikes/
+│   │   └── Bike_01/ ... Bike_10/  # Mesh body, mâm và lốp
+│   └── Helmets/
+│       └── Helmet_01/ ... Helmet_10/ # Mesh mũ bảo hiểm
+├── Prefabs/
+│   ├── Bikes/                      # Bike_01.prefab ... Bike_10.prefab
+│   ├── Collections/                # Helmet_Showcase
+│   ├── Helmets/                    # Helmet_01.prefab ... Helmet_10.prefab
+│   └── Effects/                    # TireSmoke, SkidmarkController
+├── Scripts/
+│   ├── Core/                       # ArcadeBikeControllerPro
+│   ├── Animation/                  # Target animation ABP gốc
+│   ├── Camera/                     # Camera ABP gốc, không dùng trong Franklin
+│   ├── Effects/                    # Runtime skidmark
+│   ├── Input/                      # UI button ABP gốc
+│   ├── Ragdoll/                    # Dummy ragdoll ABP gốc
+│   └── Integration/
+│       ├── Camera/                 # Main Shot aim của Bike
+│       ├── Damage/                 # Health, impact, VFX, deformation, destruction
+│       ├── Effects/                # Đèn phanh và particle wind
+│       ├── Fuel/                   # Nhiên liệu Bike
+│       ├── Physics/                # Driver và Bike/Player ragdoll
+│       └── Rider/                  # Entry, IK, rider pose và helmet
+├── Shaders/
+│   └── Effects/                    # Shader skidmark
+└── Textures/
+    ├── Bikes/
+    │   └── Bike_01/ ... Bike_10/  # Texture riêng từng model
+    ├── Effects/                    # Tire smoke và skidmark
+    └── Helmets/                    # Texture Helmet_01 ... Helmet_10
 ```
 
-Các prefab bike đã tích hợp nằm ngoài package:
+Quy tắc tìm asset:
 
-```text
-Assets/Model/DQP_MotorBikePack_URP14/Generated/Prefabs/Bikes/
-```
+- Muốn kéo xe vào scene: mở `Prefabs/Bikes`.
+- Muốn thay mesh: mở `Models/Bikes/Bike_XX`.
+- Muốn thay màu/vật liệu: mở `Materials/Bikes/Bike_XX`.
+- Muốn sửa texture: mở `Textures/Bikes/Bike_XX`.
+- Muốn thay mũ: mở `Prefabs/Helmets`; mesh, material và texture tương ứng nằm
+  trong ba nhánh `Helmets` còn lại.
+- Muốn sửa khói/vệt bánh: mở nhánh `Effects` tương ứng.
+- Muốn sửa gameplay: mở `Scripts/Integration` trước; `Scripts/Core` chỉ chứa
+  physics ABP gốc.
+
+Asset Bike và Helmet đã được phân loại vào package này. Thư mục
+`Assets/Model/DQP_MotorBikePack_URP14` chỉ còn giữ dữ liệu nguồn không thuộc hai
+nhóm trên. Khi di chuyển/đổi tên, các file `.meta` gốc được giữ lại để GUID của
+scene, prefab, mesh, material và texture không thay đổi.
 
 ## 3. Kiến trúc trong Franklin Game
 
@@ -67,6 +107,7 @@ flowchart LR
 
     subgraph Adapter["Lớp tích hợp Franklin"]
         DRIVER["FranklinArcadeBikeDriver"]
+        HELMET["FranklinBikeHelmetController"]
         CAMERA["FranklinBikeCameraManager"]
         RAGDOLL["FranklinArcadeBikeRagdoll"]
         LIGHTS["VehicleLights"]
@@ -87,9 +128,12 @@ flowchart LR
     end
 
     HUD --> DRIVER
+    HUD -->|"Bike Helmet"| HELMET
     KEYBOARD --> DRIVER
     ENTRY -->|"enable / exit / crash release"| DRIVER
     ENTRY --> CAMERA
+    DRIVER -->|"ToggleRiderHelmet"| HELMET
+    HELMET -->|"RightHand ↔ Head + arm bones"| RIDER["Humanoid Rider"]
     DRIVER -->|"provideInput mỗi frame"| INPUT
     INPUT --> CONTROLLER
     CONTROLLER --> PHYSICS
@@ -113,6 +157,9 @@ flowchart LR
 ### Quyết định tích hợp quan trọng
 
 - Mobile UI dùng `FranklinMobileHud`, không dùng HUD riêng của package.
+- Nút `Bike Helmet` nằm bên trái nút phanh/lùi khi lái Bike và gọi controller
+  mũ dùng chung trên Player. Nếu Player exit trong lúc đang đội mũ, cùng nút đó
+  tiếp tục hiện trong nhóm điều khiển đi bộ cho tới khi người dùng tháo mũ.
 - Tất cả bike dùng một `FranklinBikeCameraManager` dưới Player và GC2 Main
   Camera Shot. Không tạo camera riêng cho từng bike.
 - `bikeReferences.cameraController` để `null` trên bike đã tích hợp.
@@ -125,7 +172,7 @@ flowchart LR
 
 ## 4. Cấu trúc prefab bike chuẩn
 
-Cây dưới đây là cấu trúc chức năng của `Bike_01_Sport.prefab`. Tên mesh con sẽ
+Cây dưới đây là cấu trúc chức năng của `Prefabs/Bikes/Bike_01.prefab`. Tên mesh con sẽ
 khác giữa các model, nhưng các node ABP/Franklin phải giữ cùng vai trò.
 
 ```text
@@ -198,8 +245,8 @@ Bike Root
 | `BodyMesh` | `BikeBody` |
 | `BikeRb` | `Rigidbody` trên Bike Root |
 | `collider` | `CapsuleCollider` dùng bởi controller ABP |
-| `skidmarksPrefab` | `Prefabs/Skidmark Controller.prefab` |
-| `tireSmokePrefab` | `Prefabs/TireSmoke.prefab` |
+| `skidmarksPrefab` | `Prefabs/Effects/SkidmarkController.prefab` |
+| `tireSmokePrefab` | `Prefabs/Effects/TireSmoke.prefab` |
 | `BikerAnimationTargets` | `null` trong Franklin integration |
 | `cameraController` | `null` trong Franklin integration |
 | `ragdollActivator` | `null` trong Franklin integration |
@@ -264,7 +311,7 @@ using ArcadeBP_Pro;
 
 ### `ArcadeBikeControllerPro`
 
-File: [Scripts/ArcadeBikeControllerPro.cs](Scripts/ArcadeBikeControllerPro.cs)
+File: [Scripts/Core/ArcadeBikeControllerPro.cs](Scripts/Core/ArcadeBikeControllerPro.cs)
 
 #### API điều khiển
 
@@ -315,7 +362,7 @@ controller.bikeEvents.OnGearChange.AddListener(OnBikeGearChanged);
 
 ### `SkidmarkController`
 
-File: [Scripts/SkidmarkController.cs](Scripts/SkidmarkController.cs)
+File: [Scripts/Effects/SkidmarkController.cs](Scripts/Effects/SkidmarkController.cs)
 
 | API | Mô tả |
 |---|---|
@@ -328,7 +375,7 @@ Truyền `lastIndex = -1` để bắt đầu một vệt mới. Mesh dùng ring 
 
 ### `UiButton_ABP_Pro`
 
-File: [Scripts/UiButton_ABP_Pro.cs](Scripts/UiButton_ABP_Pro.cs)
+File: [Scripts/Input/UiButton_ABP_Pro.cs](Scripts/Input/UiButton_ABP_Pro.cs)
 
 Component triển khai `IPointerDownHandler` và `IPointerUpHandler`:
 
@@ -342,7 +389,7 @@ Franklin Game dùng HUD chung nên component này chỉ cần cho UI ABP độc 
 
 ### `CameraController` — legacy trong Franklin
 
-File: [Scripts/CameraController.cs](Scripts/CameraController.cs)
+File: [Scripts/Camera/CameraController.cs](Scripts/Camera/CameraController.cs)
 
 | API | Mô tả |
 |---|---|
@@ -355,7 +402,7 @@ root khỏi parent và tạo camera riêng cho từng bike.
 
 ### `RagdollActivator` — legacy trong Franklin
 
-File: [Scripts/RagdollActivator.cs](Scripts/RagdollActivator.cs)
+File: [Scripts/Ragdoll/RagdollActivator.cs](Scripts/Ragdoll/RagdollActivator.cs)
 
 | API | Mô tả |
 |---|---|
@@ -372,7 +419,7 @@ Franklin không dùng flow này; xem `FranklinArcadeBikeRagdoll` bên dưới.
 
 ### `BikerAnimationTargets`
 
-File: [Scripts/BikerAnimationTargets.cs](Scripts/BikerAnimationTargets.cs)
+File: [Scripts/Animation/BikerAnimationTargets.cs](Scripts/Animation/BikerAnimationTargets.cs)
 
 Data component chứa target hip, spine, leg và hand cho các trạng thái idle,
 normal speed, high speed, in-air và reverse. Franklin dùng `BikeEntry`, Humanoid
@@ -389,7 +436,7 @@ using FranklinGame.Animations;
 
 ### `FranklinArcadeBikeDriver`
 
-File: [FranklinArcadeBikeDriver.cs](../../FranklinAnimations/Runtime/FranklinArcadeBikeDriver.cs)
+File: [Scripts/Integration/Physics/FranklinArcadeBikeDriver.cs](Scripts/Integration/Physics/FranklinArcadeBikeDriver.cs)
 
 Đây là API nên dùng cho gameplay và mobile input.
 
@@ -398,7 +445,7 @@ File: [FranklinArcadeBikeDriver.cs](../../FranklinAnimations/Runtime/FranklinArc
 | `SetVehicleEnabled(state)` | Bật/tắt quyền điều khiển bike. |
 | `SetVehicleEnabled(state, preserveMomentum)` | Bật/tắt và tùy chọn giữ momentum. |
 | `SetVirtualAccelerateInput(active)` | Ga đầy. |
-| `SetVirtualSlowAccelerateInput(active)` | Ga chậm theo `m_SlowThrottle`. |
+| `SetVirtualSlowAccelerateInput(active)` | Ga chậm và giữ giới hạn `Slow Speed Limit Kph`. |
 | `SetVirtualBrakeReverseInput(active)` | Phanh khi đang tiến, lùi khi đã dừng/đổi hướng. |
 | `SetVirtualSteerLeftInput(active)` | Lái trái. |
 | `SetVirtualSteerRightInput(active)` | Lái phải. |
@@ -408,6 +455,7 @@ File: [FranklinArcadeBikeDriver.cs](../../FranklinAnimations/Runtime/FranklinArc
 | `SetDamageLocked(locked)` | Khóa toàn bộ input lái khi Bike health bằng 0 nhưng vẫn giữ exit flow an toàn. |
 | `SetHandbrakeInput(active)` | Nguồn phanh tay bên ngoài HUD. |
 | `SetHeadlightEnabled(active)` | Bật/tắt đèn trước qua `VehicleLights`. |
+| `ToggleRiderHelmet()` | Đội/tháo mũ của rider hiện đang ngồi trên bike. |
 | `BeginExitStop()` | Khóa input và giảm tốc bike trước khi exit. |
 | `CancelExitStop()` | Hủy trạng thái chờ dừng để exit. |
 | `RequestExit()` | Yêu cầu `BikeEntry` chạy exit cho rider hiện tại. |
@@ -417,11 +465,16 @@ File: [FranklinArcadeBikeDriver.cs](../../FranklinAnimations/Runtime/FranklinArc
 | `ResetVehicle()` | Xóa velocity và dựng lại các transform điều khiển chính. |
 
 Các property đọc quan trọng: `IsVehicleEnabled`, `IsDamageLocked`, `IsAirborne`,
-`IsCrashCoasting`, `VehicleBody` và `SpeedMetersPerSecond`.
+`IsCrashCoasting`, `VehicleBody`, `SpeedMetersPerSecond` và `SlowSpeedLimitKph`.
+
+`Slow Drive` mặc định giới hạn Bike ở `50 km/h` trên toàn bộ Bike 01–10. Khi
+đang nhanh hơn giới hạn, driver nhả ga và giảm tốc mượt theo
+`Slow Speed Deceleration`; người dùng vẫn có thể chỉnh giới hạn này riêng trên
+component `FranklinArcadeBikeDriver` của từng prefab.
 
 ### `FranklinBikeHealth`
 
-File: [FranklinBikeHealth.cs](../../FranklinAnimations/Runtime/FranklinBikeHealth.cs)
+File: [Scripts/Integration/Damage/FranklinBikeHealth.cs](Scripts/Integration/Damage/FranklinBikeHealth.cs)
 
 | API | Mô tả |
 |---|---|
@@ -434,8 +487,9 @@ File: [FranklinBikeHealth.cs](../../FranklinAnimations/Runtime/FranklinBikeHealt
 
 Damage chỉ nhận từ `FranklinBikeImpactAudio.EventImpactAccepted`, vì vậy dùng
 chung phân loại light/heavy, cooldown và pooled impact FX; không chạy thêm một
-`OnCollisionEnter` thứ hai. Impact nặng đồng thời trừ `4–18 HP` của GC2 Player
-đang ngồi trên Bike. Ở 0 HP, Bike bị khóa ga/lái và không hiện khả năng
+`OnCollisionEnter` thứ hai. Player đang ngồi chỉ bị trừ `4–18 HP` sau khi
+`FranklinBikeCrashRagdoll` xác nhận GC2 ragdoll đã thực sự bắt đầu; va chạm
+nặng nhưng không kích hoạt ragdoll không làm mất máu Player. Ở 0 HP, Bike bị khóa ga/lái và không hiện khả năng
 enter mới. Thanh máu Bike dùng chung `CanvasPlayerControl`, chỉ hiện khi Player đang lái Bike
 và cập nhật trực tiếp từ `EventHealthChanged` (không poll mỗi frame).
 Tốc độ Bike cũng dùng UI mobile chung và cùng style với Car: số lớn kèm `km/h`, cập nhật
@@ -475,7 +529,7 @@ nặng không thay đổi.
 
 ### `BikeEntry`
 
-File: [BikeEntry.cs](../Vehicle%20Integration/Scripts/GeneralVehicles/BikeEntry.cs)
+File: [Scripts/Integration/Rider/BikeEntry.cs](Scripts/Integration/Rider/BikeEntry.cs)
 
 | API | Mô tả |
 |---|---|
@@ -491,9 +545,38 @@ File: [BikeEntry.cs](../Vehicle%20Integration/Scripts/GeneralVehicles/BikeEntry.
 Target rider chính gồm `entryParent`, hai standing point, hai hand grip,
 `LeftFoot`, `RightFoot`, `GroundLeftFoot` và hai fallen-bike body grip.
 
+### `FranklinBikeHelmetController`
+
+File: [Scripts/Integration/Rider/FranklinBikeHelmetController.cs](Scripts/Integration/Rider/FranklinBikeHelmetController.cs)
+
+Controller nằm trên prefab Player và dùng `Helmet_01` làm mũ mặc định. Khi đội,
+mũ xuất hiện ở tay phải, hai tay vươn lên hai bên đầu, sau đó mũ được chuyển từ
+bone `RightHand` sang bone `Head`. Khi tháo, luồng chạy ngược lại và mũ ẩn sau
+khi tay hạ xuống. Chuyển động được tạo trực tiếp trên Humanoid arm bones trong
+`LateUpdate`, không cần AnimationClip và không thay đổi parent/root của Player.
+
+| API | Mô tả |
+|---|---|
+| `ToggleHelmet()` | Bắt đầu đội hoặc tháo tùy trạng thái hiện tại; trả `false` nếu đang chuyển tiếp hoặc thiếu bone/prefab. |
+| `SetHelmetEquipped(equipped, immediate)` | Đặt trạng thái có animation hoặc áp ngay lập tức. |
+| `HeadPosition` / `HeadRotation` | Đọc hoặc chỉnh pose mũ trên bone Head bằng code. |
+| `RightHandPosition` / `RightHandRotation` | Đọc hoặc chỉnh pose mũ trong tay phải bằng code. |
+| `ApplyCurrentHelmetPose()` | Áp lại ngay các offset hiện tại lên mũ đang hiển thị. |
+| `IsEquipped` | Mũ đang ở trên đầu. |
+| `IsTransitioning` | Animation thủ tục đang chạy. |
+| `HelmetInstance` | Instance mũ runtime hiện tại. |
+
+Hai nhóm `Helmet On Head - Live Editable` và
+`Helmet In Right Hand - Live Editable` cho phép chỉnh trực tiếp Position,
+Rotation và Scale trên component Player. Giá trị được áp realtime lên mũ đang
+hiển thị trong Play Mode. Thời lượng, thời điểm chuyển mũ và độ vươn của từng tay
+cũng chỉnh được tại đây. Collider của mũ bị tắt và Rigidbody con được đặt
+kinematic để không tác động physics/ragdoll Bike.
+`Head Local Euler Y = 180°` là hướng mặc định của bộ Helmet DQP trên bone Head.
+
 ### `FranklinArcadeBikeRagdoll`
 
-File: [FranklinArcadeBikeRagdoll.cs](../../FranklinAnimations/Runtime/FranklinArcadeBikeRagdoll.cs)
+File: [Scripts/Integration/Physics/FranklinArcadeBikeRagdoll.cs](Scripts/Integration/Physics/FranklinArcadeBikeRagdoll.cs)
 
 | API | Mô tả |
 |---|---|
@@ -511,12 +594,12 @@ Trạng thái đọc: `IsRagdoll`, `RequiresManualRecovery`, `ParkedGroundSide` 
 
 ### Camera và đèn
 
-- [`FranklinBikeCameraManager`](../../FranklinAnimations/Runtime/FranklinBikeCameraManager.cs):
+- [`FranklinBikeMainShotAim`](Scripts/Integration/Camera/FranklinBikeMainShotAim.cs):
   `Activate(BikeEntry)` và `Deactivate()` quản lý một runtime GC2 Third Person
-  Shot dùng chung dưới Player.
-- [`VehicleLights`](../Vehicle%20Integration/Scripts/GeneralVehicles/VehicleLights.cs):
+  Aim dùng chung dưới Player mà không đổi Main Camera Shot.
+- [`VehicleLights`](../Vehicle%20Integration/Core/Runtime/Vehicle/VehicleLights.cs):
   `FrontLightsOn()`, `FrontLightsOff()`, `LightsOn()` và `LightsOff()`.
-- [`FranklinBikeBrakeReverseFlare`](../../FranklinAnimations/Runtime/FranklinBikeBrakeReverseFlare.cs):
+- [`FranklinBikeBrakeReverseFlare`](Scripts/Integration/Effects/FranklinBikeBrakeReverseFlare.cs):
   đọc `BikeInput` và velocity để blend đèn đỏ khi phanh hoặc đi lùi.
 
 ## 8. Ví dụ sử dụng
@@ -541,6 +624,7 @@ public sealed class BikeButtonsExample : MonoBehaviour
     public void SteerLeftUp() => bike.SetVirtualSteerLeftInput(false);
 
     public void ToggleHeadlight(bool enabled) => bike.SetHeadlightEnabled(enabled);
+    public void ToggleHelmet() => bike.ToggleRiderHelmet();
 }
 ```
 
@@ -579,7 +663,7 @@ public sealed class DirectAbpInputExample : MonoBehaviour
 
 ## 9. Checklist khi thêm hoặc thay mesh bike
 
-1. Lấy `Bike_01_Sport.prefab` làm template chức năng.
+1. Lấy `Prefabs/Bikes/Bike_01.prefab` làm template chức năng.
 2. Giữ nguyên `ABP Rotator > ABP Wheelie > ABP Lean > ABP Bike Model`.
 3. Gán đúng front/rear wheel parent và wheel target.
 4. Mỗi wheel target phải chứa cả mesh mâm và mesh lốp.
@@ -623,14 +707,16 @@ public sealed class DirectAbpInputExample : MonoBehaviour
 
 ## 11. Source liên quan
 
-- [ArcadeBikeControllerPro.cs](Scripts/ArcadeBikeControllerPro.cs)
-- [ArcadeBikePackIntegrator.cs](../../FranklinAnimations/Editor/ArcadeBikePackIntegrator.cs)
-- [FranklinArcadeBikeDriver.cs](../../FranklinAnimations/Runtime/FranklinArcadeBikeDriver.cs)
-- [FranklinBikeHealth.cs](../../FranklinAnimations/Runtime/FranklinBikeHealth.cs)
-- [FranklinBikeDamageEffects.cs](../../FranklinAnimations/Runtime/FranklinBikeDamageEffects.cs)
-- [FranklinBikeDestruction.cs](../../FranklinAnimations/Runtime/FranklinBikeDestruction.cs)
-- [FranklinBikeDeformation.cs](../../FranklinAnimations/Runtime/FranklinBikeDeformation.cs)
-- [FranklinArcadeBikeRagdoll.cs](../../FranklinAnimations/Runtime/FranklinArcadeBikeRagdoll.cs)
-- [FranklinBikeCameraManager.cs](../../FranklinAnimations/Runtime/FranklinBikeCameraManager.cs)
-- [BikeEntry.cs](../Vehicle%20Integration/Scripts/GeneralVehicles/BikeEntry.cs)
-- [VehicleLights.cs](../Vehicle%20Integration/Scripts/GeneralVehicles/VehicleLights.cs)
+- [ArcadeBikeControllerPro.cs](Scripts/Core/ArcadeBikeControllerPro.cs)
+- [ArcadeBikePackIntegrator.cs](Editor/Installation/ArcadeBikePackIntegrator.cs)
+- [FranklinArcadeBikeDriver.cs](Scripts/Integration/Physics/FranklinArcadeBikeDriver.cs)
+- [FranklinBikeHealth.cs](Scripts/Integration/Damage/FranklinBikeHealth.cs)
+- [FranklinBikeDamageEffects.cs](Scripts/Integration/Damage/FranklinBikeDamageEffects.cs)
+- [FranklinBikeDestruction.cs](Scripts/Integration/Damage/FranklinBikeDestruction.cs)
+- [FranklinBikeDeformation.cs](Scripts/Integration/Damage/FranklinBikeDeformation.cs)
+- [FranklinArcadeBikeRagdoll.cs](Scripts/Integration/Physics/FranklinArcadeBikeRagdoll.cs)
+- [FranklinBikeMainShotAim.cs](Scripts/Integration/Camera/FranklinBikeMainShotAim.cs)
+- [BikeEntry.cs](Scripts/Integration/Rider/BikeEntry.cs)
+- [FranklinBikeHelmetController.cs](Scripts/Integration/Rider/FranklinBikeHelmetController.cs)
+- [Helmet_01.prefab](Prefabs/Helmets/Helmet_01.prefab)
+- [VehicleLights.cs](../Vehicle%20Integration/Core/Runtime/Vehicle/VehicleLights.cs)

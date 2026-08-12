@@ -16,6 +16,8 @@ namespace FranklinGame.UI
     [DisallowMultipleComponent]
     public sealed class FranklinPlayerStatusHud : MonoBehaviour
     {
+        private static FranklinPlayerStatusHud s_Instance;
+
         [Header("Demo Data")]
         [SerializeField, Min(0)] private int m_Money = 12480;
         [SerializeField, Range(0f, 1f)] private float m_NormalizedHealth = 0.78f;
@@ -23,11 +25,14 @@ namespace FranklinGame.UI
         [SerializeField, Min(0)] private int m_AmmoInClip = 12;
         [SerializeField, Min(0)] private int m_AmmoReserve = 48;
 
+        [Header("Money Presentation")]
+        [SerializeField, Range(0.05f, 1f)] private float m_MoneyAnimationSmoothTime = 0.28f;
+
         [Header("Weapon Presentation")]
         [SerializeField] private string m_UnarmedLabel = "FISTS";
-        [SerializeField] private Vector2 m_ArmedCardPosition = new(-515f, -83f);
+        [SerializeField] private Vector2 m_ArmedCardPosition = new(-255f, -83f);
         [SerializeField] private Vector2 m_ArmedCardSize = new(430f, 86f);
-        [SerializeField] private Vector2 m_UnarmedCardPosition = new(-430f, -83f);
+        [SerializeField] private Vector2 m_UnarmedCardPosition = new(-170f, -83f);
         [SerializeField] private Vector2 m_UnarmedCardSize = new(260f, 86f);
         [SerializeField, Min(0f)] private float m_WeaponLayoutSpeed = 16f;
 
@@ -72,9 +77,25 @@ namespace FranklinGame.UI
         private Vector2 m_TargetWeaponCardSize;
         private Vector2 m_TargetWeaponIconPosition;
         private Vector2 m_TargetWeaponNamePosition;
+        private float m_DisplayedMoney;
+        private float m_MoneyDisplayVelocity;
+        private bool m_MoneyDisplayInitialized;
+
+        public static FranklinPlayerStatusHud Instance => s_Instance;
+        public int CurrentMoney => this.m_Money;
+        public event Action<int> EventMoneyChanged;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            s_Instance = null;
+        }
 
         private void Awake()
         {
+            s_Instance = this;
+            this.m_DisplayedMoney = this.m_Money;
+            this.m_MoneyDisplayInitialized = true;
             this.RefreshView();
         }
 
@@ -93,8 +114,15 @@ namespace FranklinGame.UI
             this.UnbindQuickItemButtons();
         }
 
+        private void OnDestroy()
+        {
+            if (s_Instance == this) s_Instance = null;
+        }
+
         private void Update()
         {
+            this.UpdateMoneyAnimation();
+
             GameObject player = ShortcutPlayer.Instance;
             if (this.m_PlayerHealthBound &&
                 (this.m_PlayerTraits == null || player != this.m_PlayerTraits.gameObject))
@@ -132,6 +160,16 @@ namespace FranklinGame.UI
         private void OnValidate()
         {
             this.m_Money = Mathf.Max(0, this.m_Money);
+            this.m_MoneyAnimationSmoothTime = Mathf.Clamp(
+                this.m_MoneyAnimationSmoothTime,
+                0.05f,
+                1f
+            );
+            if (!Application.isPlaying)
+            {
+                this.m_DisplayedMoney = this.m_Money;
+                this.m_MoneyDisplayInitialized = true;
+            }
             this.m_NormalizedHealth = Mathf.Clamp01(this.m_NormalizedHealth);
             this.m_AmmoInClip = Mathf.Max(0, this.m_AmmoInClip);
             this.m_AmmoReserve = Mathf.Max(0, this.m_AmmoReserve);
@@ -151,8 +189,35 @@ namespace FranklinGame.UI
 
         public void SetMoney(int money)
         {
-            this.m_Money = Mathf.Max(0, money);
-            this.RefreshMoney();
+            int value = Mathf.Max(0, money);
+            if (this.m_Money == value) return;
+            this.m_Money = value;
+            if (!this.m_MoneyDisplayInitialized)
+            {
+                this.m_DisplayedMoney = value;
+                this.m_MoneyDisplayInitialized = true;
+            }
+            this.EventMoneyChanged?.Invoke(this.m_Money);
+        }
+
+        public bool CanAfford(int amount)
+        {
+            return amount >= 0 && this.m_Money >= amount;
+        }
+
+        public bool TrySpendMoney(int amount)
+        {
+            if (amount < 0 || !this.CanAfford(amount)) return false;
+            if (amount == 0) return true;
+            this.SetMoney(this.m_Money - amount);
+            return true;
+        }
+
+        public void AddMoney(int amount)
+        {
+            if (amount <= 0) return;
+            long total = (long)this.m_Money + amount;
+            this.SetMoney((int)Math.Min(int.MaxValue, total));
         }
 
         public void SetHealth(float normalizedHealth)
@@ -206,7 +271,42 @@ namespace FranklinGame.UI
         private void RefreshMoney()
         {
             if (this.m_MoneyText == null) return;
-            this.m_MoneyText.text = "$ " + this.m_Money.ToString("N0", DISPLAY_CULTURE);
+            int displayed = this.m_MoneyDisplayInitialized
+                ? Mathf.Max(0, Mathf.RoundToInt(this.m_DisplayedMoney))
+                : this.m_Money;
+            this.m_MoneyText.text = displayed.ToString("N0", DISPLAY_CULTURE);
+        }
+
+        private void UpdateMoneyAnimation()
+        {
+            if (!this.m_MoneyDisplayInitialized)
+            {
+                this.m_DisplayedMoney = this.m_Money;
+                this.m_MoneyDisplayInitialized = true;
+                this.RefreshMoney();
+                return;
+            }
+
+            int previous = Mathf.RoundToInt(this.m_DisplayedMoney);
+            if (Mathf.Abs(this.m_DisplayedMoney - this.m_Money) <= 0.05f)
+            {
+                this.m_DisplayedMoney = this.m_Money;
+                this.m_MoneyDisplayVelocity = 0f;
+            }
+            else
+            {
+                this.m_DisplayedMoney = Mathf.SmoothDamp(
+                    this.m_DisplayedMoney,
+                    this.m_Money,
+                    ref this.m_MoneyDisplayVelocity,
+                    Mathf.Max(0.05f, this.m_MoneyAnimationSmoothTime),
+                    Mathf.Infinity,
+                    Time.unscaledDeltaTime
+                );
+            }
+
+            if (Mathf.RoundToInt(this.m_DisplayedMoney) != previous)
+                this.RefreshMoney();
         }
 
         private void RefreshHealth()

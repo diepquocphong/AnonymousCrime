@@ -17,7 +17,8 @@ namespace FranklinGame.Vehicles.Editor
         public const string SourceRoot = "Assets/Plugins/RVRGaming";
         public const string SourceContentRoot = SourceRoot + "/RapidTemplate";
         public const string DestinationRoot = "Assets/Ash Assets/Vehicle Integration";
-        public const string MigratedCarPath = DestinationRoot + "/Prefabs/Vehicles/Car.prefab";
+        public const string MigratedCarPath =
+            DestinationRoot + "/Vehicles/Car/Prefabs/Car.prefab";
 
         private static readonly string[] ExplicitAuthoringRoots =
         {

@@ -15,7 +15,7 @@ namespace FranklinGame.UI.Editor
         private const string PLAYER_CANVAS_PATH = "Assets/Prefab/CanvasPlayerControl.prefab";
         private const string UI_ROOT = "Assets/UI/FranklinMobile/Resources/FranklinMobileUI/";
         private const string VEHICLE_GAUGE_PATH =
-            "Assets/Ash Assets/Vehicle Integration/Car/UI/Generated/VehicleFuelArc.png";
+            "Assets/Ash Assets/Vehicle Integration/Vehicles/Car/Textures/UI/Generated/VehicleFuelArc.png";
         private const string VEHICLE_GAUGE_MATERIAL_PATH =
             "Assets/FranklinAnimations/Generated/FranklinBikeGaugeAlphaTint.mat";
         // Alpha-only tint keeps the curved sprite's antialiased edge intact.
@@ -39,6 +39,26 @@ namespace FranklinGame.UI.Editor
             new(0.22f, 0.91f, 0.72f, 1f);
         private static readonly Color PLAYER_HUD_HEALTH =
             new(0.95f, 0.08f, 0.2f, 1f);
+        private static readonly Vector2 STATUS_MAP_POSITION =
+            new(160f, -160f);
+        private static readonly Vector2 STATUS_HEALTH_POSITION =
+            new(550f, -84f);
+        private static readonly Vector2 STATUS_MONEY_POSITION =
+            new(431.25f, -158f);
+        private static readonly Vector3 STATUS_MONEY_SCALE =
+            new(0.525f, 0.625f, 1f);
+        private static readonly Vector2 STATUS_WEAPON_POSITION =
+            new(-255f, -83f);
+        private static readonly Vector2 STATUS_UNARMED_WEAPON_POSITION =
+            new(-170f, -83f);
+        private static readonly Vector2 STATUS_QUICK_RAIL_POSITION =
+            new(-235f, -162f);
+        private const int MONEY_VALUE_FONT_SIZE = 46;
+        private const float QUICK_ARMOR_X = -130f;
+        private const float QUICK_GRENADE_X = 0f;
+        private const float QUICK_MOLOTOV_X = 130f;
+        private const float QUICK_LEFT_DIVIDER_X = -65f;
+        private const float QUICK_RIGHT_DIVIDER_X = 65f;
 
         private readonly struct ButtonDefinition
         {
@@ -78,7 +98,10 @@ namespace FranklinGame.UI.Editor
             new("Jump", "player-jump", 8, new Vector2(1f, 0f),
                 new Vector2(-505f, 170f), new Vector2(165f, 165f)),
             new("Enter Vehicle", "vehicle-enter", 7, new Vector2(0.72f, 0.4f),
-                Vector2.zero, new Vector2(190f, 190f))
+                Vector2.zero, new Vector2(190f, 190f)),
+            new("Bike Helmet On Foot", "vehicle-control-helmet", 16,
+                new Vector2(1f, 0f), new Vector2(-690f, 190f),
+                new Vector2(165f, 165f))
         };
 
         private static readonly ButtonDefinition[] VEHICLE_BUTTONS =
@@ -102,7 +125,9 @@ namespace FranklinGame.UI.Editor
             new("Bike Wheelie", "vehicle-control-wheelie", 11, new Vector2(1f, 1f),
                 new Vector2(-285f, -575f), new Vector2(155f, 155f)),
             new("Bike Burnout", "vehicle-control-burnout", 12, new Vector2(1f, 1f),
-                new Vector2(-455f, -575f), new Vector2(155f, 155f))
+                new Vector2(-455f, -575f), new Vector2(155f, 155f)),
+            new("Bike Helmet", "vehicle-control-helmet", 16, new Vector2(1f, 0f),
+                new Vector2(-690f, 190f), new Vector2(165f, 165f))
         };
 
         static FranklinMobileHudPrefabInstaller()
@@ -117,6 +142,7 @@ namespace FranklinGame.UI.Editor
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-headlight.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-wheelie.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-burnout.png");
+            EnsureSpriteImporter(UI_ROOT + "vehicle-control-helmet.png");
             EnsureSpriteImporter(VEHICLE_GAUGE_PATH);
             EnsurePlayerHudSpriteImporters();
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PLAYER_CANVAS_PATH);
@@ -161,6 +187,7 @@ namespace FranklinGame.UI.Editor
 
                 onFoot.gameObject.SetActive(true);
                 FindDirectChild(onFoot, "Enter Vehicle")?.gameObject.SetActive(false);
+                FindDirectChild(onFoot, "Bike Helmet On Foot")?.gameObject.SetActive(false);
                 vehicle.gameObject.SetActive(false);
 
                 PrefabUtility.SaveAsPrefabAsset(canvasRoot, PLAYER_CANVAS_PATH);
@@ -184,6 +211,326 @@ namespace FranklinGame.UI.Editor
         public static void InstallMapUtilityButtonsOnly()
         {
             InstallMapUtilityButtons(false);
+        }
+
+        [MenuItem("Tools/Franklin Game/Arrange Top Left Player Status Only")]
+        public static void ArrangeTopLeftPlayerStatusOnly()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PLAYER_CANVAS_PATH);
+            if (prefab == null)
+            {
+                Debug.LogWarning($"Franklin status layout could not find {PLAYER_CANVAS_PATH}");
+                return;
+            }
+
+            GameObject canvasRoot = PrefabUtility.LoadPrefabContents(PLAYER_CANVAS_PATH);
+            try
+            {
+                Transform statusHud = FindDirectChild(canvasRoot.transform, PLAYER_STATUS_HUD);
+                RectTransform moneyCard =
+                    FindDirectChild(statusHud, "Money Card") as RectTransform;
+                RectTransform healthCard =
+                    FindDirectChild(statusHud, "Health Card") as RectTransform;
+                RectTransform mapMask =
+                    FindDirectChild(statusHud, "Mini Map Mask") as RectTransform;
+                RectTransform mapFrame =
+                    FindDirectChild(statusHud, "Mini Map Frame") as RectTransform;
+                if (moneyCard == null || healthCard == null || mapMask == null ||
+                    mapFrame == null)
+                {
+                    Debug.LogWarning("Franklin status layout is missing a required HUD element.");
+                    return;
+                }
+
+                ConfigureHudCard(
+                    healthCard,
+                    new Vector2(0f, 1f),
+                    STATUS_HEALTH_POSITION,
+                    healthCard.sizeDelta
+                );
+                ConfigureHudCard(
+                    moneyCard,
+                    new Vector2(0f, 1f),
+                    STATUS_MONEY_POSITION,
+                    healthCard.sizeDelta
+                );
+                moneyCard.localScale = STATUS_MONEY_SCALE;
+                ConfigureRect(
+                    mapMask,
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, 1f),
+                    new Vector2(0.5f, 0.5f),
+                    STATUS_MAP_POSITION,
+                    mapMask.sizeDelta
+                );
+                ConfigureRect(
+                    mapFrame,
+                    new Vector2(0f, 1f),
+                    new Vector2(0f, 1f),
+                    new Vector2(0.5f, 0.5f),
+                    STATUS_MAP_POSITION,
+                    mapFrame.sizeDelta
+                );
+
+                PrefabUtility.SaveAsPrefabAsset(canvasRoot, PLAYER_CANVAS_PATH);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(canvasRoot);
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Franklin map/health/money layout was updated without changing other HUD elements."
+            );
+        }
+
+        [MenuItem("Tools/Franklin Game/Adjust Money And Weapon Only")]
+        public static void AdjustMoneyAndWeaponOnly()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PLAYER_CANVAS_PATH);
+            if (prefab == null)
+            {
+                Debug.LogWarning($"Franklin HUD adjustment could not find {PLAYER_CANVAS_PATH}");
+                return;
+            }
+
+            GameObject canvasRoot = PrefabUtility.LoadPrefabContents(PLAYER_CANVAS_PATH);
+            try
+            {
+                Transform statusHud = FindDirectChild(canvasRoot.transform, PLAYER_STATUS_HUD);
+                RectTransform moneyCard =
+                    FindDirectChild(statusHud, "Money Card") as RectTransform;
+                RectTransform weaponCard =
+                    FindDirectChild(statusHud, "Weapon Card") as RectTransform;
+                Text moneyValue = FindDirectChild(moneyCard, "Money Value")?.GetComponent<Text>();
+                if (moneyCard == null || weaponCard == null || moneyValue == null)
+                {
+                    Debug.LogWarning("Franklin HUD adjustment is missing Money or Weapon UI.");
+                    return;
+                }
+
+                FranklinPlayerStatusHud statusComponent =
+                    statusHud.GetComponent<FranklinPlayerStatusHud>();
+                if (statusComponent == null)
+                {
+                    Debug.LogWarning("Franklin HUD adjustment is missing its status component.");
+                    return;
+                }
+                SerializedObject serializedStatus = new SerializedObject(statusComponent);
+                serializedStatus.FindProperty("m_ArmedCardPosition").vector2Value =
+                    STATUS_WEAPON_POSITION;
+                serializedStatus.FindProperty("m_UnarmedCardPosition").vector2Value =
+                    STATUS_UNARMED_WEAPON_POSITION;
+                serializedStatus.ApplyModifiedPropertiesWithoutUndo();
+
+                moneyCard.anchoredPosition = STATUS_MONEY_POSITION;
+                moneyCard.localScale = STATUS_MONEY_SCALE;
+                moneyValue.text = "12,480";
+                ConfigureHudCard(
+                    weaponCard,
+                    Vector2.one,
+                    STATUS_WEAPON_POSITION,
+                    weaponCard.sizeDelta
+                );
+
+                PrefabUtility.SaveAsPrefabAsset(canvasRoot, PLAYER_CANVAS_PATH);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(canvasRoot);
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Franklin Money size/value and Weapon position were updated without changing other HUD elements."
+            );
+        }
+
+        [MenuItem("Tools/Franklin Game/Add Armor Display Only")]
+        public static void AddArmorDisplayOnly()
+        {
+            EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "armor.png");
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PLAYER_CANVAS_PATH);
+            if (prefab == null)
+            {
+                Debug.LogWarning($"Franklin Armor display could not find {PLAYER_CANVAS_PATH}");
+                return;
+            }
+
+            GameObject canvasRoot = PrefabUtility.LoadPrefabContents(PLAYER_CANVAS_PATH);
+            try
+            {
+                Transform statusHud = FindDirectChild(canvasRoot.transform, PLAYER_STATUS_HUD);
+                RectTransform quickRail =
+                    FindDirectChild(statusHud, "Quick Item Rail") as RectTransform;
+                if (quickRail == null)
+                {
+                    Debug.LogWarning("Franklin Armor display could not find Quick Item Rail.");
+                    return;
+                }
+
+                quickRail.sizeDelta = new Vector2(390f, quickRail.sizeDelta.y);
+                Sprite solid = LoadHudSprite("ui-solid.png");
+                Image armorDivider = EnsureHudImage(
+                    quickRail,
+                    "Quick Item Divider Armor",
+                    solid,
+                    new Color(0.36f, 0.4f, 0.43f, 0.38f)
+                );
+                ConfigureCenteredRect(
+                    armorDivider.rectTransform,
+                    new Vector2(QUICK_LEFT_DIVIDER_X, 0f),
+                    new Vector2(2f, 46f)
+                );
+                EnsureArmorDisplay(
+                    quickRail,
+                    solid,
+                    LoadHudSprite("armor.png"),
+                    AssetDatabase.LoadAssetAtPath<Font>(HUD_FONT_PATH)
+                );
+                RectTransform grenade =
+                    FindDirectChild(quickRail, "Grenade Button") as RectTransform;
+                RectTransform molotov =
+                    FindDirectChild(quickRail, "Molotov Button") as RectTransform;
+                RectTransform rightDivider =
+                    FindDirectChild(quickRail, "Quick Item Divider") as RectTransform;
+                if (grenade != null)
+                    grenade.anchoredPosition = new Vector2(QUICK_GRENADE_X, 0f);
+                if (molotov != null)
+                    molotov.anchoredPosition = new Vector2(QUICK_MOLOTOV_X, 0f);
+                if (rightDivider != null)
+                    rightDivider.anchoredPosition =
+                        new Vector2(QUICK_RIGHT_DIVIDER_X, 0f);
+
+                PrefabUtility.SaveAsPrefabAsset(canvasRoot, PLAYER_CANVAS_PATH);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(canvasRoot);
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Franklin Armor display was added and all three quick slots were distributed evenly."
+            );
+        }
+
+        [MenuItem("Tools/Franklin Game/Align Quick Items With Weapon Only")]
+        public static void AlignQuickItemsWithWeaponOnly()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PLAYER_CANVAS_PATH);
+            if (prefab == null)
+            {
+                Debug.LogWarning($"Franklin quick items could not find {PLAYER_CANVAS_PATH}");
+                return;
+            }
+
+            GameObject canvasRoot = PrefabUtility.LoadPrefabContents(PLAYER_CANVAS_PATH);
+            try
+            {
+                Transform statusHud = FindDirectChild(canvasRoot.transform, PLAYER_STATUS_HUD);
+                RectTransform quickRail =
+                    FindDirectChild(statusHud, "Quick Item Rail") as RectTransform;
+                if (quickRail == null)
+                {
+                    Debug.LogWarning("Franklin quick items could not find Quick Item Rail.");
+                    return;
+                }
+
+                quickRail.anchoredPosition = STATUS_QUICK_RAIL_POSITION;
+                PrefabUtility.SaveAsPrefabAsset(canvasRoot, PLAYER_CANVAS_PATH);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(canvasRoot);
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log(
+                "Franklin Armor/Grenade/Molotov rail is aligned below the Weapon card."
+            );
+        }
+
+        [MenuItem("Tools/Franklin Game/Increase Money Text Only")]
+        public static void IncreaseMoneyTextOnly()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PLAYER_CANVAS_PATH);
+            if (prefab == null)
+            {
+                Debug.LogWarning($"Franklin Money text could not find {PLAYER_CANVAS_PATH}");
+                return;
+            }
+
+            GameObject canvasRoot = PrefabUtility.LoadPrefabContents(PLAYER_CANVAS_PATH);
+            try
+            {
+                Transform statusHud = FindDirectChild(canvasRoot.transform, PLAYER_STATUS_HUD);
+                Transform moneyCard = FindDirectChild(statusHud, "Money Card");
+                Text moneyValue = FindDirectChild(moneyCard, "Money Value")?.GetComponent<Text>();
+                if (moneyValue == null)
+                {
+                    Debug.LogWarning("Franklin Money text could not find Money Value.");
+                    return;
+                }
+
+                moneyValue.fontSize = MONEY_VALUE_FONT_SIZE;
+                PrefabUtility.SaveAsPrefabAsset(canvasRoot, PLAYER_CANVAS_PATH);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(canvasRoot);
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log("Franklin Money value font size was increased to 46 only.");
+        }
+
+        [MenuItem("Tools/Franklin Game/Distribute Quick Items Evenly Only")]
+        public static void DistributeQuickItemsEvenlyOnly()
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PLAYER_CANVAS_PATH);
+            if (prefab == null)
+            {
+                Debug.LogWarning($"Franklin quick items could not find {PLAYER_CANVAS_PATH}");
+                return;
+            }
+
+            GameObject canvasRoot = PrefabUtility.LoadPrefabContents(PLAYER_CANVAS_PATH);
+            try
+            {
+                Transform statusHud = FindDirectChild(canvasRoot.transform, PLAYER_STATUS_HUD);
+                Transform quickRail = FindDirectChild(statusHud, "Quick Item Rail");
+                RectTransform armor = FindDirectChild(quickRail, "Armor Display") as RectTransform;
+                RectTransform grenade =
+                    FindDirectChild(quickRail, "Grenade Button") as RectTransform;
+                RectTransform molotov =
+                    FindDirectChild(quickRail, "Molotov Button") as RectTransform;
+                RectTransform leftDivider =
+                    FindDirectChild(quickRail, "Quick Item Divider Armor") as RectTransform;
+                RectTransform rightDivider =
+                    FindDirectChild(quickRail, "Quick Item Divider") as RectTransform;
+                if (armor == null || grenade == null || molotov == null ||
+                    leftDivider == null || rightDivider == null)
+                {
+                    Debug.LogWarning("Franklin quick items are missing a slot or divider.");
+                    return;
+                }
+
+                armor.anchoredPosition = new Vector2(QUICK_ARMOR_X, 0f);
+                grenade.anchoredPosition = new Vector2(QUICK_GRENADE_X, 0f);
+                molotov.anchoredPosition = new Vector2(QUICK_MOLOTOV_X, 0f);
+                leftDivider.anchoredPosition = new Vector2(QUICK_LEFT_DIVIDER_X, 0f);
+                rightDivider.anchoredPosition = new Vector2(QUICK_RIGHT_DIVIDER_X, 0f);
+                PrefabUtility.SaveAsPrefabAsset(canvasRoot, PLAYER_CANVAS_PATH);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(canvasRoot);
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log("Franklin Armor/Grenade/Molotov slots were distributed evenly.");
         }
 
         private static void InstallMapUtilityButtons(bool phoneOnly)
@@ -282,11 +629,13 @@ namespace FranklinGame.UI.Editor
                    root.Find(VEHICLE_GROUP) != null &&
                    HasButton(root.Find(ON_FOOT_GROUP), "Jump") &&
                    HasButton(root.Find(ON_FOOT_GROUP), "Enter Vehicle") &&
+                   HasButton(root.Find(ON_FOOT_GROUP), "Bike Helmet On Foot") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Exit Vehicle") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Slow Drive") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Bike Headlight") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Bike Wheelie") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Bike Burnout") &&
+                   HasButton(root.Find(VEHICLE_GROUP), "Bike Helmet") &&
                    HasBikeHealthUi(root.Find(VEHICLE_GROUP)) &&
                    HasBikeFuelUi(root.Find(VEHICLE_GROUP)) &&
                    HasBikeSpeedUi(root.Find(VEHICLE_GROUP)) &&
@@ -312,6 +661,7 @@ namespace FranklinGame.UI.Editor
             EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "hud-square-frame.png");
             EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "grenade.png");
             EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "molotov.png");
+            EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "armor.png");
             EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "hud-panel-urban-v2.png");
             EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "hud-quick-rail-urban-v2.png");
         }
@@ -713,6 +1063,7 @@ namespace FranklinGame.UI.Editor
             Sprite quickRailFrame = LoadHudSprite("hud-quick-rail-urban-v2.png");
             Sprite grenade = LoadHudSprite("grenade.png");
             Sprite molotov = LoadHudSprite("molotov.png");
+            Sprite armor = LoadHudSprite("armor.png");
             Sprite phone = LoadHudSprite("phone-button.png");
             Sprite home = LoadHudSprite("home-button.png");
             Sprite settings = LoadHudSprite("settings-button.png");
@@ -723,9 +1074,10 @@ namespace FranklinGame.UI.Editor
             ConfigureHudCard(
                 moneyCard,
                 new Vector2(0f, 1f),
-                new Vector2(290f, -84f),
+                STATUS_MONEY_POSITION,
                 new Vector2(500f, 88f)
             );
+            moneyCard.localScale = STATUS_MONEY_SCALE;
             Text moneyIcon = EnsureHudText(
                 moneyCard,
                 "Money Icon",
@@ -741,8 +1093,8 @@ namespace FranklinGame.UI.Editor
                 moneyCard,
                 "Money Value",
                 hudFont,
-                "$ 12,480",
-                38,
+                "12,480",
+                MONEY_VALUE_FONT_SIZE,
                 TextAnchor.MiddleLeft,
                 PLAYER_HUD_TEXT
             );
@@ -754,7 +1106,7 @@ namespace FranklinGame.UI.Editor
             ConfigureHudCard(
                 healthCard,
                 new Vector2(0f, 1f),
-                new Vector2(290f, -188f),
+                STATUS_HEALTH_POSITION,
                 new Vector2(500f, 88f)
             );
             Image healthIcon = EnsureHudImage(healthCard, "Health Icon", heart, Color.white);
@@ -799,7 +1151,7 @@ namespace FranklinGame.UI.Editor
             ConfigureHudCard(
                 weaponCard,
                 Vector2.one,
-                new Vector2(-515f, -83f),
+                STATUS_WEAPON_POSITION,
                 new Vector2(430f, 86f)
             );
             Image weaponIcon = EnsureHudImage(weaponCard, "Weapon Icon", weapon, Color.white);
@@ -842,8 +1194,8 @@ namespace FranklinGame.UI.Editor
                 Vector2.one,
                 Vector2.one,
                 new Vector2(0.5f, 0.5f),
-                new Vector2(-430f, -162f),
-                new Vector2(260f, 72f)
+                STATUS_QUICK_RAIL_POSITION,
+                new Vector2(390f, 72f)
             );
             Image quickDivider = EnsureHudImage(
                 quickRail.rectTransform,
@@ -851,8 +1203,24 @@ namespace FranklinGame.UI.Editor
                 solid,
                 new Color(0.36f, 0.4f, 0.43f, 0.38f)
             );
-            ConfigureCenteredRect(quickDivider.rectTransform, Vector2.zero,
+            ConfigureCenteredRect(quickDivider.rectTransform,
+                new Vector2(QUICK_RIGHT_DIVIDER_X, 0f),
                 new Vector2(2f, 46f));
+            Image armorDivider = EnsureHudImage(
+                quickRail.rectTransform,
+                "Quick Item Divider Armor",
+                solid,
+                new Color(0.36f, 0.4f, 0.43f, 0.38f)
+            );
+            ConfigureCenteredRect(armorDivider.rectTransform,
+                new Vector2(QUICK_LEFT_DIVIDER_X, 0f),
+                new Vector2(2f, 46f));
+            EnsureArmorDisplay(
+                quickRail.rectTransform,
+                solid,
+                armor,
+                hudFont
+            );
 
             Button grenadeButton = EnsureQuickItemButton(
                 quickRail.rectTransform,
@@ -861,7 +1229,7 @@ namespace FranklinGame.UI.Editor
                 grenade,
                 hudFont,
                 "3",
-                new Vector2(-65f, 0f),
+                new Vector2(QUICK_GRENADE_X, 0f),
                 out Image grenadeSelection
             );
             Button molotovButton = EnsureQuickItemButton(
@@ -871,7 +1239,7 @@ namespace FranklinGame.UI.Editor
                 molotov,
                 hudFont,
                 "2",
-                new Vector2(65f, 0f),
+                new Vector2(QUICK_MOLOTOV_X, 0f),
                 out Image molotovSelection
             );
             grenadeSelection.enabled = true;
@@ -880,10 +1248,10 @@ namespace FranklinGame.UI.Editor
             RectTransform mapMaskRoot = EnsureHudRect(root, "Mini Map Mask");
             ConfigureRect(
                 mapMaskRoot,
-                Vector2.one,
-                Vector2.one,
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
                 new Vector2(0.5f, 0.5f),
-                new Vector2(-160f, -160f),
+                STATUS_MAP_POSITION,
                 new Vector2(222f, 222f)
             );
             Image maskImage = mapMaskRoot.GetComponent<Image>() ??
@@ -922,10 +1290,10 @@ namespace FranklinGame.UI.Editor
             ringImage.preserveAspect = true;
             ConfigureRect(
                 ringImage.rectTransform,
-                Vector2.one,
-                Vector2.one,
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
                 new Vector2(0.5f, 0.5f),
-                new Vector2(-160f, -160f),
+                STATUS_MAP_POSITION,
                 new Vector2(240f, 240f)
             );
             ringImage.rectTransform.SetAsLastSibling();
@@ -1073,6 +1441,69 @@ namespace FranklinGame.UI.Editor
             ConfigureCenteredRect(quantity.rectTransform, new Vector2(36f, 0f),
                 new Vector2(42f, 42f));
             return button;
+        }
+
+        private static void EnsureArmorDisplay(
+            Transform parent,
+            Sprite solidSprite,
+            Sprite armorSprite,
+            Font font)
+        {
+            Image armorRoot = EnsureHudImage(
+                parent,
+                "Armor Display",
+                solidSprite,
+                new Color(1f, 1f, 1f, 0.01f)
+            );
+            armorRoot.raycastTarget = false;
+            ConfigureRect(
+                armorRoot.rectTransform,
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(0.5f, 0.5f),
+                new Vector2(QUICK_ARMOR_X, 0f),
+                new Vector2(130f, 72f)
+            );
+
+            Image armorFill = EnsureHudImage(
+                armorRoot.rectTransform,
+                "Armor Fill",
+                solidSprite,
+                new Color(0.16f, 0.72f, 1f, 1f)
+            );
+            ConfigureCenteredRect(
+                armorFill.rectTransform,
+                new Vector2(0f, -32f),
+                new Vector2(108f, 4f)
+            );
+
+            Image icon = EnsureHudImage(
+                armorRoot.rectTransform,
+                "Icon",
+                armorSprite,
+                Color.white
+            );
+            icon.preserveAspect = true;
+            ConfigureCenteredRect(
+                icon.rectTransform,
+                new Vector2(-28f, 0f),
+                new Vector2(46f, 46f)
+            );
+
+            Text value = EnsureHudText(
+                armorRoot.rectTransform,
+                "Value",
+                font,
+                "100",
+                25,
+                TextAnchor.MiddleCenter,
+                PLAYER_HUD_TEXT
+            );
+            ConfigureCenteredRect(
+                value.rectTransform,
+                new Vector2(36f, 0f),
+                new Vector2(48f, 42f)
+            );
         }
 
         private static FranklinHudButton EnsureMapUtilityButton(

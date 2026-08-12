@@ -1197,6 +1197,7 @@ GameObject:
   - component: {fileID: 2818276778289055273}
   - component: {fileID: 6858524348554057834}
   - component: {fileID: 8537109231046475802}
+  - component: {fileID: 8462175390047612381}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -1491,39 +1492,6 @@ MonoBehaviour:
       m_ChangeBase:
         m_IsEnabled: 0
         m_Value: 1
---- !u!114 &6534259874338179041
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 7623676673346603635}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ee1778ec0811453e80de3ba1702fafda, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Combat.FranklinBloodLossController
-  m_Traits: {fileID: 6858524348554057834}
-  m_HealthAttributeId: hp
-  m_BloodDropPrefab: {fileID: 3252078544595210449, guid: 572a1edc82933c440813bca9bfe13e90, type: 3}
-  m_DeathPoolPrefab: {fileID: 3252078544595210449, guid: 3a2c75d9ade010c43bf3834543b636b3, type: 3}
-  m_GroundLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_GroundRayOriginHeight: 1.5
-  m_GroundRayDistance: 4
-  m_SurfaceOffset: 0.025
-  m_DropScatterRadius: 0.16
-  m_LightBleedBelow: 0.75
-  m_MediumBleedBelow: 0.5
-  m_HeavyBleedBelow: 0.25
-  m_DropLifetime: 10
-  m_MinDamageDropInterval: 0.12
-  m_MinDamageDropScale: 0.45
-  m_MaxDamageDropScale: 1.35
-  m_DamageForMaxDrop: 0.25
-  m_DeathPoolScale: 2.8
-  m_DeathPoolLifetime: 45
 --- !u!114 &8537109231046475802
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1534,7 +1502,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dfdfee31b6eb42efb13730dd1c5c195b, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Combat.FranklinDeathSequence
   m_Character: {fileID: 2818276778289055273}
   m_BloodLoss: {fileID: 6534259874338179041}
@@ -1556,6 +1524,34 @@ MonoBehaviour:
   m_FadeToBlackDuration: 0.12
   m_BlackScreenHoldDuration: 0.18
   m_FadeFromBlackDuration: 0.9
+--- !u!114 &8462175390047612381
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5364405789980172438}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa7f18510bffc4375ba59819258140b3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Vehicles.FranklinBikeHelmetController
+  m_HelmetPrefab: {fileID: 6415701319546404713, guid: 01ae8befdd8e044258996061ff9c6d52, type: 3}
+  m_HeadLocalPosition: {x: 0, y: 0.13, z: 0.08}
+  m_HeadLocalEuler: {x: -19.31, y: 180, z: 0}
+  m_HeadLocalScale: {x: 1, y: 1, z: 1}
+  m_HandLocalPosition: {x: 0.025, y: 0.015, z: 0.085}
+  m_HandLocalEuler: {x: 0, y: 90, z: 90}
+  m_HandLocalScale: {x: 1, y: 1, z: 1}
+  m_TransitionDuration: 1.05
+  m_EquipTransferTime: 0.58
+  m_RemoveTransferTime: 0.44
+  m_RightHandHeadOffset: {x: 0.15, y: -0.015, z: 0.105}
+  m_LeftHandHeadOffset: {x: -0.15, y: -0.015, z: 0.105}
+  m_RightHandHeadEuler: {x: 5, y: -15, z: -80}
+  m_LeftHandHeadEuler: {x: 5, y: 15, z: 80}
+  m_UpperArmReach: 0.82
+  m_LowerArmReach: 0.95
 --- !u!1 &5757642832812108497
 GameObject:
   m_ObjectHideFlags: 0
@@ -2277,6 +2273,39 @@ Transform:
   m_Children: []
   m_Father: {fileID: 7862008611753459182}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &6534259874338179041
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7623676673346603635}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee1778ec0811453e80de3ba1702fafda, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Combat.FranklinBloodLossController
+  m_Traits: {fileID: 6858524348554057834}
+  m_HealthAttributeId: hp
+  m_BloodDropPrefab: {fileID: 3252078544595210449, guid: 572a1edc82933c440813bca9bfe13e90, type: 3}
+  m_DeathPoolPrefab: {fileID: 3252078544595210449, guid: 3a2c75d9ade010c43bf3834543b636b3, type: 3}
+  m_GroundLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_GroundRayOriginHeight: 1.5
+  m_GroundRayDistance: 4
+  m_SurfaceOffset: 0.025
+  m_DropScatterRadius: 0.16
+  m_LightBleedBelow: 0.75
+  m_MediumBleedBelow: 0.5
+  m_HeavyBleedBelow: 0.25
+  m_DropLifetime: 10
+  m_MinDamageDropInterval: 0.12
+  m_MinDamageDropScale: 0.45
+  m_MaxDamageDropScale: 1.35
+  m_DamageForMaxDrop: 0.25
+  m_DeathPoolScale: 2.8
+  m_DeathPoolLifetime: 45
 --- !u!1 &7654776043918428226
 GameObject:
   m_ObjectHideFlags: 0

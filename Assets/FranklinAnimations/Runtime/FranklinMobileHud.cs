@@ -93,6 +93,9 @@ namespace FranklinGame.UI
         private FranklinHudButton m_BikeHeadlightButton;
         private FranklinHudButton m_BikeWheelieButton;
         private FranklinHudButton m_BikeBurnoutButton;
+        private FranklinHudButton m_BikeHelmetButton;
+        private FranklinHudButton m_OnFootHelmetButton;
+        private FranklinBikeHelmetController m_PlayerHelmetController;
         private FranklinAnimationBridge m_MovementBridge;
         private FranklinVehicleInteractionManager m_VehicleInteraction;
         private IRvrVehicleInputController m_ActiveDriver;
@@ -111,6 +114,9 @@ namespace FranklinGame.UI
         private Vector2 m_BikeSpeedVelocity;
         private Vector2 m_BikeHealthPosition;
         private Vector2 m_BikeHealthVelocity;
+        private float m_BikeFuelTarget;
+        private float m_BikeFuelVelocity;
+        private bool m_HasBikeFuelTarget;
         private bool m_WasDriving;
         private bool m_WasPassengerMode;
         private bool m_HasAppliedMode;
@@ -204,6 +210,7 @@ namespace FranklinGame.UI
         private void Update()
         {
             this.RefreshReferences(false);
+            this.UpdateBikeFuelFill();
 
             if (s_ControlsSuppressed)
             {
@@ -224,6 +231,7 @@ namespace FranklinGame.UI
 
             this.UpdateEnterVehicleButton(isDriving);
             this.UpdateBikeOnlyControls(isDriving);
+            this.UpdateHelmetControls(isDriving);
         }
 
         private void ApplyControlsSuppressed()
@@ -316,6 +324,9 @@ namespace FranklinGame.UI
                         burnoutDriver.SetVirtualBurnoutInput(active);
                     }
                     break;
+                case FranklinHudAction.BikeHelmet:
+                    if (active) this.ResolvePlayerHelmetController()?.ToggleHelmet();
+                    break;
                 case FranklinHudAction.VehicleInteraction:
                     if (!active) break;
                     if (this.m_ActiveDriver is SimcadeCarDriver passengerCar &&
@@ -394,6 +405,16 @@ namespace FranklinGame.UI
                 new Vector2(190f, 190f)
             ).gameObject;
             this.m_EnterVehicleButton.SetActive(false);
+            this.m_OnFootHelmetButton = this.CreateButton(
+                this.m_OnFootGroup,
+                "Bike Helmet On Foot",
+                "vehicle-control-helmet",
+                FranklinHudAction.BikeHelmet,
+                new Vector2(1f, 0f),
+                new Vector2(-690f, 190f),
+                new Vector2(165f, 165f)
+            );
+            this.m_OnFootHelmetButton.gameObject.SetActive(false);
 
             this.CreateButton(
                 this.m_VehicleGroup,
@@ -430,6 +451,15 @@ namespace FranklinGame.UI
                 new Vector2(1f, 0f),
                 new Vector2(-455f, 190f),
                 new Vector2(225f, 225f)
+            );
+            this.m_BikeHelmetButton = this.CreateButton(
+                this.m_VehicleGroup,
+                "Bike Helmet",
+                "vehicle-control-helmet",
+                FranklinHudAction.BikeHelmet,
+                new Vector2(1f, 0f),
+                new Vector2(-690f, 190f),
+                new Vector2(165f, 165f)
             );
             this.CreateButton(
                 this.m_VehicleGroup,
@@ -508,6 +538,23 @@ namespace FranklinGame.UI
             this.m_BikeHeadlightButton = FindButton("Bike Headlight");
             this.m_BikeWheelieButton = FindButton("Bike Wheelie");
             this.m_BikeBurnoutButton = FindButton("Bike Burnout");
+            this.m_BikeHelmetButton = FindButton("Bike Helmet");
+            this.m_OnFootHelmetButton = this.m_OnFootGroup
+                .Find("Bike Helmet On Foot")?.GetComponent<FranklinHudButton>();
+
+            if (this.m_OnFootHelmetButton == null)
+            {
+                this.m_OnFootHelmetButton = this.CreateButton(
+                    this.m_OnFootGroup,
+                    "Bike Helmet On Foot",
+                    "vehicle-control-helmet",
+                    FranklinHudAction.BikeHelmet,
+                    new Vector2(1f, 0f),
+                    new Vector2(-690f, 190f),
+                    new Vector2(165f, 165f)
+                );
+                this.m_OnFootHelmetButton.gameObject.SetActive(false);
+            }
 
             if (this.m_SlowDriveButton == null)
             {
@@ -559,6 +606,19 @@ namespace FranklinGame.UI
                     new Vector2(1f, 1f),
                     new Vector2(-455f, -575f),
                     new Vector2(155f, 155f)
+                );
+            }
+
+            if (this.m_BikeHelmetButton == null)
+            {
+                this.m_BikeHelmetButton = this.CreateButton(
+                    this.m_VehicleGroup,
+                    "Bike Helmet",
+                    "vehicle-control-helmet",
+                    FranklinHudAction.BikeHelmet,
+                    new Vector2(1f, 0f),
+                    new Vector2(-690f, 190f),
+                    new Vector2(165f, 165f)
                 );
             }
 
@@ -692,6 +752,7 @@ namespace FranklinGame.UI
             {
                 this.m_MovementBridge = FindFirstObjectByType<FranklinAnimationBridge>();
             }
+            this.ResolvePlayerHelmetController();
             if (this.m_VehicleInteraction == null)
             {
                 this.m_VehicleInteraction =
@@ -805,6 +866,29 @@ namespace FranklinGame.UI
             this.BindBikeFuel(bikeDriver);
             this.UpdateBikeSpeed(bikeDriver);
             this.UpdateBikeGaugePositions(bikeDriver);
+        }
+
+        private void UpdateHelmetControls(bool isDriving)
+        {
+            bool isDrivingBike = isDriving &&
+                                 !SimcadeCarDashboard.IsSharedHudActive &&
+                                 this.m_ActiveDriver is FranklinArcadeBikeDriver;
+            SetButtonActive(this.m_BikeHelmetButton, isDrivingBike);
+
+            FranklinBikeHelmetController helmet = this.ResolvePlayerHelmetController();
+            bool showOnFoot = !isDriving && helmet != null &&
+                              (helmet.IsEquipped || helmet.IsTransitioning);
+            SetButtonActive(this.m_OnFootHelmetButton, showOnFoot);
+        }
+
+        private FranklinBikeHelmetController ResolvePlayerHelmetController()
+        {
+            if (this.m_PlayerHelmetController == null)
+            {
+                this.m_PlayerHelmetController =
+                    FindFirstObjectByType<FranklinBikeHelmetController>();
+            }
+            return this.m_PlayerHelmetController;
         }
 
         private void EnsureBikeHealthUi()
@@ -1136,6 +1220,8 @@ namespace FranklinGame.UI
             this.m_ActiveBikeFuel = bikeDriver != null
                 ? bikeDriver.GetComponent<FranklinBikeFuel>()
                 : null;
+            this.m_HasBikeFuelTarget = false;
+            this.m_BikeFuelVelocity = 0f;
 
             this.SetBikeFuelVisible(this.m_ActiveBikeFuel != null);
 
@@ -1150,8 +1236,32 @@ namespace FranklinGame.UI
         private void OnBikeFuelChanged(float current, float maximum)
         {
             float ratio = maximum > 0.001f ? Mathf.Clamp01(current / maximum) : 0f;
+            this.m_BikeFuelTarget = ratio;
+            if (this.m_HasBikeFuelTarget) return;
+
+            this.m_HasBikeFuelTarget = true;
             if (this.m_BikeFuelFillImage != null)
                 this.m_BikeFuelFillImage.fillAmount = ratio;
+        }
+
+        private void UpdateBikeFuelFill()
+        {
+            if (!this.m_HasBikeFuelTarget || this.m_BikeFuelFillImage == null) return;
+
+            this.m_BikeFuelFillImage.fillAmount = Mathf.SmoothDamp(
+                this.m_BikeFuelFillImage.fillAmount,
+                this.m_BikeFuelTarget,
+                ref this.m_BikeFuelVelocity,
+                0.22f,
+                Mathf.Infinity,
+                Time.unscaledDeltaTime
+            );
+            if (Mathf.Abs(this.m_BikeFuelFillImage.fillAmount - this.m_BikeFuelTarget) <
+                0.0005f)
+            {
+                this.m_BikeFuelFillImage.fillAmount = this.m_BikeFuelTarget;
+                this.m_BikeFuelVelocity = 0f;
+            }
         }
 
         private void SetBikeFuelVisible(bool visible)
@@ -1558,7 +1668,8 @@ namespace FranklinGame.UI
                 "Slow Drive",
                 "Bike Headlight",
                 "Bike Wheelie",
-                "Bike Burnout"
+                "Bike Burnout",
+                "Bike Helmet"
             };
             foreach (string controlName in drivingOnlyControls)
             {
@@ -1658,7 +1769,8 @@ namespace FranklinGame.UI
         BikeBurnout,
         Phone,
         Home,
-        Settings
+        Settings,
+        BikeHelmet
     }
 
 }

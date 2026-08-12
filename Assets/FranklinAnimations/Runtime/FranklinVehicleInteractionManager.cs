@@ -200,6 +200,33 @@ namespace FranklinGame.Animations
             return this.TryStartVehicleInteraction();
         }
 
+        /// <summary>
+        /// Releases a seated Bike rider without running the normal exit gesture.
+        /// Death uses this before GC2 snapshots the skeleton for ragdoll.
+        /// </summary>
+        public bool ReleaseActiveBikeForDeath()
+        {
+            if (!this.ResolvePlayer() || this.m_ActiveBikeEntry == null ||
+                this.m_ActiveBikeEntry.SeatedCharacter != this.m_Player)
+            {
+                return false;
+            }
+
+            if (!this.m_ActiveBikeEntry.ReleaseForCrash(this.m_Player)) return false;
+
+            this.m_IsVehicleAnimationLocked = false;
+            this.m_HasEnteredVehicle = false;
+            this.m_MovementBridge?.SetExternalAnimationLock(false);
+            this.ClearDelayedDrivingState();
+            this.RestorePlayerCamera();
+            this.m_ActiveVehiclePivot = null;
+            this.m_ActiveCarEntry = null;
+            this.m_ActiveBikeEntry = null;
+            this.m_ActiveSimcadeDriver = null;
+            this.m_ActiveCarjacking = null;
+            return true;
+        }
+
         private bool TryStartVehicleInteraction()
         {
             if (!this.TryGetSelectedDriverDoor(

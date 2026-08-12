@@ -334,8 +334,30 @@ namespace FranklinGame.Combat
             if (this.m_Character.Ragdoll.IsRagdoll || this.m_RagdollStartInProgress) return;
 
             this.m_RagdollStartInProgress = true;
+            int deathVersion = this.m_DeathVersion;
             try
             {
+                bool releasedBikePose = this.ReleaseBikeRiderPoseForDeath();
+                if (releasedBikePose)
+                {
+                    // BikeEntry removes its state and IK immediately. Let GC2's
+                    // playable graph evaluate once before RagdollDefault disables
+                    // the Animator and freezes the current bone transforms.
+                    await System.Threading.Tasks.Task.Yield();
+                    if (!this.m_DeathSequenceActive ||
+                        deathVersion != this.m_DeathVersion ||
+                        this.m_Character == null)
+                    {
+                        return;
+                    }
+
+                    Animator animator = this.m_Character.Animim?.Animator;
+                    if (animator != null && animator.isActiveAndEnabled)
+                    {
+                        animator.Update(0f);
+                    }
+                }
+
                 await this.m_Character.Ragdoll.StartRagdoll();
             }
             catch (Exception exception)
@@ -346,6 +368,43 @@ namespace FranklinGame.Combat
             {
                 this.m_RagdollStartInProgress = false;
             }
+        }
+
+        private bool ReleaseBikeRiderPoseForDeath()
+        {
+            FranklinVehicleInteractionManager vehicleManager =
+                this.m_Character.GetComponentInChildren<
+                    FranklinVehicleInteractionManager
+                >(true);
+            if (vehicleManager != null && vehicleManager.ReleaseActiveBikeForDeath())
+            {
+                this.m_Character.GetComponentInChildren<FranklinAnimationBridge>(true)
+                    ?.RestoreModelRootBaseline();
+                return true;
+            }
+
+            // Fallback for scenes where the shared manager was not installed or
+            // lost its active reference. Death is rare, so a one-time scene scan
+            // is preferable to leaving the rider parented to a Bike seat.
+            BikeEntry[] bikeEntries = FindObjectsByType<BikeEntry>(
+                FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None
+            );
+            foreach (BikeEntry bikeEntry in bikeEntries)
+            {
+                if (bikeEntry == null ||
+                    bikeEntry.SeatedCharacter != this.m_Character ||
+                    !bikeEntry.ReleaseForCrash(this.m_Character))
+                {
+                    continue;
+                }
+
+                this.m_Character.GetComponentInChildren<FranklinAnimationBridge>(true)
+                    ?.RestoreModelRootBaseline();
+                return true;
+            }
+
+            return false;
         }
 
         private void RevealWasted()
