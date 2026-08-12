@@ -213,6 +213,8 @@ namespace FranklinGame.Vehicles.Editor
                     heavyImpactClip,
                     collisionEffect
                 );
+                SimcadeCarDoorDamage doorDamage =
+                    GetOrAdd<SimcadeCarDoorDamage>(carRoot);
 
                 Rigidbody rigidbody = carRoot.GetComponent<Rigidbody>();
                 if (rigidbody != null && presetRigidbody != null)
@@ -272,6 +274,7 @@ namespace FranklinGame.Vehicles.Editor
                 EditorUtility.SetDirty(gearSystem);
                 EditorUtility.SetDirty(driver);
                 EditorUtility.SetDirty(impactAudio);
+                EditorUtility.SetDirty(doorDamage);
                 if (entry != null) EditorUtility.SetDirty(entry);
 
                 PrefabUtility.SaveAsPrefabAsset(carRoot, CarPrefabPath);
@@ -302,6 +305,7 @@ namespace FranklinGame.Vehicles.Editor
             SimcadeVehicleController controller = car.GetComponent<SimcadeVehicleController>();
             SimcadeCarDriver driver = car.GetComponent<SimcadeCarDriver>();
             SimcadeCarImpactAudio impactAudio = car.GetComponent<SimcadeCarImpactAudio>();
+            SimcadeCarDoorDamage doorDamage = car.GetComponent<SimcadeCarDoorDamage>();
             SimcadeCarDeformation deformation = car.GetComponent<SimcadeCarDeformation>();
             GearSystem gearSystem = car.GetComponent<GearSystem>();
             AudioSystem audioSystem = car.GetComponent<AudioSystem>();
@@ -312,6 +316,10 @@ namespace FranklinGame.Vehicles.Editor
             if (!HasImpactAudioSetup(impactAudio))
                 throw new InvalidOperationException(
                     "Light/heavy collision audio is not configured on the exact Car.prefab"
+                );
+            if (doorDamage == null)
+                throw new InvalidOperationException(
+                    "Physical loose/detachable door damage is not installed on Car.prefab"
                 );
             if (deformation == null || !deformation.IsConfigured)
                 throw new InvalidOperationException(

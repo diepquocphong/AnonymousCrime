@@ -207,6 +207,7 @@ public class CarEntry : MonoBehaviour
     private IRvrVehicleDriveController externalDriveController;
     private ICarOccupiedEntryHandler occupiedEntryHandler;
     private SimcadeCarDestruction destruction;
+    private SimcadeCarDoorDamage doorDamage;
     private BoxCollider cachedCarCollider;
     private Rigidbody cachedCarRigidbody;
 
@@ -310,6 +311,18 @@ public class CarEntry : MonoBehaviour
         mirroredEntryAnimation != null;
     public bool IsPassengerCarjackingSeatOccupied =>
         _passengerCarjackingSeatOccupied;
+
+    public bool CanAnimateDoor(CarEntrySideMode side)
+    {
+        if (doorDamage == null) doorDamage = GetComponent<SimcadeCarDoorDamage>();
+        return doorDamage == null || doorDamage.CanAnimateDoor(side);
+    }
+
+    public bool IsDoorMissing(CarEntrySideMode side)
+    {
+        if (doorDamage == null) doorDamage = GetComponent<SimcadeCarDoorDamage>();
+        return doorDamage != null && doorDamage.IsDoorMissing(side);
+    }
 
     /// <summary>
     /// Single entry API owned by the car. The caller only supplies the GC2
@@ -530,9 +543,12 @@ public class CarEntry : MonoBehaviour
     public async Task<bool> OpenPreparedEntryDoorWithCharacterAsync(
         Character character)
     {
+        if (character == null) return false;
+        if (!CanAnimateDoor(_activeEntrySide)) return true;
+
         Transform door = GetActiveEntryDoor();
         AnimationClip clip = GetActiveEntryAnimation();
-        if (character == null || door == null || clip == null) return false;
+        if (door == null || clip == null) return false;
 
         float clipDuration = clip.length * Mathf.Clamp(
             occupiedDoorOpenGestureNormalizedTime,
@@ -614,19 +630,21 @@ public class CarEntry : MonoBehaviour
             );
             await WaitUnscaledSecondsAsync(occupiedDoorReachLeadTime);
             Transform door = GetActiveEntryDoor();
-            if (door == null) return false;
             Task passengerStateWarmupTask = WarmPassengerDrivingStateNearEntryEndAsync(
                 character,
                 mirroredEntryAnimation,
                 entryAnimationSpeed,
                 animationStartedAt
             );
-            PlayActiveEntryDoorSound(true);
-            await RotateDoor(
-                door,
-                GetActiveEntryDoorOpenRotation(),
-                doorRotationDuration
-            );
+            if (door != null && CanAnimateDoor(_activeEntrySide))
+            {
+                PlayActiveEntryDoorSound(true);
+                await RotateDoor(
+                    door,
+                    GetActiveEntryDoorOpenRotation(),
+                    doorRotationDuration
+                );
+            }
             await animationTask;
             await passengerStateWarmupTask;
             EndDoorHandleIK();
@@ -882,6 +900,7 @@ public class CarEntry : MonoBehaviour
         cachedCarCollider = GetComponent<BoxCollider>();
         cachedCarRigidbody = GetComponent<Rigidbody>();
         destruction = GetComponent<SimcadeCarDestruction>();
+        doorDamage = GetComponent<SimcadeCarDoorDamage>();
         _approachCallback = OnEntryApproachFinished;
         CacheVehicleBehaviours();
         CacheClosedDoorRotations();
@@ -977,7 +996,8 @@ public class CarEntry : MonoBehaviour
         );
 
         Transform activeDoor = GetActiveEntryDoor();
-        if (runDoorSequence && activeDoor != null)
+        if (runDoorSequence && activeDoor != null &&
+            CanAnimateDoor(_activeEntrySide))
         {
             _ = DoorRotationSequence(
                 activeDoor,
@@ -1113,7 +1133,7 @@ public class CarEntry : MonoBehaviour
         );
 
         Transform activeDoor = GetActiveEntryDoor();
-        if (activeDoor != null)
+        if (activeDoor != null && CanAnimateDoor(_activeEntrySide))
         {
             _ = DoorRotationSequence(
                 activeDoor,
@@ -1217,7 +1237,7 @@ public class CarEntry : MonoBehaviour
             );
 
             Transform activeDoor = GetActiveEntryDoor();
-            if (activeDoor != null)
+            if (activeDoor != null && CanAnimateDoor(_activeEntrySide))
             {
                 _ = DoorRotationSequence(
                     activeDoor,
@@ -1355,7 +1375,8 @@ public class CarEntry : MonoBehaviour
 
         character.States.Stop(drivingStateLayer, 0f, drivingStateTransitionOut);
 
-        if (doorTransform != null) _ = DoorRotationSequence();
+        if (doorTransform != null && CanAnimateDoor(CarEntrySideMode.DriverDoor))
+            _ = DoorRotationSequence();
 
         BeginDoorHandleIK(
             character,
@@ -1423,7 +1444,9 @@ public class CarEntry : MonoBehaviour
             doorHandleIKWeight
         );
 
-        Transform bailoutDoor = doorTransform;
+        Transform bailoutDoor = CanAnimateDoor(CarEntrySideMode.DriverDoor)
+            ? doorTransform
+            : null;
         Quaternion bailoutDoorClosedRotation = bailoutDoor != null
             ? GetClosedDoorRotation(bailoutDoor)
             : Quaternion.identity;
@@ -2605,6 +2628,8 @@ public class CarEntry : MonoBehaviour
 
     private Transform GetActiveDoorHandleTarget(bool entering)
     {
+        if (!CanAnimateDoor(_activeEntrySide)) return null;
+
         return _activeEntrySide switch
         {
             CarEntrySideMode.PassengerDoor => passengerDoorHandleTarget,
@@ -2978,14 +3003,16 @@ public class CarEntry : MonoBehaviour
         Vector3 activeOpenRotation,
         AudioSource activeAudioSource)
     {
-        if (activeDoor == null) return;
+        if (activeDoor == null || !CanAnimateDoorTransform(activeDoor)) return;
         Quaternion originalRotation = GetClosedDoorRotation(activeDoor);
 
         await Task.Delay((int)(doorRotationStartDelay * 1000));
+        if (activeDoor == null || !CanAnimateDoorTransform(activeDoor)) return;
         PlayDoorSound(activeAudioSource, true);
         await RotateDoor(activeDoor, activeOpenRotation, doorRotationDuration);
 
         await Task.Delay((int)(doorResetDelay * 1000));
+        if (activeDoor == null || !CanAnimateDoorTransform(activeDoor)) return;
         PlayDoorSound(activeAudioSource, false);
         await RotateDoor(activeDoor, originalRotation.eulerAngles, doorRotationDuration);
     }
@@ -3025,7 +3052,7 @@ public class CarEntry : MonoBehaviour
         await WaitUnscaledSecondsAsync(
             Mathf.Max(doorRotationStartDelay, movingExitDoorLeadTime)
         );
-        if (activeDoor == null) return;
+        if (activeDoor == null || !CanAnimateDoorTransform(activeDoor)) return;
 
         PlayDoorSound(activeAudioSource, true);
         await RotateDoor(activeDoor, activeOpenRotation, doorRotationDuration);
@@ -3121,11 +3148,13 @@ public class CarEntry : MonoBehaviour
         float duration
     )
     {
+        if (door == null || !CanAnimateDoorTransform(door)) return;
         Quaternion startRotation = door.localRotation;
         Quaternion targetRotation = Quaternion.Euler(targetEulerAngles);
         float elapsedTime = 0f;
 
-        while (elapsedTime < duration)
+        while (elapsedTime < duration && door != null &&
+               CanAnimateDoorTransform(door))
         {
             float t = elapsedTime / duration;
             door.localRotation = Quaternion.Slerp(startRotation, targetRotation, t);
@@ -3133,7 +3162,15 @@ public class CarEntry : MonoBehaviour
             await Task.Yield();
         }
 
-        door.localRotation = targetRotation;
+        if (door != null && CanAnimateDoorTransform(door))
+            door.localRotation = targetRotation;
+    }
+
+    private bool CanAnimateDoorTransform(Transform door)
+    {
+        if (door == null) return false;
+        if (doorDamage == null) doorDamage = GetComponent<SimcadeCarDoorDamage>();
+        return doorDamage == null || doorDamage.CanAnimateDoor(door);
     }
 
     private static async Task RotateDoorNaturally(

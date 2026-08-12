@@ -41,7 +41,7 @@ Arcade Bike Physics Pro/
 ├── Materials/
 │   ├── Bikes/
 │   │   ├── Bike_01/ ... Bike_10/  # Material riêng của từng model
-│   │   └── Shared/                 # Glass/body dùng chung
+│   │   └── Shared/                 # Glass/body và material mâm dùng chung
 │   ├── Effects/                    # Skidmark và tire smoke
 │   ├── Helmets/                    # Helmet_01 ... Helmet_10
 │   └── Physics/                    # Zero friction và ragdoll body
@@ -83,6 +83,9 @@ Quy tắc tìm asset:
 - Muốn kéo xe vào scene: mở `Prefabs/Bikes`.
 - Muốn thay mesh: mở `Models/Bikes/Bike_XX`.
 - Muốn thay màu/vật liệu: mở `Materials/Bikes/Bike_XX`.
+- Material mâm trước/sau dùng chung nằm tại
+  `Materials/Bikes/Shared/Bike_Shared_Wheel_Rim_Solid.mat`; asset giữ GUID gốc
+  để cả Bike 01–10 không mất slot khi dọn thư mục nguồn DQP.
 - Muốn sửa texture: mở `Textures/Bikes/Bike_XX`.
 - Muốn thay mũ: mở `Prefabs/Helmets`; mesh, material và texture tương ứng nằm
   trong ba nhánh `Helmets` còn lại.
@@ -117,6 +120,7 @@ flowchart LR
         DAMAGE_FX["FranklinBikeDamageEffects"]
         DEFORM["FranklinBikeDeformation"]
         DESTROY["FranklinBikeDestruction"]
+        GARAGE["FranklinGarageService"]
     end
 
     subgraph ABP["Arcade Bike Physics Pro"]
@@ -148,6 +152,9 @@ flowchart LR
     HEALTH -->|"0 HP lock"| DRIVER
     HEALTH --> DAMAGE_FX
     DAMAGE_FX -->|"32% smoke / 14% fire / 0 HP"| DESTROY
+    GARAGE --> HEALTH
+    GARAGE --> DEFORM
+    GARAGE --> FUEL["FranklinBikeFuel"]
     DRIVER <--> RAGDOLL
     CAMERA --> MAIN["GC2 Main Camera Shot"]
     PHYSICS --> RB["Bike Rigidbody"]
@@ -169,6 +176,14 @@ flowchart LR
 - Player và bike bỏ va chạm với nhau trong toàn bộ quá trình enter/ngồi/exit.
 - Bike nằm ngã chỉ được park sau khi adapter xác nhận bề mặt trái/phải đã ổn
   định gần song song với ground.
+- Khi ragdoll, Rigidbody Bike dùng `ContinuousDynamic`, solver `12/4` và ground
+  safety theo bounds collider. Nếu solver xuyên quá `0.12m`, toàn bộ Bike được
+  đẩy trở lại theo normal của đúng static ground bên dưới và vận tốc đi xuyên
+  mặt nền bị loại bỏ. Guard kiểm tra `ClosestPoint`, vì vậy không giữ Bike lơ
+  lửng khi đã rơi khỏi mép sàn.
+- Player dùng `FranklinRagdollGroundGuard`: các Rigidbody xương được gia cố CCD,
+  còn pelvis chỉ được recovery khi đã thực sự xuyên ground quá `0.08m`. Luồng
+  này áp dụng cho crash Bike, bailout Car và các ragdoll GC2 khác.
 
 ## 4. Cấu trúc prefab bike chuẩn
 
@@ -523,6 +538,44 @@ displacement tối đa `0.12m`, fracture `0.018m`, tối đa 10 dents. Chỉ ren
 thân được clone/deform ở runtime; mâm, lốp, glass và MeshCollider vật lý giữ nguyên.
 API sửa hình là `ResetDeformation()`.
 
+### Garage dùng chung với Car
+
+Prefab `auto_bay_garage_mobile.prefab` dùng `FranklinGarageService` từ module
+Vehicle Integration. Khi Bike do Player điều khiển dừng dưới `3 km/h` trong một
+bay, panel mobile cho phép sửa đầy bằng `FranklinBikeHealth.RepairFull()` và
+phục hồi thân xe bằng `FranklinBikeDeformation.ResetDeformation()`. Bike đã nổ
+thành terminal wreck không được garage hồi sinh.
+
+Action xăng gọi qua `IFranklinFuelTank`, vì vậy không phụ thuộc trực tiếp vào
+ABP controller. Mỗi lượt ghé chỉ cộng tối đa `25%` **dung tích bình**; nếu bình
+gần đầy thì chỉ nhận phần còn thiếu. Tiền chỉ bị trừ theo lượng thực nhận và UI
+fuel hiện có tiếp tục cập nhật bằng event.
+
+Tại `fuel_station_mobile.prefab`, Bike vẫn dùng thao tác hold-to-refuel. Prompt
+có progress bar, phần trăm và thời gian còn lại theo lượng xăng thiếu; control
+lái mobile tạm ẩn khi prompt hiện. Nút `×` có thể đóng khi chưa bơm, nhưng bị
+khóa trong lúc đang hold để tránh một touch thứ hai ngắt giao dịch.
+
+Trong lúc panel garage hiện, `FranklinMobileHud` tạm ẩn toàn bộ nút lái Bike và
+nhả input đang giữ. Nút `×` đóng panel, phục hồi control ngay và giữ panel đóng
+cho tới khi Bike rời rồi đi vào lại một bay; suppression theo owner không ghi đè
+trạng thái khóa control của death/destruction.
+
+Sau khi bấm sửa, progress bar chạy từ `0–100%` và không cho đóng panel hoặc dùng
+control cho tới khi hoàn tất. Thời gian mặc định biến thiên từ `2.5–12s` theo
+tỷ lệ HP bị thiếu; health hồi dần trong thời gian chờ, còn render deformation
+chỉ reset ở cuối tiến trình.
+
+```mermaid
+flowchart LR
+    Bay["Garage marker"] --> Service["FranklinGarageService"]
+    Service --> Health["FranklinBikeHealth.RepairFull"]
+    Service --> Deform["FranklinBikeDeformation.ResetDeformation"]
+    Service --> Fuel["IFranklinFuelTank.TryRefuel"]
+    Fuel --> Limit["Tối đa +25% capacity / visit"]
+    Service --> Wallet["FranklinPlayerStatusHud"]
+```
+
 Profile damage Bike mặc định đã giảm: impact nhẹ `0.35–2 HP`, impact nặng
 `4–12 HP`, và chỉ đạt damage tối đa từ severity `14`. Damage Player của impact
 nặng không thay đổi.
@@ -678,6 +731,7 @@ public sealed class DirectAbpInputExample : MonoBehaviour
     flare như Bike 01.
 11. Copy rider targets và pose từ Bike 01 nếu bike mới thuộc cùng rider-fit profile.
 12. Không thêm `WheelCollider`; ABP dò ground bằng raycast.
+13. Giữ `MobileBlobShadow` ở root và `FranklinBlobShadow` cùng profile với Bike 01.
 
 ## 10. Lưu ý kỹ thuật
 
@@ -704,6 +758,17 @@ public sealed class DirectAbpInputExample : MonoBehaviour
   thời với `FranklinArcadeBikeRagdoll`.
 - Thay đổi hierarchy/reference nên được thực hiện trên prefab asset; tránh chỉnh
   riêng scene instance khiến các bike không còn đồng bộ với Bike 01.
+- Bike 01–10 dùng blob shadow `Ellipse` đen hơn (`opacity 0.64`), không dùng một
+  hình tròn/scale chung. Installer đo mesh của từng model; footprint hiện nằm trong
+  khoảng rộng `0.72–1.01m`, dài `2.11–2.23m`, ground probe `10 Hz`.
+  Shadow nhỏ/mờ khi bike bay, biến mất khi quá cao và bị cull từ `40m`.
+  Distance check chạy `4 Hz` có stagger; khi bị cull, ground raycast cũng dừng.
+- API cài đặt lại đồng bộ là
+  `FranklinGame.Rendering.Editor.FranklinBlobShadowInstaller.InstallAll()`;
+  API đo lại width/length nhưng không sửa physics, rider target hoặc damage configuration
+  của bike. Runtime có thể chỉnh riêng bằng `SetEllipse(width, length)`. Master switch
+  `FranklinBlobShadow.SetGlobalEnabled(bool)` tắt/bật đồng thời Bike, Car, NPC và Player;
+  khi tắt, Bike không render và không chạy ground raycast/distance check.
 
 ## 11. Source liên quan
 
@@ -715,8 +780,12 @@ public sealed class DirectAbpInputExample : MonoBehaviour
 - [FranklinBikeDestruction.cs](Scripts/Integration/Damage/FranklinBikeDestruction.cs)
 - [FranklinBikeDeformation.cs](Scripts/Integration/Damage/FranklinBikeDeformation.cs)
 - [FranklinArcadeBikeRagdoll.cs](Scripts/Integration/Physics/FranklinArcadeBikeRagdoll.cs)
+- [FranklinRagdollGroundGuard.cs](../../FranklinAnimations/Runtime/FranklinRagdollGroundGuard.cs)
 - [FranklinBikeMainShotAim.cs](Scripts/Integration/Camera/FranklinBikeMainShotAim.cs)
 - [BikeEntry.cs](Scripts/Integration/Rider/BikeEntry.cs)
 - [FranklinBikeHelmetController.cs](Scripts/Integration/Rider/FranklinBikeHelmetController.cs)
 - [Helmet_01.prefab](Prefabs/Helmets/Helmet_01.prefab)
 - [VehicleLights.cs](../Vehicle%20Integration/Core/Runtime/Vehicle/VehicleLights.cs)
+- [FranklinGarageService.cs](../Vehicle%20Integration/Stations/Garage/Runtime/FranklinGarageService.cs)
+- [IFranklinFuelTank.cs](../Vehicle%20Integration/Stations/Fuel/Runtime/IFranklinFuelTank.cs)
+- [FranklinBlobShadow.cs](../../SettingGame/FastBlobShadow/Runtime/FranklinBlobShadow.cs)

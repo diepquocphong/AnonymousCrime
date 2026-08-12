@@ -51,7 +51,8 @@ Vehicle Integration/
 │   ├── Shaders/             # Shader/Shader Graph dùng chung
 │   └── UI/Sprites/          # Sprite editor/UI dùng chung
 ├── Stations/
-│   └── Fuel/Runtime/        # Marker trigger, hold button và giao dịch xăng
+│   ├── Fuel/Runtime/        # Marker trigger, hold button và giao dịch xăng
+│   └── Garage/Runtime/      # Sửa Car/Bike, reset deformation và đổ giới hạn 25%
 ├── ThirdParty/
 │   └── Sim-Cade Vehicle Physics/
 │                              # Vendor package nguyên bản, không trộn custom code
@@ -78,6 +79,7 @@ Vehicle Integration/
 | Stats/Input/Variables | [`Core/Data/`](Core/Data/) |
 | Asset dùng chung | [`Shared/`](Shared/) |
 | Logic trạm xăng | [`Stations/Fuel/Runtime/`](Stations/Fuel/Runtime/) |
+| Logic garage Car/Bike | [`Stations/Garage/Runtime/`](Stations/Garage/Runtime/) |
 | Sim-Cade nguyên bản | [`ThirdParty/Sim-Cade Vehicle Physics/`](ThirdParty/Sim-Cade%20Vehicle%20Physics/) |
 
 ### Quy ước phân loại
@@ -127,6 +129,7 @@ hoặc GC2 dùng chung, nên không được đưa vào domain Car:
 | `SimcadeCarParticleWind` | [`Vehicles/Car/Runtime/SimcadeCarParticleWind.cs`](Vehicles/Car/Runtime/SimcadeCarParticleWind.cs) | Lực gió world-space cho smoke/fire, cộng airflow ngược vận tốc xe và chỉ cập nhật 8 Hz khi VFX hoạt động. |
 | `SimcadeDetachedWheelCleanup` | [`Vehicles/Car/Runtime/SimcadeDetachedWheelCleanup.cs`](Vehicles/Car/Runtime/SimcadeDetachedWheelCleanup.cs) | Vòng đời debris bánh: văng, nằm phẳng theo ground, khóa physics 5 giây, chìm và tự dọn. |
 | `SimcadeCarImpactAudio` | [`Vehicles/Car/Runtime/SimcadeCarImpactAudio.cs`](Vehicles/Car/Runtime/SimcadeCarImpactAudio.cs) | Phân loại va chạm, audio, pooled spark/debris và phát event impact dùng chung. |
+| `SimcadeCarDoorDamage` | [`Vehicles/Car/Runtime/SimcadeCarDoorDamage.cs`](Vehicles/Car/Runtime/SimcadeCarDoorDamage.cs) | Tông mạnh tại từng cửa nhả chốt thành bản lề vật lý; cú rất mạnh làm cửa rời và báo `CarEntry` bỏ thao tác cửa. |
 | `SimcadeCarDeformation` | [`Vehicles/Car/Runtime/SimcadeCarDeformation.cs`](Vehicles/Car/Runtime/SimcadeCarDeformation.cs) | Adapter event Sim-Cade gọi thuật toán deformation Edy cho các render mesh gần contact, đồng thời giữ sai lệch lái nhỏ. |
 | `EdysVehicleMeshDeformation` | [`Vehicles/Car/Runtime/EdysVehicleMeshDeformation.cs`](Vehicles/Car/Runtime/EdysVehicleMeshDeformation.cs) | Phần duy nhất port từ `VehicleDamage.cs` của Edy's 5.5.3: falloff theo bán kính, impact velocity, fracture và giới hạn displacement. |
 | `SimcadeCarjacking` | [`Vehicles/Car/Runtime/SimcadeCarjacking.cs`](Vehicles/Car/Runtime/SimcadeCarjacking.cs) | Kéo NPC cửa trái và nhánh ghế phụ đẩy NPC sang trái. |
@@ -154,10 +157,13 @@ hoặc GC2 dùng chung, nên không được đưa vào domain Car:
 | `CharacterIKSetter` | [`../Arcade Bike Physics Pro/Scripts/Integration/Rider/CharacterIKSetter.cs`](../Arcade%20Bike%20Physics%20Pro/Scripts/Integration/Rider/CharacterIKSetter.cs) | Cầu nối IK humanoid dùng chung. |
 | `FranklinVehicleInteractionManager` | [`../../FranklinAnimations/Runtime/FranklinVehicleInteractionManager.cs`](../../FranklinAnimations/Runtime/FranklinVehicleInteractionManager.cs) | Phát hiện vehicle gần Player và gọi API enter/exit. |
 | `FranklinMobileHud` | [`../../FranklinAnimations/Runtime/FranklinMobileHud.cs`](../../FranklinAnimations/Runtime/FranklinMobileHud.cs) | HUD điều khiển Player/Car/Bike dùng chung; không chứa logic riêng của Car dashboard. |
+| `FranklinRagdollGroundGuard` | [`../../FranklinAnimations/Runtime/FranklinRagdollGroundGuard.cs`](../../FranklinAnimations/Runtime/FranklinRagdollGroundGuard.cs) | Gia cố CCD/solver cho xương ragdoll GC2 và đưa pelvis trở lại trên static ground nếu solver thực sự xuyên mặt nền. |
 | `FranklinBikeImpactInstaller` | [`../Arcade Bike Physics Pro/Editor/Installation/FranklinBikeImpactInstaller.cs`](../Arcade%20Bike%20Physics%20Pro/Editor/Installation/FranklinBikeImpactInstaller.cs) | Bike tái sử dụng impact SFX/FX nhưng không phụ thuộc runtime dashboard Car. |
 | `FranklinBikeHealth` | [`../Arcade Bike Physics Pro/Scripts/Integration/Damage/FranklinBikeHealth.cs`](../Arcade%20Bike%20Physics%20Pro/Scripts/Integration/Damage/FranklinBikeHealth.cs) | Nối impact Bike đã qua phân loại/cooldown với GC2 `health-attribute-id`; API damage/repair và khóa ga/lái ở 0 HP. |
 | `FranklinFuelStation` | [`Stations/Fuel/Runtime/FranklinFuelStation.cs`](Stations/Fuel/Runtime/FranklinFuelStation.cs) | Tạo trigger tại GC2 Marker, hiển thị nút hold mobile và thực hiện giao dịch xăng cho Car/Bike. |
 | `IFranklinFuelTank` | [`Stations/Fuel/Runtime/IFranklinFuelTank.cs`](Stations/Fuel/Runtime/IFranklinFuelTank.cs) | Contract nhiên liệu dùng chung để trạm xăng không phụ thuộc controller Car hoặc Bike. |
+| `FranklinGarageService` | [`Stations/Garage/Runtime/FranklinGarageService.cs`](Stations/Garage/Runtime/FranklinGarageService.cs) | Dịch vụ chung tại bốn bay: sửa đầy health, reset deformation và cho Car/Bike mua tối đa 25% dung tích bình mỗi lượt ghé. |
+| `FranklinGarageZone` | [`Stations/Garage/Runtime/FranklinGarageZone.cs`](Stations/Garage/Runtime/FranklinGarageZone.cs) | Trigger adapter nhẹ được gắn vào các GC2 Marker của garage. |
 | `FranklinPlayerStatusHud` | [`../../FranklinAnimations/Runtime/FranklinPlayerStatusHud.cs`](../../FranklinAnimations/Runtime/FranklinPlayerStatusHud.cs) | Wallet API và HUD tiền dùng chung; thay đổi tiền phát event ngay lập tức. |
 
 ## Sơ đồ thành phần
@@ -181,6 +187,10 @@ flowchart LR
     Impact --> FX["Pooled spark + debris FX"]
     Impact --> Health["SimcadeCarHealth"]
     Impact --> Dent["Edy radius-based render-mesh dent"]
+    Impact --> DoorDamage["Nearest-door latch / hinge damage"]
+    DoorDamage --> LooseDoor["Free physical hinge"]
+    DoorDamage --> DetachedDoor["Detached door debris"]
+    DoorDamage --> Entry
     Dent --> SteeringDamage["Persistent small steering bias"]
     SteeringDamage --> Driver
     Health --> Traits["GC2 health-attribute-id"]
@@ -219,6 +229,13 @@ flowchart LR
     BikeExplosion --> BikeWreck["Dynamic fallen wreck + charred mesh"]
     BikeWreck --> BikePlayerZero["Captured Player hp = 0 + burn fire"]
     BikeImpact --> BikeCrash["Heavy impact: rider + bike ragdoll"]
+    Garage["FranklinGarageService"] --> Wallet["Money Wallet"]
+    Garage --> Health
+    Garage --> BikeHealth
+    Garage --> Dent
+    Garage --> BikeDent
+    Garage --> Fuel
+    Garage --> BikeFuel["FranklinBikeFuel"]
 ```
 
 Quyền sở hữu luồng vào/ra nằm trên `CarEntry` của prefab Car. Player chỉ gọi API và cung cấp `Character`; Player không tự teleport hoặc tự điều khiển cửa.
@@ -282,6 +299,12 @@ Thuộc tính đọc: `IsVehicleEnabled`, `IsPassengerPresentationActive`, `Spee
 
 Component tự phân loại va chạm nhẹ/nặng theo impulse, điều chỉnh âm lượng/pitch so với động cơ và phát VFX tia lửa–mảnh vụn bằng pool. `EventImpactAccepted(bool isHeavy, float severity)` được phát một lần sau cooldown để `SimcadeCarHealth` dùng lại kết quả. `EventImpactContactAccepted(Collision, bool, float)` chuyển cùng kết quả và contact point cho deformation ngay trong callback, không tính collision lần hai. API `Configure(...)` chỉ dành cho installer/authoring.
 
+### `SimcadeCarDoorDamage`
+
+Component nhận lại chính `EventImpactContactAccepted`, chỉ tìm cửa gần contact sau một cú va chạm nặng đã được chấp nhận. Severity mặc định `6.5` làm cửa nhả chốt, mở và dao động tự do bằng `HingeJoint`; severity `12.5`, va chạm trực tiếp tiếp theo hoặc lực vượt giới hạn bản lề làm cửa rời khỏi thân xe. Cửa rời giữ mesh/collider, nhận vận tốc của Car và tự chuyển kinematic sau khi nằm yên để giảm chi phí mobile.
+
+`CarEntry.CanAnimateDoor(side)` trả về `false` cho cửa đã lỏng hoặc rời; door rotation, âm thanh đóng/mở và IK tay nắm được bỏ qua. `CarEntry.IsDoorMissing(side)` cho biết riêng trạng thái cửa đã mất. Entry/exit và carjacking vẫn dùng đúng standing/step/seat anchor, vì vậy chỉ bỏ thao tác cửa chứ không bỏ căn ghế hoặc di chuyển GC2.
+
 ### `SimcadeCarDeformation`
 
 Car có đúng một collider thân xe: `BoxCollider` ở root, size `(1.7317466, 1.2402761, 4.327468)`, center `(-0.43742472, -0.08479142, 0.027270794)`. Không có `MeshCollider`, `SphereCollider` hoặc `CapsuleCollider` trong prefab. Collider primitive này chỉ giải quyết physics của Rigidbody; mesh bị móp là render mesh readable lấy từ `Vehicles/Car/Models/Car.FBX`, không phải collider mesh.
@@ -330,6 +353,15 @@ giảm theo lượng xăng vừa nhận. `FranklinPlayerStatusHud` giữ balance
 tween số tiền hiển thị bằng unscaled time, còn fuel gauge của Car/Bike SmoothDamp
 về giá trị mới để thanh xăng tăng liên tục thay vì nhảy theo từng tick.
 Rời marker, thả/ngắt pointer, xe chạy, đầy bình hoặc hết tiền đều dừng giao dịch.
+Thanh xăng trong prompt đã được nâng thành progress bar `8px` sắc nét, cập nhật
+theo phần trăm bình và hiển thị thời gian còn lại tính từ lượng thiếu chia cho
+`Fuel Units Per Second`; bình càng cạn thì thời gian hold càng lâu. Trong lúc
+prompt hiện, toàn bộ control lái mobile được tạm ẩn và input đang giữ được nhả.
+Nút `×` đóng prompt và phục hồi control cho tới lần rời/vào marker tiếp theo;
+khi đang giữ để bơm, nút đóng bị khóa nên giao dịch không bị ngắt bởi touch thứ
+hai. Suppression theo owner nên không ghi đè khóa death/destruction.
+Prompt chỉ xuất hiện sau khi xe đã xuống dưới `3 km/h`, vì vậy Player vẫn giữ
+đầy đủ nút phanh/lái để căn xe trong marker trước khi control được tạm ẩn.
 
 Project chưa có GC2 `Currency` asset hoặc `Bag Wealth` được cấu hình làm nguồn
 tiền. Vì HUD trước đây chỉ giữ số demo `m_Money`, nó đã được nâng thành Wallet
@@ -347,6 +379,67 @@ API dùng chung thay vì tạo hai nguồn tiền độc lập:
 tính tiền theo lượng này, vì vậy bình gần đầy không bị tính dư. Sau này nếu chuyển
 nguồn tiền sang GC2 Inventory, chỉ cần adapter Wallet gọi `Bag.Wealth`; logic
 marker, UI hold và fuel tank không cần thay đổi.
+
+### Garage sửa xe và đổ giới hạn 25%
+
+`auto_bay_garage_mobile.prefab` dùng bốn GC2 Marker làm bốn vùng service. Component
+`FranklinGarageService` tạo trigger tại runtime, tự tìm đúng Car/Bike do Player
+đang điều khiển và chỉ bật UI khi xe nằm trong bay. Xe phải dừng dưới `3 km/h`.
+Panel mobile nằm giữa sát đáy màn hình và có hai action rõ ràng:
+
+- **Sửa toàn bộ**: tính giá từ phí cơ bản `$75` cộng `$12` cho mỗi HP bị thiếu,
+  mở một tiến trình sửa bắt buộc chờ, hồi health dần rồi reset
+  deformation/sai lệch lái khi hoàn tất. Wreck terminal đã nổ không được hồi
+  sinh bằng garage.
+- **Đổ thêm tối đa 25%**: mỗi lượt xe ở trong garage chỉ được mua thêm tối đa
+  `MaximumFuel × 0.25`, không phải ép bình về mức 25%. Bình gần đầy chỉ nhận
+  phần còn thiếu. Rời hẳn garage rồi quay lại mới mở một lượt 25% mới.
+
+Fuel và tiền dùng giao dịch chính xác theo lượng `TryRefuel` thực nhận; thiếu
+tiền thì mua được lượng tương ứng, không âm Wallet. Giá mặc định vẫn là `$5`
+cho mỗi đơn vị. `FranklinPlayerStatusHud` tween số tiền giảm dần và fuel gauge
+Car/Bike tiếp tục tăng mượt qua event hiện có. Khi panel garage hiện, prompt
+radio/refuel khác cùng toàn bộ control lái Car/Bike được tạm ẩn để UI mobile
+không chồng nhau và không truyền input lái ngoài ý muốn. Nút `×` góc phải đóng
+panel và phục hồi control ngay; panel chỉ tự mở lại sau khi xe rời rồi vào garage
+lần nữa. Suppression được quản lý theo owner nên đóng garage không thể bật lại
+control đang bị hệ thống death/destruction khóa.
+
+Thời gian sửa được tính từ tỷ lệ health bị thiếu theo đường cong lũy thừa: mặc
+định hỏng rất nhẹ mất khoảng `2.5s`, gần hỏng hoàn toàn mất tới `12s`. Hai mốc
+`Min Repair Duration` và `Max Repair Duration` chỉnh được trong Inspector.
+Thanh progress xanh da trời cập nhật mỗi frame; trong lúc chạy, nút đóng, sửa,
+đổ xăng và toàn bộ control lái đều bị khóa nên Player buộc phải chờ. Xe ở mức
+critical được ổn định lên `16%` trước rồi health tăng tuyến tính để warning fire
+không biến thành vụ nổ terminal giữa một giao dịch sửa đã thanh toán.
+
+Hai icon `garage-repair-icon.png` và `garage-fuel-25-icon.png` được tạo bằng
+ImageGen, xử lý alpha trong suốt và import dạng Sprite giới hạn `512px` cho
+mobile. Phần khung, chữ và divider do Unity UI dựng trực tiếp nên cạnh sắc,
+không phụ thuộc một ảnh panel raster lớn.
+
+| API | Ý nghĩa |
+|---|---|
+| `RequestFullRepair()` | Thực hiện một giao dịch sửa xe nếu xe dừng, chưa terminal và Wallet đủ tiền. |
+| `RequestLimitedRefuel()` | Mua một lần lượng xăng còn được phép trong lượt hiện tại, tối đa 25% dung tích bình. |
+| `ActiveVehicle` | `IFranklinFuelTank` của Car/Bike Player đang đặt trong bay. |
+| `MaximumFuelFractionPerVisit` | Giới hạn chỉ đọc; Inspector clamp trong khoảng `0.01..0.25`. |
+
+Luồng giao dịch:
+
+```mermaid
+flowchart LR
+    Marker["4 GC2 garage markers"] --> Zone["FranklinGarageZone"]
+    Zone --> Service["FranklinGarageService"]
+    Service --> Guard["Player controlled + speed <= 3 km/h"]
+    Guard --> Repair["Full health + reset deformation"]
+    Guard --> Allowance["Fuel allowance = capacity x 25% - added this visit"]
+    Repair --> Wallet["FranklinPlayerStatusHud Wallet"]
+    Allowance --> Tank["IFranklinFuelTank.TryRefuel"]
+    Tank --> Exact["Charge exact accepted fuel"]
+    Exact --> Wallet
+    Service --> Mobile["Bottom mobile service panel"]
+```
 
 ### `FranklinBikeHealth`
 
@@ -589,6 +682,15 @@ Prefab chính: `Vehicles/Car/Prefabs/Car.prefab`.
 18. Deformation dùng 10 render mesh visible từ `Vehicles/Car/Models/Car.FBX`; cửa lái phải là `DoorFL (1)` active, không phải `DoorFL` inactive.
 19. Mỗi impact Edy chỉ quét panel có renderer bounds nằm trong radius, tối đa 12 impact; mesh thay đổi phải tính lại normals và bounds để vết móp hiển thị đúng.
 20. Không tạo thêm `MenuItem`, EditorWindow, wizard hoặc tool preview mới nếu người dùng chưa yêu cầu rõ. Ưu tiên API/component, installer tổng và validator tổng hiện có để menu không bị rối.
+21. Ragdoll Player phải dùng `ContinuousDynamic`, interpolation và solver profile của `FranklinRagdollGroundGuard`; chỉ sửa vị trí khi đáy pelvis đã xuyên quá tolerance, không snap nhân vật xuống ground khi vẫn ở trên không.
+22. Car dùng một `MobileBlobShadow` trên root: footprint chữ nhật mềm, đen hơn
+    (`opacity 0.68`) và được đo theo mesh Car thành `1.91m × 4.23m` (rộng × dài).
+    Probe ground `10 Hz`, distance check `4 Hz` có stagger và cull hoàn toàn sau `45m`.
+    Khi bị cull phải dừng cả renderer lẫn ground raycast. API authoring dùng chung là
+    `FranklinGame.Rendering.Editor.FranklinBlobShadowInstaller.InstallAll()`;
+    runtime có `SetRectangle(width, length)` và không tạo thêm material instance hoặc
+    collider runtime. `FranklinBlobShadow.SetGlobalEnabled(bool)` là master switch lưu
+    trạng thái, áp dụng đồng thời cho Player/NPC/Car/Bike và dừng toàn bộ update khi tắt.
 
 ## QA tối thiểu
 
@@ -604,6 +706,7 @@ Prefab chính: `Vehicles/Car/Prefabs/Car.prefab`.
 | Va chạm | Âm nhẹ/nặng nghe rõ hơn động cơ theo mức va chạm; spark/debris được pool; panel gần contact móp theo severity. |
 | Deformation mobile | Từ `2.5m/s` trở lên phải thấy panel trong radius móp, ánh sáng/mesh bounds cập nhật ngay; quá 12 impact không tiếp tục sửa vertex. |
 | Lệch lái do hỏng | Tông lệch trái/phải đủ mạnh làm xe kéo nhẹ về phía hỏng; bias không vượt `±0.16`, counter-steer và Reset API hoạt động. |
+| Hư hỏng cửa | Tông mạnh đúng vùng cửa làm cửa bật và dao động trên bản lề; cú rất mạnh/va chạm lần hai làm cửa rời. Enter/exit qua cửa đã mất không chạy rotation, SFX hoặc IK mở cửa. |
 | Máu Car | Va chạm nhẹ/nặng trừ đúng một lần; fill/icon xanh da trời và Repair API cập nhật ngay trên HUD dùng chung. |
 | Damage VFX | <=32% có khói; <=14% có warning fire; health 0 phải cảnh báo thêm 1.35s mới nổ; wreck terminal không nổ lại hoặc lái lại sau Repair. |
 | Gió VFX | Khi đứng yên smoke/fire nghiêng theo world wind; khi xe chạy, luồng khí bẻ ngược hướng vận tốc; hạt cũ ở world-space không bị kéo cứng theo xe. |
@@ -614,6 +717,7 @@ Prefab chính: `Vehicles/Car/Prefabs/Car.prefab`.
 | Radio | Power/Prev/Play/Next hoạt động, disc quay, static phát ngắn, ba station loop và rời xe thì dừng. |
 | HUD không nền | Không có radio panel hoặc health rectangle background; PNG alpha không tạo viền chroma. |
 | Safe area | Speed/radio/health không nằm dưới notch hoặc home indicator ở cả hai hướng landscape. |
+| Blob shadow Car | Có đúng một child `MobileBlobShadow`; footprint rectangle `1.91 × 4.23m`, opacity `0.68`, trục dài xoay theo hướng Car, bám ground, nhỏ/mờ khi Car bay và không render/raycast khi camera xa hơn 45m. |
 
 Sau khi đổi prefab, animation hoặc anchor, chạy validator rồi mới QA trong Play Mode trên cấu hình mobile mục tiêu.
 

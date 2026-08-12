@@ -42,6 +42,9 @@ namespace FranklinGame.UI
             new Vector2(0f, 3f);
 
         private static readonly Dictionary<string, Sprite> SPRITES = new();
+        private static readonly HashSet<object> CONTROL_SUPPRESSION_OWNERS = new();
+        private static readonly HashSet<object> FAST_MOVEMENT_SUPPRESSION_OWNERS =
+            new();
         private static FranklinMobileHud s_Instance;
         private static bool s_ControlsSuppressed;
 
@@ -81,6 +84,8 @@ namespace FranklinGame.UI
 
         private RectTransform m_OnFootGroup;
         private RectTransform m_VehicleGroup;
+        private FranklinHudButton m_JogButton;
+        private FranklinHudButton m_SprintButton;
         private RectTransform m_BikeHealthRoot;
         private Image m_BikeHealthFillImage;
         private RectTransform m_BikeFuelRoot;
@@ -122,12 +127,16 @@ namespace FranklinGame.UI
         private bool m_HasAppliedMode;
         private bool m_UsesCanvasPlayerControl;
         private bool m_HasAppliedSuppression;
+        private bool m_HasAppliedFastMovementSuppression;
         private bool m_HasBikeSpeedPosition;
         private bool m_HasBikeHealthPosition;
 
         public static bool IsActive => s_Instance != null &&
                                        s_Instance.isActiveAndEnabled;
-        public static bool ControlsSuppressed => s_ControlsSuppressed;
+        public static bool ControlsSuppressed => s_ControlsSuppressed ||
+                                                 CONTROL_SUPPRESSION_OWNERS.Count > 0;
+        public static bool FastMovementSuppressed =>
+            FAST_MOVEMENT_SUPPRESSION_OWNERS.Count > 0;
 
         /// <summary>Raised when the HUD phone button is pressed.</summary>
         public event Action EventPhoneRequested;
@@ -139,9 +148,54 @@ namespace FranklinGame.UI
         public static void SetControlsSuppressed(bool suppressed)
         {
             s_ControlsSuppressed = suppressed;
+            ApplyCurrentControlSuppression();
+        }
+
+        /// <summary>
+        /// Suppresses mobile controls for one UI/system without overriding other
+        /// active suppression owners such as death or vehicle destruction.
+        /// </summary>
+        public static void AcquireControlsSuppression(object owner)
+        {
+            if (owner == null) return;
+            CONTROL_SUPPRESSION_OWNERS.Add(owner);
+            ApplyCurrentControlSuppression();
+        }
+
+        /// <summary>Releases only the suppression previously acquired by owner.</summary>
+        public static void ReleaseControlsSuppression(object owner)
+        {
+            if (owner == null) return;
+            CONTROL_SUPPRESSION_OWNERS.Remove(owner);
+            ApplyCurrentControlSuppression();
+        }
+
+        /// <summary>
+        /// Hides Jog/Sprint and clears their held/auto-run state while keeping
+        /// ordinary walk input available for presentation systems such as Phone.
+        /// </summary>
+        public static void AcquireFastMovementSuppression(object owner)
+        {
+            if (owner == null) return;
+            FAST_MOVEMENT_SUPPRESSION_OWNERS.Add(owner);
+            ApplyCurrentControlSuppression();
+        }
+
+        public static void ReleaseFastMovementSuppression(object owner)
+        {
+            if (owner == null) return;
+            FAST_MOVEMENT_SUPPRESSION_OWNERS.Remove(owner);
+            ApplyCurrentControlSuppression();
+        }
+
+        private static void ApplyCurrentControlSuppression()
+        {
             if (s_Instance == null) return;
-            if (suppressed) s_Instance.ApplyControlsSuppressed();
+            if (ControlsSuppressed) s_Instance.ApplyControlsSuppressed();
             else s_Instance.ReleaseControlsSuppression();
+            if (FastMovementSuppressed)
+                s_Instance.ApplyFastMovementSuppressed();
+            else s_Instance.ReleaseFastMovementSuppression();
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -149,6 +203,8 @@ namespace FranklinGame.UI
         {
             s_Instance = null;
             s_ControlsSuppressed = false;
+            CONTROL_SUPPRESSION_OWNERS.Clear();
+            FAST_MOVEMENT_SUPPRESSION_OWNERS.Clear();
             SPRITES.Clear();
         }
 
@@ -194,7 +250,7 @@ namespace FranklinGame.UI
             }
             this.EnsureEventSystem();
             this.RefreshReferences(true);
-            if (s_ControlsSuppressed) this.ApplyControlsSuppressed();
+            if (ControlsSuppressed) this.ApplyControlsSuppressed();
         }
 
         private void OnDestroy()
@@ -212,12 +268,14 @@ namespace FranklinGame.UI
             this.RefreshReferences(false);
             this.UpdateBikeFuelFill();
 
-            if (s_ControlsSuppressed)
+            if (ControlsSuppressed)
             {
                 this.ApplyControlsSuppressed();
                 return;
             }
             if (this.m_HasAppliedSuppression) this.ReleaseControlsSuppression();
+            if (FastMovementSuppressed) this.ApplyFastMovementSuppressed();
+            else this.ReleaseFastMovementSuppression();
 
             bool isDriving = IsUsableDriver(this.m_ActiveDriver);
             bool isPassengerMode = this.m_ActiveDriver is SimcadeCarDriver car &&
@@ -264,6 +322,23 @@ namespace FranklinGame.UI
             {
                 this.m_TactileCanvas.SetActive(true);
             }
+        }
+
+        private void ApplyFastMovementSuppressed()
+        {
+            if (!this.m_HasAppliedFastMovementSuppression)
+                this.ReleaseMovementInputs();
+            SetButtonActive(this.m_JogButton, false);
+            SetButtonActive(this.m_SprintButton, false);
+            this.m_HasAppliedFastMovementSuppression = true;
+        }
+
+        private void ReleaseFastMovementSuppression()
+        {
+            if (!this.m_HasAppliedFastMovementSuppression) return;
+            this.m_HasAppliedFastMovementSuppression = false;
+            SetButtonActive(this.m_JogButton, true);
+            SetButtonActive(this.m_SprintButton, true);
         }
 
         internal void SetAction(FranklinHudAction action, bool active)
@@ -368,7 +443,7 @@ namespace FranklinGame.UI
             this.m_OnFootGroup = this.CreateGroup("On Foot Controls", canvasRect);
             this.m_VehicleGroup = this.CreateGroup("Vehicle Controls", canvasRect);
 
-            this.CreateButton(
+            this.m_JogButton = this.CreateButton(
                 this.m_OnFootGroup,
                 "Jog",
                 "player-movement-0",
@@ -377,7 +452,7 @@ namespace FranklinGame.UI
                 new Vector2(369.2f, 568.43f),
                 new Vector2(165f, 165f)
             );
-            this.CreateButton(
+            this.m_SprintButton = this.CreateButton(
                 this.m_OnFootGroup,
                 "Sprint",
                 "player-movement-1",
@@ -533,6 +608,8 @@ namespace FranklinGame.UI
 
             this.m_OnFootGroup = onFoot;
             this.m_VehicleGroup = vehicle;
+            this.m_JogButton = FindButton("Jog");
+            this.m_SprintButton = FindButton("Sprint");
             this.m_EnterVehicleButton = FindChild("Enter Vehicle")?.gameObject;
             this.m_SlowDriveButton = FindButton("Slow Drive");
             this.m_BikeHeadlightButton = FindButton("Bike Headlight");
@@ -626,8 +703,8 @@ namespace FranklinGame.UI
             this.EnsureBikeHealthUi();
             this.EnsureBikeFuelUi();
 
-            if (this.m_EnterVehicleButton == null || FindButton("Jog") == null ||
-                FindButton("Sprint") == null || FindButton("Jump") == null)
+            if (this.m_EnterVehicleButton == null || this.m_JogButton == null ||
+                this.m_SprintButton == null || FindButton("Jump") == null)
             {
                 return false;
             }

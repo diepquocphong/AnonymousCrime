@@ -791,6 +791,7 @@ namespace FranklinGame.Vehicles
             CarEntrySideMode side)
         {
             if (this.m_CarEntry == null) return;
+            if (!this.m_CarEntry.CanAnimateDoor(side)) return;
 
             bool passengerSide = side ==
                 CarEntrySideMode.PassengerDoor;

@@ -49,6 +49,11 @@ namespace FranklinGame.Vehicles
         [Range(10f, 70f)] [SerializeField] private float m_ReleaseWheelCollidersAtTilt = 32f;
         [Tooltip("Mesh collider scale while ABP suspension is driving. Ragdoll restores the full rendered size.")]
         [Range(0.7f, 0.98f)] [SerializeField] private float m_DrivingMeshScale = 0.86f;
+        [Header("Ground Tunnelling Safety")]
+        [SerializeField, Min(0.01f)] private float m_MaximumGroundPenetration = 0.12f;
+        [SerializeField, Min(0f)] private float m_GroundSafetyClearance = 0.025f;
+        [SerializeField, Min(1)] private int m_RagdollSolverIterations = 12;
+        [SerializeField, Min(1)] private int m_RagdollSolverVelocityIterations = 4;
 
         private const string BODY_COLLIDER_PROXY_NAME =
             "Franklin Body Mesh Collider";
@@ -63,6 +68,9 @@ namespace FranklinGame.Vehicles
         private float m_StableGroundTimer;
         private int m_StableGroundSide;
         private int m_ParkedGroundSide;
+        private Collider m_CachedSafetyGroundCollider;
+        private Vector3 m_CachedSafetyGroundPoint;
+        private Vector3 m_CachedSafetyGroundNormal = Vector3.up;
 
         public bool IsRagdoll { get; private set; }
         public bool RequiresManualRecovery { get; private set; }
@@ -150,6 +158,8 @@ namespace FranklinGame.Vehicles
             this.RefreshRenderedBodySurfaceProbes();
             this.EnableClearWheelColliders();
             this.m_Body.ResetCenterOfMass();
+            this.HardenDynamicBody();
+            this.UpdateGroundSafetyCache();
             this.m_StableGroundTimer = 0f;
             this.IsRagdoll = true;
             this.m_Driver.CrashDismount(fallSign, toppleAngularVelocity);
@@ -253,6 +263,7 @@ namespace FranklinGame.Vehicles
         {
             if (!this.IsRagdoll) return;
             this.EnsureDynamicRagdollState();
+            this.PreventGroundTunnelling();
             if (Vector3.Angle(transform.up, Vector3.up) >=
                 this.m_ReleaseWheelCollidersAtTilt)
             {
@@ -525,13 +536,106 @@ namespace FranklinGame.Vehicles
             bool requiresRepair = this.m_Body.isKinematic ||
                                   this.m_Body.constraints != RigidbodyConstraints.None ||
                                   !this.m_Body.useGravity;
-            if (!requiresRepair) return;
+            if (!requiresRepair)
+            {
+                this.HardenDynamicBody();
+                return;
+            }
 
             this.m_Driver?.KeepCrashRagdollDynamic();
             if (this.m_Body.isKinematic) this.m_Body.isKinematic = false;
             if (this.m_Body.constraints != RigidbodyConstraints.None)
                 this.m_Body.constraints = RigidbodyConstraints.None;
             if (!this.m_Body.useGravity) this.m_Body.useGravity = true;
+            this.HardenDynamicBody();
+        }
+
+        private void HardenDynamicBody()
+        {
+            if (this.m_Body == null || this.m_Body.isKinematic) return;
+            this.m_Body.detectCollisions = true;
+            this.m_Body.collisionDetectionMode =
+                CollisionDetectionMode.ContinuousDynamic;
+            this.m_Body.interpolation = RigidbodyInterpolation.Interpolate;
+            this.m_Body.maxDepenetrationVelocity = Mathf.Max(
+                this.m_Body.maxDepenetrationVelocity,
+                12f
+            );
+            this.m_Body.solverIterations = Mathf.Max(
+                this.m_Body.solverIterations,
+                this.m_RagdollSolverIterations
+            );
+            this.m_Body.solverVelocityIterations = Mathf.Max(
+                this.m_Body.solverVelocityIterations,
+                this.m_RagdollSolverVelocityIterations
+            );
+        }
+
+        private void UpdateGroundSafetyCache()
+        {
+            if (!this.TryGetSupportingGround(transform.position, out RaycastHit hit))
+                return;
+            this.m_CachedSafetyGroundCollider = hit.collider;
+            this.m_CachedSafetyGroundPoint = hit.point;
+            this.m_CachedSafetyGroundNormal = hit.normal.normalized;
+        }
+
+        private void PreventGroundTunnelling()
+        {
+            if (this.m_Body == null || this.m_Body.isKinematic) return;
+            this.UpdateGroundSafetyCache();
+            if (!this.IsSafetyGroundValidBelow()) return;
+
+            Vector3 normal = this.m_CachedSafetyGroundNormal.sqrMagnitude > 0.001f
+                ? this.m_CachedSafetyGroundNormal.normalized
+                : Vector3.up;
+            bool foundCollider = false;
+            float lowestSurface = float.PositiveInfinity;
+            foreach (Collider collider in this.GetComponentsInChildren<Collider>(true))
+            {
+                if (collider == null || !collider.enabled || collider.isTrigger ||
+                    collider.attachedRigidbody != this.m_Body)
+                {
+                    continue;
+                }
+                Bounds bounds = collider.bounds;
+                float surface = Vector3.Dot(bounds.center, normal) - Vector3.Dot(
+                    bounds.extents,
+                    new Vector3(
+                        Mathf.Abs(normal.x),
+                        Mathf.Abs(normal.y),
+                        Mathf.Abs(normal.z)
+                    )
+                );
+                lowestSurface = Mathf.Min(lowestSurface, surface);
+                foundCollider = true;
+            }
+            if (!foundCollider) return;
+
+            float groundPlane = Vector3.Dot(this.m_CachedSafetyGroundPoint, normal);
+            float penetration = groundPlane + this.m_GroundSafetyClearance -
+                                lowestSurface;
+            if (penetration <= this.m_MaximumGroundPenetration) return;
+
+            this.m_Body.position += normal * penetration;
+            float inwardSpeed = Vector3.Dot(this.m_Body.linearVelocity, normal);
+            if (inwardSpeed < 0f)
+                this.m_Body.linearVelocity -= normal * inwardSpeed;
+        }
+
+        private bool IsSafetyGroundValidBelow()
+        {
+            Collider ground = this.m_CachedSafetyGroundCollider;
+            if (ground == null || !ground.enabled) return false;
+            Vector3 normal = this.m_CachedSafetyGroundNormal.sqrMagnitude > 0.001f
+                ? this.m_CachedSafetyGroundNormal.normalized
+                : Vector3.up;
+            float signedDistance = Vector3.Dot(
+                transform.position - this.m_CachedSafetyGroundPoint,
+                normal
+            );
+            Vector3 projected = transform.position - normal * signedDistance;
+            return Vector3.Distance(ground.ClosestPoint(projected), projected) <= 1f;
         }
 
         /// <summary>
@@ -866,6 +970,19 @@ namespace FranklinGame.Vehicles
                 this.m_DrivingMeshScale,
                 0.7f,
                 0.98f
+            );
+            this.m_MaximumGroundPenetration = Mathf.Max(
+                0.01f,
+                this.m_MaximumGroundPenetration
+            );
+            this.m_GroundSafetyClearance = Mathf.Max(0f, this.m_GroundSafetyClearance);
+            this.m_RagdollSolverIterations = Mathf.Max(
+                1,
+                this.m_RagdollSolverIterations
+            );
+            this.m_RagdollSolverVelocityIterations = Mathf.Max(
+                1,
+                this.m_RagdollSolverVelocityIterations
             );
             this.ResolveReferences();
         }

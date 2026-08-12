@@ -1405,7 +1405,7 @@ GameObject:
   - component: {fileID: 1139245308}
   - component: {fileID: 1139245307}
   - component: {fileID: 1139245306}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Plane
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1558,30 +1558,8 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6081878174276782240, guid: 7d5b39f263af44cbf9bfe70cffb4f85c, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: -0.999501
-      objectReference: {fileID: 0}
-    - target: {fileID: 6081878174276782240, guid: 7d5b39f263af44cbf9bfe70cffb4f85c, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0.03158742
-      objectReference: {fileID: 0}
-    - target: {fileID: 6081878174276782240, guid: 7d5b39f263af44cbf9bfe70cffb4f85c, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: -0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6081878174276782240, guid: 7d5b39f263af44cbf9bfe70cffb4f85c, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: -0.000000005587935
-      objectReference: {fileID: 0}
-    - target: {fileID: 6081878174276782240, guid: 7d5b39f263af44cbf9bfe70cffb4f85c, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: -3.62
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects:
-    - {fileID: 866489946788622933, guid: 7d5b39f263af44cbf9bfe70cffb4f85c, type: 3}
-    - {fileID: 8452859344206658961, guid: 7d5b39f263af44cbf9bfe70cffb4f85c, type: 3}
+    m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 7d5b39f263af44cbf9bfe70cffb4f85c, type: 3}
@@ -3584,13 +3562,13 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 3306402151185229001, guid: 4e56c1128fbfe42c498bd1b48b13b8df, type: 3}
-      propertyPath: m_VehicleShotPrefab
-      value: 
-      objectReference: {fileID: 89172822}
     - target: {fileID: 5364405789980172438, guid: 4e56c1128fbfe42c498bd1b48b13b8df, type: 3}
       propertyPath: m_Name
       value: Player
+      objectReference: {fileID: 0}
+    - target: {fileID: 6534259874338179041, guid: 4e56c1128fbfe42c498bd1b48b13b8df, type: 3}
+      propertyPath: m_GroundLayers.m_Bits
+      value: 128
       objectReference: {fileID: 0}
     - target: {fileID: 7862008611753459182, guid: 4e56c1128fbfe42c498bd1b48b13b8df, type: 3}
       propertyPath: m_LocalPosition.x

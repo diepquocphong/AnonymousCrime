@@ -42,7 +42,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 721fb82976bce47f38247178301b66c1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Branches:
     m_Branches:
@@ -442,7 +442,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cc4d76f733087744991913c9d19d5274, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.LensFlareComponentSRP
   m_LensFlareData: {fileID: 11400000, guid: 0e27d331154604ed6b0ad013d6ddbc92, type: 2}
   version: 0
@@ -22663,6 +22663,7 @@ GameObject:
   - component: {fileID: 3572375555966606241}
   - component: {fileID: 5472690048993951506}
   - component: {fileID: 6205673565127154574}
+  - component: {fileID: 7882690062811075517}
   m_Layer: 0
   m_Name: Bike_05
   m_TagString: Untagged
@@ -22691,6 +22692,7 @@ Transform:
   - {fileID: 3834930276000466550}
   - {fileID: 3099640918128919759}
   - {fileID: 6435713575810257086}
+  - {fileID: 2843815904383691479}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &1629264859536650863
@@ -23370,6 +23372,10 @@ MonoBehaviour:
     m_Bits: 4294967295
   m_ReleaseWheelCollidersAtTilt: 32
   m_DrivingMeshScale: 0.86
+  m_MaximumGroundPenetration: 0.12
+  m_GroundSafetyClearance: 0.025
+  m_RagdollSolverIterations: 12
+  m_RagdollSolverVelocityIterations: 4
 --- !u!114 &6100000000000000005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -23392,6 +23398,7 @@ MonoBehaviour:
   m_HeavyDamageMax: 12
   m_FullDamageSeverity: 14
   m_BikeEntry: {fileID: 6801098448042062472}
+  m_CrashRagdoll: {fileID: 3419083846465640543}
   m_PlayerHealthAttributeId: hp
   m_ApplySeatedPlayerDamage: 1
   m_PlayerDamageMin: 4
@@ -23538,6 +23545,43 @@ MonoBehaviour:
   m_HighSpeedConsumption: 0.02
   m_HighSpeedReferenceKph: 120
   m_ConsumptionTickInterval: 0.25
+--- !u!114 &7882690062811075517
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5226152652273444344}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bfb3f396414641439d62a88d8f6992dc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Rendering.FranklinBlobShadow
+  m_ShadowTransform: {fileID: 2843815904383691479}
+  m_ShadowRenderer: {fileID: 863342411341944099}
+  m_RenderCamera: {fileID: 0}
+  m_ShadowColor: {r: 0, g: 0, b: 0, a: 1}
+  m_Intensity: 0.64
+  m_Power: 1.7
+  m_FootprintShape: 1
+  m_VolumeSize: {x: 0.85301346, y: 0.75, z: 2.1759112}
+  m_GroundedPivotHeight: 0.65
+  m_AirborneFadeStart: 0.1
+  m_AirborneHideHeight: 3.5
+  m_MinAirborneScale: 0.2
+  m_FollowGround: 1
+  m_GroundLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ProbeStartHeight: 0.5
+  m_MaxGroundDistance: 5
+  m_ProbeInterval: 0.1
+  m_GroundOffset: 0.025
+  m_MinGroundNormalY: 0.35
+  m_HideWhenGroundMissing: 1
+  m_ConfigureCameraDepth: 1
+  m_MaxVisibleDistance: 40
+  m_DistanceCheckInterval: 0.25
 --- !u!1 &5440904482585612809
 GameObject:
   m_ObjectHideFlags: 0
@@ -29282,6 +29326,96 @@ Transform:
   - {fileID: 8477887650819319778}
   m_Father: {fileID: 3831052616003151764}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &6729822811719697445
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2843815904383691479}
+  - component: {fileID: 533028020454875212}
+  - component: {fileID: 863342411341944099}
+  m_Layer: 0
+  m_Name: MobileBlobShadow
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2843815904383691479
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6729822811719697445}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: -0.625, z: 0}
+  m_LocalScale: {x: 0.85301346, y: 0.75, z: 2.1759112}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6030202475827805260}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!33 &533028020454875212
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6729822811719697445}
+  m_Mesh: {fileID: 4300000, guid: 626c74704e331c74f941e38b9e23032a, type: 3}
+--- !u!23 &863342411341944099
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6729822811719697445}
+  m_Enabled: 1
+  m_CastShadows: 0
+  m_ReceiveShadows: 0
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 2
+  m_LightProbeUsage: 0
+  m_ReflectionProbeUsage: 0
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: a79da6822e584342921e486f9a9a575b, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &6895359340289281818
 GameObject:
   m_ObjectHideFlags: 0

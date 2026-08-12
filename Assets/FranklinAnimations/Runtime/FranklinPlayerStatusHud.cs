@@ -85,6 +85,27 @@ namespace FranklinGame.UI
         public int CurrentMoney => this.m_Money;
         public event Action<int> EventMoneyChanged;
 
+        /// <summary>
+        /// Hides the complete weapon group without changing its saved layout.
+        /// This includes the weapon card and the armor/grenade/molotov rail.
+        /// </summary>
+        public void SetWeaponHudVisible(bool visible)
+        {
+            if (this.m_WeaponCard != null &&
+                this.m_WeaponCard.gameObject.activeSelf != visible)
+            {
+                this.m_WeaponCard.gameObject.SetActive(visible);
+            }
+
+            Transform quickItemRail = this.m_WeaponCard != null
+                ? this.m_WeaponCard.parent?.Find("Quick Item Rail")
+                : null;
+            if (quickItemRail != null && quickItemRail.gameObject.activeSelf != visible)
+            {
+                quickItemRail.gameObject.SetActive(visible);
+            }
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {

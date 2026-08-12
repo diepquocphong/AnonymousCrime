@@ -50,12 +50,16 @@ namespace FranklinGame.Vehicles
         private FranklinPlayerStatusHud m_Wallet;
         private GameObject m_ButtonCanvasRoot;
         private GameObject m_ButtonRoot;
+        private GameObject m_CloseButtonRoot;
+        private Button m_CloseButton;
         private Text m_ButtonTitleText;
         private Text m_ButtonText;
         private Image m_ButtonProgressFill;
         private FranklinFuelStationHoldButton m_HoldButton;
         private Coroutine m_RefuelRoutine;
         private bool m_IsHeld;
+        private bool m_PromptDismissedForVisit;
+        private bool m_OwnsControlSuppression;
         private float m_NextUiRefresh;
 
         public bool CanBeginRefueling => this.GetBlockReason() == RefuelBlock.None;
@@ -81,10 +85,12 @@ namespace FranklinGame.Vehicles
             this.SetButtonVisible(false);
             this.m_Tanks.Clear();
             this.m_ActiveTank = null;
+            this.m_PromptDismissedForVisit = false;
         }
 
         private void OnDestroy()
         {
+            this.ReleaseControlSuppression();
             SimcadeCarDashboard.SetRefuelPromptVisible(false);
             if (this.m_ButtonCanvasRoot != null) Destroy(this.m_ButtonCanvasRoot);
         }
@@ -152,6 +158,8 @@ namespace FranklinGame.Vehicles
         {
             if (held && !this.CanBeginRefueling) return;
             this.m_IsHeld = held;
+            if (this.m_CloseButton != null)
+                this.m_CloseButton.interactable = !held;
 
             if (held)
             {
@@ -179,6 +187,8 @@ namespace FranklinGame.Vehicles
 
             this.m_RefuelRoutine = null;
             this.m_IsHeld = false;
+            if (this.m_CloseButton != null)
+                this.m_CloseButton.interactable = true;
             this.m_HoldButton?.ForceRelease();
             this.RefreshButton();
         }
@@ -242,6 +252,7 @@ namespace FranklinGame.Vehicles
             {
                 this.SetRefuelHeld(false);
                 this.m_ActiveTank = selected;
+                this.m_PromptDismissedForVisit = false;
             }
         }
 
@@ -264,7 +275,9 @@ namespace FranklinGame.Vehicles
         private void RefreshButton()
         {
             bool visible = this.m_ActiveTank != null &&
-                           this.m_ActiveTank.IsPlayerControlled;
+                           this.m_ActiveTank.IsPlayerControlled &&
+                           this.m_ActiveTank.SpeedKph <= this.m_MaxRefuelSpeedKph &&
+                           !this.m_PromptDismissedForVisit;
             this.SetButtonVisible(visible);
             if (!visible || this.m_ButtonText == null) return;
 
@@ -284,9 +297,11 @@ namespace FranklinGame.Vehicles
             if (this.m_ButtonTitleText != null)
                 this.m_ButtonTitleText.text = $"FUEL STATION  •  {percent:0}%";
             if (this.m_ButtonProgressFill != null)
-                this.m_ButtonProgressFill.fillAmount = Mathf.Clamp01(
-                    this.m_ActiveTank.FuelRatio
+                this.m_ButtonProgressFill.rectTransform.sizeDelta = new Vector2(
+                    586f * Mathf.Clamp01(this.m_ActiveTank.FuelRatio),
+                    8f
                 );
+            float secondsRemaining = this.GetRefuelSecondsRemaining();
             this.m_ButtonText.text = block switch
             {
                 RefuelBlock.Moving => "DỪNG XE ĐỂ ĐỔ XĂNG",
@@ -294,9 +309,26 @@ namespace FranklinGame.Vehicles
                 RefuelBlock.NoMoney => "KHÔNG ĐỦ TIỀN",
                 RefuelBlock.NoWallet => "CHƯA TÌM THẤY VÍ TIỀN",
                 _ => this.m_IsHeld
-                    ? $"ĐANG ĐỔ  •  {percent:0}%  •  CÒN ${costText}"
-                    : $"GIỮ ĐỂ ĐỔ ĐẦY  •  ${costText}"
+                    ? $"ĐANG ĐỔ  •  {percent:0}%  •  CÒN {secondsRemaining:0.0}s"
+                    : $"GIỮ ĐỂ ĐỔ ĐẦY  •  {secondsRemaining:0.0}s  •  ${costText}"
             };
+        }
+
+        private float GetRefuelSecondsRemaining()
+        {
+            if (this.m_ActiveTank == null) return 0f;
+            float missing = Mathf.Max(
+                0f,
+                this.m_ActiveTank.MaximumFuel - this.m_ActiveTank.CurrentFuel
+            );
+            this.ResolveWallet();
+            if (this.m_Wallet != null)
+            {
+                float affordable = this.m_Wallet.CurrentMoney /
+                                   (float)Mathf.Max(1, this.m_PricePerFuelUnit);
+                missing = Mathf.Min(missing, affordable);
+            }
+            return missing / Mathf.Max(0.1f, this.m_FuelUnitsPerSecond);
         }
 
         private int GetRemainingFillCost()
@@ -318,8 +350,39 @@ namespace FranklinGame.Vehicles
             bool showPrompt = visible && this.m_ButtonRoot != null;
             if (this.m_ButtonRoot != null && this.m_ButtonRoot.activeSelf != showPrompt)
                 this.m_ButtonRoot.SetActive(showPrompt);
+            if (this.m_CloseButtonRoot != null &&
+                this.m_CloseButtonRoot.activeSelf != showPrompt)
+            {
+                this.m_CloseButtonRoot.SetActive(showPrompt);
+            }
             SimcadeCarDashboard.SetRefuelPromptVisible(showPrompt);
-            if (!showPrompt) this.m_HoldButton?.ForceRelease();
+            if (showPrompt) this.AcquireControlSuppression();
+            else
+            {
+                this.m_HoldButton?.ForceRelease();
+                this.ReleaseControlSuppression();
+            }
+        }
+
+        private void ClosePromptForCurrentVisit()
+        {
+            if (this.m_IsHeld) return;
+            this.m_PromptDismissedForVisit = true;
+            this.SetButtonVisible(false);
+        }
+
+        private void AcquireControlSuppression()
+        {
+            if (this.m_OwnsControlSuppression) return;
+            FranklinMobileHud.AcquireControlsSuppression(this);
+            this.m_OwnsControlSuppression = true;
+        }
+
+        private void ReleaseControlSuppression()
+        {
+            if (!this.m_OwnsControlSuppression) return;
+            FranklinMobileHud.ReleaseControlsSuppression(this);
+            this.m_OwnsControlSuppression = false;
         }
 
         private void EnsureButton()
@@ -417,21 +480,18 @@ namespace FranklinGame.Vehicles
             this.CreateDecoration(
                 "Fuel Progress Track",
                 rect,
-                new Vector2(0f, -45f),
-                new Vector2(590f, 3f),
+                new Vector2(0f, -42f),
+                new Vector2(590f, 10f),
                 new Color(1f, 1f, 1f, 0.14f)
             );
             this.m_ButtonProgressFill = this.CreateDecoration(
                 "Fuel Progress Fill",
                 rect,
-                new Vector2(0f, -45f),
-                new Vector2(590f, 3f),
+                new Vector2(-293f, -42f),
+                new Vector2(0f, 8f),
                 FUEL_ACCENT
             );
-            this.m_ButtonProgressFill.type = Image.Type.Filled;
-            this.m_ButtonProgressFill.fillMethod = Image.FillMethod.Horizontal;
-            this.m_ButtonProgressFill.fillOrigin = 0;
-            this.m_ButtonProgressFill.fillAmount = 0f;
+            this.m_ButtonProgressFill.rectTransform.pivot = new Vector2(0f, 0.5f);
 
             this.m_HoldButton =
                 this.m_ButtonRoot.GetComponent<FranklinFuelStationHoldButton>();
@@ -441,7 +501,55 @@ namespace FranklinGame.Vehicles
                 PANEL_COLOR,
                 PANEL_PRESSED_COLOR
             );
+            this.CreateCloseButton();
             this.m_ButtonRoot.SetActive(false);
+            this.m_CloseButtonRoot.SetActive(false);
+        }
+
+        private void CreateCloseButton()
+        {
+            this.m_CloseButtonRoot = new GameObject(
+                "Close Fuel Station UI",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Outline),
+                typeof(Button)
+            );
+            RectTransform rect = this.m_CloseButtonRoot.GetComponent<RectTransform>();
+            rect.SetParent(this.m_ButtonCanvasRoot.transform, false);
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = this.m_ButtonPosition + new Vector2(
+                this.m_ButtonSize.x * 0.5f + 30f,
+                this.m_ButtonSize.y * 0.35f
+            );
+            rect.sizeDelta = new Vector2(56f, 56f);
+
+            Image background = this.m_CloseButtonRoot.GetComponent<Image>();
+            background.color = new Color(0.12f, 0.15f, 0.18f, 0.98f);
+            Outline outline = this.m_CloseButtonRoot.GetComponent<Outline>();
+            outline.effectColor = new Color(1f, 1f, 1f, 0.38f);
+            outline.effectDistance = new Vector2(2f, -2f);
+
+            this.m_CloseButton = this.m_CloseButtonRoot.GetComponent<Button>();
+            this.m_CloseButton.targetGraphic = background;
+            ColorBlock colors = this.m_CloseButton.colors;
+            colors.highlightedColor = new Color(1.12f, 1.12f, 1.12f, 1f);
+            colors.pressedColor = new Color(0.7f, 0.76f, 0.82f, 1f);
+            this.m_CloseButton.colors = colors;
+            this.m_CloseButton.onClick.AddListener(this.ClosePromptForCurrentVisit);
+
+            Text closeText = this.CreateLabel(
+                "Close Symbol",
+                rect,
+                Vector2.zero,
+                new Vector2(52f, 52f),
+                34,
+                TextAnchor.MiddleCenter,
+                Color.white
+            );
+            closeText.text = "×";
         }
 
         private Text CreateLabel(
