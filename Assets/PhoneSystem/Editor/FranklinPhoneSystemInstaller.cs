@@ -66,7 +66,8 @@ namespace FranklinGame.PhoneSystem.Editor
                 typeof(GraphicRaycaster),
                 typeof(FranklinPhoneSystem),
                 typeof(FranklinPhoneHandPresentation),
-                typeof(FranklinPhoneSelfieCamera)
+                typeof(FranklinPhoneSelfieCamera),
+                typeof(FranklinPhoneVideoRecorder)
             );
 
             try
@@ -258,6 +259,8 @@ namespace FranklinGame.PhoneSystem.Editor
                     new Color(0.045f, 0.15f, 0.18f, 1f),
                     s_Rounded
                 );
+                home.rectTransform.anchoredPosition = new Vector2(0f, -66f);
+                home.rectTransform.sizeDelta = new Vector2(425f, 714f);
                 BuildHomeDecor(home.rectTransform);
 
                 string[] labels =
@@ -641,8 +644,9 @@ namespace FranklinGame.PhoneSystem.Editor
             }
 
             Debug.Log(
-                "Phone System validation passed: standalone right-side Canvas, six app screens, " +
-                "safe-area layout and minimap phone-event integration are configured."
+                "Phone System validation passed: standalone right-side Canvas, six base app " +
+                "screens plus runtime Video, safe-area layout and minimap phone-event " +
+                "integration are configured."
             );
         }
 

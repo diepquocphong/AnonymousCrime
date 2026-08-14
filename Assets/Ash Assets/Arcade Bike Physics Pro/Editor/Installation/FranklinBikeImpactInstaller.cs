@@ -19,12 +19,16 @@ internal static class FranklinBikeImpactInstaller
         "Assets/Ash Assets/Vehicle Integration/Vehicles/Car/Audio/SFX/car_impact_heavy.wav";
     private const string CollisionEffectPath =
         "Assets/Ash Assets/Vehicle Integration/ThirdParty/Sim-Cade Vehicle Physics/Prefabs/Collision Spark.prefab";
+    private const string MetalDebrisMaterialPath =
+        "Assets/Ash Assets/Arcade Bike Physics Pro/Materials/Effects/MetalDebris.mat";
     private const string ZeroFrictionMaterialPath =
         "Assets/Ash Assets/Arcade Bike Physics Pro/Materials/Physics/ZeroFriction.physicMaterial";
     private const string RagdollBodyMaterialPath =
         "Assets/Ash Assets/Arcade Bike Physics Pro/Materials/Physics/BikeRagdollBody.physicMaterial";
     private const string RecoveryAnimationPath =
         "Assets/Plugins/GameCreator/Packages/Core/Runtime/Characters/Assets/3D/Animations/Locomotion/Human@Crouch_Idle.anim";
+    private const string PassengerPosePath =
+        "Assets/Plugins/GameCreator/Installs/GameCreator.Examples@1.11.28/1 - Characters/3_States/State@Sit.anim";
     private const string ExplosionAudioPath =
         "Assets/Ash Assets/Vehicle Integration/Vehicles/Car/Audio/SFX/car_explosion_test_vehicle_cc0.wav";
     private const string SmokeLoopAudioPath =
@@ -55,10 +59,14 @@ internal static class FranklinBikeImpactInstaller
         GameObject impactEffect = AssetDatabase.LoadAssetAtPath<GameObject>(
             CollisionEffectPath
         );
-        if (lightClip == null || heavyClip == null || impactEffect == null)
+        Material metalDebrisMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+            MetalDebrisMaterialPath
+        );
+        if (lightClip == null || heavyClip == null || impactEffect == null ||
+            metalDebrisMaterial == null)
         {
             throw new InvalidOperationException(
-                "Bike impact setup requires both impact clips and Collision Spark.prefab."
+                "Bike impact setup requires both clips, Collision Spark and Metal Debris."
             );
         }
 
@@ -68,7 +76,13 @@ internal static class FranklinBikeImpactInstaller
             GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
             try
             {
-                ConfigurePrefab(root, lightClip, heavyClip, impactEffect);
+                ConfigurePrefab(
+                    root,
+                    lightClip,
+                    heavyClip,
+                    impactEffect,
+                    metalDebrisMaterial
+                );
                 PrefabUtility.SaveAsPrefabAsset(root, prefabPath, out bool saved);
                 if (saved) configured++;
             }
@@ -128,19 +142,24 @@ internal static class FranklinBikeImpactInstaller
         GameObject impactEffect = AssetDatabase.LoadAssetAtPath<GameObject>(
             CollisionEffectPath
         );
-        if (lightClip == null || heavyClip == null || impactEffect == null)
+        Material metalDebrisMaterial = AssetDatabase.LoadAssetAtPath<Material>(
+            MetalDebrisMaterialPath
+        );
+        if (lightClip == null || heavyClip == null || impactEffect == null ||
+            metalDebrisMaterial == null)
         {
             throw new InvalidOperationException("Bike collision audio/FX assets are missing.");
         }
 
-        ConfigurePrefab(root, lightClip, heavyClip, impactEffect);
+        ConfigurePrefab(root, lightClip, heavyClip, impactEffect, metalDebrisMaterial);
     }
 
     private static void ConfigurePrefab(
         GameObject root,
         AudioClip lightClip,
         AudioClip heavyClip,
-        GameObject impactEffect)
+        GameObject impactEffect,
+        Material metalDebrisMaterial)
     {
         if (root == null) throw new ArgumentNullException(nameof(root));
 
@@ -148,6 +167,7 @@ internal static class FranklinBikeImpactInstaller
         FranklinBikeImpactAudio impact = root.GetComponent<FranklinBikeImpactAudio>();
         if (impact == null) impact = root.AddComponent<FranklinBikeImpactAudio>();
         impact.ConfigureForBike(source, lightClip, heavyClip, impactEffect);
+        impact.ConfigureMetalDebris(metalDebrisMaterial);
 
         FranklinArcadeBikeDriver driver =
             root.GetComponent<FranklinArcadeBikeDriver>();
@@ -215,6 +235,12 @@ internal static class FranklinBikeImpactInstaller
             renderedBody,
             renderedBodyBounds
         );
+        FranklinBikePassengerSeat passengerSeat = ConfigurePassengerSeat(
+            root,
+            renderedBody,
+            renderedBodyBounds,
+            entry
+        );
         NormalizeFeatureHierarchy(root);
         bikeRagdoll.Configure(
             controller,
@@ -273,6 +299,7 @@ internal static class FranklinBikeImpactInstaller
         foreach (MeshCollider meshCollider in bodyMeshColliders)
             EditorUtility.SetDirty(meshCollider);
         EditorUtility.SetDirty(entry);
+        EditorUtility.SetDirty(passengerSeat);
         EditorUtility.SetDirty(bikeRagdoll);
         EditorUtility.SetDirty(crash);
         EditorUtility.SetDirty(deformation);
@@ -281,11 +308,13 @@ internal static class FranklinBikeImpactInstaller
 
     private static void InstallIfNeeded()
     {
-        if (EditorApplication.isCompiling || EditorApplication.isUpdating ||
-            EditorApplication.isPlayingOrWillChangePlaymode)
+        if (EditorApplication.isCompiling || EditorApplication.isUpdating)
         {
+            EditorApplication.delayCall += InstallIfNeeded;
             return;
         }
+
+        if (EditorApplication.isPlayingOrWillChangePlaymode) return;
 
         string[] paths = GetBikePrefabPaths();
         if (paths.Length == 0) return;
@@ -308,7 +337,12 @@ internal static class FranklinBikeImpactInstaller
                 prefab != null ? prefab.GetComponent<FranklinBikeDestruction>() : null;
             FranklinBikeDeformation deformation =
                 prefab != null ? prefab.GetComponent<FranklinBikeDeformation>() : null;
+            FranklinBikePassengerSeat passengerSeat =
+                prefab != null ? prefab.GetComponent<FranklinBikePassengerSeat>() : null;
+            BikeEntry entry = prefab != null ? prefab.GetComponent<BikeEntry>() : null;
             return impact != null && impact.IsConfigured &&
+                   impact.HasMetalDebrisConfiguration &&
+                   impact.HasCurrentMetalDebrisConfiguration &&
                    health != null && health.IsConfigured &&
                    fuel != null && fuel.IsConfigured &&
                    health.HasReducedBikeDamageProfile &&
@@ -320,6 +354,9 @@ internal static class FranklinBikeImpactInstaller
                    destruction != null && destruction.IsConfigured &&
                    deformation != null && deformation.IsConfigured &&
                    deformation.HasCurrentConfiguration &&
+                   passengerSeat != null && passengerSeat.IsConfigured &&
+                   passengerSeat.HasCurrentConfiguration &&
+                   entry != null && entry.HasCurrentBlockedRecoveryConfiguration &&
                    HasNormalizedFeatureHierarchy(prefab);
         });
         if (complete) return;
@@ -892,6 +929,7 @@ internal static class FranklinBikeImpactInstaller
             AssetDatabase.LoadAssetAtPath<AnimationClip>(RecoveryAnimationPath);
         entry.fallenBikeBodyGripLeft = leftGrip;
         entry.fallenBikeBodyGripRight = rightGrip;
+        entry.ConfigureBlockedFallenBikeRecovery();
         RemoveUnusedDuplicateMarker(root, leftGrip);
         RemoveUnusedDuplicateMarker(root, rightGrip);
         EditorUtility.SetDirty(leftGrip);
@@ -905,6 +943,77 @@ internal static class FranklinBikeImpactInstaller
         GameObject child = new GameObject(name);
         child.transform.SetParent(parent, false);
         return child.transform;
+    }
+
+    private static FranklinBikePassengerSeat ConfigurePassengerSeat(
+        GameObject root,
+        Transform renderedBody,
+        Bounds bounds,
+        BikeEntry entry)
+    {
+        if (root == null || renderedBody == null || entry == null)
+            throw new InvalidOperationException("Bike passenger setup is missing its body or entry.");
+
+        Transform passengerRoot = GetOrCreateChild(renderedBody, "Bike Passenger Targets");
+        passengerRoot.localPosition = Vector3.zero;
+        passengerRoot.localRotation = Quaternion.identity;
+        passengerRoot.localScale = Vector3.one;
+
+        Vector3 riderSeat = entry.entryParent != null
+            ? renderedBody.InverseTransformPoint(entry.entryParent.position)
+            : bounds.center;
+        float rearDistance = Mathf.Clamp(bounds.extents.z * 0.48f, 0.32f, 0.55f);
+        float sideDistance = Mathf.Clamp(bounds.extents.x + 0.42f, 0.72f, 1.1f);
+        float entryY = Mathf.Max(bounds.min.y, riderSeat.y - 0.28f);
+
+        Transform seat = GetOrCreateChild(passengerRoot, "Passenger Seat");
+        seat.localPosition = riderSeat + new Vector3(0f, 0.02f, -rearDistance);
+        seat.localRotation = Quaternion.identity;
+        float rootHalfHeight = 0.95f;
+        Transform entryLeft = GetOrCreateChild(passengerRoot, "Passenger Entry Left");
+        entryLeft.localPosition = new Vector3(
+            -sideDistance,
+            entryY + rootHalfHeight,
+            seat.localPosition.z
+        );
+        entryLeft.localRotation = Quaternion.identity;
+        Transform entryRight = GetOrCreateChild(passengerRoot, "Passenger Entry Right");
+        entryRight.localPosition = new Vector3(
+            sideDistance,
+            entryY + rootHalfHeight,
+            seat.localPosition.z
+        );
+        entryRight.localRotation = Quaternion.identity;
+
+        Transform leftHand = GetOrCreateChild(passengerRoot, "Passenger Left Hand");
+        Transform rightHand = GetOrCreateChild(passengerRoot, "Passenger Right Hand");
+        leftHand.localPosition = riderSeat + new Vector3(-0.24f, 0.28f, -0.08f);
+        rightHand.localPosition = riderSeat + new Vector3(0.24f, 0.28f, -0.08f);
+        leftHand.localRotation = Quaternion.identity;
+        rightHand.localRotation = Quaternion.identity;
+
+        Transform leftFoot = GetOrCreateChild(passengerRoot, "Passenger Left Foot");
+        Transform rightFoot = GetOrCreateChild(passengerRoot, "Passenger Right Foot");
+        leftFoot.localPosition = seat.localPosition + new Vector3(-0.3f, -0.48f, 0.14f);
+        rightFoot.localPosition = seat.localPosition + new Vector3(0.3f, -0.48f, 0.14f);
+        leftFoot.localRotation = Quaternion.identity;
+        rightFoot.localRotation = Quaternion.identity;
+
+        FranklinBikePassengerSeat passenger =
+            root.GetComponent<FranklinBikePassengerSeat>();
+        if (passenger == null) passenger = root.AddComponent<FranklinBikePassengerSeat>();
+        passenger.Configure(
+            seat,
+            entryLeft,
+            entryRight,
+            leftHand,
+            rightHand,
+            leftFoot,
+            rightFoot,
+            AssetDatabase.LoadAssetAtPath<AnimationClip>(PassengerPosePath),
+            entry.animationMask
+        );
+        return passenger;
     }
 
     private static bool NormalizeFeatureHierarchy(GameObject root)

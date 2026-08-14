@@ -14,12 +14,15 @@ namespace FranklinGame.Rendering.Editor
     {
         private const string MeshPath =
             "Assets/SettingGame/FastBlobShadow/Meshes/ShadowSphere_Mesh.fbx";
+        private const string BoxProjectionMeshPath =
+            "Assets/SettingGame/FastBlobShadow/Meshes/ShadowBoxProjection.asset";
         private const string MaterialPath =
             "Assets/SettingGame/FastBlobShadow/Materials/PlayerBlobShadow.mat";
 
         private readonly struct ShadowProfile
         {
             public readonly FranklinBlobShadow.FootprintShape Shape;
+            public readonly string OrientationTransformName;
             public readonly float Width;
             public readonly float Length;
             public readonly float VolumeHeight;
@@ -28,12 +31,15 @@ namespace FranklinGame.Rendering.Editor
             public readonly float HideHeight;
             public readonly float MinimumScale;
             public readonly float Intensity;
+            public readonly float Power;
+            public readonly float Core;
             public readonly float ProbeInterval;
             public readonly float MaximumGroundDistance;
             public readonly float MaximumVisibleDistance;
 
             public ShadowProfile(
                 FranklinBlobShadow.FootprintShape shape,
+                string orientationTransformName,
                 float width,
                 float length,
                 float volumeHeight,
@@ -42,12 +48,15 @@ namespace FranklinGame.Rendering.Editor
                 float hideHeight,
                 float minimumScale,
                 float intensity,
+                float power,
+                float core,
                 float probeInterval,
                 float maximumGroundDistance,
                 float maximumVisibleDistance
             )
             {
                 this.Shape = shape;
+                this.OrientationTransformName = orientationTransformName;
                 this.Width = width;
                 this.Length = length;
                 this.VolumeHeight = volumeHeight;
@@ -56,6 +65,8 @@ namespace FranklinGame.Rendering.Editor
                 this.HideHeight = hideHeight;
                 this.MinimumScale = minimumScale;
                 this.Intensity = intensity;
+                this.Power = power;
+                this.Core = core;
                 this.ProbeInterval = probeInterval;
                 this.MaximumGroundDistance = maximumGroundDistance;
                 this.MaximumVisibleDistance = maximumVisibleDistance;
@@ -66,11 +77,13 @@ namespace FranklinGame.Rendering.Editor
         {
             public readonly float Width;
             public readonly float Length;
+            public readonly Vector2 Center;
 
-            public FootprintSize(float width, float length)
+            public FootprintSize(float width, float length, Vector2 center = default)
             {
                 this.Width = width;
                 this.Length = length;
+                this.Center = center;
             }
         }
 
@@ -91,40 +104,62 @@ namespace FranklinGame.Rendering.Editor
 
         public static void InstallAll()
         {
-            Mesh mesh = LoadVolumeMesh();
+            Mesh sphereMesh = LoadVolumeMesh();
+            Mesh boxMesh = LoadOrCreateBoxProjectionMesh();
             Material material = AssetDatabase.LoadAssetAtPath<Material>(MaterialPath);
-            if (mesh == null || material == null)
+            if (sphereMesh == null || boxMesh == null || material == null)
             {
                 throw new InvalidOperationException(
-                    "Franklin Blob Shadow installer could not load its core mesh or material."
+                    "Franklin Blob Shadow installer could not load its core meshes or material."
                 );
             }
 
             ShadowProfile npcProfile = new ShadowProfile(
                 FranklinBlobShadow.FootprintShape.Circle,
-                1f, 1f, 0.65f, 1f, 0.05f, 2.5f, 0.25f, 0.52f, 0.10f, 5f, 28f
+                null,
+                1f, 1f, 0.65f, 1f, 0.05f, 2.5f, 0.25f,
+                0.52f, 1.7f, 0.12f, 0.10f, 5f, 28f
+            );
+            ShadowProfile playerProfile = new ShadowProfile(
+                FranklinBlobShadow.FootprintShape.Circle,
+                null,
+                1f, 1f, 0.65f, 1f, 0.05f, 2.5f, 0.25f,
+                0.58f, 1.7f, 0.12f, 0.08f, 5f, 40f
             );
             ShadowProfile carProfile = new ShadowProfile(
                 FranklinBlobShadow.FootprintShape.Rectangle,
-                2f, 4.2f, 0.85f, 0.70f, 0.15f, 4.5f, 0.20f, 0.68f, 0.10f, 6f, 45f
+                null,
+                2f, 4.2f, 0.85f, 0.70f, 0.15f, 4.5f, 0.20f,
+                0.94f, 1.35f, 0.58f, 0.10f, 6f, 45f
             );
             ShadowProfile bikeProfile = new ShadowProfile(
                 FranklinBlobShadow.FootprintShape.Ellipse,
-                0.9f, 2.15f, 0.75f, 0.65f, 0.10f, 3.5f, 0.20f, 0.64f, 0.10f, 5f, 40f
+                "ABP Rotator",
+                0.9f, 2.15f, 0.75f, 0.65f, 0.10f, 3.5f, 0.20f,
+                0.76f, 1.55f, 0.30f, 0.10f, 5f, 40f
             );
 
             int changedCount = 0;
             changedCount += InstallPrefab(
-                "Assets/Prefab/NPC.prefab",
-                mesh,
+                "Assets/Prefab/Player.prefab",
+                sphereMesh,
                 material,
-                npcProfile
+                playerProfile,
+                "Player"
+            );
+            changedCount += InstallPrefab(
+                "Assets/Prefab/NPC.prefab",
+                sphereMesh,
+                material,
+                npcProfile,
+                "Npc"
             );
             changedCount += InstallPrefab(
                 "Assets/Ash Assets/Vehicle Integration/Vehicles/Car/Prefabs/Car.prefab",
-                mesh,
+                boxMesh,
                 material,
-                carProfile
+                carProfile,
+                "Car"
             );
 
             for (int index = 1; index <= 10; index++)
@@ -133,12 +168,19 @@ namespace FranklinGame.Rendering.Editor
                     "Assets/Ash Assets/Arcade Bike Physics Pro/Prefabs/Bikes/Bike_{0:00}.prefab",
                     index
                 );
-                changedCount += InstallPrefab(path, mesh, material, bikeProfile);
+                changedCount += InstallPrefab(
+                    path,
+                    sphereMesh,
+                    material,
+                    bikeProfile,
+                    "Bike"
+                );
             }
 
             AssetDatabase.SaveAssets();
             Debug.Log(
-                $"[FranklinBlobShadowInstaller] Installed/updated {changedCount} NPC, Car and Bike prefabs."
+                $"[FranklinBlobShadowInstaller] Installed/updated {changedCount} " +
+                "Player, NPC, Car and Bike prefabs with owner-layer FBS."
             );
         }
 
@@ -146,7 +188,8 @@ namespace FranklinGame.Rendering.Editor
             string prefabPath,
             Mesh mesh,
             Material material,
-            ShadowProfile profile
+            ShadowProfile profile,
+            string ownerLayerName
         )
         {
             GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
@@ -158,6 +201,15 @@ namespace FranklinGame.Rendering.Editor
 
             try
             {
+                int ownerLayer = LayerMask.NameToLayer(ownerLayerName);
+                if (ownerLayer < 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Required FBS layer '{ownerLayerName}' is not defined."
+                    );
+                }
+                root.layer = ownerLayer;
+
                 Transform shadowTransform = FindDirectChild(root.transform, "MobileBlobShadow");
                 if (shadowTransform == null)
                 {
@@ -166,17 +218,41 @@ namespace FranklinGame.Rendering.Editor
                     shadowTransform = shadowObject.transform;
                     shadowTransform.SetParent(root.transform, false);
                 }
+                // Existing shadow children also need the owner layer; otherwise
+                // cameras that exclude Default render the owner but not its FBS.
+                shadowTransform.gameObject.layer = ownerLayer;
+
+                Transform orientationTransform = string.IsNullOrEmpty(
+                    profile.OrientationTransformName
+                )
+                    ? root.transform
+                    : FindDescendant(root.transform, profile.OrientationTransformName);
+                if (orientationTransform == null)
+                {
+                    orientationTransform = root.transform;
+                    Debug.LogWarning(
+                        $"[FranklinBlobShadowInstaller] {root.name}: orientation transform " +
+                        $"'{profile.OrientationTransformName}' not found; using prefab root."
+                    );
+                }
 
                 FootprintSize footprint = ResolveFootprintSize(
                     root.transform,
+                    orientationTransform,
                     shadowTransform,
                     profile
                 );
 
+                Vector3 footprintCenterInRoot = root.transform.InverseTransformPoint(
+                    orientationTransform.TransformPoint(
+                        new Vector3(footprint.Center.x, 0f, footprint.Center.y)
+                    )
+                );
+
                 shadowTransform.localPosition = new Vector3(
-                    0f,
+                    footprintCenterInRoot.x,
                     -profile.GroundedPivotHeight + 0.025f,
-                    0f
+                    footprintCenterInRoot.z
                 );
                 shadowTransform.localRotation = Quaternion.identity;
                 shadowTransform.localScale = new Vector3(
@@ -201,9 +277,12 @@ namespace FranklinGame.Rendering.Editor
                 SetObject(serialized, "m_ShadowTransform", shadowTransform);
                 SetObject(serialized, "m_ShadowRenderer", renderer);
                 SetObject(serialized, "m_RenderCamera", null);
+                SetObject(serialized, "m_OrientationTransform", orientationTransform);
+                SetVector2(serialized, "m_FootprintCenter", footprint.Center);
                 SetColor(serialized, "m_ShadowColor", Color.black);
                 SetFloat(serialized, "m_Intensity", profile.Intensity);
-                SetFloat(serialized, "m_Power", 1.7f);
+                SetFloat(serialized, "m_Power", profile.Power);
+                SetFloat(serialized, "m_Core", profile.Core);
                 SetEnum(serialized, "m_FootprintShape", (int)profile.Shape);
                 SetVector(serialized, "m_VolumeSize", new Vector3(
                     footprint.Width,
@@ -222,6 +301,8 @@ namespace FranklinGame.Rendering.Editor
                 SetFloat(serialized, "m_GroundOffset", 0.025f);
                 SetFloat(serialized, "m_MinGroundNormalY", 0.35f);
                 SetBool(serialized, "m_HideWhenGroundMissing", true);
+                SetBool(serialized, "m_IgnoreRigidbodyReceivers", true);
+                SetBool(serialized, "m_SuppressInsideShadowOwner", true);
                 SetBool(serialized, "m_ConfigureCameraDepth", true);
                 SetFloat(serialized, "m_MaxVisibleDistance", profile.MaximumVisibleDistance);
                 SetFloat(serialized, "m_DistanceCheckInterval", 0.25f);
@@ -233,7 +314,8 @@ namespace FranklinGame.Rendering.Editor
                 Debug.Log(
                     $"[FranklinBlobShadowInstaller] {root.name}: {profile.Shape} " +
                     $"{footprint.Width:F2}m x {footprint.Length:F2}m, " +
-                    $"opacity {profile.Intensity:F2}."
+                    $"center ({footprint.Center.x:F2}, {footprint.Center.y:F2}), " +
+                    $"opacity {profile.Intensity:F2}, core {profile.Core:F2}."
                 );
                 return 1;
             }
@@ -245,6 +327,7 @@ namespace FranklinGame.Rendering.Editor
 
         private static FootprintSize ResolveFootprintSize(
             Transform root,
+            Transform orientationTransform,
             Transform shadowTransform,
             ShadowProfile profile
         )
@@ -255,7 +338,12 @@ namespace FranklinGame.Rendering.Editor
                 return new FootprintSize(diameter, diameter);
             }
 
-            if (!TryMeasureVisualFootprint(root, shadowTransform, out FootprintSize measured))
+            if (!TryMeasureVisualFootprint(
+                root,
+                orientationTransform,
+                shadowTransform,
+                out FootprintSize measured
+            ))
             {
                 return new FootprintSize(profile.Width, profile.Length);
             }
@@ -264,18 +352,21 @@ namespace FranklinGame.Rendering.Editor
             {
                 return new FootprintSize(
                     Mathf.Clamp(measured.Width * 0.96f, 1.75f, 2.30f),
-                    Mathf.Clamp(measured.Length * 0.96f, 3.60f, 5.00f)
+                    Mathf.Clamp(measured.Length * 0.96f, 3.60f, 5.00f),
+                    measured.Center
                 );
             }
 
             return new FootprintSize(
                 Mathf.Clamp(measured.Width * 0.95f, 0.72f, 1.40f),
-                Mathf.Clamp(measured.Length * 0.95f, 1.65f, 2.80f)
+                Mathf.Clamp(measured.Length * 0.95f, 1.65f, 2.80f),
+                measured.Center
             );
         }
 
         private static bool TryMeasureVisualFootprint(
             Transform root,
+            Transform measurementFrame,
             Transform shadowTransform,
             out FootprintSize footprint
         )
@@ -308,7 +399,7 @@ namespace FranklinGame.Rendering.Editor
                         (corner & 2) == 0 ? -extents.y : extents.y,
                         (corner & 4) == 0 ? -extents.z : extents.z
                     );
-                    Vector3 rootPoint = root.InverseTransformPoint(
+                    Vector3 rootPoint = measurementFrame.InverseTransformPoint(
                         renderer.transform.TransformPoint(localCorner)
                     );
                     minimum = Vector3.Min(minimum, rootPoint);
@@ -318,7 +409,14 @@ namespace FranklinGame.Rendering.Editor
             }
 
             footprint = foundBounds
-                ? new FootprintSize(maximum.x - minimum.x, maximum.z - minimum.z)
+                ? new FootprintSize(
+                    maximum.x - minimum.x,
+                    maximum.z - minimum.z,
+                    new Vector2(
+                        (minimum.x + maximum.x) * 0.5f,
+                        (minimum.z + maximum.z) * 0.5f
+                    )
+                )
                 : default;
             return foundBounds;
         }
@@ -378,12 +476,59 @@ namespace FranklinGame.Rendering.Editor
             return null;
         }
 
+        private static Mesh LoadOrCreateBoxProjectionMesh()
+        {
+            Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(BoxProjectionMeshPath);
+            bool createAsset = mesh == null;
+            if (createAsset) mesh = new Mesh();
+
+            mesh.Clear();
+            mesh.name = "Franklin Shadow Box Projection";
+            mesh.vertices = new[]
+            {
+                // Full-screen-triangle layout in local X/Z. It covers the
+                // complete -0.5..0.5 footprint without an internal shared edge.
+                new Vector3(-0.5f, 0f, -0.5f),
+                new Vector3(1.5f, 0f, -0.5f),
+                new Vector3(-0.5f, 0f, 1.5f)
+            };
+            // X cross Z gives a downward-facing normal, which survives the
+            // shared shader's Cull Front mode used by the sphere volumes.
+            mesh.triangles = new[] { 0, 1, 2 };
+            mesh.normals = new[] { Vector3.down, Vector3.down, Vector3.down };
+            mesh.uv = new[]
+            {
+                new Vector2(0f, 0f),
+                new Vector2(2f, 0f),
+                new Vector2(0f, 2f)
+            };
+            mesh.bounds = new Bounds(
+                new Vector3(0.5f, 0f, 0.5f),
+                new Vector3(2f, 0.05f, 2f)
+            );
+
+            if (createAsset) AssetDatabase.CreateAsset(mesh, BoxProjectionMeshPath);
+            else EditorUtility.SetDirty(mesh);
+            return mesh;
+        }
+
         private static Transform FindDirectChild(Transform parent, string childName)
         {
             for (int index = 0; index < parent.childCount; index++)
             {
                 Transform child = parent.GetChild(index);
                 if (child.name == childName) return child;
+            }
+
+            return null;
+        }
+
+        private static Transform FindDescendant(Transform parent, string childName)
+        {
+            Transform[] descendants = parent.GetComponentsInChildren<Transform>(true);
+            foreach (Transform descendant in descendants)
+            {
+                if (descendant.name == childName) return descendant;
             }
 
             return null;
@@ -427,6 +572,11 @@ namespace FranklinGame.Rendering.Editor
         private static void SetVector(SerializedObject serialized, string name, Vector3 value)
         {
             serialized.FindProperty(name).vector3Value = value;
+        }
+
+        private static void SetVector2(SerializedObject serialized, string name, Vector2 value)
+        {
+            serialized.FindProperty(name).vector2Value = value;
         }
 
         private static void SetColor(SerializedObject serialized, string name, Color value)

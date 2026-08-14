@@ -5,6 +5,7 @@ using GameCreator.Runtime.Stats;
 using GameCreator.Runtime.VisualScripting;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace FranklinGame.Vehicles.Editor
 {
@@ -35,8 +36,14 @@ namespace FranklinGame.Vehicles.Editor
             "Assets/Ash Assets/Vehicle Integration/Vehicles/Car/Audio/SFX/car_impact_light.wav";
         private const string HeavyImpactAudioPath =
             "Assets/Ash Assets/Vehicle Integration/Vehicles/Car/Audio/SFX/car_impact_heavy.wav";
+        private const string HornAudioPath =
+            "Assets/Ash Assets/Vehicle Integration/Vehicles/Car/Audio/SFX/car_horn_loop.wav";
         private const string CollisionEffectPath =
             "Assets/Ash Assets/Vehicle Integration/ThirdParty/Sim-Cade Vehicle Physics/Prefabs/Collision Spark.prefab";
+        private const string MetalDebrisMaterialPath =
+            "Assets/Ash Assets/Arcade Bike Physics Pro/Materials/Effects/MetalDebris.mat";
+        private const string BrakeFlareDataPath =
+            "Assets/Ash Assets/Vehicle Integration/Vehicles/Car/VFX/CarBrakeOpticalFlare.asset";
         private const string MovingExitAnimationPath =
             "Assets/Ash Assets/Vehicle Integration/Vehicles/Car/Animations/Carjacking/CarGetKickedOutL.anim";
         private const string MovingExitLandingAnimationPath =
@@ -73,7 +80,12 @@ namespace FranklinGame.Vehicles.Editor
             AudioClip doorCloseClip = AssetDatabase.LoadAssetAtPath<AudioClip>(DoorCloseAudioPath);
             AudioClip lightImpactClip = AssetDatabase.LoadAssetAtPath<AudioClip>(LightImpactAudioPath);
             AudioClip heavyImpactClip = AssetDatabase.LoadAssetAtPath<AudioClip>(HeavyImpactAudioPath);
+            AudioClip hornClip = AssetDatabase.LoadAssetAtPath<AudioClip>(HornAudioPath);
             GameObject collisionEffect = AssetDatabase.LoadAssetAtPath<GameObject>(CollisionEffectPath);
+            Material metalDebrisMaterial =
+                AssetDatabase.LoadAssetAtPath<Material>(MetalDebrisMaterialPath);
+            LensFlareDataSRP brakeFlareData =
+                AssetDatabase.LoadAssetAtPath<LensFlareDataSRP>(BrakeFlareDataPath);
             AnimationClip movingExit = AssetDatabase.LoadAssetAtPath<AnimationClip>(
                 MovingExitAnimationPath
             );
@@ -99,9 +111,21 @@ namespace FranklinGame.Vehicles.Editor
                 throw new InvalidOperationException(
                     "Light/heavy car-impact audio is missing from FranklinAnimations"
                 );
+            if (hornClip == null)
+                throw new InvalidOperationException(
+                    "The mobile Car horn loop is missing"
+                );
             if (collisionEffect == null)
                 throw new InvalidOperationException(
                     "The Sim-Cade pooled collision spark/debris effect is missing"
+                );
+            if (metalDebrisMaterial == null)
+                throw new InvalidOperationException(
+                    "The shared mobile metal-debris material is missing"
+                );
+            if (brakeFlareData == null)
+                throw new InvalidOperationException(
+                    "The dedicated Car brake LensFlareDataSRP is missing"
                 );
             if (movingExit == null || movingExitLanding == null)
                 throw new InvalidOperationException(
@@ -195,6 +219,9 @@ namespace FranklinGame.Vehicles.Editor
                 gearSystem.AudioSystem = audioSystem;
 
                 SimcadeCarDriver driver = GetOrAdd<SimcadeCarDriver>(carRoot);
+                AudioSource hornSource = EnsureHornAudioSource(carRoot);
+                SimcadeCarHorn horn = GetOrAdd<SimcadeCarHorn>(carRoot);
+                horn.Configure(driver, hornSource, hornClip);
                 Transform steeringWheel = FindTransform(carRoot, "Steering");
                 driver.Configure(
                     controller,
@@ -213,10 +240,45 @@ namespace FranklinGame.Vehicles.Editor
                     heavyImpactClip,
                     collisionEffect
                 );
+                SimcadeCarMetalDebris metalDebris =
+                    GetOrAdd<SimcadeCarMetalDebris>(carRoot);
+                metalDebris.Configure(
+                    impactAudio,
+                    carRoot.GetComponent<Rigidbody>(),
+                    metalDebrisMaterial
+                );
                 SimcadeCarDoorDamage doorDamage =
                     GetOrAdd<SimcadeCarDoorDamage>(carRoot);
+                doorDamage.ConfigureWindows(
+                    FindTransform(carRoot, "FLWin"),
+                    FindTransform(carRoot, "FRWin"),
+                    FindTransform(carRoot, "RLWin"),
+                    FindTransform(carRoot, "RRWin")
+                );
 
                 Rigidbody rigidbody = carRoot.GetComponent<Rigidbody>();
+                VehicleLights vehicleLights = GetOrAdd<VehicleLights>(carRoot);
+                SimcadeCarBrakeLights brakeLights =
+                    GetOrAdd<SimcadeCarBrakeLights>(carRoot);
+                LensFlareComponentSRP leftBrakeFlare = EnsureBrakeFlare(
+                    carRoot,
+                    vehicleLights.backLight1,
+                    "Car Rear Brake Flare Left",
+                    brakeFlareData
+                );
+                LensFlareComponentSRP rightBrakeFlare = EnsureBrakeFlare(
+                    carRoot,
+                    vehicleLights.backLight2,
+                    "Car Rear Brake Flare Right",
+                    brakeFlareData
+                );
+                brakeLights.Configure(
+                    driver,
+                    vehicleLights,
+                    rigidbody,
+                    leftBrakeFlare,
+                    rightBrakeFlare
+                );
                 if (rigidbody != null && presetRigidbody != null)
                 {
                     rigidbody.mass = presetRigidbody.mass;
@@ -274,6 +336,7 @@ namespace FranklinGame.Vehicles.Editor
                 EditorUtility.SetDirty(gearSystem);
                 EditorUtility.SetDirty(driver);
                 EditorUtility.SetDirty(impactAudio);
+                EditorUtility.SetDirty(metalDebris);
                 EditorUtility.SetDirty(doorDamage);
                 if (entry != null) EditorUtility.SetDirty(entry);
 
@@ -305,7 +368,11 @@ namespace FranklinGame.Vehicles.Editor
             SimcadeVehicleController controller = car.GetComponent<SimcadeVehicleController>();
             SimcadeCarDriver driver = car.GetComponent<SimcadeCarDriver>();
             SimcadeCarImpactAudio impactAudio = car.GetComponent<SimcadeCarImpactAudio>();
+            SimcadeCarMetalDebris metalDebris = car.GetComponent<SimcadeCarMetalDebris>();
             SimcadeCarDoorDamage doorDamage = car.GetComponent<SimcadeCarDoorDamage>();
+            SimcadeCarBrakeLights brakeLights = car.GetComponent<SimcadeCarBrakeLights>();
+            SimcadeCarHorn horn = car.GetComponent<SimcadeCarHorn>();
+            VehicleLights vehicleLights = car.GetComponent<VehicleLights>();
             SimcadeCarDeformation deformation = car.GetComponent<SimcadeCarDeformation>();
             GearSystem gearSystem = car.GetComponent<GearSystem>();
             AudioSystem audioSystem = car.GetComponent<AudioSystem>();
@@ -317,10 +384,36 @@ namespace FranklinGame.Vehicles.Editor
                 throw new InvalidOperationException(
                     "Light/heavy collision audio is not configured on the exact Car.prefab"
                 );
-            if (doorDamage == null)
+            if (metalDebris == null || !metalDebris.IsConfigured ||
+                !metalDebris.HasCurrentConfiguration)
+            {
                 throw new InvalidOperationException(
-                    "Physical loose/detachable door damage is not installed on Car.prefab"
+                    "Pooled mobile metal debris is not configured on the exact Car.prefab"
                 );
+            }
+            if (doorDamage == null || !doorDamage.HasCompleteWindowConfiguration)
+                throw new InvalidOperationException(
+                    "Physical door damage or its four matching window meshes are not configured"
+                );
+            if (brakeLights == null || !brakeLights.IsConfigured ||
+                brakeLights.HeadlightIntensity < 44.9f ||
+                brakeLights.HeadlightRange < 41.9f ||
+                brakeLights.HeadlightSpotAngle < 67.9f ||
+                vehicleLights == null ||
+                !HasWideHeadlightProfile(vehicleLights) ||
+                !HasBrakeOpticalFlares(brakeLights))
+                throw new InvalidOperationException(
+                    "Wide/long headlight and brake/reverse light control is not configured on Car.prefab"
+                );
+            if (horn == null || !horn.IsConfigured || horn.Source == null ||
+                horn.Source.clip != horn.Clip || !horn.Source.loop ||
+                horn.Source.playOnAwake || horn.Source.spatialBlend < 0.99f ||
+                AssetDatabase.GetAssetPath(horn.Clip) != HornAudioPath)
+            {
+                throw new InvalidOperationException(
+                    "The hold Car horn and its dedicated 3D AudioSource are not configured"
+                );
+            }
             if (deformation == null || !deformation.IsConfigured)
                 throw new InvalidOperationException(
                     "Mobile visual body deformation is not configured on the exact Car.prefab"
@@ -528,6 +621,96 @@ namespace FranklinGame.Vehicles.Editor
             return true;
         }
 
+        private static bool HasWideHeadlightProfile(VehicleLights lights)
+        {
+            if (lights == null || lights.spotLight1 == null || lights.spotLight2 == null ||
+                lights.spotLightIntensity < 44.9f)
+            {
+                return false;
+            }
+
+            Light[] spotlights = { lights.spotLight1, lights.spotLight2 };
+            foreach (Light spotlight in spotlights)
+            {
+                if (spotlight.range < 41.9f ||
+                    spotlight.spotAngle < 67.9f ||
+                    spotlight.innerSpotAngle < 47.9f ||
+                    spotlight.shadows != LightShadows.None)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool HasBrakeOpticalFlares(SimcadeCarBrakeLights lights)
+        {
+            if (lights == null || lights.LeftBrakeFlare == null ||
+                lights.RightBrakeFlare == null ||
+                lights.LeftBrakeFlare == lights.RightBrakeFlare)
+            {
+                return false;
+            }
+
+            LensFlareComponentSRP[] flares =
+            {
+                lights.LeftBrakeFlare,
+                lights.RightBrakeFlare
+            };
+            Renderer[] rearLamps =
+            {
+                lights.VehicleLights.backLight1,
+                lights.VehicleLights.backLight2
+            };
+            for (int index = 0; index < flares.Length; index++)
+            {
+                LensFlareComponentSRP flare = flares[index];
+                Renderer rearLamp = rearLamps[index];
+                float centerError = rearLamp != null
+                    ? Vector3.Distance(
+                        flare.transform.position,
+                        rearLamp.bounds.center
+                    )
+                    : float.PositiveInfinity;
+                if (flare.lensFlareData == null ||
+                    AssetDatabase.GetAssetPath(flare.lensFlareData) != BrakeFlareDataPath ||
+                    !HasLockedVisibleFlareElement(flare.lensFlareData) ||
+                    flare.maxAttenuationDistance < 69.9f ||
+                    !flare.useOcclusion || flare.sampleCount > 4 ||
+                    flare.allowOffScreen || flare.scale < 0.99f ||
+                    flare.occlusionOffset < 0.19f || centerError > 0.01f)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool HasLockedVisibleFlareElement(LensFlareDataSRP data)
+        {
+            if (data == null || data.elements == null || data.elements.Length == 0)
+                return false;
+
+            foreach (LensFlareDataElementSRP element in data.elements)
+            {
+                if (element != null && element.visible && element.localIntensity > 0f &&
+                    Mathf.Approximately(element.position, 0f) &&
+                    element.positionOffset.sqrMagnitude < 0.000001f &&
+                    element.positionVariation.sqrMagnitude < 0.000001f &&
+                    Mathf.Approximately(element.intensityVariation, 0f) &&
+                    Mathf.Approximately(element.scaleVariation, 0f) &&
+                    Mathf.Approximately(element.rotationVariation, 0f) &&
+                    !element.enableRadialDistortion)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool HasCompleteDriverSetup(SimcadeCarDriver driver)
         {
             if (driver == null) return false;
@@ -702,6 +885,28 @@ namespace FranklinGame.Vehicles.Editor
             source.priority = 96;
             source.minDistance = 6f;
             source.maxDistance = 70f;
+            return source;
+        }
+
+        private static AudioSource EnsureHornAudioSource(GameObject carRoot)
+        {
+            Transform audioTransform = FindTransform(carRoot, "Car Horn Audio");
+            if (audioTransform == null)
+            {
+                GameObject audioObject = new GameObject("Car Horn Audio");
+                audioTransform = audioObject.transform;
+                audioTransform.SetParent(carRoot.transform, false);
+            }
+
+            AudioSource source = GetOrAdd<AudioSource>(audioTransform.gameObject);
+            source.playOnAwake = false;
+            source.loop = true;
+            source.spatialBlend = 1f;
+            source.dopplerLevel = 0.2f;
+            source.priority = 96;
+            source.minDistance = 3f;
+            source.maxDistance = 55f;
+            source.rolloffMode = AudioRolloffMode.Logarithmic;
             return source;
         }
 
@@ -1319,6 +1524,56 @@ namespace FranklinGame.Vehicles.Editor
             {
                 DestroyComponent(wheelCollider);
             }
+        }
+
+        private static LensFlareComponentSRP EnsureBrakeFlare(
+            GameObject carRoot,
+            Renderer rearLamp,
+            string name,
+            LensFlareDataSRP flareData)
+        {
+            if (rearLamp == null)
+                throw new InvalidOperationException(name + " requires its rear lamp renderer");
+
+            Transform anchor = FindTransform(carRoot, name);
+            if (anchor == null)
+            {
+                anchor = new GameObject(name).transform;
+            }
+            anchor.SetParent(carRoot.transform, true);
+            // Keep the optical source exactly at the rendered lamp centre. The
+            // SRP occlusion sample is pushed toward the camera separately, so
+            // steering cannot create parallax between the flare and lamp mesh.
+            anchor.position = rearLamp.bounds.center;
+            anchor.rotation = carRoot.transform.rotation;
+            anchor.localScale = Vector3.one;
+
+            LensFlareComponentSRP flare =
+                GetOrAdd<LensFlareComponentSRP>(anchor.gameObject);
+            flare.lensFlareData = flareData;
+            flare.lightOverride = null;
+            flare.intensity = 0f;
+            flare.scale = 1f;
+            flare.maxAttenuationDistance = 70f;
+            flare.maxAttenuationScale = 40f;
+            flare.attenuationByLightShape = false;
+            flare.useOcclusion = true;
+            flare.occlusionRadius = 0.035f;
+            flare.occlusionOffset = 0.2f;
+            flare.sampleCount = 4;
+            flare.allowOffScreen = false;
+            flare.distanceAttenuationCurve = new AnimationCurve(
+                new Keyframe(0f, 1f),
+                new Keyframe(1f, 0.12f)
+            );
+            flare.scaleByDistanceCurve = new AnimationCurve(
+                new Keyframe(0f, 1f),
+                new Keyframe(1f, 1f)
+            );
+
+            EditorUtility.SetDirty(anchor);
+            EditorUtility.SetDirty(flare);
+            return flare;
         }
 
         private static void DisableLegacyHud(GameObject carRoot)

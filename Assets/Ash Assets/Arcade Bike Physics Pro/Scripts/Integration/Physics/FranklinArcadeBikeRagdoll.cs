@@ -1,3 +1,4 @@
+using System;
 using ArcadeBP_Pro;
 using UnityEngine;
 
@@ -65,6 +66,7 @@ namespace FranklinGame.Vehicles
 
         private readonly RaycastHit[] m_GroundHits = new RaycastHit[16];
         private readonly Collider[] m_WheelOverlapHits = new Collider[24];
+        private Collider[] m_BodyAttachedColliders = Array.Empty<Collider>();
         private float m_StableGroundTimer;
         private int m_StableGroundSide;
         private int m_ParkedGroundSide;
@@ -131,6 +133,7 @@ namespace FranklinGame.Vehicles
             this.m_LocalLeftSurface = localLeftSurface;
             this.m_LocalRightSurface = localRightSurface;
             this.m_SurfaceProbeHalfLength = Mathf.Max(0.1f, surfaceProbeHalfLength);
+            this.CacheBodyAttachedColliders();
             this.ConfigureSuspensionCollisionFiltering();
             this.RefreshRenderedBodySurfaceProbes();
             this.SetWheelCollidersEnabled(false);
@@ -246,6 +249,7 @@ namespace FranklinGame.Vehicles
         {
             this.ResolveReferences();
             this.ConfigureSuspensionCollisionFiltering();
+            this.CacheBodyAttachedColliders();
             this.SetWheelCollidersEnabled(false);
             this.SetBodyColliderMode(false);
         }
@@ -283,10 +287,16 @@ namespace FranklinGame.Vehicles
 
         private void SetWheelCollidersEnabled(bool enabled)
         {
-            if (this.m_FrontWheelCollider != null)
+            if (this.m_FrontWheelCollider != null &&
+                this.m_FrontWheelCollider.enabled != enabled)
+            {
                 this.m_FrontWheelCollider.enabled = enabled;
-            if (this.m_RearWheelCollider != null)
+            }
+            if (this.m_RearWheelCollider != null &&
+                this.m_RearWheelCollider.enabled != enabled)
+            {
                 this.m_RearWheelCollider.enabled = enabled;
+            }
         }
 
         private void SetBodyColliderMode(bool ragdollMode)
@@ -536,11 +546,7 @@ namespace FranklinGame.Vehicles
             bool requiresRepair = this.m_Body.isKinematic ||
                                   this.m_Body.constraints != RigidbodyConstraints.None ||
                                   !this.m_Body.useGravity;
-            if (!requiresRepair)
-            {
-                this.HardenDynamicBody();
-                return;
-            }
+            if (!requiresRepair) return;
 
             this.m_Driver?.KeepCrashRagdollDynamic();
             if (this.m_Body.isKinematic) this.m_Body.isKinematic = false;
@@ -591,8 +597,12 @@ namespace FranklinGame.Vehicles
                 : Vector3.up;
             bool foundCollider = false;
             float lowestSurface = float.PositiveInfinity;
-            foreach (Collider collider in this.GetComponentsInChildren<Collider>(true))
+            if (this.m_BodyAttachedColliders.Length == 0)
+                this.CacheBodyAttachedColliders();
+
+            for (int index = 0; index < this.m_BodyAttachedColliders.Length; ++index)
             {
+                Collider collider = this.m_BodyAttachedColliders[index];
                 if (collider == null || !collider.enabled || collider.isTrigger ||
                     collider.attachedRigidbody != this.m_Body)
                 {
@@ -621,6 +631,36 @@ namespace FranklinGame.Vehicles
             float inwardSpeed = Vector3.Dot(this.m_Body.linearVelocity, normal);
             if (inwardSpeed < 0f)
                 this.m_Body.linearVelocity -= normal * inwardSpeed;
+        }
+
+        private void CacheBodyAttachedColliders()
+        {
+            if (this.m_Body == null)
+            {
+                this.m_BodyAttachedColliders = Array.Empty<Collider>();
+                return;
+            }
+
+            Collider[] candidates = this.GetComponentsInChildren<Collider>(true);
+            int count = 0;
+            for (int index = 0; index < candidates.Length; ++index)
+            {
+                Collider collider = candidates[index];
+                if (collider != null && !collider.isTrigger &&
+                    collider.attachedRigidbody == this.m_Body)
+                {
+                    candidates[count++] = collider;
+                }
+            }
+
+            if (count == candidates.Length)
+            {
+                this.m_BodyAttachedColliders = candidates;
+                return;
+            }
+
+            this.m_BodyAttachedColliders = new Collider[count];
+            Array.Copy(candidates, this.m_BodyAttachedColliders, count);
         }
 
         private bool IsSafetyGroundValidBelow()
@@ -822,10 +862,10 @@ namespace FranklinGame.Vehicles
             if (this.m_Body == null) return;
 
             float tilt = Vector3.Angle(transform.up, Vector3.up);
-            bool slowEnough = this.m_Body.linearVelocity.magnitude <=
-                                  this.m_ParkLinearSpeed &&
-                              this.m_Body.angularVelocity.magnitude <=
-                                  this.m_ParkAngularSpeed;
+            bool slowEnough = this.m_Body.linearVelocity.sqrMagnitude <=
+                                  this.m_ParkLinearSpeed * this.m_ParkLinearSpeed &&
+                              this.m_Body.angularVelocity.sqrMagnitude <=
+                                  this.m_ParkAngularSpeed * this.m_ParkAngularSpeed;
             int groundedSide = tilt >= this.m_MinimumSideTilt
                 ? this.GetGroundedSide()
                 : 0;

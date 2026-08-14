@@ -59,6 +59,7 @@ namespace FranklinGame.Vehicles
         private bool m_VirtualWheelie;
         private bool m_VirtualBurnout;
         private bool m_ExternalHandbrake;
+        private bool m_ShooterReloadSteeringLocked;
         private bool m_IsStoppingForExit;
         private bool m_KeepDynamicWhenDisabled;
         private RigidbodyConstraints m_DrivingConstraints;
@@ -102,6 +103,14 @@ namespace FranklinGame.Vehicles
             ? Vector3.ProjectOnPlane(this.m_Rigidbody.linearVelocity, Vector3.up).magnitude
             : 0f;
         public float SpeedKph => this.SpeedMetersPerSecond * 3.6f;
+        public float SignedForwardSpeedMetersPerSecond => this.m_Controller != null
+            ? this.m_Controller.localBikeVelocity.z
+            : 0f;
+        public bool IsReverseInputActive => this.m_IsVehicleEnabled &&
+                                            !this.m_VirtualBurnout &&
+                                            this.m_Controller?.bikeInput != null &&
+                                            this.m_Controller.bikeInput.Reverse > 0.01f &&
+                                            this.m_Controller.bikeInput.Accelerate <= 0.01f;
         public float ThrottleMagnitude => this.m_CurrentThrottle;
         public float SlowSpeedLimitKph => this.m_SlowSpeedLimitKph;
 
@@ -137,6 +146,7 @@ namespace FranklinGame.Vehicles
 
         private void OnDisable()
         {
+            this.m_ShooterReloadSteeringLocked = false;
             this.ResetVirtualInputs();
             this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
             this.m_Fuel?.SetEngineActive(false);
@@ -199,6 +209,12 @@ namespace FranklinGame.Vehicles
                 }
             }
 #endif
+
+            if (this.m_ShooterReloadSteeringLocked)
+            {
+                steerLeft = 0f;
+                steerRight = 0f;
+            }
 
             if (slowDriveOnly && this.SpeedKph >= this.m_SlowSpeedLimitKph)
             {
@@ -429,12 +445,28 @@ namespace FranklinGame.Vehicles
 
         public void SetVirtualSteerLeftInput(bool active)
         {
-            this.m_VirtualSteerLeft = active;
+            this.m_VirtualSteerLeft = active &&
+                                      !this.m_ShooterReloadSteeringLocked;
         }
 
         public void SetVirtualSteerRightInput(bool active)
         {
-            this.m_VirtualSteerRight = active;
+            this.m_VirtualSteerRight = active &&
+                                       !this.m_ShooterReloadSteeringLocked;
+        }
+
+        public void SetShooterReloadSteeringLocked(bool active)
+        {
+            if (this.m_ShooterReloadSteeringLocked == active) return;
+            this.m_ShooterReloadSteeringLocked = active;
+            if (!active) return;
+
+            this.m_VirtualSteerLeft = false;
+            this.m_VirtualSteerRight = false;
+            if (this.m_Controller?.bikeInput == null) return;
+
+            this.m_Controller.bikeInput.SteeringLeft = 0f;
+            this.m_Controller.bikeInput.SteeringRight = 0f;
         }
 
         public void SetVirtualHandbrakeInput(bool active)

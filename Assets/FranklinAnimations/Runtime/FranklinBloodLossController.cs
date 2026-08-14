@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using GameCreator.Runtime.Common;
 using GameCreator.Runtime.Stats;
 using PampelGames.BloodFactory;
@@ -7,9 +8,9 @@ using UnityEngine;
 namespace FranklinGame.Combat
 {
     /// <summary>
-    /// Converts changes to a GC2 health Attribute into Blood Factory ground decals.
-    /// Damage creates an immediate ground drop and reaching the Attribute minimum
-    /// creates one large blood pool. Low health never emits blood over time.
+    /// Converts changes to a GC2 health Attribute into Blood Factory particles and
+    /// ground marks. Damage creates a short downward splash plus an immediate mark;
+    /// reaching the Attribute minimum creates one large pool. GC2 remains untouched.
     /// </summary>
     [DefaultExecutionOrder(150)]
     [DisallowMultipleComponent]
@@ -34,9 +35,14 @@ namespace FranklinGame.Combat
         private string m_HealthAttributeId = "hp";
 
         [Header("Blood Factory")]
+        [SerializeField] private GameObject m_BloodBurstPrefab;
         [SerializeField] private GameObject m_BloodDropPrefab;
         [SerializeField] private GameObject m_DeathPoolPrefab;
         [SerializeField] private LayerMask m_GroundLayers = ~0;
+        [SerializeField, Min(0f)] private float m_BurstOriginHeight = 1.1f;
+        [SerializeField, Range(0.5f, 1f)] private float m_BurstDownwardBias = 0.82f;
+        [SerializeField, Min(0.1f)] private float m_BurstLifetime = 4f;
+        [SerializeField, Range(1, 8)] private int m_MaxConcurrentBursts = 3;
         [SerializeField, Min(0.1f)] private float m_GroundRayOriginHeight = 1.5f;
         [SerializeField, Min(0.1f)] private float m_GroundRayDistance = 4f;
         [SerializeField, Min(0f)] private float m_SurfaceOffset = 0.025f;
@@ -59,6 +65,7 @@ namespace FranklinGame.Combat
         [SerializeField, Min(0.1f)] private float m_DeathPoolLifetime = 45f;
 
         private readonly RaycastHit[] m_GroundHits = new RaycastHit[MAX_GROUND_HITS];
+        private readonly Queue<GameObject> m_ActiveBursts = new Queue<GameObject>();
 
         private RuntimeAttributeData m_Health;
         private BleedSeverity m_Severity;
@@ -196,6 +203,7 @@ namespace FranklinGame.Combat
                     scaleT
                 );
 
+                this.SpawnBurst(scale);
                 this.SpawnDrop(scale, this.m_DropScatterRadius * 0.5f);
                 this.m_NextDamageDropTime = Time.time + this.m_MinDamageDropInterval;
             }
@@ -253,6 +261,72 @@ namespace FranklinGame.Combat
             return this.m_Health != null
                 ? Mathf.Max(0f, (float)(this.m_Health.MaxValue - this.m_Health.MinValue))
                 : 0f;
+        }
+
+        private void SpawnBurst(float scale)
+        {
+            if (this.m_BloodBurstPrefab == null) return;
+
+            Transform playerTransform = this.m_Traits != null
+                ? this.m_Traits.transform
+                : this.transform;
+
+            Vector2 randomCircle = UnityEngine.Random.insideUnitCircle;
+            Vector3 horizontalDirection =
+                playerTransform.right * randomCircle.x +
+                playerTransform.forward * randomCircle.y;
+            if (horizontalDirection.sqrMagnitude <= VALUE_EPSILON)
+            {
+                horizontalDirection = playerTransform.forward;
+            }
+            horizontalDirection.Normalize();
+
+            Vector3 direction = Vector3.Slerp(
+                horizontalDirection,
+                Vector3.down,
+                this.m_BurstDownwardBias
+            ).normalized;
+            Quaternion rotation = Quaternion.LookRotation(direction, playerTransform.forward);
+            Vector3 position = playerTransform.position + Vector3.up * this.m_BurstOriginHeight;
+
+            GameObject instance = Instantiate(this.m_BloodBurstPrefab, position, rotation);
+            instance.name = this.m_BloodBurstPrefab.name + " (Franklin Damage)";
+            instance.transform.localScale *= Mathf.Clamp(scale, 0.5f, 1.4f);
+
+            BloodFactory factory = instance.GetComponent<BloodFactory>();
+            if (factory != null)
+            {
+                factory.collisionLayer = this.GetParticleCollisionLayers(playerTransform);
+                factory.Execute();
+            }
+
+            this.RemoveExpiredBursts();
+            while (this.m_ActiveBursts.Count >= this.m_MaxConcurrentBursts)
+            {
+                GameObject oldest = this.m_ActiveBursts.Dequeue();
+                if (oldest != null) Destroy(oldest);
+            }
+
+            this.m_ActiveBursts.Enqueue(instance);
+            Destroy(instance, this.m_BurstLifetime);
+        }
+
+        private LayerMask GetParticleCollisionLayers(Transform playerTransform)
+        {
+            int mask = this.m_GroundLayers.value;
+            if (playerTransform != null)
+            {
+                mask &= ~(1 << playerTransform.gameObject.layer);
+            }
+            return mask;
+        }
+
+        private void RemoveExpiredBursts()
+        {
+            while (this.m_ActiveBursts.Count > 0 && this.m_ActiveBursts.Peek() == null)
+            {
+                this.m_ActiveBursts.Dequeue();
+            }
         }
 
         private void SpawnDrop(float scale, float scatterRadius)
@@ -332,6 +406,15 @@ namespace FranklinGame.Combat
                 decal.fadeOut = Mathf.Min(decal.fadeOut, decal.lifetime * 0.5f);
                 decal.Execute();
             }
+            else
+            {
+                MeshDecalHandler meshDecal = instance.GetComponent<MeshDecalHandler>();
+                if (meshDecal != null)
+                {
+                    meshDecal.duration = Mathf.Max(0.1f, lifetime);
+                    meshDecal.Execute();
+                }
+            }
 
             Destroy(instance, Mathf.Max(0.1f, lifetime) + 0.25f);
         }
@@ -403,6 +486,8 @@ namespace FranklinGame.Combat
                 this.m_MediumBleedBelow
             );
             this.m_DamageForMaxDrop = Mathf.Max(0.01f, this.m_DamageForMaxDrop);
+            this.m_BurstLifetime = Mathf.Max(0.1f, this.m_BurstLifetime);
+            this.m_MaxConcurrentBursts = Mathf.Clamp(this.m_MaxConcurrentBursts, 1, 8);
             this.m_MaxDamageDropScale = Mathf.Max(
                 this.m_MinDamageDropScale,
                 this.m_MaxDamageDropScale

@@ -58,6 +58,7 @@ namespace FranklinGame.Animations
             if (this.m_Character == null) return;
 
             this.m_Character.Ragdoll.EventAfterStartRagdoll += this.OnRagdollStarted;
+            this.m_Character.Ragdoll.EventBeforeStartRecover += this.OnRagdollRecoverStarted;
             this.m_Character.Ragdoll.EventAfterFinishRecover += this.OnRagdollFinished;
 
             if (this.m_Character.Ragdoll.IsRagdoll) this.OnRagdollStarted();
@@ -68,6 +69,7 @@ namespace FranklinGame.Animations
             if (this.m_Character != null)
             {
                 this.m_Character.Ragdoll.EventAfterStartRagdoll -= this.OnRagdollStarted;
+                this.m_Character.Ragdoll.EventBeforeStartRecover -= this.OnRagdollRecoverStarted;
                 this.m_Character.Ragdoll.EventAfterFinishRecover -= this.OnRagdollFinished;
             }
 
@@ -87,6 +89,15 @@ namespace FranklinGame.Animations
             {
                 this.CacheAndConfigureRagdoll();
                 if (this.m_HipsBody == null || this.m_HipsCollider == null) return;
+            }
+
+            // GC2 disables all bone colliders at the beginning of recovery but
+            // keeps IsRagdoll true until the stand-up clip has completed. Never
+            // run penetration queries or move bones while GC2 blends that clip.
+            if (!this.m_HipsCollider.enabled || this.m_HipsBody.isKinematic)
+            {
+                this.StopGuarding();
+                return;
             }
 
             Vector3 currentCenter = this.m_HipsBody.worldCenterOfMass;
@@ -119,6 +130,11 @@ namespace FranklinGame.Animations
         }
 
         private void OnRagdollFinished()
+        {
+            this.StopGuarding();
+        }
+
+        private void OnRagdollRecoverStarted()
         {
             this.StopGuarding();
         }

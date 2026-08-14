@@ -18,6 +18,8 @@ namespace FranklinGame.Rendering
     {
         public const string GlobalEnabledPreferenceKey =
             "Franklin.FastBlobShadow.Enabled";
+        private const string OwnerLayerMigrationPreferenceKey =
+            "Franklin.FastBlobShadow.OwnerLayers.V1";
 
         public enum FootprintShape
         {
@@ -26,10 +28,12 @@ namespace FranklinGame.Rendering
             Rectangle = 2
         }
 
-        private const int GroundHitCapacity = 8;
+        private const int GroundHitCapacity = 16;
 
         private static readonly HashSet<FranklinBlobShadow> Instances =
             new HashSet<FranklinBlobShadow>();
+        private static readonly RaycastHit[] GroundHits =
+            new RaycastHit[GroundHitCapacity];
 
         private static bool s_GlobalEnabled = true;
         private static bool s_GlobalStateLoaded;
@@ -38,16 +42,20 @@ namespace FranklinGame.Rendering
         private static readonly int BlobIntensityId = Shader.PropertyToID("_BlobIntensity");
         private static readonly int BlobPowerId = Shader.PropertyToID("_BlobPower");
         private static readonly int BlobShapeId = Shader.PropertyToID("_BlobShape");
+        private static readonly int BlobCoreId = Shader.PropertyToID("_BlobCore");
 
         [Header("References")]
         [SerializeField] private Transform m_ShadowTransform;
         [SerializeField] private MeshRenderer m_ShadowRenderer;
         [SerializeField] private Camera m_RenderCamera;
+        [SerializeField] private Transform m_OrientationTransform;
+        [SerializeField] private Vector2 m_FootprintCenter;
 
         [Header("Appearance")]
         [SerializeField] private Color m_ShadowColor = Color.black;
         [SerializeField, Range(0f, 1f)] private float m_Intensity = 0.58f;
         [SerializeField, Range(0.25f, 8f)] private float m_Power = 1.7f;
+        [SerializeField, Range(0f, 0.9f)] private float m_Core = 0.12f;
         [SerializeField] private FootprintShape m_FootprintShape = FootprintShape.Circle;
         [SerializeField] private Vector3 m_VolumeSize = new Vector3(1f, 0.65f, 1f);
 
@@ -66,13 +74,13 @@ namespace FranklinGame.Rendering
         [SerializeField, Min(0f)] private float m_GroundOffset = 0.025f;
         [SerializeField, Range(0f, 1f)] private float m_MinGroundNormalY = 0.35f;
         [SerializeField] private bool m_HideWhenGroundMissing = true;
+        [SerializeField] private bool m_IgnoreRigidbodyReceivers = true;
+        [SerializeField] private bool m_SuppressInsideShadowOwner = true;
 
         [Header("Mobile")]
         [SerializeField] private bool m_ConfigureCameraDepth = true;
         [SerializeField, Min(0f)] private float m_MaxVisibleDistance = 40f;
         [SerializeField, Min(0.05f)] private float m_DistanceCheckInterval = 0.25f;
-
-        private readonly RaycastHit[] m_GroundHits = new RaycastHit[GroundHitCapacity];
 
         private MaterialPropertyBlock m_PropertyBlock;
         private Vector3 m_GroundPoint;
@@ -89,6 +97,8 @@ namespace FranklinGame.Rendering
         private bool m_AirborneHidden;
         private bool m_DistanceVisible = true;
         private bool m_UserVisible = true;
+        private bool m_Suspended;
+        private bool m_InsideShadowOwner;
 
         public static event Action<bool> GlobalEnabledChanged;
 
@@ -101,11 +111,18 @@ namespace FranklinGame.Rendering
             }
         }
 
-        public bool IsVisible => this.m_UserVisible && GlobalEnabled;
+        public bool IsVisible =>
+            this.m_UserVisible &&
+            !this.m_Suspended &&
+            !this.m_InsideShadowOwner &&
+            GlobalEnabled;
         public bool IsLocallyVisible => this.m_UserVisible;
+        public bool IsSuspended => this.m_Suspended;
+        public bool IsInsideShadowOwner => this.m_InsideShadowOwner;
         public bool HasGround => !this.m_FollowGround || this.m_HasGround;
         public Color ShadowColor => this.m_ShadowColor;
         public float Opacity => this.m_Intensity;
+        public float CoreSize => this.m_Core;
         public FootprintShape Footprint => this.m_FootprintShape;
         public float AirborneHeight => this.m_AirborneHeight;
         public Camera RenderCamera => this.m_RenderCamera;
@@ -122,11 +139,12 @@ namespace FranklinGame.Rendering
             Instances.Add(this);
             this.ResolveReferences();
             this.ConfigureRenderer();
+            this.RefreshShadowOwnerSuppression();
             this.ResetAirborneState();
             this.ApplyAppearance();
             this.ApplyVolumeSize();
 
-            if (!GlobalEnabled)
+            if (!GlobalEnabled || this.m_Suspended || this.m_InsideShadowOwner)
             {
                 this.SetRendererEnabled(false);
                 return;
@@ -156,7 +174,7 @@ namespace FranklinGame.Rendering
 
         private void LateUpdate()
         {
-            if (!GlobalEnabled)
+            if (!GlobalEnabled || this.m_Suspended || this.m_InsideShadowOwner)
             {
                 this.SetRendererEnabled(false);
                 return;
@@ -177,6 +195,7 @@ namespace FranklinGame.Rendering
         {
             this.m_Intensity = Mathf.Clamp01(this.m_Intensity);
             this.m_Power = Mathf.Clamp(this.m_Power, 0.25f, 8f);
+            this.m_Core = Mathf.Clamp(this.m_Core, 0f, 0.9f);
             this.m_VolumeSize.x = Mathf.Max(0.01f, this.m_VolumeSize.x);
             this.m_VolumeSize.y = Mathf.Max(0.01f, this.m_VolumeSize.y);
             this.m_VolumeSize.z = Mathf.Max(0.01f, this.m_VolumeSize.z);
@@ -203,12 +222,38 @@ namespace FranklinGame.Rendering
             this.m_ForceGroundProbe = true;
         }
 
+        private void OnTransformParentChanged()
+        {
+            this.RefreshShadowOwnerSuppression();
+        }
+
         /// <summary>Enables or disables the shadow without disabling this component.</summary>
         public void SetVisible(bool visible)
         {
             if (visible && !this.m_UserVisible) this.m_ForceGroundProbe = true;
             this.m_UserVisible = visible;
             this.UpdateRendererVisibility();
+        }
+
+        /// <summary>
+        /// Temporarily pauses one shadow without changing its local visibility
+        /// preference. Used while Player is entering, seated in, or exiting a vehicle.
+        /// </summary>
+        public void SetSuspended(bool suspended)
+        {
+            if (this.m_Suspended == suspended) return;
+
+            this.m_Suspended = suspended;
+            if (suspended)
+            {
+                this.SetRendererEnabled(false);
+                return;
+            }
+
+            if (GlobalEnabled && this.isActiveAndEnabled)
+            {
+                this.ApplyGlobalEnabledState(true);
+            }
         }
 
         /// <summary>
@@ -263,7 +308,14 @@ namespace FranklinGame.Rendering
             this.m_MaxVisibleDistance = Mathf.Max(0f, maxDistance);
             this.m_DistanceCheckInterval = Mathf.Max(0.05f, checkInterval);
             this.m_NextDistanceCheckTime = 0f;
-            if (GlobalEnabled) this.UpdateDistanceVisibility(true);
+            if (
+                GlobalEnabled &&
+                !this.m_Suspended &&
+                !this.m_InsideShadowOwner
+            )
+            {
+                this.UpdateDistanceVisibility(true);
+            }
             this.UpdateRendererVisibility();
         }
 
@@ -286,6 +338,26 @@ namespace FranklinGame.Rendering
         {
             this.m_Power = Mathf.Clamp(power, 0.25f, 8f);
             this.ApplyAppearance();
+        }
+
+        /// <summary>Sets the fully dark center before the soft edge begins.</summary>
+        public void SetCoreSize(float coreSize)
+        {
+            this.m_Core = Mathf.Clamp(coreSize, 0f, 0.9f);
+            this.ApplyAppearance();
+        }
+
+        /// <summary>
+        /// Sets the transform that supplies vehicle forward and the visual-center
+        /// offset expressed in that transform's local X/Z plane.
+        /// </summary>
+        public void SetAlignment(Transform orientationTransform, Vector2 footprintCenter)
+        {
+            this.m_OrientationTransform = orientationTransform != null
+                ? orientationTransform
+                : this.transform;
+            this.m_FootprintCenter = footprintCenter;
+            this.RefreshGround();
         }
 
         /// <summary>Changes width and length while preserving the current footprint shape.</summary>
@@ -414,7 +486,13 @@ namespace FranklinGame.Rendering
             this.m_RenderCamera = camera;
             this.m_DepthConfiguredCamera = null;
             this.m_NextDistanceCheckTime = 0f;
-            if (GlobalEnabled && configureDepth && this.m_ConfigureCameraDepth)
+            if (
+                GlobalEnabled &&
+                !this.m_Suspended &&
+                !this.m_InsideShadowOwner &&
+                configureDepth &&
+                this.m_ConfigureCameraDepth
+            )
             {
                 if (EnsureCameraDepth(camera)) this.m_DepthConfiguredCamera = camera;
             }
@@ -457,6 +535,20 @@ namespace FranklinGame.Rendering
             {
                 this.m_ShadowRenderer = this.m_ShadowTransform.GetComponent<MeshRenderer>();
             }
+
+            // Keep the visible FBS volume on the same gameplay layer as its
+            // owner. This also repairs prefab variants created before the layer
+            // contract was introduced.
+            if (this.m_ShadowTransform != null &&
+                this.m_ShadowTransform.gameObject.layer != this.gameObject.layer)
+            {
+                this.m_ShadowTransform.gameObject.layer = this.gameObject.layer;
+            }
+
+            if (this.m_OrientationTransform == null)
+            {
+                this.m_OrientationTransform = this.transform;
+            }
         }
 
         private void ConfigureRenderer()
@@ -487,6 +579,7 @@ namespace FranklinGame.Rendering
                 this.m_Intensity * this.m_AirborneOpacityMultiplier
             );
             this.m_PropertyBlock.SetFloat(BlobPowerId, this.m_Power);
+            this.m_PropertyBlock.SetFloat(BlobCoreId, this.m_Core);
             this.m_PropertyBlock.SetFloat(
                 BlobShapeId,
                 this.m_FootprintShape == FootprintShape.Rectangle ? 1f : 0f
@@ -580,7 +673,7 @@ namespace FranklinGame.Rendering
         private void UpdatePlacement(bool force)
         {
             if (this.m_ShadowTransform == null || this.m_ShadowRenderer == null) return;
-            if (!GlobalEnabled)
+            if (!GlobalEnabled || this.m_Suspended || this.m_InsideShadowOwner)
             {
                 this.SetRendererEnabled(false);
                 return;
@@ -590,7 +683,7 @@ namespace FranklinGame.Rendering
             {
                 this.m_HasGround = true;
                 this.ResetAirborneState();
-                Vector3 position = this.transform.position + Vector3.up * this.m_GroundOffset;
+                Vector3 position = this.GetFootprintWorldCenter() + Vector3.up * this.m_GroundOffset;
                 Quaternion rotation = this.GetGroundAlignedRotation(Vector3.up);
                 this.m_ShadowTransform.SetPositionAndRotation(position, rotation);
                 this.UpdateRendererVisibility();
@@ -607,7 +700,7 @@ namespace FranklinGame.Rendering
 
             if (this.m_HasGround)
             {
-                Vector3 ownerPosition = this.transform.position;
+                Vector3 ownerPosition = this.GetFootprintWorldCenter();
                 float planeDistance = Vector3.Dot(ownerPosition - this.m_GroundPoint, this.m_GroundNormal);
                 float normalY = Mathf.Max(0.01f, this.m_GroundNormal.y);
                 float verticalHeight = planeDistance / normalY;
@@ -630,10 +723,13 @@ namespace FranklinGame.Rendering
 
         private Quaternion GetGroundAlignedRotation(Vector3 groundNormal)
         {
-            Vector3 forward = Vector3.ProjectOnPlane(this.transform.forward, groundNormal);
+            Transform orientation = this.m_OrientationTransform != null
+                ? this.m_OrientationTransform
+                : this.transform;
+            Vector3 forward = Vector3.ProjectOnPlane(orientation.forward, groundNormal);
             if (forward.sqrMagnitude < 0.0001f)
             {
-                forward = Vector3.Cross(this.transform.right, groundNormal);
+                forward = Vector3.Cross(orientation.right, groundNormal);
             }
 
             if (forward.sqrMagnitude < 0.0001f)
@@ -642,6 +738,18 @@ namespace FranklinGame.Rendering
             }
 
             return Quaternion.LookRotation(forward.normalized, groundNormal);
+        }
+
+        private Vector3 GetFootprintWorldCenter()
+        {
+            Transform orientation = this.m_OrientationTransform != null
+                ? this.m_OrientationTransform
+                : this.transform;
+            Vector3 center = orientation.TransformPoint(
+                new Vector3(this.m_FootprintCenter.x, 0f, this.m_FootprintCenter.y)
+            );
+            center.y = this.transform.position.y;
+            return center;
         }
 
         private void UpdateAirborneState(float airborneHeight)
@@ -686,12 +794,12 @@ namespace FranklinGame.Rendering
 
         private bool TrySampleGround(out Vector3 point, out Vector3 normal)
         {
-            Vector3 origin = this.transform.position + Vector3.up * this.m_ProbeStartHeight;
+            Vector3 origin = this.GetFootprintWorldCenter() + Vector3.up * this.m_ProbeStartHeight;
             float distance = this.m_ProbeStartHeight + this.m_MaxGroundDistance;
             int hitCount = Physics.RaycastNonAlloc(
                 origin,
                 Vector3.down,
-                this.m_GroundHits,
+                GroundHits,
                 distance,
                 this.m_GroundLayers,
                 QueryTriggerInteraction.Ignore
@@ -702,9 +810,16 @@ namespace FranklinGame.Rendering
 
             for (int i = 0; i < hitCount; i++)
             {
-                RaycastHit hit = this.m_GroundHits[i];
+                RaycastHit hit = GroundHits[i];
                 if (hit.collider == null || hit.normal.y < this.m_MinGroundNormalY) continue;
                 if (hit.transform == this.transform || hit.transform.IsChildOf(this.transform)) continue;
+                if (
+                    this.m_IgnoreRigidbodyReceivers &&
+                    hit.collider.attachedRigidbody != null
+                )
+                {
+                    continue;
+                }
                 if (hit.distance >= nearestDistance) continue;
 
                 nearestDistance = hit.distance;
@@ -713,8 +828,8 @@ namespace FranklinGame.Rendering
 
             if (nearestIndex >= 0)
             {
-                point = this.m_GroundHits[nearestIndex].point;
-                normal = this.m_GroundHits[nearestIndex].normal;
+                point = GroundHits[nearestIndex].point;
+                normal = GroundHits[nearestIndex].normal;
                 return true;
             }
 
@@ -730,6 +845,8 @@ namespace FranklinGame.Rendering
 
             this.SetRendererEnabled(
                 GlobalEnabled &&
+                !this.m_Suspended &&
+                !this.m_InsideShadowOwner &&
                 this.m_UserVisible &&
                 groundVisible &&
                 airborneVisible &&
@@ -739,7 +856,7 @@ namespace FranklinGame.Rendering
 
         private void ApplyGlobalEnabledState(bool enabled)
         {
-            if (!enabled)
+            if (!enabled || this.m_Suspended || this.m_InsideShadowOwner)
             {
                 this.SetRendererEnabled(false);
                 return;
@@ -763,11 +880,61 @@ namespace FranklinGame.Rendering
             }
         }
 
+        private void RefreshShadowOwnerSuppression()
+        {
+            bool wasSuppressed = this.m_InsideShadowOwner;
+            this.m_InsideShadowOwner = false;
+
+            if (this.m_SuppressInsideShadowOwner)
+            {
+                for (Transform current = this.transform.parent;
+                     current != null;
+                     current = current.parent)
+                {
+                    if (
+                        current.TryGetComponent(out FranklinBlobShadow ownerShadow) &&
+                        ownerShadow != this
+                    )
+                    {
+                        this.m_InsideShadowOwner = true;
+                        break;
+                    }
+                }
+            }
+
+            if (this.m_InsideShadowOwner)
+            {
+                this.SetRendererEnabled(false);
+                return;
+            }
+
+            if (wasSuppressed)
+            {
+                this.m_ForceGroundProbe = true;
+                this.m_NextGroundProbeTime = 0f;
+                this.m_NextDistanceCheckTime = 0f;
+            }
+        }
+
         private static void EnsureGlobalStateLoaded()
         {
             if (s_GlobalStateLoaded) return;
 
-            s_GlobalEnabled = PlayerPrefs.GetInt(GlobalEnabledPreferenceKey, 1) != 0;
+            // V1 repairs projects that saved the master switch OFF before the
+            // Player/Npc/Bike/Car layer contract was installed. Run only once;
+            // subsequent player choices keep persisting normally.
+            if (PlayerPrefs.GetInt(OwnerLayerMigrationPreferenceKey, 0) == 0)
+            {
+                s_GlobalEnabled = true;
+                PlayerPrefs.SetInt(GlobalEnabledPreferenceKey, 1);
+                PlayerPrefs.SetInt(OwnerLayerMigrationPreferenceKey, 1);
+                PlayerPrefs.Save();
+            }
+            else
+            {
+                s_GlobalEnabled =
+                    PlayerPrefs.GetInt(GlobalEnabledPreferenceKey, 1) != 0;
+            }
             s_GlobalStateLoaded = true;
         }
 

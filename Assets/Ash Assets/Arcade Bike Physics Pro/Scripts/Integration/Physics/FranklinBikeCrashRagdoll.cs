@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using FranklinGame.Animations;
+using FranklinGame.Shooter;
 using GameCreator.Runtime.Characters;
 using UnityEngine;
 
@@ -47,6 +48,8 @@ namespace FranklinGame.Vehicles
         [SerializeField, HideInInspector] private FranklinArcadeBikeDriver m_Driver;
         [SerializeField, HideInInspector] private FranklinArcadeBikeRagdoll m_BikeRagdoll;
         [SerializeField, HideInInspector] private BikeEntry m_BikeEntry;
+        [SerializeField, HideInInspector]
+        private FranklinBikePassengerSeat m_PassengerSeat;
         [SerializeField, HideInInspector] private Rigidbody m_BikeBody;
         [SerializeField, HideInInspector] private int m_ConfigurationVersion;
 
@@ -127,6 +130,10 @@ namespace FranklinGame.Vehicles
             Character rider = this.m_BikeEntry != null
                 ? this.m_BikeEntry.SeatedCharacter
                 : null;
+            Character passenger = this.m_PassengerSeat != null
+                ? this.m_PassengerSeat.Passenger
+                : null;
+            if (rider == null && passenger == null) return;
             if (rider == null) return;
 
             // The GC2 API still toggles IsRagdoll when the selected system is None.
@@ -159,6 +166,11 @@ namespace FranklinGame.Vehicles
             {
                 this.m_IsHandlingCrash = false;
                 return;
+            }
+            if (passenger != null)
+            {
+                this.m_PassengerSeat.ReleaseForCrash(passenger);
+                _ = this.StartPassengerRagdoll(passenger);
             }
             if (!this.m_BikeEntry.ReleaseForCrash(rider))
             {
@@ -202,6 +214,7 @@ namespace FranklinGame.Vehicles
                     await rider.Ragdoll.StartRecover();
                     rider.GetComponentInChildren<FranklinAnimationBridge>(true)
                         ?.RestoreModelRootBaseline();
+                    await FranklinShooterSystem.CompleteBikeDriverExit(rider);
                 }
                 if (!this.IsCurrent(version) || rider == null) return;
 
@@ -217,6 +230,20 @@ namespace FranklinGame.Vehicles
             finally
             {
                 if (version == this.m_AsyncVersion) this.m_IsHandlingCrash = false;
+            }
+        }
+
+        private async Task StartPassengerRagdoll(Character passenger)
+        {
+            if (passenger == null || passenger.Ragdoll.Get<RagdollDefault>() == null)
+                return;
+            try
+            {
+                await passenger.Ragdoll.StartRagdoll();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception, this);
             }
         }
 
@@ -322,6 +349,8 @@ namespace FranklinGame.Vehicles
                 this.m_BikeRagdoll = this.GetComponent<FranklinArcadeBikeRagdoll>();
             if (this.m_BikeEntry == null)
                 this.m_BikeEntry = this.GetComponent<BikeEntry>();
+            if (this.m_PassengerSeat == null)
+                this.m_PassengerSeat = this.GetComponent<FranklinBikePassengerSeat>();
             if (this.m_BikeBody == null)
                 this.m_BikeBody = this.GetComponent<Rigidbody>();
         }

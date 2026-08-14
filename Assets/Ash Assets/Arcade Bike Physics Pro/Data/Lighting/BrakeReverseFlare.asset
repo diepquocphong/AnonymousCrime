@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.LensFlareDataSRP
   elements:
   - lensFlareDataSRP: {fileID: 0}
-    visible: 1
+    visible: 0
     position: 0
     positionOffset: {x: 0, y: 0}
     angularOffset: 0
@@ -26,16 +26,16 @@ MonoBehaviour:
     noiseSpeed: 0
     shapeCutOffSpeed: 0
     shapeCutOffRadius: 10
-    m_LocalIntensity: 1
-    lensFlareTexture: {fileID: 0}
-    uniformScale: 0.18
-    sizeXY: {x: 1, y: 1}
+    m_LocalIntensity: 0
+    lensFlareTexture: {fileID: 2800000, guid: 7998ce6b4e20044698ce3f3e04d86cc5, type: 3}
+    uniformScale: 0.55
+    sizeXY: {x: 1.25, y: 0.72}
     allowMultipleElement: 0
     m_Count: 5
     preserveAspectRatio: 0
     rotation: 0
     tintColorType: 0
-    tint: {r: 1, g: 0.015, b: 0.005, a: 1}
+    tint: {r: 1, g: 0.38, b: 0.28, a: 1}
     tintGradient:
       <textureSize>k__BackingField: 4
       m_Gradient:
@@ -72,8 +72,8 @@ MonoBehaviour:
       colorSpace: -1
     blendMode: 0
     autoRotate: 0
-    flareType: 1
-    modulateByLightColor: 1
+    flareType: 0
+    modulateByLightColor: 0
     isFoldOpened: 1
     distribution: 0
     lengthSpread: 1
@@ -230,16 +230,16 @@ MonoBehaviour:
     noiseSpeed: 0
     shapeCutOffSpeed: 0
     shapeCutOffRadius: 10
-    m_LocalIntensity: 0.38
-    lensFlareTexture: {fileID: 0}
-    uniformScale: 0.52
-    sizeXY: {x: 1.45, y: 1}
+    m_LocalIntensity: 0.85
+    lensFlareTexture: {fileID: 2800000, guid: 7998ce6b4e20044698ce3f3e04d86cc5, type: 3}
+    uniformScale: 2.4
+    sizeXY: {x: 1.55, y: 0.72}
     allowMultipleElement: 0
     m_Count: 5
-    preserveAspectRatio: 0
+    preserveAspectRatio: 1
     rotation: 0
     tintColorType: 0
-    tint: {r: 1, g: 0.01, b: 0.005, a: 0.55}
+    tint: {r: 1, g: 1, b: 1, a: 0.85}
     tintGradient:
       <textureSize>k__BackingField: 4
       m_Gradient:
@@ -276,8 +276,8 @@ MonoBehaviour:
       colorSpace: -1
     blendMode: 0
     autoRotate: 0
-    flareType: 1
-    modulateByLightColor: 1
+    flareType: 0
+    modulateByLightColor: 0
     isFoldOpened: 1
     distribution: 0
     lengthSpread: 1

@@ -1,5 +1,6 @@
 using System.Reflection;
 using FranklinGame.Vehicles;
+using FranklinGame.Rendering;
 using GameCreator.Runtime.Cameras;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
@@ -57,6 +58,9 @@ namespace FranklinGame.Animations
         [SerializeField]
         [Tooltip("The Player locomotion bridge to suspend while a vehicle owns the body animation.")]
         private FranklinAnimationBridge m_MovementBridge;
+        [SerializeField]
+        [Tooltip("Player-only FBS suspended throughout vehicle entry, seating and exit.")]
+        private FranklinBlobShadow m_PlayerBlobShadow;
         [SerializeField]
         [Tooltip("Applies bike-only TPS aim values to the current GC2 Main Camera Shot.")]
         private FranklinBikeMainShotAim m_BikeMainShotAim;
@@ -142,6 +146,7 @@ namespace FranklinGame.Animations
                 this.m_MovementBridge?.SetExternalAnimationLock(false);
             }
 
+            this.SetPlayerBlobShadowSuspended(false);
             this.RestorePlayerCamera();
         }
 
@@ -217,6 +222,7 @@ namespace FranklinGame.Animations
             this.m_IsVehicleAnimationLocked = false;
             this.m_HasEnteredVehicle = false;
             this.m_MovementBridge?.SetExternalAnimationLock(false);
+            this.SetPlayerBlobShadowSuspended(false);
             this.ClearDelayedDrivingState();
             this.RestorePlayerCamera();
             this.m_ActiveVehiclePivot = null;
@@ -424,6 +430,7 @@ namespace FranklinGame.Animations
         {
             this.m_IsVehicleAnimationLocked = false;
             this.m_MovementBridge?.SetExternalAnimationLock(false);
+            this.SetPlayerBlobShadowSuspended(false);
             this.ClearDelayedDrivingState();
             this.m_ActiveVehiclePivot = null;
             this.m_ActiveCarEntry = null;
@@ -485,6 +492,10 @@ namespace FranklinGame.Animations
                     FranklinAnimationBridge
                 >(true);
             }
+            if (this.m_PlayerBlobShadow == null && this.m_Player != null)
+            {
+                FranklinBlobShadow.TryGet(this.m_Player, out this.m_PlayerBlobShadow);
+            }
             if (this.m_BikeMainShotAim == null)
             {
                 this.m_BikeMainShotAim = this.GetComponent<FranklinBikeMainShotAim>();
@@ -499,6 +510,7 @@ namespace FranklinGame.Animations
             this.m_HasEnteredVehicle = false;
             this.m_EntryRequestedAt = UnityEngine.Time.unscaledTime;
             this.m_MovementBridge?.SetExternalAnimationLock(true);
+            this.SetPlayerBlobShadowSuspended(true);
         }
 
         private void UpdateVehicleAnimationLock()
@@ -552,6 +564,7 @@ namespace FranklinGame.Animations
 
             this.m_IsVehicleAnimationLocked = false;
             this.m_MovementBridge?.SetExternalAnimationLock(false);
+            this.SetPlayerBlobShadowSuspended(false);
             this.ClearDelayedDrivingState();
             this.RestorePlayerCamera();
             this.m_ActiveVehiclePivot = null;
@@ -559,6 +572,16 @@ namespace FranklinGame.Animations
             this.m_ActiveBikeEntry = null;
             this.m_ActiveSimcadeDriver = null;
             this.m_ActiveCarjacking = null;
+        }
+
+        private void SetPlayerBlobShadowSuspended(bool suspended)
+        {
+            if (this.m_PlayerBlobShadow == null && this.m_Player != null)
+            {
+                FranklinBlobShadow.TryGet(this.m_Player, out this.m_PlayerBlobShadow);
+            }
+
+            this.m_PlayerBlobShadow?.SetSuspended(suspended);
         }
 
         private void DelayVehicleDrivingIdle(Component vehicleEntry)

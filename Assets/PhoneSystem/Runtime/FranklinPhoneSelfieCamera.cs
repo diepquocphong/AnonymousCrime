@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using FranklinGame.Animations;
 using GameCreator.Runtime.Cameras;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
@@ -28,6 +29,13 @@ namespace FranklinGame.PhoneSystem
         private const string STATUS_NAME = "Recording";
         private const string PHOTOS_APP_NAME = "Photos App";
         private const int PHOTO_SLOT_COUNT = 9;
+        private const int PHOTO_COLUMNS = 3;
+        private const float PHOTO_VIEWPORT_HEIGHT = 696f;
+        private const float PHOTO_SLOT_WIDTH = 118f;
+        private const float PHOTO_SLOT_HEIGHT = 193f;
+        private const float PHOTO_COLUMN_STEP = 137f;
+        private const float PHOTO_ROW_STEP = 218f;
+        private const float PHOTO_TOP_SLOT_CENTER = 130f;
 
         private static readonly FieldInfo THIRD_PERSON_SHOULDER_FIELD =
             typeof(ShotSystemThirdPerson).GetField(
@@ -44,9 +52,29 @@ namespace FranklinGame.PhoneSystem
                 "m_Radius",
                 BindingFlags.Instance | BindingFlags.NonPublic
             );
+        private static readonly FieldInfo THIRD_PERSON_PIVOT_FIELD =
+            typeof(ShotSystemThirdPerson).GetField(
+                "m_Pivot",
+                BindingFlags.Instance | BindingFlags.NonPublic
+            );
+        private static readonly FieldInfo THIRD_PERSON_SMOOTH_TIME_FIELD =
+            typeof(ShotSystemThirdPerson).GetField(
+                "m_SmoothTime",
+                BindingFlags.Instance | BindingFlags.NonPublic
+            );
+        private static readonly FieldInfo THIRD_PERSON_MAX_YAW_FIELD =
+            typeof(ShotSystemThirdPerson).GetField(
+                "m_MaxYaw",
+                BindingFlags.Instance | BindingFlags.NonPublic
+            );
         private static readonly FieldInfo SHOT_VIEWPORT_FIELD_OF_VIEW_FIELD =
             typeof(ShotSystemViewport).GetField(
                 "m_FieldOfView",
+                BindingFlags.Instance | BindingFlags.NonPublic
+            );
+        private static readonly FieldInfo SHOT_CAMERA_CLIPPING_FIELD =
+            typeof(ShotCamera).GetField(
+                "m_Clipping",
                 BindingFlags.Instance | BindingFlags.NonPublic
             );
 
@@ -65,6 +93,24 @@ namespace FranklinGame.PhoneSystem
         [InspectorName("Phone Camera Rotation")]
         [Tooltip("Euler offset applied after the camera aims at the Player.")]
         [SerializeField] private Vector3 m_CameraRotation = Vector3.zero;
+
+        [Header("Back Camera Root Transform")]
+        [InspectorName("Back Camera Position")]
+        [Tooltip(
+            "Offset from the Player root in Character right/up/forward axes. " +
+            "BACK never reads or follows a hand bone."
+        )]
+        [SerializeField] private Vector3 m_BackCameraPosition =
+            new(0f, 1.55f, 0f);
+        [InspectorName("Back Camera Rotation")]
+        [Tooltip("Euler adjustment from the Player root rotation.")]
+        [SerializeField] private Vector3 m_BackCameraRotation = Vector3.zero;
+        [InspectorName("Back Camera Field Of View")]
+        [SerializeField, Range(35f, 120f)]
+        private float m_BackCameraFieldOfView = 60f;
+        [InspectorName("Back Camera Orbit Smooth Time")]
+        [SerializeField, Range(0f, 0.25f)]
+        private float m_BackCameraOrbitSmoothTime = 0.06f;
 
         [Header("GC2 Camera Shot - Third Person")]
         [InspectorName("Shoulder")]
@@ -127,6 +173,18 @@ namespace FranklinGame.PhoneSystem
         private Camera m_MainCamera;
         private Camera m_SelfieCamera;
         private ShotCamera m_RuntimeSelfieShot;
+        private ShotCamera m_RuntimeBackCameraShot;
+        private ShotTypeThirdPerson m_RuntimeBackCameraShotType;
+        private ShotSystemThirdPerson m_RuntimeBackThirdPerson;
+        private ShotSystemViewport m_RuntimeBackShotViewport;
+        private EnablerFloat m_RuntimeBackShotFieldOfView;
+        private GameObject m_BackCameraPivot;
+        private int m_LastBackCameraPivotFrame = -1;
+        private Character m_BackCameraHiddenPlayer;
+        private FranklinObjectDirectionToggle m_BackCameraObjectDirectionToggle;
+        private bool m_OwnsBackCameraObjectDirection;
+        private readonly Dictionary<Renderer, bool> m_BackCameraRendererStates =
+            new();
         private ShotTypeThirdPerson m_RuntimeSelfieShotType;
         private ShotSystemThirdPerson m_RuntimeThirdPerson;
         private ShotSystemViewport m_RuntimeShotViewport;
@@ -136,20 +194,25 @@ namespace FranklinGame.PhoneSystem
         private float m_PreSelfieFieldOfView;
         private bool m_HasPreSelfieFieldOfView;
         private bool m_IsMainCameraShotActive;
+        private Quaternion m_BackCameraEntryRotation = Quaternion.identity;
+        private bool m_HasBackCameraEntryRotation;
         private float m_LastAppliedShotShoulder;
         private float m_LastAppliedShotLift;
         private float m_LastAppliedShotRadius;
         private float m_LastAppliedDeviceFieldOfView = -1f;
         private bool m_HasAppliedShotFraming;
+        private float m_LastAppliedBackFieldOfView = -1f;
         private RenderTexture m_RenderTexture;
         private RawImage m_Viewfinder;
         private Image m_FlashImage;
         private Button m_ShutterButton;
         private Text m_StatusText;
-        private readonly RawImage[] m_PhotoSlots = new RawImage[PHOTO_SLOT_COUNT];
-        private readonly Button[] m_PhotoButtons = new Button[PHOTO_SLOT_COUNT];
+        private readonly List<RawImage> m_PhotoSlots = new();
+        private readonly List<Button> m_PhotoButtons = new();
         private readonly List<Texture2D> m_GalleryTextures = new();
         private readonly List<string> m_GalleryPaths = new();
+        private ScrollRect m_PhotoScrollRect;
+        private RectTransform m_PhotoScrollContent;
         private GameObject m_PhotoViewer;
         private RawImage m_PhotoViewerImage;
         private Text m_PhotoViewerInfo;
@@ -170,9 +233,12 @@ namespace FranklinGame.PhoneSystem
         private Coroutine m_CaptureRoutine;
         private bool m_Initialized;
         private bool m_IsActive;
+        private bool m_IsBackCameraMode;
 
         public bool IsActive => this.m_IsActive;
+        public bool IsBackCameraMode => this.m_IsBackCameraMode;
         public bool IsConfigured => this.m_SelfieShotPrefab != null;
+        public RenderTexture LiveTexture => this.m_RenderTexture;
         public int StoredPhotoCount { get; private set; }
         public string PhotoDirectory => Path.Combine(
             Application.persistentDataPath,
@@ -217,20 +283,25 @@ namespace FranklinGame.PhoneSystem
                 this.EnsureRenderResources();
                 this.ResolveMainCamera();
                 this.ResolvePlayer();
+                if (this.m_IsBackCameraMode)
+                    this.CaptureBackCameraEntryRotation();
                 this.m_HandPresentation?.SyncPhoneTransform();
                 this.EnsureMainCameraShotActive();
-                this.ApplyPlayerSelfieTurnSpeed();
-                this.UpdatePlayerFacing();
+                this.UpdatePlayerPresentationForCameraMode();
                 this.SyncSelfieCamera();
                 if (this.m_SelfieCamera != null)
                     this.m_SelfieCamera.enabled = true;
                 if (this.m_Viewfinder != null)
                     this.m_Viewfinder.texture = this.m_RenderTexture;
                 if (this.m_StatusText != null)
-                    this.m_StatusText.text = "● SELFIE";
+                    this.m_StatusText.text = this.m_IsBackCameraMode
+                        ? "● BACK"
+                        : "● SELFIE";
                 this.m_HandPresentation?.SetSelfieMode(
                     true,
-                    this.GetCameraShotLookTarget()
+                    this.m_IsBackCameraMode
+                        ? null
+                        : this.GetCameraShotLookTarget()
                 );
             }
             else
@@ -247,8 +318,44 @@ namespace FranklinGame.PhoneSystem
                 this.RestoreMainCameraShot();
                 this.ReleasePlayerFacing();
                 this.RestorePlayerTurnSpeed();
+                this.RestoreBackCameraPlayerPresentation();
+                this.m_PhoneSystem?.SetBackCameraFastMovementEnabled(false);
+                this.m_HasBackCameraEntryRotation = false;
                 this.m_HandPresentation?.SetSelfieMode(false);
             }
+        }
+
+        public void SetBackCameraMode(bool backCamera)
+        {
+            if (this.m_IsBackCameraMode == backCamera) return;
+
+            // Capture the outgoing SELFIE/gameplay view before changing mode.
+            // BACK starts at a true world-space 180-degree yaw from that view.
+            if (backCamera && this.m_IsActive)
+            {
+                this.ResolveMainCamera();
+                this.ResolvePlayer();
+                this.CaptureBackCameraEntryRotation();
+            }
+            else if (!backCamera)
+            {
+                this.m_HasBackCameraEntryRotation = false;
+            }
+            this.m_IsBackCameraMode = backCamera;
+            if (!this.m_IsActive) return;
+
+            this.m_HandPresentation?.SyncPhoneTransform();
+            this.ResolveMainCamera();
+            this.ResolvePlayer();
+            this.UpdatePlayerPresentationForCameraMode();
+            this.EnsureMainCameraShotActive();
+            this.SyncSelfieCamera();
+            if (this.m_StatusText != null)
+                this.m_StatusText.text = backCamera ? "● BACK" : "● SELFIE";
+            this.m_HandPresentation?.SetSelfieMode(
+                true,
+                backCamera ? null : this.GetCameraShotLookTarget()
+            );
         }
 
         public void CapturePhoto()
@@ -287,12 +394,14 @@ namespace FranklinGame.PhoneSystem
             this.ResolveMainCamera();
             this.ResolvePlayer();
             this.EnsureMainCameraShotActive();
-            this.UpdatePlayerFacing();
+            this.UpdatePlayerPresentationForCameraMode();
             this.SyncSelfieCamera();
 
             this.m_HandPresentation?.SetSelfieMode(
                 true,
-                this.GetCameraShotLookTarget()
+                this.m_IsBackCameraMode
+                    ? null
+                    : this.GetCameraShotLookTarget()
             );
         }
 
@@ -307,6 +416,8 @@ namespace FranklinGame.PhoneSystem
             this.BindGc2MainCamera(null);
             this.ReleasePlayerFacing();
             this.RestorePlayerTurnSpeed();
+            this.RestoreBackCameraPlayerPresentation();
+            this.m_PhoneSystem?.SetBackCameraFastMovementEnabled(false);
             if (this.m_Player != null)
                 this.m_Player.EventBeforeUpdate -= this.OnPlayerBeforeUpdate;
             this.m_HandPresentation?.SetSelfieMode(false);
@@ -330,6 +441,12 @@ namespace FranklinGame.PhoneSystem
 
             if (this.m_RuntimeSelfieShot != null)
                 Destroy(this.m_RuntimeSelfieShot.gameObject);
+
+            if (this.m_RuntimeBackCameraShot != null)
+                Destroy(this.m_RuntimeBackCameraShot.gameObject);
+
+            if (this.m_BackCameraPivot != null)
+                Destroy(this.m_BackCameraPivot);
 
             if (this.m_RenderTexture != null)
             {
@@ -427,34 +544,11 @@ namespace FranklinGame.PhoneSystem
                 );
                 if (slot == null) continue;
 
-                RectTransform slotRect = slot as RectTransform;
-                this.ConfigurePhotoSlot(slotRect, i);
-
-                Transform image = slot.Find("Captured Image");
-                if (image == null)
-                {
-                    GameObject imageObject = new(
-                        "Captured Image",
-                        typeof(RectTransform),
-                        typeof(CanvasRenderer),
-                        typeof(RawImage)
-                    );
-                    RectTransform imageRect =
-                        imageObject.GetComponent<RectTransform>();
-                    imageRect.SetParent(slot, false);
-                    Stretch(imageRect);
-                    imageRect.SetAsFirstSibling();
-                    image = imageRect;
-                }
-
-                RawImage rawImage = image.GetComponent<RawImage>();
-                rawImage.color = Color.white;
-                rawImage.raycastTarget = false;
-                rawImage.gameObject.SetActive(false);
-                this.m_PhotoSlots[i] = rawImage;
-                slot.gameObject.SetActive(false);
+                this.RegisterPhotoSlot(slot as RectTransform, i);
             }
 
+            this.EnsurePhotoSlotCapacity(PHOTO_SLOT_COUNT);
+            this.UpdatePhotoScrollLayout(0, true);
             this.EnsurePhotoViewer(photosApp);
         }
 
@@ -492,6 +586,8 @@ namespace FranklinGame.PhoneSystem
             if (sectionTitle != null) sectionTitle.gameObject.SetActive(false);
             if (sectionRule != null) sectionRule.gameObject.SetActive(false);
 
+            this.EnsurePhotoScrollView(photosApp);
+
             Transform empty = photosApp.Find("Photo Empty State");
             if (empty == null)
             {
@@ -514,23 +610,231 @@ namespace FranklinGame.PhoneSystem
             {
                 this.m_PhotoEmptyText = empty.GetComponent<Text>();
             }
+            if (this.m_PhotoEmptyText != null)
+                this.m_PhotoEmptyText.transform.SetAsLastSibling();
+        }
+
+        private void EnsurePhotoScrollView(RectTransform photosApp)
+        {
+            if (photosApp == null) return;
+
+            Transform areaTransform = photosApp.Find("Photos Scroll Area");
+            RectTransform areaRect;
+            if (areaTransform == null)
+            {
+                GameObject areaObject = new(
+                    "Photos Scroll Area",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image),
+                    typeof(ScrollRect)
+                );
+                areaRect = areaObject.GetComponent<RectTransform>();
+                areaRect.SetParent(photosApp, false);
+                Stretch(areaRect);
+                Image areaImage = areaObject.GetComponent<Image>();
+                areaImage.color = Color.clear;
+                areaImage.raycastTarget = true;
+                areaTransform = areaRect;
+            }
+            else
+            {
+                areaRect = areaTransform as RectTransform;
+            }
+            if (areaRect == null) return;
+
+            this.m_PhotoScrollRect =
+                areaRect.GetComponent<ScrollRect>() ??
+                areaRect.gameObject.AddComponent<ScrollRect>();
+
+            Transform viewportTransform = areaRect.Find("Viewport");
+            RectTransform viewportRect;
+            if (viewportTransform == null)
+            {
+                GameObject viewportObject = new(
+                    "Viewport",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image),
+                    typeof(RectMask2D)
+                );
+                viewportRect = viewportObject.GetComponent<RectTransform>();
+                viewportRect.SetParent(areaRect, false);
+                Stretch(viewportRect);
+                Image viewportImage = viewportObject.GetComponent<Image>();
+                viewportImage.color = Color.clear;
+                viewportImage.raycastTarget = false;
+                viewportTransform = viewportRect;
+            }
+            else
+            {
+                viewportRect = viewportTransform as RectTransform;
+                if (viewportTransform.GetComponent<RectMask2D>() == null)
+                    viewportTransform.gameObject.AddComponent<RectMask2D>();
+            }
+            if (viewportRect == null) return;
+
+            Transform contentTransform = viewportRect.Find("Content");
+            if (contentTransform == null)
+            {
+                GameObject contentObject = new(
+                    "Content",
+                    typeof(RectTransform)
+                );
+                this.m_PhotoScrollContent =
+                    contentObject.GetComponent<RectTransform>();
+                this.m_PhotoScrollContent.SetParent(viewportRect, false);
+            }
+            else
+            {
+                this.m_PhotoScrollContent =
+                    contentTransform as RectTransform;
+            }
+            if (this.m_PhotoScrollContent == null) return;
+
+            this.m_PhotoScrollContent.anchorMin = new Vector2(0f, 1f);
+            this.m_PhotoScrollContent.anchorMax = new Vector2(1f, 1f);
+            this.m_PhotoScrollContent.pivot = new Vector2(0.5f, 1f);
+            this.m_PhotoScrollContent.anchoredPosition = Vector2.zero;
+            this.m_PhotoScrollContent.sizeDelta =
+                new Vector2(0f, PHOTO_VIEWPORT_HEIGHT);
+
+            this.m_PhotoScrollRect.viewport = viewportRect;
+            this.m_PhotoScrollRect.content = this.m_PhotoScrollContent;
+            this.m_PhotoScrollRect.horizontal = false;
+            this.m_PhotoScrollRect.vertical = true;
+            this.m_PhotoScrollRect.movementType =
+                ScrollRect.MovementType.Elastic;
+            this.m_PhotoScrollRect.elasticity = 0.08f;
+            this.m_PhotoScrollRect.inertia = true;
+            this.m_PhotoScrollRect.decelerationRate = 0.135f;
+            this.m_PhotoScrollRect.scrollSensitivity = 55f;
+            this.m_PhotoScrollRect.horizontalScrollbar = null;
+            this.m_PhotoScrollRect.verticalScrollbar = null;
+
+            areaRect.SetAsFirstSibling();
+        }
+
+        private void RegisterPhotoSlot(RectTransform slot, int index)
+        {
+            if (slot == null || index < 0) return;
+
+            this.ConfigurePhotoSlot(slot, index);
+            Transform image = slot.Find("Captured Image");
+            if (image == null)
+            {
+                GameObject imageObject = new(
+                    "Captured Image",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(RawImage)
+                );
+                RectTransform imageRect =
+                    imageObject.GetComponent<RectTransform>();
+                imageRect.SetParent(slot, false);
+                Stretch(imageRect);
+                imageRect.SetAsFirstSibling();
+                image = imageRect;
+            }
+
+            RawImage rawImage = image.GetComponent<RawImage>();
+            rawImage.color = Color.white;
+            rawImage.raycastTarget = false;
+            rawImage.texture = null;
+            rawImage.gameObject.SetActive(false);
+            SetListItem(this.m_PhotoSlots, index, rawImage);
+            slot.gameObject.SetActive(false);
+        }
+
+        private void EnsurePhotoSlotCapacity(int count)
+        {
+            if (this.m_PhotoScrollContent == null) return;
+
+            for (int index = 0; index < count; ++index)
+            {
+                if (index < this.m_PhotoSlots.Count &&
+                    this.m_PhotoSlots[index] != null)
+                {
+                    continue;
+                }
+
+                GameObject slotObject = new(
+                    $"Photo {index + 1}",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Image)
+                );
+                RectTransform slotRect =
+                    slotObject.GetComponent<RectTransform>();
+                slotRect.SetParent(this.m_PhotoScrollContent, false);
+
+                Image background = slotObject.GetComponent<Image>();
+                Image template = this.m_PhotoSlots.Count > 0 &&
+                                 this.m_PhotoSlots[0] != null
+                    ? this.m_PhotoSlots[0].transform.parent
+                        .GetComponent<Image>()
+                    : null;
+                background.color =
+                    new Color(0.015f, 0.022f, 0.030f, 1f);
+                background.raycastTarget = true;
+                if (template != null)
+                {
+                    background.sprite = template.sprite;
+                    background.type = template.type;
+                }
+
+                this.RegisterPhotoSlot(slotRect, index);
+            }
+        }
+
+        private void UpdatePhotoScrollLayout(int itemCount, bool resetToTop)
+        {
+            if (this.m_PhotoScrollContent == null) return;
+
+            int rows = Mathf.Max(
+                1,
+                Mathf.CeilToInt(itemCount / (float)PHOTO_COLUMNS)
+            );
+            float contentHeight = Mathf.Max(
+                PHOTO_VIEWPORT_HEIGHT,
+                PHOTO_TOP_SLOT_CENTER + PHOTO_SLOT_HEIGHT * 0.5f +
+                (rows - 1) * PHOTO_ROW_STEP + 33.5f
+            );
+            this.m_PhotoScrollContent.sizeDelta =
+                new Vector2(0f, contentHeight);
+
+            if (this.m_PhotoScrollRect == null) return;
+            this.m_PhotoScrollRect.vertical =
+                contentHeight > PHOTO_VIEWPORT_HEIGHT + 0.5f;
+            if (resetToTop)
+            {
+                this.m_PhotoScrollContent.anchoredPosition = Vector2.zero;
+                this.m_PhotoScrollRect.StopMovement();
+                Canvas.ForceUpdateCanvases();
+                this.m_PhotoScrollRect.verticalNormalizedPosition = 1f;
+            }
         }
 
         private void ConfigurePhotoSlot(RectTransform slot, int index)
         {
-            if (slot == null || index < 0 || index >= PHOTO_SLOT_COUNT) return;
+            if (slot == null || index < 0 ||
+                this.m_PhotoScrollContent == null)
+            {
+                return;
+            }
 
-            int column = index % 3;
-            int row = index / 3;
-            Vector2 center = new(0.5f, 0.5f);
-            slot.anchorMin = center;
-            slot.anchorMax = center;
-            slot.pivot = center;
+            slot.SetParent(this.m_PhotoScrollContent, false);
+            int column = index % PHOTO_COLUMNS;
+            int row = index / PHOTO_COLUMNS;
+            Vector2 topCenter = new(0.5f, 1f);
+            slot.anchorMin = topCenter;
+            slot.anchorMax = topCenter;
+            slot.pivot = new Vector2(0.5f, 0.5f);
             slot.anchoredPosition = new Vector2(
-                -137f + column * 137f,
-                218f - row * 218f
+                -PHOTO_COLUMN_STEP + column * PHOTO_COLUMN_STEP,
+                -PHOTO_TOP_SLOT_CENTER - row * PHOTO_ROW_STEP
             );
-            slot.sizeDelta = new Vector2(118f, 193f);
+            slot.sizeDelta = new Vector2(PHOTO_SLOT_WIDTH, PHOTO_SLOT_HEIGHT);
 
             Image background = slot.GetComponent<Image>();
             if (background != null)
@@ -562,8 +866,9 @@ namespace FranklinGame.PhoneSystem
             if (button == null) button = slot.gameObject.AddComponent<Button>();
             button.targetGraphic = background;
             int photoIndex = index;
+            button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() => this.ShowPhoto(photoIndex));
-            this.m_PhotoButtons[index] = button;
+            SetListItem(this.m_PhotoButtons, index, button);
         }
 
         private void EnsurePhotoViewer(RectTransform photosApp)
@@ -932,6 +1237,7 @@ namespace FranklinGame.PhoneSystem
             Character character = ShortcutPlayer.Get<Character>();
             if (this.m_Player == character) return;
 
+            this.RestoreBackCameraPlayerPresentation();
             this.ReleasePlayerFacing();
             this.RestorePlayerTurnSpeed();
             if (this.m_Player != null)
@@ -940,7 +1246,8 @@ namespace FranklinGame.PhoneSystem
             if (this.m_Player != null)
                 this.m_Player.EventBeforeUpdate += this.OnPlayerBeforeUpdate;
             this.ResolvePlayerBones();
-            if (this.m_IsActive) this.ApplyPlayerSelfieTurnSpeed();
+            if (this.m_IsActive)
+                this.UpdatePlayerPresentationForCameraMode();
         }
 
         private void OnPlayerBeforeUpdate()
@@ -968,7 +1275,8 @@ namespace FranklinGame.PhoneSystem
 
         private void UpdatePlayerFacing()
         {
-            if (!this.m_FaceCameraShot || this.m_Player?.Facing == null)
+            if (this.m_IsBackCameraMode || !this.m_FaceCameraShot ||
+                this.m_Player?.Facing == null)
             {
                 return;
             }
@@ -993,7 +1301,8 @@ namespace FranklinGame.PhoneSystem
 
         private void ApplyPlayerSelfieTurnSpeed()
         {
-            if (!this.m_IsActive || !this.m_FaceCameraShot)
+            if (!this.m_IsActive || this.m_IsBackCameraMode ||
+                !this.m_FaceCameraShot)
             {
                 this.RestorePlayerTurnSpeed();
                 return;
@@ -1045,11 +1354,108 @@ namespace FranklinGame.PhoneSystem
 
         private Transform GetCameraShotLookTarget()
         {
+            if (this.m_IsBackCameraMode) return null;
             if (this.m_RuntimeSelfieShot != null)
                 return this.m_RuntimeSelfieShot.transform;
             return this.m_Gc2MainCamera?.Transition.CurrentShotCamera != null
                 ? this.m_Gc2MainCamera.Transition.CurrentShotCamera.transform
                 : null;
+        }
+
+        private void UpdatePlayerPresentationForCameraMode()
+        {
+            if (this.m_IsBackCameraMode)
+            {
+                this.ReleasePlayerFacing();
+                this.RestorePlayerTurnSpeed();
+                this.ApplyBackCameraPlayerPresentation();
+                this.m_PhoneSystem?.SetBackCameraFastMovementEnabled(true);
+                return;
+            }
+
+            this.RestoreBackCameraPlayerPresentation();
+            this.m_PhoneSystem?.SetBackCameraFastMovementEnabled(false);
+            this.ApplyPlayerSelfieTurnSpeed();
+            this.UpdatePlayerFacing();
+        }
+
+        private void ApplyBackCameraPlayerPresentation()
+        {
+            if (!this.m_IsActive || !this.m_IsBackCameraMode ||
+                this.m_Player == null)
+            {
+                this.RestoreBackCameraPlayerPresentation();
+                return;
+            }
+
+            if (this.m_BackCameraHiddenPlayer != null &&
+                this.m_BackCameraHiddenPlayer != this.m_Player)
+            {
+                this.RestoreBackCameraPlayerPresentation();
+            }
+            this.m_BackCameraHiddenPlayer = this.m_Player;
+
+            // Hide only mesh renderers. The physical phone is a separate root
+            // object, so it remains visible while the Player body cannot enter
+            // either the main BACK view or its RenderTexture copy.
+            foreach (Renderer renderer in
+                     this.m_Player.GetComponentsInChildren<Renderer>(true))
+            {
+                if (renderer == null ||
+                    renderer is not MeshRenderer &&
+                    renderer is not SkinnedMeshRenderer)
+                {
+                    continue;
+                }
+
+                if (!this.m_BackCameraRendererStates.ContainsKey(renderer))
+                    this.m_BackCameraRendererStates.Add(renderer, renderer.enabled);
+                renderer.enabled = false;
+            }
+
+            if (this.m_BackCameraObjectDirectionToggle == null)
+            {
+                FranklinAnimationBridge bridge =
+                    this.m_Player.GetComponentInChildren<FranklinAnimationBridge>(
+                        true
+                    );
+                if (bridge != null)
+                {
+                    this.m_BackCameraObjectDirectionToggle =
+                        bridge.GetComponent<FranklinObjectDirectionToggle>() ??
+                        bridge.gameObject.AddComponent<
+                            FranklinObjectDirectionToggle
+                        >();
+                }
+            }
+
+            if (this.m_BackCameraObjectDirectionToggle != null &&
+                !this.m_BackCameraObjectDirectionToggle.IsObjectDirectionEnabled)
+            {
+                this.m_OwnsBackCameraObjectDirection =
+                    this.m_BackCameraObjectDirectionToggle
+                        .SetObjectDirectionEnabled(true);
+            }
+        }
+
+        private void RestoreBackCameraPlayerPresentation()
+        {
+            foreach (KeyValuePair<Renderer, bool> state in
+                     this.m_BackCameraRendererStates)
+            {
+                if (state.Key != null) state.Key.enabled = state.Value;
+            }
+            this.m_BackCameraRendererStates.Clear();
+            this.m_BackCameraHiddenPlayer = null;
+
+            if (this.m_OwnsBackCameraObjectDirection &&
+                this.m_BackCameraObjectDirectionToggle != null)
+            {
+                this.m_BackCameraObjectDirectionToggle
+                    .SetObjectDirectionEnabled(false);
+            }
+            this.m_OwnsBackCameraObjectDirection = false;
+            this.m_BackCameraObjectDirectionToggle = null;
         }
 
         private void ReleasePlayerFacing()
@@ -1179,25 +1585,86 @@ namespace FranklinGame.PhoneSystem
             return true;
         }
 
+        private bool TryGetBackCameraPose(
+            out Vector3 position,
+            out Quaternion rotation)
+        {
+            position = default;
+            rotation = Quaternion.identity;
+            if (this.m_Player == null) return false;
+
+            // BACK is rooted only to the stable Character transform. No hand,
+            // phone socket, Animator IK or humanoid bone contributes to this
+            // pose, eliminating animation feedback from the camera completely.
+            Transform character = this.m_Player.transform;
+            position = character.position +
+                       character.right * this.m_BackCameraPosition.x +
+                       character.up * this.m_BackCameraPosition.y +
+                       character.forward * this.m_BackCameraPosition.z;
+            Quaternion baseRotation = this.m_HasBackCameraEntryRotation
+                ? this.m_BackCameraEntryRotation
+                : character.rotation;
+            rotation = baseRotation *
+                       Quaternion.Euler(this.m_BackCameraRotation);
+            return true;
+        }
+
+        private void CaptureBackCameraEntryRotation()
+        {
+            Transform source = this.m_MainCamera != null
+                ? this.m_MainCamera.transform
+                : this.m_Gc2MainCamera != null
+                    ? this.m_Gc2MainCamera.transform
+                    : null;
+            if (source == null)
+            {
+                this.m_HasBackCameraEntryRotation = false;
+                return;
+            }
+
+            Vector3 up = this.m_Player != null
+                ? this.m_Player.transform.up
+                : Vector3.up;
+            this.m_BackCameraEntryRotation =
+                Quaternion.AngleAxis(180f, up) * source.rotation;
+            this.m_HasBackCameraEntryRotation = true;
+        }
+
         private void EnsureMainCameraShotActive()
         {
             if (!this.m_IsActive || this.m_Gc2MainCamera == null) return;
-            if (!this.EnsureRuntimeSelfieShot()) return;
-
-            bool ownsCurrentShot = this.m_IsMainCameraShotActive &&
-                this.m_MainCameraShotOwner == this.m_Gc2MainCamera &&
-                this.m_Gc2MainCamera.Transition.CurrentShotCamera ==
-                this.m_RuntimeSelfieShot;
-            if (!ownsCurrentShot)
+            ShotCamera desiredShot;
+            if (this.m_IsBackCameraMode)
             {
-                if (this.m_MainCameraShotOwner != null &&
-                    this.m_MainCameraShotOwner != this.m_Gc2MainCamera)
-                {
-                    this.RestoreMainCameraShot();
-                }
+                if (!this.EnsureRuntimeBackCameraShot()) return;
+                this.UpdateRuntimeBackCameraShot(false);
+                desiredShot = this.m_RuntimeBackCameraShot;
+            }
+            else
+            {
+                if (!this.EnsureRuntimeSelfieShot()) return;
+                desiredShot = this.m_RuntimeSelfieShot;
+            }
 
-                this.m_PreSelfieShot =
-                    this.m_Gc2MainCamera.Transition.CurrentShotCamera;
+            if (this.m_MainCameraShotOwner != null &&
+                this.m_MainCameraShotOwner != this.m_Gc2MainCamera)
+            {
+                this.RestoreMainCameraShot();
+            }
+
+            ShotCamera currentShot =
+                this.m_Gc2MainCamera.Transition.CurrentShotCamera;
+            bool sessionOwned = this.m_IsMainCameraShotActive &&
+                this.m_MainCameraShotOwner == this.m_Gc2MainCamera;
+            bool currentIsManaged = currentShot == this.m_RuntimeSelfieShot ||
+                currentShot == this.m_RuntimeBackCameraShot;
+
+            // Capture the pre-phone shot once. If another gameplay system takes
+            // control during phone use, remember that new external shot too;
+            // switching SELFIE/BACK never overwrites it with our own shot.
+            if (!sessionOwned || !currentIsManaged)
+            {
+                this.m_PreSelfieShot = currentShot;
                 if (!this.m_HasPreSelfieFieldOfView ||
                     ShotControlsFieldOfView(this.m_PreSelfieShot))
                 {
@@ -1205,23 +1672,254 @@ namespace FranklinGame.PhoneSystem
                         this.m_Gc2MainCamera.Viewport.FieldOfView;
                     this.m_HasPreSelfieFieldOfView = true;
                 }
-                this.ApplyCameraShotFraming(true);
                 this.m_MainCameraShotOwner = this.m_Gc2MainCamera;
+                this.m_IsMainCameraShotActive = true;
+            }
+
+            bool ownsDesiredShot =
+                this.m_Gc2MainCamera.Transition.CurrentShotCamera == desiredShot;
+            if (!ownsDesiredShot)
+            {
+                if (this.m_IsBackCameraMode)
+                {
+                    this.UpdateRuntimeBackCameraShot(true);
+                    this.ApplyBackCameraFraming(true);
+                }
+                else
+                    this.ApplyCameraShotFraming(true);
+
                 this.m_Gc2MainCamera.Transition.ChangeToShot(
-                    this.m_RuntimeSelfieShot,
+                    desiredShot,
                     0f,
                     Easing.Type.Linear
                 );
-                this.m_IsMainCameraShotActive = true;
-                this.ApplyCameraShotDeviceFraming(true);
-                this.ConfigureRuntimeSelfieShotAtPhone();
+                if (this.m_IsBackCameraMode)
+                {
+                    this.UpdateRuntimeBackCameraShot(false);
+                    this.ApplyBackCameraFraming(true);
+                }
+                else
+                {
+                    this.ApplyCameraShotDeviceFraming(true);
+                    this.ConfigureRuntimeSelfieShotAtPhone();
+                }
                 this.m_Gc2MainCamera.Sync();
+            }
+            else if (this.m_IsBackCameraMode)
+            {
+                this.UpdateRuntimeBackCameraShot(false);
+                this.ApplyBackCameraFraming(false);
             }
             else
             {
                 this.ApplyCameraShotFraming(false);
                 this.ApplyCameraShotDeviceFraming(false);
             }
+        }
+
+        private bool EnsureRuntimeBackCameraShot()
+        {
+            if (this.m_RuntimeBackCameraShot != null) return true;
+
+            if (this.m_SelfieShotPrefab == null)
+            {
+                Debug.LogWarning(
+                    "Phone Back Camera requires the configured GC2 Camera Shot prefab.",
+                    this
+                );
+                return false;
+            }
+
+            ShotCamera shortcutMainShot = ShortcutMainShot.Get<ShotCamera>();
+            this.m_RuntimeBackCameraShot = Instantiate(this.m_SelfieShotPrefab);
+            ShortcutMainShot.Change(shortcutMainShot);
+            GameObject shotObject = this.m_RuntimeBackCameraShot.gameObject;
+            shotObject.name = "Franklin Phone Back Camera Shot";
+            shotObject.hideFlags = HideFlags.HideInHierarchy;
+            this.m_RuntimeBackCameraShotType =
+                this.m_RuntimeBackCameraShot.ShotType as ShotTypeThirdPerson;
+            this.m_RuntimeBackThirdPerson =
+                this.m_RuntimeBackCameraShotType?.GetSystem(
+                    ShotSystemThirdPerson.ID
+                ) as ShotSystemThirdPerson;
+            this.m_RuntimeBackShotViewport =
+                this.m_RuntimeBackCameraShotType?.GetSystem(
+                    ShotSystemViewport.ID
+                ) as ShotSystemViewport;
+            this.m_RuntimeBackShotFieldOfView =
+                this.m_RuntimeBackShotViewport != null
+                    ? SHOT_VIEWPORT_FIELD_OF_VIEW_FIELD?.GetValue(
+                        this.m_RuntimeBackShotViewport
+                    ) as EnablerFloat
+                    : null;
+
+            if (this.m_RuntimeBackCameraShotType == null ||
+                this.m_RuntimeBackThirdPerson == null ||
+                this.m_RuntimeBackShotViewport == null)
+            {
+                Debug.LogWarning(
+                    "Phone Back Camera Shot must use GC2 Third Person and Viewport systems.",
+                    this
+                );
+                Destroy(shotObject);
+                this.m_RuntimeBackCameraShot = null;
+                return false;
+            }
+
+            this.m_BackCameraPivot = new GameObject(
+                "Franklin Phone Back Camera Stable Pivot"
+            );
+            this.m_BackCameraPivot.hideFlags = HideFlags.HideInHierarchy;
+            THIRD_PERSON_PIVOT_FIELD?.SetValue(
+                this.m_RuntimeBackThirdPerson,
+                GetGameObjectInstance.Create(this.m_BackCameraPivot)
+            );
+
+            // The source Camera Shot also has a gameplay sprint helper. Back
+            // camera orbit owns its yaw completely, so disable cloned helpers.
+            foreach (MonoBehaviour behaviour in
+                     shotObject.GetComponents<MonoBehaviour>())
+            {
+                if (behaviour != null &&
+                    behaviour != this.m_RuntimeBackCameraShot)
+                {
+                    behaviour.enabled = false;
+                }
+            }
+
+            // The root-space pivot sits inside the Player collider even though
+            // its mesh is hidden. BACK must clip through that collider so GC2
+            // never moves the shot while trying to avoid its own Character.
+            SHOT_CAMERA_CLIPPING_FIELD?.SetValue(
+                this.m_RuntimeBackCameraShot,
+                ShotCamera.Clipping.ClipThrough
+            );
+
+            this.ApplyBackCameraOrbitSettings();
+            this.m_LastAppliedBackFieldOfView = -1f;
+            this.m_LastBackCameraPivotFrame = -1;
+            DontDestroyOnLoad(shotObject);
+            DontDestroyOnLoad(this.m_BackCameraPivot);
+            this.UpdateRuntimeBackCameraShot(true);
+            return true;
+        }
+
+        private void UpdateRuntimeBackCameraShot(bool force)
+        {
+            if (this.m_RuntimeBackCameraShot == null ||
+                this.m_RuntimeBackThirdPerson == null ||
+                this.m_BackCameraPivot == null ||
+                !this.TryGetBackCameraPose(
+                    out Vector3 position,
+                    out Quaternion rotation
+                ))
+            {
+                return;
+            }
+
+            if (!force && this.m_LastBackCameraPivotFrame == Time.frameCount)
+                return;
+            this.m_LastBackCameraPivotFrame = Time.frameCount;
+
+            // Direct root-space placement is stable by construction and needs
+            // no bone-follow smoothing. Radius and shoulder are both zero, so
+            // the shot rotates in place at this pivot.
+            this.m_BackCameraPivot.transform.SetPositionAndRotation(
+                position,
+                rotation
+            );
+            if (force)
+            {
+                this.m_RuntimeBackThirdPerson.SetRotation(rotation);
+                this.m_RuntimeBackThirdPerson.Aim(0f, 0f, 0f, 0f);
+                this.m_RuntimeBackCameraShotType.Update();
+            }
+        }
+
+        private void ApplyBackCameraOrbitSettings()
+        {
+            if (this.m_RuntimeBackCameraShotType == null ||
+                this.m_RuntimeBackThirdPerson == null)
+            {
+                return;
+            }
+
+            SetThirdPersonDecimal(
+                this.m_RuntimeBackThirdPerson,
+                THIRD_PERSON_SHOULDER_FIELD,
+                0f
+            );
+            SetThirdPersonDecimal(
+                this.m_RuntimeBackThirdPerson,
+                THIRD_PERSON_LIFT_FIELD,
+                0f
+            );
+            SetThirdPersonDecimal(
+                this.m_RuntimeBackThirdPerson,
+                THIRD_PERSON_RADIUS_FIELD,
+                0f
+            );
+            THIRD_PERSON_SMOOTH_TIME_FIELD?.SetValue(
+                this.m_RuntimeBackThirdPerson,
+                new PropertyGetDecimal(
+                    Mathf.Clamp(this.m_BackCameraOrbitSmoothTime, 0f, 0.25f)
+                )
+            );
+            if (THIRD_PERSON_MAX_YAW_FIELD?.GetValue(
+                    this.m_RuntimeBackThirdPerson
+                ) is EnablerAngle180 maximumYaw)
+            {
+                maximumYaw.IsEnabled = false;
+            }
+            this.m_RuntimeBackThirdPerson.Alignment.AutoAlign = false;
+            ShotSystemZoom zoom = this.m_RuntimeBackCameraShotType.Zoom;
+            if (zoom != null)
+            {
+                zoom.MinDistance = 0f;
+                zoom.SmoothTime = 0f;
+                // GC2 internally enforces a 0.01 minimum base radius. Zoom
+                // Level zero is therefore required for an effective radius 0.
+                zoom.Level = 0f;
+            }
+        }
+
+        private void ApplyBackCameraFraming(bool force)
+        {
+            if (this.m_RuntimeBackCameraShot == null ||
+                this.m_Gc2MainCamera == null)
+            {
+                return;
+            }
+
+            this.ApplyBackCameraOrbitSettings();
+
+            float fieldOfView = Mathf.Clamp(
+                this.m_BackCameraFieldOfView,
+                35f,
+                120f
+            );
+            bool changed = !Mathf.Approximately(
+                this.m_LastAppliedBackFieldOfView,
+                fieldOfView
+            );
+            if (this.m_RuntimeBackShotFieldOfView != null)
+            {
+                this.m_RuntimeBackShotFieldOfView.IsEnabled = true;
+                this.m_RuntimeBackShotFieldOfView.Value = fieldOfView;
+            }
+            this.m_LastAppliedBackFieldOfView = fieldOfView;
+
+            if ((!force && !changed) ||
+                this.m_Gc2MainCamera.Transition.CurrentShotCamera !=
+                this.m_RuntimeBackCameraShot)
+            {
+                return;
+            }
+            this.m_Gc2MainCamera.Viewport.SetFieldOfView(
+                fieldOfView,
+                0f,
+                Easing.Type.Linear
+            );
         }
 
         private bool EnsureRuntimeSelfieShot()
@@ -1409,8 +2107,12 @@ namespace FranklinGame.PhoneSystem
                 return;
             }
 
-            bool stillOwnsShot = owner.Transition.CurrentShotCamera ==
-                                 this.m_RuntimeSelfieShot;
+            ShotCamera currentManagedShot =
+                owner.Transition.CurrentShotCamera;
+            bool stillOwnsShot = currentManagedShot ==
+                                 this.m_RuntimeSelfieShot ||
+                                 currentManagedShot ==
+                                 this.m_RuntimeBackCameraShot;
             if (stillOwnsShot)
             {
                 bool restoredShotControlsFieldOfView =
@@ -1425,7 +2127,7 @@ namespace FranklinGame.PhoneSystem
                 }
                 else
                 {
-                    this.m_RuntimeSelfieShot?.OnDisableShot(owner);
+                    currentManagedShot?.OnDisableShot(owner);
                     owner.Transition.CurrentShotCamera = null;
                 }
                 if (this.m_PreSelfieShot != null)
@@ -1582,8 +2284,11 @@ namespace FranklinGame.PhoneSystem
 
             string[] paths = GetStoredPhotoPaths(this.PhotoDirectory);
             this.StoredPhotoCount = paths.Length;
-            int visibleCount = Mathf.Min(PHOTO_SLOT_COUNT, paths.Length);
-            for (int i = 0; i < visibleCount; ++i)
+            int loadCount = Mathf.Min(
+                Mathf.Max(PHOTO_SLOT_COUNT, this.m_MaxStoredPhotos),
+                paths.Length
+            );
+            for (int i = 0; i < loadCount; ++i)
             {
                 try
                 {
@@ -1609,7 +2314,8 @@ namespace FranklinGame.PhoneSystem
                 }
             }
 
-            for (int i = 0; i < this.m_PhotoSlots.Length; ++i)
+            this.EnsurePhotoSlotCapacity(this.m_GalleryTextures.Count);
+            for (int i = 0; i < this.m_PhotoSlots.Count; ++i)
             {
                 RawImage slot = this.m_PhotoSlots[i];
                 if (slot == null) continue;
@@ -1621,10 +2327,18 @@ namespace FranklinGame.PhoneSystem
                     slot.transform.parent.gameObject.SetActive(hasPhoto);
             }
 
+            this.UpdatePhotoScrollLayout(
+                this.m_GalleryTextures.Count,
+                true
+            );
+
             if (this.m_PhotoEmptyText != null)
+            {
                 this.m_PhotoEmptyText.gameObject.SetActive(
                     this.m_GalleryTextures.Count == 0
                 );
+                this.m_PhotoEmptyText.transform.SetAsLastSibling();
+            }
         }
 
         private void TrimStoredPhotos()
@@ -1668,6 +2382,12 @@ namespace FranklinGame.PhoneSystem
             return Directory.GetFiles(directory, "*.png", SearchOption.TopDirectoryOnly)
                 .OrderByDescending(File.GetLastWriteTimeUtc)
                 .ToArray();
+        }
+
+        private static void SetListItem<T>(List<T> list, int index, T value)
+        {
+            while (list.Count <= index) list.Add(default);
+            list[index] = value;
         }
 
         private static void Stretch(RectTransform rectTransform)

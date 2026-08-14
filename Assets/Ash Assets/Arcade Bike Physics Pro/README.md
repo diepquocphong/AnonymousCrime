@@ -480,7 +480,8 @@ File: [Scripts/Integration/Physics/FranklinArcadeBikeDriver.cs](Scripts/Integrat
 | `ResetVehicle()` | Xóa velocity và dựng lại các transform điều khiển chính. |
 
 Các property đọc quan trọng: `IsVehicleEnabled`, `IsDamageLocked`, `IsAirborne`,
-`IsCrashCoasting`, `VehicleBody`, `SpeedMetersPerSecond` và `SlowSpeedLimitKph`.
+`IsCrashCoasting`, `VehicleBody`, `SpeedMetersPerSecond`,
+`SignedForwardSpeedMetersPerSecond`, `IsReverseInputActive` và `SlowSpeedLimitKph`.
 
 `Slow Drive` mặc định giới hạn Bike ở `50 km/h` trên toàn bộ Bike 01–10. Khi
 đang nhanh hơn giới hạn, driver nhả ga và giảm tốc mượt theo
@@ -500,6 +501,32 @@ File: [Scripts/Integration/Damage/FranklinBikeHealth.cs](Scripts/Integration/Dam
 | `EventHealthChanged` | Event cập nhật health không cần polling. |
 | `EventDestroyed` / `EventRestored` | Event một lần khi đi qua biên 0 HP. |
 
+### Ghế passenger phía sau và GC2 Instruction
+
+Mỗi `Bike_01`–`Bike_10` có component `FranklinBikePassengerSeat` cùng nhóm
+`BikeBody/Bike Passenger Targets`. Bảy target có thể chỉnh trực tiếp theo từng
+model: `Passenger Seat`, hai `Passenger Entry`, hai `Passenger Hand` và hai
+`Passenger Foot`. Passenger là một GC2 `Character` độc lập, không chiếm ghế lái,
+không bật controller và không đổi camera Main Shot. Collider/Rigidbody Character
+được snapshot rồi tắt trong lúc ngồi; khi xuống, chết hoặc bắt đầu ragdoll thì
+được phục hồi trước khi detach. Khi driver xuống xe, passenger tự xuống bên trái.
+
+GC2 Instruction nằm tại `Vehicles > Bike > Passenger` với tên `Bike Passenger`:
+
+| Thuộc tính | Cách test |
+|---|---|
+| `Action = Enter` | Cho Character đi tới phía gần nhất rồi ngồi ghế sau. |
+| `Action = Exit` | Tháo Character đang ngồi và đưa về target bên trái. |
+| `Action = Toggle` | Một Instruction dùng chung để lên/xuống. |
+| `Bike` | Chọn instance `Bike_01`–`Bike_10` trong scene. |
+| `Character` | Mặc định là Player; có thể đổi sang một NPC GC2. |
+
+Test nhanh: cho Player vào ghế lái trước, tạo Trigger GC2, thêm Instruction
+`Bike Passenger`, chọn `Toggle`, kéo Bike scene instance vào `Bike`, rồi kéo NPC
+GC2 vào `Character`. Chạy Trigger lần đầu để NPC ngồi sau và lần nữa để NPC xuống.
+Nếu muốn test Player ngồi sau thì một NPC phải đang giữ ghế lái; hệ thống mặc định
+không cho ghế sau hoạt động khi Bike chưa có driver (`Require Driver`).
+
 Damage chỉ nhận từ `FranklinBikeImpactAudio.EventImpactAccepted`, vì vậy dùng
 chung phân loại light/heavy, cooldown và pooled impact FX; không chạy thêm một
 `OnCollisionEnter` thứ hai. Player đang ngồi chỉ bị trừ `4–18 HP` sau khi
@@ -512,6 +539,15 @@ mỗi `0.1s` và bám theo vị trí world-space bên trái Bike bằng chuyển
 Trong `FranklinMobileHud > Bike Speed UI`, có thể đổi font, cỡ số, cỡ chữ `km/h`, font
 style, màu chữ/bóng, kích thước vùng chữ và vị trí. `Follow Bike` dùng world offset như
 Car; tắt tùy chọn này để dùng `Fixed Screen Position`. Các giá trị đổi ngay trong Play Mode.
+
+Va đập heavy hoặc va đập khi Bike/collision đạt tối thiểu `50 km/h` sẽ phát
+`Metal Debris Pool` tại contact point. Hệ thống dùng một ParticleSystem billboard
+tái sử dụng trên mỗi Bike, atlas 4x4 gồm 16 mảnh kim loại, tối đa 20 particle sống
+dưới 1,1 giây; burst thực tế chỉ 7–12 mảnh tùy severity. Không instantiate lúc va
+chạm, không particle collision/trail/noise, tắt shadow/probe/motion vector và giới
+hạn atlas 512 px trên Android/iOS. Có thể chỉnh ngưỡng `Min Debris Impact Speed
+Kph` cùng kích thước/tốc độ trực tiếp trong nhóm `Mobile Metal Debris` trên
+`FranklinBikeImpactAudio`; material dùng chung ở `Materials/Effects/MetalDebris.mat`.
 
 ### Damage VFX, destruction và deformation
 
@@ -597,6 +633,14 @@ File: [Scripts/Integration/Rider/BikeEntry.cs](Scripts/Integration/Rider/BikeEnt
 
 Target rider chính gồm `entryParent`, hai standing point, hai hand grip,
 `LeftFoot`, `RightFoot`, `GroundLeftFoot` và hai fallen-bike body grip.
+
+Khi dựng Bike bị ngã, GC2 chỉ thử đi tới recovery point tối đa `1.25s`. Nếu bị
+tường, góc hẻm hoặc navigation chặn, Player dừng tại vị trí an toàn hiện tại và
+Bike kinematic tự trượt về để tâm hai grip cách Player khoảng `0.48m`, sau đó mới
+chạy animation dựng xe và enter bình thường. Fallback này chỉ chạy một lần khi
+approach thất bại, không raycast/pathfinding trong `Update`; thời gian trượt mặc
+định `0.35s` và giới hạn tối đa `3m`, phù hợp mobile. Các giá trị nằm trong nhóm
+`Fallen Bike Recovery` của `BikeEntry`.
 
 ### `FranklinBikeHelmetController`
 
@@ -750,6 +794,13 @@ public sealed class DirectAbpInputExample : MonoBehaviour
   `burnoutLeanAngle` mặc định `8°` làm model nghiêng nhẹ theo hướng xoay.
 - Khi tốc độ dưới `3 km/h`, `BikeEntry` blend chân trái tới `GroundLeftFoot`;
   từ ngưỡng này trở lên chân trở lại footpeg.
+- Bike 01–10 dùng `reverseMaxSpeed = 2 m/s` (`7.2 km/h`), bằng một nửa cấu hình
+  `4 m/s` trước đây. Khi rider giữ lùi và bike đã qua phía lùi của điểm dừng,
+  `BikeEntry` điều khiển IK hai chân đối pha để mô phỏng đạp đất đẩy xe. Chu kỳ mặc
+  định `0.85 s`, stride `0.27 m`, lift `0.11 m`, response `22`; chân tì ground trong
+  `66%` chu kỳ để động tác có lực rõ hơn. `Ground Right Foot` có thể gán
+  riêng hoặc để trống để tự mirror từ `GroundLeftFoot`. Burnout, phanh khi còn chạy
+  tới và trạng thái airborne không kích hoạt động tác này.
 - Tên API `provideInput`, `resetCameratarget` và `CurrntGearProperty` giữ nguyên
   casing/typo của package để tránh phá serialized code hoặc integration hiện có.
 - Stock `CameraController` tự detach khỏi parent trong `Awake()`. Không bật nó
@@ -758,9 +809,10 @@ public sealed class DirectAbpInputExample : MonoBehaviour
   thời với `FranklinArcadeBikeRagdoll`.
 - Thay đổi hierarchy/reference nên được thực hiện trên prefab asset; tránh chỉnh
   riêng scene instance khiến các bike không còn đồng bộ với Bike 01.
-- Bike 01–10 dùng blob shadow `Ellipse` đen hơn (`opacity 0.64`), không dùng một
+- Bike 01–10 dùng blob shadow `Ellipse` đen hơn (`opacity 0.76`, dark core `0.30`), không dùng một
   hình tròn/scale chung. Installer đo mesh của từng model; footprint hiện nằm trong
   khoảng rộng `0.72–1.01m`, dài `2.11–2.23m`, ground probe `10 Hz`.
+  Hướng FBS lấy trực tiếp từ `ABP Rotator` vì ABP xoay transform này thay vì root Bike.
   Shadow nhỏ/mờ khi bike bay, biến mất khi quá cao và bị cull từ `40m`.
   Distance check chạy `4 Hz` có stagger; khi bị cull, ground raycast cũng dừng.
 - API cài đặt lại đồng bộ là
@@ -769,6 +821,18 @@ public sealed class DirectAbpInputExample : MonoBehaviour
   của bike. Runtime có thể chỉnh riêng bằng `SetEllipse(width, length)`. Master switch
   `FranklinBlobShadow.SetGlobalEnabled(bool)` tắt/bật đồng thời Bike, Car, NPC và Player;
   khi tắt, Bike không render và không chạy ground raycast/distance check.
+- Shared `FranklinVehicleInteractionManager` gọi `SetSuspended(true)` cho Player FBS
+  từ lúc bắt đầu enter Bike và bật lại sau exit/crash release. Ground probe Player bỏ
+  qua Rigidbody Bike nên không chiếu shadow lên yên hoặc thân xe.
+- NPC/passenger FBS tự tắt khi Character được parent dưới Bike có FBS và tự bật lại
+  khi detach. Bike chỉ render một FBS vehicle, không chồng thêm blob của rider.
+- Flare đèn phanh/lùi dùng chung `Data/Lighting/BrakeReverseFlare.asset` với texture
+  ImageGen `Textures/Effects/Bike_Brake_OpticalFlare.png`. Texture RGB nền đen additive
+  được xuất trực tiếp ở `512 × 512`, không mipmap và không alpha để nhẹ trên mobile.
+  Asset chỉ render một Image element scale `2.4`; chấm sáng mềm ở trung tâm được bake
+  trực tiếp bằng ImageGen, không dùng Circle/mesh procedural của Unity. Vùng sáng hữu
+  dụng rộng `434/512 px` (xấp xỉ `85%`), ngắn hơn flare cũ `15%`. Logic bật/tắt vẫn
+  do `FranklinBikeBrakeReverseFlare` quản lý.
 
 ## 11. Source liên quan
 

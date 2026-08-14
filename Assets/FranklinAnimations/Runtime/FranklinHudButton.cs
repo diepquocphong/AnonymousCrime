@@ -25,6 +25,8 @@ namespace FranklinGame.UI
         private bool m_IsPressed;
         private bool m_IsToggled;
         private int m_ActivePointerId = int.MinValue;
+        private Vector3 m_RestScale = Vector3.one;
+        private bool m_HasRestScale;
 
         internal void Initialize(
             FranklinMobileHud hud,
@@ -44,6 +46,13 @@ namespace FranklinGame.UI
         {
             this.m_Hud = hud;
             if (this.m_Image == null) this.m_Image = this.GetComponent<Image>();
+            if (!this.m_HasRestScale)
+            {
+                // Respect the size authored on the prefab/scene. The previous implementation
+                // always restored Vector3.one on Play, which made manually scaled buttons grow.
+                this.m_RestScale = this.transform.localScale;
+                this.m_HasRestScale = true;
+            }
             this.SetVisual(this.m_IsToggle && this.m_IsToggled);
         }
 
@@ -132,7 +141,10 @@ namespace FranklinGame.UI
                         ? PRESSED_COLOR
                         : NORMAL_COLOR;
             }
-            this.transform.localScale = isPressed ? Vector3.one * 0.93f : Vector3.one;
+            Vector3 restScale = this.m_HasRestScale
+                ? this.m_RestScale
+                : this.transform.localScale;
+            this.transform.localScale = isPressed ? restScale * 0.93f : restScale;
         }
     }
 }

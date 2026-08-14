@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using FranklinGame.Animations;
 using FranklinGame.Vehicles;
+using GameCreator.Runtime.Characters;
+using GameCreator.Runtime.Common;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -45,6 +47,8 @@ namespace FranklinGame.UI
         private static readonly HashSet<object> CONTROL_SUPPRESSION_OWNERS = new();
         private static readonly HashSet<object> FAST_MOVEMENT_SUPPRESSION_OWNERS =
             new();
+        private static readonly HashSet<object> FAST_MOVEMENT_BYPASS_OWNERS =
+            new();
         private static FranklinMobileHud s_Instance;
         private static bool s_ControlsSuppressed;
 
@@ -86,6 +90,9 @@ namespace FranklinGame.UI
         private RectTransform m_VehicleGroup;
         private FranklinHudButton m_JogButton;
         private FranklinHudButton m_SprintButton;
+        private FranklinHudButton m_PointDirectionButton;
+        private FranklinHudButton m_ObjectDirectionButton;
+        private GameObject m_MeleeButton;
         private RectTransform m_BikeHealthRoot;
         private Image m_BikeHealthFillImage;
         private RectTransform m_BikeFuelRoot;
@@ -96,12 +103,15 @@ namespace FranklinGame.UI
         private GameObject m_EnterVehicleButton;
         private FranklinHudButton m_SlowDriveButton;
         private FranklinHudButton m_BikeHeadlightButton;
+        private FranklinHudButton m_CarHornButton;
         private FranklinHudButton m_BikeWheelieButton;
         private FranklinHudButton m_BikeBurnoutButton;
         private FranklinHudButton m_BikeHelmetButton;
         private FranklinHudButton m_OnFootHelmetButton;
         private FranklinBikeHelmetController m_PlayerHelmetController;
         private FranklinAnimationBridge m_MovementBridge;
+        private FranklinObjectDirectionToggle m_ObjectDirectionToggle;
+        private FranklinCameraPointing m_CameraPointing;
         private FranklinVehicleInteractionManager m_VehicleInteraction;
         private IRvrVehicleInputController m_ActiveDriver;
         private FranklinArcadeBikeDriver m_BikeHealthDriver;
@@ -128,6 +138,9 @@ namespace FranklinGame.UI
         private bool m_UsesCanvasPlayerControl;
         private bool m_HasAppliedSuppression;
         private bool m_HasAppliedFastMovementSuppression;
+        private bool m_WasFastMovementBypassed;
+        private bool m_HasMeleeVisibilitySnapshot;
+        private bool m_MeleeButtonWasActive;
         private bool m_HasBikeSpeedPosition;
         private bool m_HasBikeHealthPosition;
 
@@ -137,6 +150,11 @@ namespace FranklinGame.UI
                                                  CONTROL_SUPPRESSION_OWNERS.Count > 0;
         public static bool FastMovementSuppressed =>
             FAST_MOVEMENT_SUPPRESSION_OWNERS.Count > 0;
+        private static bool FastMovementBypassed =>
+            FastMovementSuppressed &&
+            FAST_MOVEMENT_SUPPRESSION_OWNERS.IsSubsetOf(
+                FAST_MOVEMENT_BYPASS_OWNERS
+            );
 
         /// <summary>Raised when the HUD phone button is pressed.</summary>
         public event Action EventPhoneRequested;
@@ -185,6 +203,22 @@ namespace FranklinGame.UI
         {
             if (owner == null) return;
             FAST_MOVEMENT_SUPPRESSION_OWNERS.Remove(owner);
+            FAST_MOVEMENT_BYPASS_OWNERS.Remove(owner);
+            ApplyCurrentControlSuppression();
+        }
+
+        /// <summary>
+        /// Keeps non-movement phone controls suppressed but temporarily exposes
+        /// Jog/Sprint for a suppression owner, such as live BACK camera mode.
+        /// A second suppression owner without a bypass still takes priority.
+        /// </summary>
+        public static void SetFastMovementSuppressionBypassed(
+            object owner,
+            bool bypassed)
+        {
+            if (owner == null) return;
+            if (bypassed) FAST_MOVEMENT_BYPASS_OWNERS.Add(owner);
+            else FAST_MOVEMENT_BYPASS_OWNERS.Remove(owner);
             ApplyCurrentControlSuppression();
         }
 
@@ -205,6 +239,7 @@ namespace FranklinGame.UI
             s_ControlsSuppressed = false;
             CONTROL_SUPPRESSION_OWNERS.Clear();
             FAST_MOVEMENT_SUPPRESSION_OWNERS.Clear();
+            FAST_MOVEMENT_BYPASS_OWNERS.Clear();
             SPRITES.Clear();
         }
 
@@ -277,9 +312,16 @@ namespace FranklinGame.UI
             if (FastMovementSuppressed) this.ApplyFastMovementSuppressed();
             else this.ReleaseFastMovementSuppression();
 
-            bool isDriving = IsUsableDriver(this.m_ActiveDriver);
-            bool isPassengerMode = this.m_ActiveDriver is SimcadeCarDriver car &&
-                car.IsPassengerPresentationActive;
+            bool isBikePassenger = this.TryGetPlayerBikePassenger(out _, out _);
+            bool isBikeDriver = this.IsPlayerBikeDriver();
+            bool isDriving = IsUsableDriver(this.m_ActiveDriver) &&
+                             (this.m_ActiveDriver is not FranklinArcadeBikeDriver ||
+                              isBikeDriver ||
+                              isBikePassenger);
+            bool isPassengerMode =
+                (this.m_ActiveDriver is SimcadeCarDriver car &&
+                 car.IsPassengerPresentationActive) ||
+                isBikePassenger;
             if (!this.m_HasAppliedMode || isDriving != this.m_WasDriving)
             {
                 this.ApplyMode(isDriving);
@@ -326,10 +368,22 @@ namespace FranklinGame.UI
 
         private void ApplyFastMovementSuppressed()
         {
-            if (!this.m_HasAppliedFastMovementSuppression)
+            bool bypassFastMovement = FastMovementBypassed;
+            if (!this.m_HasAppliedFastMovementSuppression ||
+                this.m_WasFastMovementBypassed && !bypassFastMovement)
+            {
                 this.ReleaseMovementInputs();
-            SetButtonActive(this.m_JogButton, false);
-            SetButtonActive(this.m_SprintButton, false);
+            }
+            if (!this.m_HasAppliedFastMovementSuppression)
+            {
+                this.m_ObjectDirectionToggle?.SetObjectDirectionEnabled(false);
+            }
+            SetButtonActive(this.m_JogButton, bypassFastMovement);
+            SetButtonActive(this.m_SprintButton, bypassFastMovement);
+            SetButtonActive(this.m_PointDirectionButton, false);
+            SetButtonActive(this.m_ObjectDirectionButton, false);
+            this.SuppressMeleeButton();
+            this.m_WasFastMovementBypassed = bypassFastMovement;
             this.m_HasAppliedFastMovementSuppression = true;
         }
 
@@ -337,8 +391,28 @@ namespace FranklinGame.UI
         {
             if (!this.m_HasAppliedFastMovementSuppression) return;
             this.m_HasAppliedFastMovementSuppression = false;
+            this.m_WasFastMovementBypassed = false;
             SetButtonActive(this.m_JogButton, true);
             SetButtonActive(this.m_SprintButton, true);
+            SetButtonActive(this.m_PointDirectionButton, true);
+            SetButtonActive(this.m_ObjectDirectionButton, true);
+            if (this.m_HasMeleeVisibilitySnapshot && this.m_MeleeButton != null)
+                this.m_MeleeButton.SetActive(this.m_MeleeButtonWasActive);
+            this.m_HasMeleeVisibilitySnapshot = false;
+        }
+
+        private void SuppressMeleeButton()
+        {
+            if (this.m_MeleeButton == null)
+                this.m_MeleeButton = this.FindChild("Fight")?.gameObject;
+            if (this.m_MeleeButton == null) return;
+
+            if (!this.m_HasMeleeVisibilitySnapshot)
+            {
+                this.m_MeleeButtonWasActive = this.m_MeleeButton.activeSelf;
+                this.m_HasMeleeVisibilitySnapshot = true;
+            }
+            this.m_MeleeButton.SetActive(false);
         }
 
         internal void SetAction(FranklinHudAction action, bool active)
@@ -353,6 +427,12 @@ namespace FranklinGame.UI
                     break;
                 case FranklinHudAction.Jump:
                     if (active) this.m_MovementBridge?.RequestVirtualJump();
+                    break;
+                case FranklinHudAction.PointDirection:
+                    this.m_CameraPointing?.SetVirtualPointInput(active);
+                    break;
+                case FranklinHudAction.ObjectDirection:
+                    this.m_ObjectDirectionToggle?.SetObjectDirectionEnabled(active);
                     break;
                 case FranklinHudAction.Phone:
                     if (active) this.EventPhoneRequested?.Invoke();
@@ -386,6 +466,18 @@ namespace FranklinGame.UI
                     {
                         bikeDriver.SetHeadlightEnabled(active);
                     }
+                    else if (this.m_ActiveDriver is SimcadeCarDriver carDriver &&
+                             carDriver != null)
+                    {
+                        carDriver.SetHeadlightEnabled(active);
+                    }
+                    break;
+                case FranklinHudAction.CarHorn:
+                    if (this.m_ActiveDriver is SimcadeCarDriver hornCar &&
+                        hornCar != null)
+                    {
+                        hornCar.SetHornPressed(active);
+                    }
                     break;
                 case FranklinHudAction.BikeWheelie:
                     if (this.m_ActiveDriver is FranklinArcadeBikeDriver wheelieDriver)
@@ -404,7 +496,13 @@ namespace FranklinGame.UI
                     break;
                 case FranklinHudAction.VehicleInteraction:
                     if (!active) break;
-                    if (this.m_ActiveDriver is SimcadeCarDriver passengerCar &&
+                    if (this.TryGetPlayerBikePassenger(
+                            out FranklinBikePassengerSeat bikePassengerSeat,
+                            out Character bikePassenger))
+                    {
+                        bikePassengerSeat.RequestExit(bikePassenger);
+                    }
+                    else if (this.m_ActiveDriver is SimcadeCarDriver passengerCar &&
                         passengerCar.IsPassengerPresentationActive)
                     {
                         passengerCar.RequestExit();
@@ -470,6 +568,25 @@ namespace FranklinGame.UI
                 new Vector2(-505f, 170f),
                 new Vector2(165f, 165f)
             );
+            this.m_PointDirectionButton = this.CreateButton(
+                this.m_OnFootGroup,
+                "Point Direction",
+                "player-point-direction",
+                FranklinHudAction.PointDirection,
+                new Vector2(0f, 0f),
+                new Vector2(565f, 568.43f),
+                new Vector2(120f, 120f)
+            );
+            this.m_ObjectDirectionButton = this.CreateButton(
+                this.m_OnFootGroup,
+                "Object Direction",
+                "player-object-direction",
+                FranklinHudAction.ObjectDirection,
+                new Vector2(0f, 0f),
+                new Vector2(369.2f, 443f),
+                new Vector2(120f, 120f),
+                true
+            );
             this.m_EnterVehicleButton = this.CreateButton(
                 this.m_OnFootGroup,
                 "Enter Vehicle",
@@ -524,7 +641,7 @@ namespace FranklinGame.UI
                 "vehicle-control-3",
                 FranklinHudAction.BrakeReverse,
                 new Vector2(1f, 0f),
-                new Vector2(-455f, 190f),
+                new Vector2(-455f, 130f),
                 new Vector2(225f, 225f)
             );
             this.m_BikeHelmetButton = this.CreateButton(
@@ -532,8 +649,8 @@ namespace FranklinGame.UI
                 "Bike Helmet",
                 "vehicle-control-helmet",
                 FranklinHudAction.BikeHelmet,
-                new Vector2(1f, 0f),
-                new Vector2(-690f, 190f),
+                new Vector2(1f, 1f),
+                new Vector2(-315f, -385f),
                 new Vector2(165f, 165f)
             );
             this.CreateButton(
@@ -542,7 +659,7 @@ namespace FranklinGame.UI
                 "vehicle-control-4",
                 FranklinHudAction.Handbrake,
                 new Vector2(1f, 0f),
-                new Vector2(-455f, 430f),
+                new Vector2(-455f, 330f),
                 new Vector2(169f, 169f)
             );
             this.CreateButton(
@@ -553,6 +670,15 @@ namespace FranklinGame.UI
                 new Vector2(1f, 1f),
                 new Vector2(-125f, -385f),
                 new Vector2(170f, 170f)
+            );
+            this.m_CarHornButton = this.CreateButton(
+                this.m_VehicleGroup,
+                "Car Horn",
+                "vehicle-control-horn",
+                FranklinHudAction.CarHorn,
+                new Vector2(1f, 1f),
+                new Vector2(-295f, -385f),
+                new Vector2(155f, 155f)
             );
             this.m_SlowDriveButton = this.CreateButton(
                 this.m_VehicleGroup,
@@ -610,25 +736,56 @@ namespace FranklinGame.UI
             this.m_VehicleGroup = vehicle;
             this.m_JogButton = FindButton("Jog");
             this.m_SprintButton = FindButton("Sprint");
+            this.m_PointDirectionButton = FindButton("Point Direction");
+            this.m_ObjectDirectionButton = FindButton("Object Direction");
+            this.m_MeleeButton = FindChild("Fight")?.gameObject;
             this.m_EnterVehicleButton = FindChild("Enter Vehicle")?.gameObject;
             this.m_SlowDriveButton = FindButton("Slow Drive");
             this.m_BikeHeadlightButton = FindButton("Bike Headlight");
+            this.m_CarHornButton = FindButton("Car Horn");
             this.m_BikeWheelieButton = FindButton("Bike Wheelie");
             this.m_BikeBurnoutButton = FindButton("Bike Burnout");
             this.m_BikeHelmetButton = FindButton("Bike Helmet");
             this.m_OnFootHelmetButton = this.m_OnFootGroup
                 .Find("Bike Helmet On Foot")?.GetComponent<FranklinHudButton>();
 
+            if (this.m_PointDirectionButton == null)
+            {
+                this.m_PointDirectionButton = this.CreateButton(
+                    this.m_OnFootGroup,
+                    "Point Direction",
+                    "player-point-direction",
+                    FranklinHudAction.PointDirection,
+                    new Vector2(0f, 0f),
+                    new Vector2(565f, 568.43f),
+                    new Vector2(120f, 120f)
+                );
+            }
+
+            if (this.m_ObjectDirectionButton == null)
+            {
+                this.m_ObjectDirectionButton = this.CreateButton(
+                    this.m_OnFootGroup,
+                    "Object Direction",
+                    "player-object-direction",
+                    FranklinHudAction.ObjectDirection,
+                    new Vector2(0f, 0f),
+                    new Vector2(369.2f, 443f),
+                    new Vector2(120f, 120f),
+                    true
+                );
+            }
+
             if (this.m_OnFootHelmetButton == null)
             {
                 this.m_OnFootHelmetButton = this.CreateButton(
-                    this.m_OnFootGroup,
-                    "Bike Helmet On Foot",
-                    "vehicle-control-helmet",
-                    FranklinHudAction.BikeHelmet,
-                    new Vector2(1f, 0f),
-                    new Vector2(-690f, 190f),
-                    new Vector2(165f, 165f)
+                this.m_OnFootGroup,
+                "Bike Helmet On Foot",
+                "vehicle-control-helmet",
+                FranklinHudAction.BikeHelmet,
+                new Vector2(1f, 0f),
+                new Vector2(-690f, 190f),
+                new Vector2(165f, 165f)
                 );
                 this.m_OnFootHelmetButton.gameObject.SetActive(false);
             }
@@ -657,6 +814,19 @@ namespace FranklinGame.UI
                     new Vector2(-115f, -575f),
                     new Vector2(155f, 155f),
                     true
+                );
+            }
+
+            if (this.m_CarHornButton == null)
+            {
+                this.m_CarHornButton = this.CreateButton(
+                    this.m_VehicleGroup,
+                    "Car Horn",
+                    "vehicle-control-horn",
+                    FranklinHudAction.CarHorn,
+                    new Vector2(1f, 1f),
+                    new Vector2(-295f, -385f),
+                    new Vector2(155f, 155f)
                 );
             }
 
@@ -693,8 +863,8 @@ namespace FranklinGame.UI
                     "Bike Helmet",
                     "vehicle-control-helmet",
                     FranklinHudAction.BikeHelmet,
-                    new Vector2(1f, 0f),
-                    new Vector2(-690f, 190f),
+                    new Vector2(1f, 1f),
+                    new Vector2(-315f, -385f),
                     new Vector2(165f, 165f)
                 );
             }
@@ -829,6 +999,20 @@ namespace FranklinGame.UI
             {
                 this.m_MovementBridge = FindFirstObjectByType<FranklinAnimationBridge>();
             }
+            if (this.m_ObjectDirectionToggle == null && this.m_MovementBridge != null)
+            {
+                this.m_ObjectDirectionToggle =
+                    this.m_MovementBridge.GetComponent<FranklinObjectDirectionToggle>();
+                if (this.m_ObjectDirectionToggle == null)
+                {
+                    this.m_ObjectDirectionToggle = this.m_MovementBridge.gameObject
+                        .AddComponent<FranklinObjectDirectionToggle>();
+                }
+            }
+            if (this.m_CameraPointing == null)
+            {
+                this.m_CameraPointing = FindFirstObjectByType<FranklinCameraPointing>();
+            }
             this.ResolvePlayerHelmetController();
             if (this.m_VehicleInteraction == null)
             {
@@ -873,18 +1057,32 @@ namespace FranklinGame.UI
             {
                 this.m_ActiveDriver = activeCar;
             }
-            else if (!IsUsableDriver(this.m_ActiveDriver))
+            else
             {
-                this.m_ActiveDriver = null;
+                Character player = ShortcutPlayer.Get<Character>();
+                FranklinArcadeBikeDriver firstActiveBike = null;
+                FranklinArcadeBikeDriver playerBike = null;
                 foreach (FranklinArcadeBikeDriver driver in
                          FindObjectsByType<FranklinArcadeBikeDriver>(FindObjectsSortMode.None))
                 {
-                    if (driver != null && driver.IsVehicleEnabled)
+                    if (driver == null || !driver.IsVehicleEnabled) continue;
+                    firstActiveBike ??= driver;
+
+                    BikeEntry entry = driver.GetComponent<BikeEntry>();
+                    FranklinBikePassengerSeat passenger =
+                        driver.GetComponent<FranklinBikePassengerSeat>();
+                    if (player != null &&
+                        ((entry != null && entry.SeatedCharacter == player) ||
+                         (passenger != null && passenger.Passenger == player)))
                     {
-                        this.m_ActiveDriver = driver;
+                        playerBike = driver;
                         break;
                     }
                 }
+
+                // Prefer the Bike that actually contains Player. This keeps passenger
+                // HUD/exit routing deterministic even when several NPC Bikes are enabled.
+                this.m_ActiveDriver = playerBike ?? firstActiveBike;
             }
 
             if (previousDriver != null && previousDriver != this.m_ActiveDriver)
@@ -935,10 +1133,19 @@ namespace FranklinGame.UI
                                                      !SimcadeCarDashboard.IsSharedHudActive
                 ? this.m_ActiveDriver as FranklinArcadeBikeDriver
                 : null;
-            bool shouldShow = bikeDriver != null;
-            SetButtonActive(this.m_BikeHeadlightButton, shouldShow);
-            SetButtonActive(this.m_BikeWheelieButton, shouldShow);
-            SetButtonActive(this.m_BikeBurnoutButton, shouldShow);
+            bool showBikeControls = bikeDriver != null && !this.m_WasPassengerMode;
+            bool showVehicleHeadlight = showBikeControls ||
+                isDriving && this.m_ActiveDriver is SimcadeCarDriver carDriver &&
+                carDriver != null &&
+                carDriver.IsVehicleEnabled;
+            bool showCarHorn = isDriving &&
+                this.m_ActiveDriver is SimcadeCarDriver hornCar &&
+                hornCar != null &&
+                hornCar.IsVehicleEnabled;
+            SetButtonActive(this.m_BikeHeadlightButton, showVehicleHeadlight);
+            SetButtonActive(this.m_CarHornButton, showCarHorn);
+            SetButtonActive(this.m_BikeWheelieButton, showBikeControls);
+            SetButtonActive(this.m_BikeBurnoutButton, showBikeControls);
             this.BindBikeHealth(bikeDriver);
             this.BindBikeFuel(bikeDriver);
             this.UpdateBikeSpeed(bikeDriver);
@@ -949,13 +1156,42 @@ namespace FranklinGame.UI
         {
             bool isDrivingBike = isDriving &&
                                  !SimcadeCarDashboard.IsSharedHudActive &&
-                                 this.m_ActiveDriver is FranklinArcadeBikeDriver;
+                                 this.m_ActiveDriver is FranklinArcadeBikeDriver &&
+                                 !this.m_WasPassengerMode;
             SetButtonActive(this.m_BikeHelmetButton, isDrivingBike);
 
             FranklinBikeHelmetController helmet = this.ResolvePlayerHelmetController();
             bool showOnFoot = !isDriving && helmet != null &&
                               (helmet.IsEquipped || helmet.IsTransitioning);
             SetButtonActive(this.m_OnFootHelmetButton, showOnFoot);
+        }
+
+        private bool TryGetPlayerBikePassenger(
+            out FranklinBikePassengerSeat passengerSeat,
+            out Character player)
+        {
+            passengerSeat = null;
+            player = null;
+            if (this.m_ActiveDriver is not FranklinArcadeBikeDriver bikeDriver)
+                return false;
+
+            player = ShortcutPlayer.Get<Character>();
+            if (player == null) return false;
+            passengerSeat = bikeDriver.GetComponent<FranklinBikePassengerSeat>();
+            return passengerSeat != null &&
+                   passengerSeat.Passenger == player;
+        }
+
+        private bool IsPlayerBikeDriver()
+        {
+            if (this.m_ActiveDriver is not FranklinArcadeBikeDriver bikeDriver)
+                return false;
+
+            Character player = ShortcutPlayer.Get<Character>();
+            BikeEntry bikeEntry = bikeDriver.GetComponent<BikeEntry>();
+            return player != null &&
+                   bikeEntry != null &&
+                   bikeEntry.SeatedCharacter == player;
         }
 
         private FranklinBikeHelmetController ResolvePlayerHelmetController()
@@ -1744,6 +1980,7 @@ namespace FranklinGame.UI
                 "Handbrake",
                 "Slow Drive",
                 "Bike Headlight",
+                "Car Horn",
                 "Bike Wheelie",
                 "Bike Burnout",
                 "Bike Helmet"
@@ -1761,6 +1998,7 @@ namespace FranklinGame.UI
             this.m_MovementBridge?.SetVirtualJogInput(false);
             this.m_MovementBridge?.SetVirtualSprintInput(false);
             this.m_MovementBridge?.StopVirtualAutoRun();
+            this.m_CameraPointing?.SetVirtualPointInput(false);
         }
 
         private void ReleaseVehicleInputs(IRvrVehicleInputController driver)
@@ -1777,6 +2015,11 @@ namespace FranklinGame.UI
                 bikeDriver.SetHeadlightEnabled(false);
                 bikeDriver.SetVirtualWheelieInput(false);
                 bikeDriver.SetVirtualBurnoutInput(false);
+            }
+            else if (driver is SimcadeCarDriver carDriver && carDriver != null)
+            {
+                carDriver.SetHeadlightEnabled(false);
+                carDriver.SetHornPressed(false);
             }
         }
 
@@ -1847,7 +2090,10 @@ namespace FranklinGame.UI
         Phone,
         Home,
         Settings,
-        BikeHelmet
+        BikeHelmet,
+        PointDirection,
+        CarHorn,
+        ObjectDirection
     }
 
 }

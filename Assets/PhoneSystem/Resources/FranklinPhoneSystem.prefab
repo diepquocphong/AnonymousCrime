@@ -55,7 +55,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
   m_Color: {r: 0.16, g: 0.68, b: 0.67, a: 1}
@@ -2332,8 +2332,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 410, y: 590}
+  m_AnchoredPosition: {x: 0, y: -66}
+  m_SizeDelta: {x: 425, y: 714}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1817772451902915666
 CanvasRenderer:
@@ -6949,6 +6949,7 @@ GameObject:
   - component: {fileID: 547800461448217015}
   - component: {fileID: 8907492636219512796}
   - component: {fileID: 849562178543190223}
+  - component: {fileID: 6123428587694201066}
   m_Layer: 0
   m_Name: FranklinPhoneSystem
   m_TagString: Untagged
@@ -7180,8 +7181,9 @@ MonoBehaviour:
   m_PhonePosition: {x: 0.05, y: -0.16, z: -0.01}
   m_PhoneRotation: {x: -20.24, y: 4.1, z: 167.2}
   m_PhoneScale: {x: 0.105, y: 0.105, z: 0.105}
-  m_PocketChestOffset: {x: 0.24, y: -0.42, z: 0.05}
+  m_PocketChestOffset: {x: 0.25, y: -0.44, z: -0.18}
   m_PocketHandEuler: {x: -25, y: 10, z: -105}
+  m_PocketElbowChestOffset: {x: 0.4, y: -0.22, z: -0.1}
   m_RightHandChestOffset: {x: 0.17, y: -0.15, z: 0.32}
   m_RightHandEuler: {x: -19.1, y: 4.3, z: -170.51}
   m_RightElbowChestOffset: {x: 0.32, y: -0.02, z: -0.2}
@@ -7198,9 +7200,9 @@ MonoBehaviour:
   m_ThumbRestSpread: 0.12
   m_ThumbTapCurl: -0.62
   m_ThumbTapSpread: -0.16
-  m_DrawDuration: 0.72
+  m_DrawDuration: 0.85
   m_StoreDuration: 0.58
-  m_PhoneRevealThreshold: 0.26
+  m_PhoneRevealThreshold: 0.38
   m_ScreenOnThreshold: 0.52
   m_TapDuration: 0.22
   m_IdleSwayAmount: 0.004
@@ -7227,6 +7229,10 @@ MonoBehaviour:
   m_FilterMode: 1
   m_PhoneCameraPosition: {x: -0.35, y: 0.39, z: -0.09}
   m_CameraRotation: {x: 0, y: 0, z: 0}
+  m_BackCameraPosition: {x: 0, y: 1.55, z: 0}
+  m_BackCameraRotation: {x: 0, y: 0, z: 0}
+  m_BackCameraFieldOfView: 60
+  m_BackCameraOrbitSmoothTime: 0.06
   m_CameraShotShoulder: 0.43
   m_CameraShotLift: 0.46
   m_CameraShotRadius: 1.8
@@ -7239,6 +7245,25 @@ MonoBehaviour:
   m_SelfieNearClip: 0.04
   m_FaceCameraShot: 1
   m_SelfieTurnSpeedMultiplier: 3
+--- !u!114 &6123428587694201066
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3356459441266396905}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e3b9e0f38db4d9890a5b21c4a27e80d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.PhoneSystem.FranklinPhoneVideoRecorder
+  m_CaptureWidth: 350
+  m_CaptureHeight: 588
+  m_FramesPerSecond: 30
+  m_JpegQuality: 55
+  m_MaxDuration: 30
+  m_MaxStoredClips: 12
+  m_FilterMode: 1
 --- !u!1 &3360476355916459616
 GameObject:
   m_ObjectHideFlags: 0
@@ -8519,7 +8544,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 0, g: 0, b: 0, a: 0.06}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:

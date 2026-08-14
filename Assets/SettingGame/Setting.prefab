@@ -1,0 +1,102 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &7687588868069028494
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7657303581428816533}
+  - component: {fileID: 1168053311646914246}
+  - component: {fileID: 6686146956670820127}
+  - component: {fileID: 2221119899716177271}
+  m_Layer: 0
+  m_Name: Setting
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7657303581428816533
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7687588868069028494}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -2.13573, y: 0.52469, z: 1.96342}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1168053311646914246
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7687588868069028494}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fae589d8051654dcf91f1720bfc1b3df, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RobotAstro.DynamicResolutionScaler
+  m_Profile: 0
+  m_Backend: 0
+  m_AutoConfigureForDevice: 1
+  m_ApplyTargetFrameRate: 1
+  m_TargetFrameRate: 60
+  m_FrameRateTolerance: 3
+  m_MinScale: 0.6
+  m_MaxScale: 1
+  m_InitialScale: 0.85
+  m_DownscaleStep: 0.08
+  m_UpscaleStep: 0.04
+  m_SampleDuration: 0.75
+  m_DownscaleCooldown: 0.5
+  m_UpscaleCooldown: 1.5
+  m_StableTimeBeforeUpscale: 3
+  m_EnableDynamicResolutionOnCameras: 1
+  m_UseAllCameras: 1
+  m_Cameras: []
+  m_DontDestroyOnLoad: 1
+  m_ResetScaleOnDisable: 1
+  m_LogScaleChanges: 0
+--- !u!114 &6686146956670820127
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7687588868069028494}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4201f2125d45451181f202a71d6e7ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Settings.FranklinMobileGraphicsSettings
+  m_SsaoFeatures:
+  - {fileID: 7320813960732399841, guid: 65bc7dbf4170f435aa868c779acfb082, type: 2}
+  - {fileID: 7833122117494664109, guid: f288ae1f4751b564a96ac7587541f7a2, type: 2}
+  m_SsaoLayerMask:
+    serializedVersion: 2
+    m_Bits: 1920
+--- !u!114 &2221119899716177271
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7687588868069028494}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c96c91e5e35c14dcaa176314260456a6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Settings.FranklinMobileSettingsPanel
+  m_Font: {fileID: 12800000, guid: 2760c319ceaa84ce1b30ddd4a0edbf43, type: 3}
+  m_GearSprite: {fileID: 21300000, guid: fd757fe0c8e3b480ea3f4ab8c11515a6, type: 3}
+  m_SolidSprite: {fileID: 21300000, guid: 69657554e0c3540728a454a1cc7e4b99, type: 3}

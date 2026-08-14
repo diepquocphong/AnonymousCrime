@@ -1,7 +1,15 @@
 using UnityEngine;
 
+/// <summary>
+/// Shared head/tail-light presentation for Car, Bike and the remaining vehicle
+/// types. Renderer emission is written through MaterialPropertyBlock so a
+/// driven vehicle never clones its shared materials at runtime.
+/// </summary>
+[DisallowMultipleComponent]
 public class VehicleLights : MonoBehaviour
 {
+    private static readonly int GlowColorId = Shader.PropertyToID("_GlowColor");
+
     [Header("Mesh Lights")]
     [Tooltip("Front light mesh 1")]
     public MeshRenderer frontLight1;
@@ -28,73 +36,91 @@ public class VehicleLights : MonoBehaviour
     [Tooltip("Spot light intensity when on")]
     public float spotLightIntensity = 20f;
 
-    private bool lightsOn = false;
-    public bool AreLightsOn => lightsOn;
+    private bool lightsOn;
+    private bool rearOverrideActive;
+    private Color rearOverrideColor = Color.black;
+    private MaterialPropertyBlock propertyBlock;
+
+    public bool AreLightsOn => this.lightsOn;
+    public bool HasRearLights => this.backLight1 != null || this.backLight2 != null;
+
+    private MaterialPropertyBlock PropertyBlock =>
+        this.propertyBlock ??= new MaterialPropertyBlock();
 
     public void FrontLightsOn()
     {
-        lightsOn = true;
-
-        if (frontLight1 != null)
-            frontLight1.material.SetColor("_GlowColor", frontLightOnColor);
-        if (frontLight2 != null)
-            frontLight2.material.SetColor("_GlowColor", frontLightOnColor);
-        if (spotLight1 != null)
-            spotLight1.intensity = spotLightIntensity;
-        if (spotLight2 != null)
-            spotLight2.intensity = spotLightIntensity;
+        this.lightsOn = true;
+        this.ApplyFrontLights(true);
     }
 
     public void FrontLightsOff()
     {
-        lightsOn = false;
-
-        if (frontLight1 != null)
-            frontLight1.material.SetColor("_GlowColor", Color.black);
-        if (frontLight2 != null)
-            frontLight2.material.SetColor("_GlowColor", Color.black);
-        if (spotLight1 != null)
-            spotLight1.intensity = 0f;
-        if (spotLight2 != null)
-            spotLight2.intensity = 0f;
+        this.lightsOn = false;
+        this.ApplyFrontLights(false);
     }
 
     public void LightsOn()
     {
-        lightsOn = true;
-
-        if (frontLight1 != null)
-            frontLight1.material.SetColor("_GlowColor", frontLightOnColor);
-        if (frontLight2 != null)
-            frontLight2.material.SetColor("_GlowColor", frontLightOnColor);
-
-        if (backLight1 != null)
-            backLight1.material.SetColor("_GlowColor", backLightOnColor);
-        if (backLight2 != null)
-            backLight2.material.SetColor("_GlowColor", backLightOnColor);
-
-        if (spotLight1 != null)
-            spotLight1.intensity = spotLightIntensity;
-        if (spotLight2 != null)
-            spotLight2.intensity = spotLightIntensity;
+        this.lightsOn = true;
+        this.ApplyFrontLights(true);
+        this.ApplyRearLights();
     }
 
     public void LightsOff()
     {
-        lightsOn = false;
+        this.lightsOn = false;
+        this.ApplyFrontLights(false);
+        this.ApplyRearLights();
+    }
 
-        if (frontLight1 != null)
-            frontLight1.material.SetColor("_GlowColor", Color.black);
-        if (frontLight2 != null)
-            frontLight2.material.SetColor("_GlowColor", Color.black);
-        if (backLight1 != null)
-            backLight1.material.SetColor("_GlowColor", Color.black);
-        if (backLight2 != null)
-            backLight2.material.SetColor("_GlowColor", Color.black);
+    /// <summary>
+    /// Lets a vehicle-specific controller temporarily own the rear emission.
+    /// Headlight state is still retained, so releasing the override restores
+    /// the normal running tail light immediately.
+    /// </summary>
+    public void SetRearLightOverride(bool active, Color color)
+    {
+        this.rearOverrideActive = active;
+        this.rearOverrideColor = color;
+        this.ApplyRearLights();
+    }
 
-        if (spotLight1 != null)
-            spotLight1.intensity = 0f;
-        if (spotLight2 != null)
-            spotLight2.intensity = 0f;
+    public void ClearRearLightOverride()
+    {
+        this.rearOverrideActive = false;
+        this.ApplyRearLights();
+    }
+
+    private void ApplyFrontLights(bool active)
+    {
+        Color color = active ? this.frontLightOnColor : Color.black;
+        this.SetGlow(this.frontLight1, color);
+        this.SetGlow(this.frontLight2, color);
+
+        float intensity = active ? this.spotLightIntensity : 0f;
+        if (this.spotLight1 != null) this.spotLight1.intensity = intensity;
+        if (this.spotLight2 != null) this.spotLight2.intensity = intensity;
+    }
+
+    private void ApplyRearLights()
+    {
+        Color color = this.rearOverrideActive
+            ? this.rearOverrideColor
+            : this.lightsOn
+                ? this.backLightOnColor
+                : Color.black;
+        this.SetGlow(this.backLight1, color);
+        this.SetGlow(this.backLight2, color);
+    }
+
+    private void SetGlow(Renderer target, Color color)
+    {
+        if (target == null) return;
+
+        MaterialPropertyBlock block = this.PropertyBlock;
+        target.GetPropertyBlock(block);
+        block.SetColor(GlowColorId, color);
+        target.SetPropertyBlock(block);
+        block.Clear();
     }
 }

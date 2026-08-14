@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using FranklinGame.Animations;
+using FranklinGame.Shooter;
 using FranklinGame.UI;
 using GameCreator.Runtime.Common;
 using UnityEngine;
@@ -90,6 +91,7 @@ namespace FranklinGame.PhoneSystem
         private AudioSource m_AudioSource;
         private FranklinPhoneHandPresentation m_HandPresentation;
         private FranklinPhoneSelfieCamera m_SelfieCamera;
+        private FranklinPhoneVideoRecorder m_VideoRecorder;
         private FranklinAnimationBridge m_PlayerAnimationBridge;
         private GameObject m_IdleSuppressedPlayer;
         private Coroutine m_Transition;
@@ -98,6 +100,7 @@ namespace FranklinGame.PhoneSystem
         private float m_NextClockRefresh;
         private float m_NextHudSearch;
         private bool m_IsOpen;
+        private bool m_BackCameraFastMovementEnabled;
         private string m_DialNumber = string.Empty;
         private bool m_DialTextMode;
         private int m_LastDialT9Key = -1;
@@ -166,7 +169,8 @@ namespace FranklinGame.PhoneSystem
             "GHI CHÚ",
             "BẢN ĐỒ",
             "CAMERA",
-            "ẢNH"
+            "ẢNH",
+            "VIDEO"
         };
 
         [Serializable]
@@ -188,8 +192,8 @@ namespace FranklinGame.PhoneSystem
         public bool IsConfigured => m_InterfaceRoot != null &&
             m_SafeAreaRoot != null && m_PhonePanel != null &&
             m_HomeScreen != null && m_AppScreens != null &&
-            m_AppScreens.Length == 6 && m_AppButtons != null &&
-            m_AppButtons.Length == 6 && m_CloseButton != null &&
+            m_AppScreens.Length >= 6 && m_AppButtons != null &&
+            m_AppButtons.Length >= 6 && m_CloseButton != null &&
             m_TimeText != null &&
             m_DateText != null && m_HeaderTitleText != null &&
             m_HeaderSubtitleText != null &&
@@ -261,9 +265,27 @@ namespace FranklinGame.PhoneSystem
             DontDestroyOnLoad(this.gameObject);
             this.m_HandPresentation =
                 this.GetComponent<FranklinPhoneHandPresentation>();
+            if (this.m_HandPresentation != null)
+                this.m_HandPresentation.EventPhoneStored +=
+                    this.OnPhysicalPhoneStored;
             this.m_SelfieCamera = this.GetComponent<FranklinPhoneSelfieCamera>();
+            this.m_VideoRecorder =
+                this.GetComponent<FranklinPhoneVideoRecorder>();
+            if (this.m_VideoRecorder == null)
+                this.m_VideoRecorder =
+                    this.gameObject.AddComponent<FranklinPhoneVideoRecorder>();
             this.CapturePhoneAnimationPositions();
+            this.ConfigureInterfaceRaycastPassthrough();
             this.m_SelfieCamera?.Initialize(this, this.m_HandPresentation);
+            this.m_VideoRecorder.Initialize(
+                this,
+                this.m_SelfieCamera,
+                this.m_HomeScreen,
+                this.m_AppScreens,
+                this.m_AppButtons,
+                out this.m_AppScreens,
+                out this.m_AppButtons
+            );
             if (this.m_SelfieCamera != null)
                 this.m_SelfieCamera.EventPhotoCaptured += this.OnPhotoCaptured;
             this.HideLegacyBottomNavigation();
@@ -281,8 +303,25 @@ namespace FranklinGame.PhoneSystem
             this.TryBindHud(true);
         }
 
+        private void ConfigureInterfaceRaycastPassthrough()
+        {
+            if (this.m_InterfaceRoot == null) return;
+
+            // Phone Interface covers the complete screen and its Canvas renders
+            // above CanvasPlayerControl. Its decorative background must not be
+            // a raycast target or it consumes Jog/Sprint touches before their
+            // FranklinHudButton handlers receive PointerDown. Interactive phone
+            // graphics keep their own raycast targets enabled.
+            Image interfaceBackground =
+                this.m_InterfaceRoot.GetComponent<Image>();
+            if (interfaceBackground != null)
+                interfaceBackground.raycastTarget = false;
+        }
+
         private void OnDestroy()
         {
+            this.m_IsOpen = false;
+            this.m_VideoRecorder?.SetVideoAppActive(false);
             if (this.m_SelfieCamera != null)
             {
                 this.m_SelfieCamera.EventPhotoCaptured -= this.OnPhotoCaptured;
@@ -290,10 +329,17 @@ namespace FranklinGame.PhoneSystem
             }
             this.UnbindHud();
             FranklinMobileHud.ReleaseControlsSuppression(this);
+            FranklinMobileHud.SetFastMovementSuppressionBypassed(this, false);
             FranklinMobileHud.ReleaseFastMovementSuppression(this);
             this.SetWeaponHudVisible(true);
             this.SetPlayerIdleSuppressed(false);
-            this.m_HandPresentation?.SetPhoneOpen(false, true);
+            if (this.m_HandPresentation != null)
+            {
+                this.m_HandPresentation.EventPhoneStored -=
+                    this.OnPhysicalPhoneStored;
+                this.m_HandPresentation.SetPhoneOpen(false, true);
+            }
+            FranklinShooterSystem.SetPhoneUseActive(false);
             if (s_Instance == this) s_Instance = null;
         }
 
@@ -332,6 +378,8 @@ namespace FranklinGame.PhoneSystem
 
             if (open)
             {
+                this.m_BackCameraFastMovementEnabled = false;
+                FranklinShooterSystem.SetPhoneUseActive(true);
                 this.PlaySound(this.m_PhoneOpenSound);
                 this.m_HandPresentation?.SetPhoneOpen(true);
                 this.ShowHome();
@@ -350,9 +398,17 @@ namespace FranklinGame.PhoneSystem
             }
             else
             {
+                this.SetBackCameraFastMovementEnabled(false);
                 this.PlaySound(this.m_PhoneCloseSound);
+                this.m_VideoRecorder?.SetVideoAppActive(false);
                 this.m_SelfieCamera?.SetSelfieActive(false);
                 this.m_HandPresentation?.SetPhoneOpen(false);
+                if (this.m_HandPresentation == null ||
+                    !this.m_HandPresentation.isActiveAndEnabled ||
+                    this.m_HandPresentation.PhoneInstance == null)
+                {
+                    FranklinShooterSystem.SetPhoneUseActive(false);
+                }
                 FranklinMobileHud.ReleaseFastMovementSuppression(this);
                 this.SetWeaponHudVisible(true);
                 this.SetPlayerIdleSuppressed(false);
@@ -360,6 +416,12 @@ namespace FranklinGame.PhoneSystem
                     this.AnimatePhone(this.m_ClosedPosition, true)
                 );
             }
+        }
+
+        private void OnPhysicalPhoneStored()
+        {
+            if (this.m_IsOpen) return;
+            FranklinShooterSystem.SetPhoneUseActive(false);
         }
 
         private void SetWeaponHudVisible(bool visible)
@@ -390,7 +452,23 @@ namespace FranklinGame.PhoneSystem
             }
 
             this.m_PlayerAnimationBridge?.SetIdleVariationsSuppressed(true);
-            this.m_PlayerAnimationBridge?.SetFastLocomotionSuppressed(true);
+            this.m_PlayerAnimationBridge?.SetFastLocomotionSuppressed(
+                !this.m_BackCameraFastMovementEnabled
+            );
+        }
+
+        /// <summary>
+        /// Live BACK camera is the only phone state allowed to use Jog/Sprint.
+        /// Other phone controls and idle variations remain suppressed.
+        /// </summary>
+        public void SetBackCameraFastMovementEnabled(bool enabled)
+        {
+            enabled = enabled && this.m_IsOpen;
+            if (this.m_BackCameraFastMovementEnabled == enabled) return;
+
+            this.m_BackCameraFastMovementEnabled = enabled;
+            FranklinMobileHud.SetFastMovementSuppressionBypassed(this, enabled);
+            if (this.m_IsOpen) this.SetPlayerIdleSuppressed(true);
         }
 
         public void OpenApp(int index)
@@ -404,7 +482,9 @@ namespace FranklinGame.PhoneSystem
                 if (this.m_AppScreens[i] != null)
                     this.m_AppScreens[i].SetActive(i == index);
 
-            this.m_HeaderTitleText.text = APP_TITLES[index];
+            this.m_HeaderTitleText.text = index < APP_TITLES.Length
+                ? APP_TITLES[index]
+                : "APP";
             this.m_HeaderSubtitleText.text = index switch
             {
                 0 => "DIAL NUMBER",
@@ -412,15 +492,24 @@ namespace FranklinGame.PhoneSystem
                 2 => "T9 TEXT INPUT",
                 3 => "LOS SANTOS NAVIGATION",
                 4 => "LIVE VIEW",
-                _ => this.m_SelfieCamera != null
+                5 => this.m_SelfieCamera != null
                     ? $"{this.m_SelfieCamera.StoredPhotoCount} SAVED MOMENTS"
-                    : "RECENT MOMENTS"
+                    : "RECENT MOMENTS",
+                6 => this.m_VideoRecorder != null
+                    ? this.m_VideoRecorder.HeaderStatus
+                    : "VIDEO CAMERA",
+                _ => "APPLICATION"
             };
             if (index == 0) this.RefreshCallHistoryDisplay();
             if (index == 0) this.SetDialTab(true, false);
             if (index == 1) this.ShowMessageList(false);
-            this.m_SelfieCamera?.SetSelfieActive(index == 4);
-            if (index == 5) this.m_SelfieCamera?.RefreshGallery();
+            this.m_VideoRecorder?.SetVideoAppActive(index == 6);
+            this.m_SelfieCamera?.SetSelfieActive(index == 4 || index == 6);
+            if (index == 5)
+            {
+                this.m_SelfieCamera?.RefreshGallery();
+                this.m_VideoRecorder?.RefreshPhotosMedia();
+            }
             else this.m_SelfieCamera?.ClosePhotoViewer();
             this.HideLegacyBottomNavigation();
         }
@@ -428,6 +517,7 @@ namespace FranklinGame.PhoneSystem
         public void ShowHome()
         {
             this.m_CurrentApp = -1;
+            this.m_VideoRecorder?.SetVideoAppActive(false);
             this.m_SelfieCamera?.SetSelfieActive(false);
             this.m_SelfieCamera?.ClosePhotoViewer();
             if (this.m_HomeScreen != null) this.m_HomeScreen.SetActive(true);
@@ -490,6 +580,19 @@ namespace FranklinGame.PhoneSystem
             this.m_HeaderSubtitleText.text = this.m_SelfieCamera != null
                 ? $"{this.m_SelfieCamera.StoredPhotoCount} SAVED MOMENTS"
                 : "RECENT MOMENTS";
+        }
+
+        public void RefreshVideoHeader()
+        {
+            if (this.m_CurrentApp != 6 || this.m_HeaderSubtitleText == null) return;
+            this.m_HeaderSubtitleText.text = this.m_VideoRecorder != null
+                ? this.m_VideoRecorder.HeaderStatus
+                : "VIDEO CAMERA";
+        }
+
+        public void NotifyRuntimeUiTap()
+        {
+            this.NotifyPhysicalTap();
         }
 
         public void Configure(

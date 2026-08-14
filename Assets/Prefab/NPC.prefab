@@ -137,7 +137,7 @@ GameObject:
   - component: {fileID: 4291365493540119056}
   - component: {fileID: 3384850456814050229}
   - component: {fileID: 6670033438819422962}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: MobileBlobShadow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1318,7 +1318,9 @@ GameObject:
   - component: {fileID: 2818276778289055273}
   - component: {fileID: 6858524348554057834}
   - component: {fileID: 1698930968427756962}
-  m_Layer: 0
+  - component: {fileID: 720885883736077419}
+  - component: {fileID: 6637307961692785570}
+  m_Layer: 11
   m_Name: NPC
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1353,7 +1355,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 48e4aa7a58d404413af1c9111cdcd3f1, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: GameCreator.Runtime.Core::GameCreator.Runtime.Characters.Character
   m_IsPlayer: 0
   m_Time:
@@ -1484,7 +1486,7 @@ MonoBehaviour:
         m_Mannequin: {fileID: 4783942249854200778}
         m_Animator: {fileID: 3065118493730239050}
         m_StartState: {fileID: 11400000, guid: 00afd52627d16433c9d96078527cdf66, type: 2}
-        m_Reaction: {fileID: 0}
+        m_Reaction: {fileID: 11400000, guid: 1233dc982fd2444cc853057a35419424, type: 2}
     - rid: 9185873306362052899
       type: {class: InteractionModeNearCharacter, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
       data:
@@ -1537,7 +1539,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3c924eacff884626a5aa4c90cf311c23, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: GameCreator.Runtime.Stats::GameCreator.Runtime.Stats.Traits
   m_Class: {fileID: 11400000, guid: bc16cea8e8486448b8e12b9829331f1d, type: 2}
   m_OverrideAttributes:
@@ -1621,9 +1623,12 @@ MonoBehaviour:
   m_ShadowTransform: {fileID: 4291365493540119056}
   m_ShadowRenderer: {fileID: 6670033438819422962}
   m_RenderCamera: {fileID: 0}
+  m_OrientationTransform: {fileID: 7862008611753459182}
+  m_FootprintCenter: {x: 0, y: 0}
   m_ShadowColor: {r: 0, g: 0, b: 0, a: 1}
   m_Intensity: 0.52
   m_Power: 1.7
+  m_Core: 0.12
   m_FootprintShape: 0
   m_VolumeSize: {x: 1, y: 0.65, z: 1}
   m_GroundedPivotHeight: 1
@@ -1640,9 +1645,70 @@ MonoBehaviour:
   m_GroundOffset: 0.025
   m_MinGroundNormalY: 0.35
   m_HideWhenGroundMissing: 1
+  m_IgnoreRigidbodyReceivers: 1
+  m_SuppressInsideShadowOwner: 1
   m_ConfigureCameraDepth: 1
   m_MaxVisibleDistance: 28
   m_DistanceCheckInterval: 0.25
+--- !u!114 &720885883736077419
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5364405789980172438}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 084484a079e8844ebb0108679167b232, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FranklinGame.Melee::FranklinGame.Melee.FranklinMeleeReactionEase
+  m_Character: {fileID: 2818276778289055273}
+  m_ReactionAnimations:
+  - {fileID: 7400064, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  - {fileID: 7400066, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  - {fileID: 7400068, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  - {fileID: 7400060, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  - {fileID: 7400018, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  - {fileID: 7400024, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  - {fileID: 7400020, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  - {fileID: 7400026, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  - {fileID: 7400022, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  - {fileID: 7400028, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  - {fileID: 7400056, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  - {fileID: 7400004, guid: 932279eb1c22db24385eb04c03856eb1, type: 3}
+  m_UseEase: 1
+  m_Ease: 3
+  m_EaseInDuration: 0.08
+  m_EaseOutDuration: 0.12
+  m_EdgeSpeedMultiplier: 0.65
+  m_GlobalReactionSpeed: 1
+  m_UpdatesPerSecond: 30
+--- !u!114 &6637307961692785570
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5364405789980172438}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6f220b382d02467ca32fc90b51027d2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FranklinGame.Melee::FranklinGame.Melee.FranklinDamagePainAudio
+  m_Traits: {fileID: 6858524348554057834}
+  m_HealthAttribute: {fileID: 11400000, guid: 4cf7ae5caa4804d0ea2548dceac15ffb, type: 2}
+  m_PainVoices:
+  - {fileID: 8300000, guid: 9596454acd7cf4e90bda94c3da055af0, type: 3}
+  - {fileID: 8300000, guid: 29b08f19709044572b4ed74c9ea4fb12, type: 3}
+  - {fileID: 8300000, guid: d3300b9631ba743afaca6c616470176e, type: 3}
+  - {fileID: 8300000, guid: 14f99f68b9b4d4e4681cad4ad3bc2de8, type: 3}
+  - {fileID: 8300000, guid: 7a407427d6f314a75a1d5ef9de57bb20, type: 3}
+  - {fileID: 8300000, guid: f00cb0504709545d5a65c4795afe6656, type: 3}
+  - {fileID: 8300000, guid: 7d54ec07b8afb43d9a922ae9fca7bbcf, type: 3}
+  - {fileID: 8300000, guid: 020a2d3a6359b4b8381378805b931e89, type: 3}
+  m_Volume: 0.55
+  m_PitchRange: {x: 0.96, y: 1.04}
+  m_MinInterval: 0.22
 --- !u!1 &5757642832812108497
 GameObject:
   m_ObjectHideFlags: 0

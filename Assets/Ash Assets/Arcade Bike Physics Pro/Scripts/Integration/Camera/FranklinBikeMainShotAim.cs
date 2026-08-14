@@ -58,6 +58,14 @@ namespace FranklinGame.Animations
         [SerializeField] private float m_Lift = 0.5f;
         [SerializeField, Min(0.01f)] private float m_Radius = 3f;
 
+        [Header("Shooter Aim Framing")]
+        [Tooltip(
+            "Temporary Third Person shoulder offset while aiming a gun on the Bike. " +
+            "A positive value moves the camera right so the rider appears left of the reticle."
+        )]
+        [SerializeField] private float m_ShooterAimShoulderOffset = 0.55f;
+        [SerializeField, Min(0f)] private float m_ShooterAimBlendDuration = 0.18f;
+
         [Header("Bike TPS Orbit")]
         [SerializeField] private bool m_OverrideSensitivity = true;
         [SerializeField, Min(0f)] private float m_SensitivityX = 0.2f;
@@ -78,6 +86,8 @@ namespace FranklinGame.Animations
         private BikeEntry m_ActiveBike;
         private Snapshot m_Snapshot;
         private bool m_HasSnapshot;
+        private bool m_ShooterAimRequested;
+        private bool m_ShooterAimApplied;
         private GameObject m_RecoveryPivot;
 
         public bool IsActive { get; private set; }
@@ -123,6 +133,8 @@ namespace FranklinGame.Animations
             this.m_MaxPitch = Mathf.Clamp(this.m_MaxPitch, 1f, 179f);
             this.m_MaxYaw = Mathf.Clamp(this.m_MaxYaw, 0f, 179f);
             this.m_SmoothTime = Mathf.Max(0f, this.m_SmoothTime);
+            this.m_ShooterAimBlendDuration =
+                Mathf.Max(0f, this.m_ShooterAimBlendDuration);
             this.m_AlignDelay = Mathf.Max(0f, this.m_AlignDelay);
             this.m_AlignSmoothTime = Mathf.Max(0f, this.m_AlignSmoothTime);
 
@@ -130,6 +142,7 @@ namespace FranklinGame.Animations
             if (Application.isPlaying && this.IsActive)
             {
                 this.ApplySettings();
+                this.ApplyShooterAimFraming(true);
             }
         }
 
@@ -160,6 +173,7 @@ namespace FranklinGame.Animations
             this.CaptureSnapshot();
             this.IsActive = true;
             this.ApplySettings();
+            this.ApplyShooterAimFraming();
 
             if (this.m_SnapBehindBikeOnEnter)
             {
@@ -177,6 +191,10 @@ namespace FranklinGame.Animations
         {
             if (!this.IsActive && !this.m_HasSnapshot) return;
 
+            if (this.m_ThirdPerson != null && this.m_ShooterAimApplied)
+                this.m_ThirdPerson.Aim(0f, 0f, 0f, 0f);
+            this.m_ShooterAimRequested = false;
+            this.m_ShooterAimApplied = false;
             this.RestoreSnapshot();
             this.DestroyRecoveryPivot();
             this.IsActive = false;
@@ -184,6 +202,16 @@ namespace FranklinGame.Animations
             this.m_ActiveShot = null;
             this.m_ThirdPerson = null;
             this.m_HasSnapshot = false;
+        }
+
+        /// <summary>
+        /// Shifts the current Bike Camera Shot so the rider and Bike stay left of
+        /// the Shooter reticle. The base Bike shoulder remains untouched.
+        /// </summary>
+        public void SetShooterAimActive(bool active)
+        {
+            this.m_ShooterAimRequested = active;
+            this.ApplyShooterAimFraming();
         }
 
         /// <summary>
@@ -339,6 +367,27 @@ namespace FranklinGame.Animations
                 maxYaw.IsEnabled = this.m_EnableMaxYaw;
                 maxYaw.Value = this.m_MaxYaw;
             }
+        }
+
+        private void ApplyShooterAimFraming(bool immediate = false)
+        {
+            bool shouldApply = this.m_ShooterAimRequested &&
+                               this.IsActive &&
+                               this.m_ThirdPerson != null;
+            if (!immediate && this.m_ShooterAimApplied == shouldApply) return;
+            if (this.m_ThirdPerson == null)
+            {
+                this.m_ShooterAimApplied = false;
+                return;
+            }
+
+            this.m_ThirdPerson.Aim(
+                shouldApply ? this.m_ShooterAimShoulderOffset : 0f,
+                0f,
+                0f,
+                immediate ? 0f : this.m_ShooterAimBlendDuration
+            );
+            this.m_ShooterAimApplied = shouldApply;
         }
 
         private void RestoreSnapshot()

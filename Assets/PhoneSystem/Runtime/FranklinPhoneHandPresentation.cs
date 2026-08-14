@@ -1,3 +1,4 @@
+using System;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Characters.IK;
 using GameCreator.Runtime.Common;
@@ -36,12 +37,26 @@ namespace FranklinGame.PhoneSystem
         [SerializeField] private Vector3 m_PhoneScale =
             new(0.105f, 0.105f, 0.105f);
 
-        [Header("Right Hand Humanoid IK")]
-        [Tooltip("Hidden draw pose offset from Chest in Character right/up/forward axes.")]
+        [Header("Phone Draw - Back Pocket IK")]
+        [InspectorName("Back Pocket Hand Position")]
+        [Tooltip(
+            "Hidden draw pose offset from Chest in Character right/up/forward " +
+            "axes. A negative Z places the hand behind the Player's hip/butt."
+        )]
         [SerializeField] private Vector3 m_PocketChestOffset =
-            new(0.24f, -0.42f, 0.05f);
+            new(0.25f, -0.44f, -0.18f);
+        [InspectorName("Back Pocket Hand Rotation")]
         [SerializeField] private Vector3 m_PocketHandEuler =
             new(-25f, 10f, -105f);
+        [InspectorName("Back Pocket Elbow Position")]
+        [Tooltip(
+            "Right-elbow hint while reaching behind the hip. Kept separate " +
+            "from the holding elbow so the arm bends naturally around the body."
+        )]
+        [SerializeField] private Vector3 m_PocketElbowChestOffset =
+            new(0.40f, -0.22f, -0.10f);
+
+        [Header("Right Hand Hold IK")]
         [Tooltip("Visible hold pose offset from Chest in Character right/up/forward axes.")]
         [SerializeField] private Vector3 m_RightHandChestOffset =
             new(0.17f, -0.15f, 0.30f);
@@ -76,7 +91,13 @@ namespace FranklinGame.PhoneSystem
         [Header("Timing and Blend")]
         [SerializeField, Range(0.35f, 1.5f)] private float m_DrawDuration = 0.72f;
         [SerializeField, Range(0.25f, 1.25f)] private float m_StoreDuration = 0.58f;
-        [SerializeField, Range(0.08f, 0.45f)] private float m_PhoneRevealThreshold = 0.26f;
+        [InspectorName("Back Pocket Reach Threshold")]
+        [Tooltip(
+            "Normalized point in the draw animation where the hidden hand has " +
+            "reached the back pocket, grips the phone and starts bringing it forward."
+        )]
+        [SerializeField, Range(0.08f, 0.45f)]
+        private float m_PhoneRevealThreshold = 0.38f;
         [SerializeField, Range(0.25f, 0.85f)] private float m_ScreenOnThreshold = 0.52f;
         [SerializeField, Range(0.12f, 0.4f)] private float m_TapDuration = 0.22f;
         [SerializeField, Range(0f, 0.02f)] private float m_IdleSwayAmount = 0.004f;
@@ -120,7 +141,10 @@ namespace FranklinGame.PhoneSystem
         private bool m_IKRegistered;
         private bool m_OwnsRightArmBusyMask;
         private bool m_HasWarnedMissingSetup;
+        private bool m_HasNotifiedPhoneStored = true;
         private Transform m_SelfieLookTarget;
+
+        public event Action EventPhoneStored;
 
         public bool IsPresented => this.m_TargetOpen;
         public bool IsConfigured => this.m_PhonePrefab != null;
@@ -156,6 +180,7 @@ namespace FranklinGame.PhoneSystem
 
             if (open)
             {
+                this.m_HasNotifiedPhoneStored = false;
                 if (this.EnsureReady())
                 {
                     this.AcquireRightArmBusyMask();
@@ -187,6 +212,7 @@ namespace FranklinGame.PhoneSystem
                     if (this.m_PhoneInstance != null)
                         this.m_PhoneInstance.SetActive(false);
                     this.ReleaseRightArmBusyMask();
+                    this.NotifyPhoneStored();
                 }
             }
         }
@@ -262,6 +288,9 @@ namespace FranklinGame.PhoneSystem
                 this.ReleaseRightArmBusyMask();
             }
 
+            if (!this.m_TargetOpen && this.m_PresentationWeight <= 0.0001f)
+                this.NotifyPhoneStored();
+
             if (this.m_TapElapsed >= 0f)
             {
                 this.m_TapElapsed += Time.unscaledDeltaTime;
@@ -289,6 +318,14 @@ namespace FranklinGame.PhoneSystem
             this.DisposeHumanPoseHandler();
             this.DestroyPhoneSocket();
             if (this.m_PhoneInstance != null) Destroy(this.m_PhoneInstance);
+        }
+
+        private void NotifyPhoneStored()
+        {
+            if (this.m_TargetOpen || this.m_HasNotifiedPhoneStored) return;
+
+            this.m_HasNotifiedPhoneStored = true;
+            this.EventPhoneStored?.Invoke();
         }
 
         private bool EnsureReady()
@@ -474,13 +511,19 @@ namespace FranklinGame.PhoneSystem
             this.ApplyRightHandMusclePose(pocketWeight, this.GetTapWeight());
             this.m_Animator.SetIKPosition(AvatarIKGoal.RightHand, handTarget);
             this.m_Animator.SetIKRotation(AvatarIKGoal.RightHand, handRotation);
+            Vector3 holdElbowOffset = Vector3.Lerp(
+                this.m_RightElbowChestOffset,
+                this.m_SelfieElbowChestOffset,
+                this.m_SelfieWeight
+            );
+            Vector3 elbowOffset = Vector3.Lerp(
+                this.m_PocketElbowChestOffset,
+                holdElbowOffset,
+                raiseWeight
+            );
             this.m_Animator.SetIKHintPosition(
                 AvatarIKHint.RightElbow,
-                this.GetChestPoint(Vector3.Lerp(
-                    this.m_RightElbowChestOffset,
-                    this.m_SelfieElbowChestOffset,
-                    this.m_SelfieWeight
-                ))
+                this.GetChestPoint(elbowOffset)
             );
         }
 

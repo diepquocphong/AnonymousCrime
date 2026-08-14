@@ -152,7 +152,7 @@ namespace ArcadeBP_Pro
             public float maxSpeed = 80;
 
             [Tooltip("Maximum speed the bike can reach in reverse.")]
-            public float reverseMaxSpeed = 3;
+            public float reverseMaxSpeed = 2;
 
             [Tooltip("Acceleration rate of the bike.")]
             public float acceleration = 10;

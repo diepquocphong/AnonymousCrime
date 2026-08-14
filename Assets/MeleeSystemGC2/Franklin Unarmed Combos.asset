@@ -1,0 +1,246 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d6965c45d6044a989f046010528d201e, type: 3}
+  m_Name: Franklin Unarmed Combos
+  m_EditorClassIdentifier: GameCreator.Runtime.Melee::GameCreator.Runtime.Melee.Combos
+  m_Combos:
+    rid: 9185873498292618145
+  references:
+    version: 2
+    RefIds:
+    - rid: 9185873498292618145
+      type: {class: ComboTree, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
+      data:
+        m_Dirty: 0
+        m_Data:
+          m_Keys: 4f4a021ffb0c446a45ca82cd4931c488245d8e7db0d8897d5744bd382f6b0ecc
+          m_Values:
+          - m_Id: 520243791
+            m_Value:
+              rid: 9185873498292618146
+          - m_Id: 1782844667
+            m_Value:
+              rid: 9185873498292618147
+          - m_Id: -847066555
+            m_Value:
+              rid: 9185873498292618148
+          - m_Id: -2000408247
+            m_Value:
+              rid: 9185873498292618149
+          - m_Id: 2106481956
+            m_Value:
+              rid: 9185873498292618150
+          - m_Id: 2106185904
+            m_Value:
+              rid: 9185873498292618151
+          - m_Id: 951927895
+            m_Value:
+              rid: 9185873498292618152
+          - m_Id: -871470289
+            m_Value:
+              rid: 9185873498292618153
+        m_Nodes:
+          m_Keys: 4f4a021ffb0c446a45ca82cd4931c488245d8e7db0d8897d5744bd382f6b0ecc
+          m_Values:
+          - m_Id: 520243791
+            m_Parent: -1
+            m_Children: 
+          - m_Id: 1782844667
+            m_Parent: -1
+            m_Children: 
+          - m_Id: -847066555
+            m_Parent: -1
+            m_Children: 
+          - m_Id: -2000408247
+            m_Parent: -1
+            m_Children: 
+          - m_Id: 2106481956
+            m_Parent: -1
+            m_Children: 
+          - m_Id: 2106185904
+            m_Parent: -1
+            m_Children: 
+          - m_Id: 951927895
+            m_Parent: -1
+            m_Children: 
+          - m_Id: -871470289
+            m_Parent: -1
+            m_Children: 
+        m_Roots: 4f4a021ffb0c446a45ca82cd4931c488245d8e7db0d8897d5744bd382f6b0ecc
+    - rid: 9185873498292618146
+      type: {class: ComboItem, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
+      data:
+        m_IsDisabled: 0
+        m_Key: 0
+        m_Mode: 0
+        m_When: 1
+        m_AutoRelease: 0
+        m_Timeout:
+          m_Property:
+            rid: 9185873498292618154
+        m_HasDelay:
+          m_IsEnabled: 0
+          m_Value: 0.5
+        m_Conditions:
+          m_Conditions:
+            m_Conditions: []
+        m_Skill: {fileID: 11400000, guid: e3d9b7c44fb404a4d895021fd1ec81c0, type: 2}
+    - rid: 9185873498292618147
+      type: {class: ComboItem, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
+      data:
+        m_IsDisabled: 0
+        m_Key: 1
+        m_Mode: 0
+        m_When: 1
+        m_AutoRelease: 0
+        m_Timeout:
+          m_Property:
+            rid: 9185873498292618155
+        m_HasDelay:
+          m_IsEnabled: 0
+          m_Value: 0.5
+        m_Conditions:
+          m_Conditions:
+            m_Conditions: []
+        m_Skill: {fileID: 11400000, guid: 402a0c9772e5445b59862015cdba9bc6, type: 2}
+    - rid: 9185873498292618148
+      type: {class: ComboItem, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
+      data:
+        m_IsDisabled: 0
+        m_Key: 2
+        m_Mode: 0
+        m_When: 1
+        m_AutoRelease: 0
+        m_Timeout:
+          m_Property:
+            rid: 9185873498292618156
+        m_HasDelay:
+          m_IsEnabled: 0
+          m_Value: 0.5
+        m_Conditions:
+          m_Conditions:
+            m_Conditions: []
+        m_Skill: {fileID: 11400000, guid: eac0d4c99c97d481883ac4d9147bb089, type: 2}
+    - rid: 9185873498292618149
+      type: {class: ComboItem, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
+      data:
+        m_IsDisabled: 0
+        m_Key: 3
+        m_Mode: 0
+        m_When: 1
+        m_AutoRelease: 0
+        m_Timeout:
+          m_Property:
+            rid: 9185873498292618157
+        m_HasDelay:
+          m_IsEnabled: 0
+          m_Value: 0.5
+        m_Conditions:
+          m_Conditions:
+            m_Conditions: []
+        m_Skill: {fileID: 11400000, guid: 4415b774f2dc24c7a9974238bdf47d8e, type: 2}
+    - rid: 9185873498292618150
+      type: {class: ComboItem, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
+      data:
+        m_IsDisabled: 0
+        m_Key: 4
+        m_Mode: 0
+        m_When: 1
+        m_AutoRelease: 0
+        m_Timeout:
+          m_Property:
+            rid: 9185873498292618158
+        m_HasDelay:
+          m_IsEnabled: 0
+          m_Value: 0.5
+        m_Conditions:
+          m_Conditions:
+            m_Conditions: []
+        m_Skill: {fileID: 11400000, guid: a0ac967377fd34ef68200407b483ed5f, type: 2}
+    - rid: 9185873498292618151
+      type: {class: ComboItem, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
+      data:
+        m_IsDisabled: 0
+        m_Key: 5
+        m_Mode: 0
+        m_When: 1
+        m_AutoRelease: 0
+        m_Timeout:
+          m_Property:
+            rid: 9185873498292618159
+        m_HasDelay:
+          m_IsEnabled: 0
+          m_Value: 0.5
+        m_Conditions:
+          m_Conditions:
+            m_Conditions: []
+        m_Skill: {fileID: 11400000, guid: d9273ca6dcd404c2996e598bee11f815, type: 2}
+    - rid: 9185873498292618152
+      type: {class: ComboItem, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
+      data:
+        m_IsDisabled: 0
+        m_Key: 6
+        m_Mode: 0
+        m_When: 1
+        m_AutoRelease: 0
+        m_Timeout:
+          m_Property:
+            rid: 9185873498292618160
+        m_HasDelay:
+          m_IsEnabled: 0
+          m_Value: 0.5
+        m_Conditions:
+          m_Conditions:
+            m_Conditions: []
+        m_Skill: {fileID: 11400000, guid: aadac6f804cb04e80b602a91a72b627a, type: 2}
+    - rid: 9185873498292618153
+      type: {class: ComboItem, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
+      data:
+        m_IsDisabled: 0
+        m_Key: 7
+        m_Mode: 0
+        m_When: 1
+        m_AutoRelease: 0
+        m_Timeout:
+          m_Property:
+            rid: 9185873498292618161
+        m_HasDelay:
+          m_IsEnabled: 0
+          m_Value: 0.5
+        m_Conditions:
+          m_Conditions:
+            m_Conditions: []
+        m_Skill: {fileID: 11400000, guid: 67601f2ef09e6482798384a8814bc20b, type: 2}
+    - rid: 9185873498292618154
+      type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 9185873498292618155
+      type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 9185873498292618156
+      type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 9185873498292618157
+      type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 9185873498292618158
+      type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 9185873498292618159
+      type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 9185873498292618160
+      type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 9185873498292618161
+      type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 

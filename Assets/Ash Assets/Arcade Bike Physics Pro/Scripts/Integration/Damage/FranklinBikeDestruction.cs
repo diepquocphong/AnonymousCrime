@@ -25,6 +25,7 @@ namespace FranklinGame.Vehicles
         [SerializeField] private FranklinArcadeBikeDriver m_Driver;
         [SerializeField] private FranklinArcadeBikeRagdoll m_BikeRagdoll;
         [SerializeField] private BikeEntry m_BikeEntry;
+        [SerializeField] private FranklinBikePassengerSeat m_PassengerSeat;
         [SerializeField] private Rigidbody m_BikeBody;
         [SerializeField] private Renderer[] m_BikeRenderers = Array.Empty<Renderer>();
 
@@ -46,6 +47,7 @@ namespace FranklinGame.Vehicles
 
         private bool m_IsDestroyed;
         private Character m_CapturedOccupant;
+        private Character m_CapturedPassenger;
         private MaterialPropertyBlock m_PropertyBlock;
 
         public bool IsDestroyed => m_IsDestroyed;
@@ -104,11 +106,17 @@ namespace FranklinGame.Vehicles
         {
             if (m_BikeEntry != null && m_BikeEntry.SeatedCharacter != null)
                 m_CapturedOccupant = m_BikeEntry.SeatedCharacter;
+            if (m_PassengerSeat != null && m_PassengerSeat.Passenger != null)
+                m_CapturedPassenger = m_PassengerSeat.Passenger;
         }
 
         private void ClearCapturedOccupant()
         {
-            if (!m_IsDestroyed) m_CapturedOccupant = null;
+            if (!m_IsDestroyed)
+            {
+                m_CapturedOccupant = null;
+                m_CapturedPassenger = null;
+            }
         }
 
         public void TriggerDestruction()
@@ -119,6 +127,8 @@ namespace FranklinGame.Vehicles
 
             Character occupant = m_CapturedOccupant ??
                 (m_BikeEntry != null ? m_BikeEntry.SeatedCharacter : null);
+            Character passenger = m_CapturedPassenger ??
+                (m_PassengerSeat != null ? m_PassengerSeat.Passenger : null);
             float fallSign = CalculateFallSign();
             if (m_BikeRagdoll != null && !m_BikeRagdoll.IsRagdoll)
                 m_BikeRagdoll.ActivateRagdoll(fallSign, m_ToppleAngularVelocity);
@@ -127,6 +137,11 @@ namespace FranklinGame.Vehicles
                 m_BikeEntry.SeatedCharacter == occupant)
             {
                 m_BikeEntry.ReleaseForCrash(occupant);
+            }
+            if (passenger != null && m_PassengerSeat != null &&
+                m_PassengerSeat.Passenger == passenger)
+            {
+                m_PassengerSeat.ReleaseForCrash(passenger);
             }
 
             // A parked fallen Bike can be kinematic. Explosion always restores a
@@ -157,6 +172,13 @@ namespace FranklinGame.Vehicles
                 SetPlayerHealthToZero(occupant);
                 FranklinMobileHud.SetControlsSuppressed(true);
                 AttachBurnFire(occupant);
+            }
+            if (passenger != null && passenger.Player != null)
+            {
+                Renderer[] passengerRenderers =
+                    passenger.GetComponentsInChildren<Renderer>(true);
+                ApplyCharredAppearance(passengerRenderers, m_CharredPlayerColor);
+                SetPlayerHealthToZero(passenger);
             }
         }
 
@@ -266,6 +288,8 @@ namespace FranklinGame.Vehicles
             if (m_BikeRagdoll == null)
                 m_BikeRagdoll = GetComponent<FranklinArcadeBikeRagdoll>();
             if (m_BikeEntry == null) m_BikeEntry = GetComponent<BikeEntry>();
+            if (m_PassengerSeat == null)
+                m_PassengerSeat = GetComponent<FranklinBikePassengerSeat>();
             if (m_BikeBody == null) m_BikeBody = GetComponent<Rigidbody>();
         }
 

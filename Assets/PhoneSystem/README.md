@@ -2,13 +2,15 @@
 
 PhoneSystem là giao diện điện thoại trong game theo phong cách GTA, được tối ưu cho thao tác cảm ứng trên thiết bị mobile. Điện thoại sử dụng một Canvas riêng, xuất hiện ở bên phải màn hình và được mở từ button Phone nằm cạnh minimap.
 
+Home Screen và các ứng dụng media dùng cùng khung full-height `425×714`, neo tại `Y = -66`, nên nền giao diện kéo hết xuống vùng viền dưới/gesture indicator của điện thoại thay vì dừng giữa màn hình.
+
 Vị trí mở của giao diện được lấy trực tiếp từ `Phone Device > RectTransform > Anchored Position` trong prefab. Khi Play, hệ thống không còn dùng một `Open Position` ẩn để ghi đè chỉnh sửa này; vị trí đóng được tự tính nằm ngoài mép phải màn hình.
 
 ## Tính năng hiện có
 
 - Tự nạp prefab khi scene bắt đầu và giữ PhoneSystem khi chuyển scene.
 - Tự áp dụng `Screen.safeArea` cho thiết bị có tai thỏ hoặc vùng bo góc.
-- Sáu ứng dụng: Điện thoại, Tin nhắn, Ghi chú, Bản đồ, Camera selfie và Ảnh.
+- Bảy ứng dụng: Điện thoại, Tin nhắn, Ghi chú, Bản đồ, Camera selfie, Ảnh và Video.
 - Bàn phím gọi điện có hai tab riêng: `KEYPAD` và `RECENT`.
 - Chuyển riêng giữa chế độ nhập số `123` và nhập chữ `ABC`; hai dạng không hiển thị đồng thời.
 - Nhập chữ theo kiểu multi-tap/T9, ví dụ `ABC`, `DEF`, `GHI`.
@@ -21,7 +23,9 @@ Vị trí mở của giao diện được lấy trực tiếp từ `Phone Device
 - Model phone bám theo socket runtime trên bàn tay phải. Grip được tạo bằng Humanoid muscle thay vì xoay trực tiếp local Euler của bone, nên không phụ thuộc trục xương riêng của model Franklin.
 - Mọi button trong Canvas PhoneSystem đều kích hoạt ngón cái phải thực hiện một nhịp chạm vật lý.
 - Camera app lấy vị trí khởi đầu từ `PhoneInstance` trên tay phải, sau đó điều khiển một bản runtime của `Assets/Prefab/Camera Shot.prefab`. Shot giữ nguyên `ShotTypeThirdPerson` và input orbit mobile; GC2 Main Camera chỉ kế thừa output từ Camera Shot. Player quay tự nhiên bằng Facing layer và đưa điện thoại lên pose selfie riêng.
-- Nút Shutter lưu frame đang xem thành PNG trong `Application.persistentDataPath/FranklinPhonePhotos` và tự nạp tối đa 9 ảnh mới nhất vào Photos app.
+- Nút Shutter lưu frame đang xem thành PNG trong `Application.persistentDataPath/FranklinPhonePhotos` và tự nạp tối đa 30 ảnh mới nhất vào Photos app có scroll.
+- Video app dùng cùng RenderTexture/GC2 Camera Shot với Camera app; có quay-dừng, đồng hồ, thư viện clip có scroll, xem lại, tạm dừng và xóa clip.
+- Video app có nút `BACK/SELFIE`: SELFIE dùng Third Person orbit hiện tại; BACK chuyển sang GC2 Fixed Camera Shot bám trước lens trên tay phải và nhìn ra phía trước điện thoại.
 - Màn hình model sáng sau khi điện thoại được đưa lên, tắt ngay khi bắt đầu cất điện thoại; vật liệu gốc không bị sửa vì hiệu ứng dùng `MaterialPropertyBlock` riêng cho instance runtime.
 - Đầu Player nhìn vào điện thoại bằng `RigLookTo` của Game Creator 2 với layer ưu tiên `-100`, cao hơn camera head-look hiện có.
 - Hiệu ứng trượt mở/đóng sử dụng thời gian không phụ thuộc `Time.timeScale`.
@@ -47,7 +51,7 @@ Nếu cần tạo lại toàn bộ prefab từ mã Editor, sử dụng menu:
 
 ### Màn hình chính
 
-Nhấn button Phone cạnh minimap để mở điện thoại. Màn hình chính hiển thị sáu ứng dụng:
+Nhấn button Phone cạnh minimap để mở điện thoại. Màn hình chính hiển thị bảy ứng dụng:
 
 | Index | Ứng dụng | Trạng thái |
 | ---: | --- | --- |
@@ -56,7 +60,8 @@ Nhấn button Phone cạnh minimap để mở điện thoại. Màn hình chính
 | 2 | Ghi chú | Nhập nội dung bằng bàn phím T9; thao tác lưu hiện đang giả lập |
 | 3 | Bản đồ | Giao diện bản đồ giả lập |
 | 4 | Camera | Live selfie, quay Player về Main Camera và chụp ảnh |
-| 5 | Ảnh | 9 ảnh selfie thật gần nhất, xem toàn màn hình và xóa ảnh |
+| 5 | Ảnh | Tối đa 30 ảnh selfie thật, scroll, xem toàn màn hình và xóa ảnh |
+| 6 | Video | Quay live selfie, xem thư viện clip và xóa clip |
 
 Button `X` hoạt động theo màn hình hiện tại:
 
@@ -152,14 +157,14 @@ Component `FranklinPhoneHandPresentation` nằm cùng GameObject với `Franklin
 
 Luồng animation runtime:
 
-1. Khi mở PhoneSystem, model được tạo tại socket của bàn tay phải đang ở bên hông.
-2. Humanoid IK đưa cánh tay phải lên tư thế cầm trước ngực trong `0.72` giây; `RightElbow` hint giữ hướng gập khuỷu tay ổn định.
+1. Khi mở PhoneSystem, Humanoid IK đưa bone tay phải ra sau hông/mông tới `Back Pocket Hand Position`; điện thoại vẫn được ẩn trong pha với tay này.
+2. `Back Pocket Elbow Position` điều khiển riêng khuỷu tay để cánh tay vòng ra sau cơ thể tự nhiên. Khi đạt `Back Pocket Reach Threshold = 0.38`, phone xuất hiện trong bàn tay và được đưa lên trước ngực; toàn bộ động tác mở mặc định dài `0.85` giây.
 3. Khi điện thoại qua ngưỡng đưa lên, mesh `ScrOn` được bật màu và emission; GC2 bắt đầu hướng đầu Player vào model.
 4. Hand socket giữ model bám theo tay phải; các Humanoid muscle khép bốn ngón quanh phone và thêm idle sway rất nhẹ.
 5. Mỗi lần nhấn button trên UI, ngón cái phải chuyển từ pose nghỉ sang pose chạm rồi trở lại trong một nhịp `0.22` giây.
 6. Khi đóng, màn hình và Look target tắt, tay phải trở về bên hông trong `0.58` giây, sau đó model được ẩn.
 
-Các offset tay phải, elbow hint, góc xoay, muscle grip/ngón cái, idle sway, scale model, thời gian hòa trộn và màu màn hình đều được serialize trên `FranklinPhoneHandPresentation`. Hai field `Phone Position` và `Phone Rotation` là lớp tinh chỉnh cuối theo local space của socket tay phải, dùng để dịch/xoay riêng model phone mà không đổi pose IK của tay. Có thể tinh chỉnh các giá trị này trong Inspector nếu thay model Player, nhưng không cần chỉnh `RectTransform` của giao diện điện thoại.
+Các offset tay phải, elbow hint, góc xoay, muscle grip/ngón cái, idle sway, scale model, thời gian hòa trộn và màu màn hình đều được serialize trên `FranklinPhoneHandPresentation`. `Back Pocket Hand Position`, `Back Pocket Hand Rotation`, `Back Pocket Elbow Position` và `Back Pocket Reach Threshold` cho phép tinh chỉnh riêng động tác thò tay ra sau mông. Hai field `Phone Position` và `Phone Rotation` là lớp tinh chỉnh cuối theo local space của socket tay phải, dùng để dịch/xoay riêng model phone mà không đổi pose IK của tay. Có thể tinh chỉnh các giá trị này trong Inspector nếu thay model Player, nhưng không cần chỉnh `RectTransform` của giao diện điện thoại.
 
 ## Camera selfie và Photos
 
@@ -175,15 +180,23 @@ Hai field `Phone Camera Position` và `Phone Camera Rotation` trên `FranklinPho
 
 Nội dung giao diện phone dùng scale `0.92` bên trong màn hình 408×778, tạo thêm một khoảng inset nhỏ quanh Camera, Photos và các app khác thay vì chạm sát khung máy.
 
+Photos dùng `ScrollRect` dọc với viewport mask và content grid ba cột. Content tự tăng chiều cao theo toàn bộ số ảnh trong `Max Stored Photos` (mặc định 30), tạo thêm slot khi vượt quá 9 ảnh ban đầu và hỗ trợ touch drag/mouse wheel. Mỗi lần mở Photos, ảnh mới nhất nằm ở đầu danh sách; chạm thumbnail sau khi cuộn vẫn mở đúng ảnh để xem hoặc xóa.
+
+Video app lưu tối đa 12 clip tại `Application.persistentDataPath/FranklinPhoneVideos`. Mặc định mỗi clip dài tối đa 30 giây, 30 FPS, kích thước `350×588` và JPEG quality 55 để ưu tiên độ mượt trên mobile; các giá trị này chỉnh được trên component `FranklinPhoneVideoRecorder`. FPS thực tế còn được ghi lại khi kết thúc để clip giữ đúng tốc độ nếu thiết bị không đạt FPS mục tiêu. Khi mở clip, toàn bộ frame JPEG nén được nạp trước vào RAM nhằm loại bỏ seek/đọc ổ lưu trữ giữa lúc phát. Clip dùng container `.fvideo` nội bộ để hoạt động trong runtime/mobile build mà không cần Unity Recorder hoặc native MP4 plugin. Sau khi dừng quay, thumbnail video được thêm vào grid của ứng dụng Ảnh với nhãn phát và thời lượng; chạm thumbnail sẽ mở trình xem Video. Thư viện Video riêng vẫn hiển thị thumbnail, thời lượng và ngày quay; `PLAY/PAUSE` điều khiển phát và `DELETE` hai lần xác nhận xóa. Phiên bản này ghi hình game nhưng chưa ghi microphone/audio.
+
+Nút icon xoay `↻` trong màn hình quay chuyển qua lại camera trước/sau; icon màu cyan ở SELFIE, màu đỏ và xoay 180° ở BACK. Khi switch SELFIE → BACK, hệ thống chụp rotation hiện tại của Main Camera rồi cộng yaw world-space đúng `180°` trước khi kích hoạt shot mới, thay vì tái sử dụng hướng nhìn cũ. Cả hai chế độ đều instantiate trực tiếp `Assets/Prefab/Camera Shot.prefab` và giữ nguyên `ShotTypeThirdPerson` cùng input orbit mobile. BACK dùng một pivot độc lập lấy từ Player root và `Back Camera Position` (mặc định cao `1.55`), hoàn toàn không đọc hoặc mount vào bone tay, phone socket hay Humanoid IK. `Shoulder = 0`, base `Radius = 0` và `Zoom Level = 0` tạo bán kính hiệu dụng đúng bằng 0, nên Camera Shot chỉ xoay tại chỗ. Clone BACK dùng `ClipThrough`, giữ nguyên tuyệt đối sensitivity từ `Camera Shot.prefab`, tắt giới hạn yaw và chỉ dùng orbit smooth time `0.06`. Trong BACK, toàn bộ `MeshRenderer`/`SkinnedMeshRenderer` của Player được tạm ẩn và GC2 Facing được chuyển sang `Object Direction`, khiến thân nhân vật luôn xoay theo hướng Main Camera mà không thể lọt vào khung hình; renderer và Facing trước đó được khôi phục chính xác khi chuyển SELFIE, đóng live camera hoặc xem media đã lưu. `Back Camera Position`, `Back Camera Rotation` và `Back Camera Field Of View` vẫn cho phép tinh chỉnh camera root. Nút chuyển camera bị khóa trong lúc đang ghi để clip không nhảy góc giữa chừng.
+
+Live Camera và media playback là hai trạng thái tách biệt. Khi mở `CLIPS` hoặc chạm thumbnail video trong ứng dụng Ảnh, `FranklinPhoneVideoRecorder` tắt `FranklinPhoneSelfieCamera`, phục hồi Camera Shot gameplay, giải phóng Player Facing/turn-speed và pose selfie trước khi phát file đã lưu. Chỉ khi đóng thư viện để quay lại màn hình quay live thì Camera Shot cùng pose SELFIE/BACK mới được bật lại.
+
 Player dùng Facing layer của Game Creator để liên tục xoay toàn thân về vị trí của GC2 Camera Shot đang orbit. Trong selfie, `Selfie Turn Speed Multiplier = 3` nhân `Character.Motion.AngularSpeed` lên ba lần ngay trước Character update, giúp thân Player bắt kịp orbit nhanh hơn; hệ thống vẫn theo dõi base speed mới nếu locomotion state thay đổi và phục hồi đúng base speed khi thoát. `FranklinPhoneHandPresentation` đồng thời hòa sang `Selfie Pose` và dùng `RigLookTo` để đầu/mắt nhìn thẳng vào transform của chính Camera Shot, không dùng camera phone hoặc RenderTexture làm look target. Camera Shot orbit theo world-space quanh pivot Player nên việc Player xoay người không ghi đè input orbit. Khi thoát Camera app hoặc đóng điện thoại, Facing layer, turn-speed override, RigLookTo, camera render, GC2 selfie shot và pose selfie đều được giải phóng.
 
 Nhấn Shutter sẽ đọc đúng frame hiện tại từ `RenderTexture`, mã hóa PNG và lưu tại:
 
 `Application.persistentDataPath/FranklinPhonePhotos`
 
-Hệ thống giữ tối đa 30 file gần nhất và hiển thị 9 ảnh mới nhất trong Photos app full viền. Các ô mockup màu đã bị loại bỏ; ô thumbnail chỉ xuất hiện khi có file ảnh thật. Chạm thumbnail để xem ảnh toàn màn hình, `BACK` để quay lại và `DELETE` hai lần để xác nhận xóa ảnh đang xem. Ảnh được nạp lại từ ổ lưu trữ sau khi đổi scene hoặc khởi động game lần sau; không dùng `PlayerPrefs` để chứa dữ liệu ảnh.
+Hệ thống giữ tối đa 30 file gần nhất và hiển thị toàn bộ trong Photos app full viền có scroll. Các ô mockup màu đã bị loại bỏ; ô thumbnail chỉ xuất hiện khi có file ảnh thật. Chạm thumbnail để xem ảnh toàn màn hình, `BACK` để quay lại và `DELETE` hai lần để xác nhận xóa ảnh đang xem. Ảnh được nạp lại từ ổ lưu trữ sau khi đổi scene hoặc khởi động game lần sau; không dùng `PlayerPrefs` để chứa dữ liệu ảnh.
 
-Khi phone mở, `FranklinMobileHud` ẩn riêng hai button `Jog` và `Sprint`, đồng thời `FranklinAnimationBridge` chặn cả sprint từ bàn phím/auto-run nhưng vẫn cho phép đi bộ thường. `FranklinPhoneHandPresentation` giữ limb mask `ArmRight` của Game Creator trong suốt thời gian trình bày phone; Humanoid IK sở hữu chuỗi tay phải để locomotion không đánh tay ra khỏi điện thoại.
+Khi phone mở, `FranklinMobileHud` mặc định ẩn các button `Jog`, `Sprint`, `Point Direction`, `Object Direction` và `Fight/Melee`; trạng thái hiển thị ban đầu của Fight được khôi phục khi đóng phone. Riêng trong live BACK camera, `Jog` và `Sprint` được hiện lại và `FranklinAnimationBridge` mở input fast locomotion; `Point Direction`, `Object Direction` và `Fight/Melee` vẫn ẩn. `Phone Interface` có nền trang trí full-screen nhưng `Raycast Target` của nền bị tắt cả trên prefab lẫn runtime, nên Canvas phone sorting order `2400` không chặn `PointerDown` của Jog/Sprint trên `CanvasPlayerControl`; các button thật bên trong phone vẫn giữ raycast riêng. Nếu có một hệ khác cùng yêu cầu suppression (chết, vehicle destruction...), suppression đó vẫn ưu tiên và Jog/Sprint tiếp tục bị khóa. Khi chuyển SELFIE, rời live camera hoặc đóng phone, Jog/Sprint được ẩn và input đang giữ được xóa. `FranklinPhoneHandPresentation` giữ limb mask `ArmRight` của Game Creator trong suốt thời gian trình bày phone; Humanoid IK sở hữu chuỗi tay phải để locomotion không đánh tay ra khỏi điện thoại.
 
 ## Tích hợp với HUD
 
@@ -192,8 +205,13 @@ Khi mở điện thoại, PhoneSystem thực hiện các hành vi sau:
 1. Hiển thị màn hình Home và cập nhật giờ, ngày, safe area.
 2. Gọi `FranklinMobileHud.AcquireControlsSuppression(this)` để tạm khóa các điều khiển mobile.
 3. Ẩn `Weapon Card` và `Quick Item Rail`, bao gồm armor, lựu đạn và chai xăng.
+4. Nếu Player đang cầm súng Shooter, tạm unequip đúng khẩu đó và khóa toàn bộ thao tác
+   bắn, ngắm, nạp đạn, đổi súng trong thời gian dùng điện thoại.
 
-Khi đóng hoặc hủy PhoneSystem, các trạng thái trên được giải phóng và Weapon HUD hiện lại. Việc ẩn/hiện chỉ thay đổi trạng thái runtime, không ghi lại hoặc sửa `RectTransform` của HUD.
+Khi đóng hoặc hủy PhoneSystem, các trạng thái trên được giải phóng và Weapon HUD hiện
+lại. Súng chỉ được restore sau khi model điện thoại đã hạ khỏi tay; hệ thống dùng lại
+đúng weapon/prop runtime nên giữ nguyên số đạn. Việc ẩn/hiện chỉ thay đổi trạng thái
+runtime, không ghi lại hoặc sửa `RectTransform` của HUD.
 
 ## Cấu trúc thư mục
 
@@ -209,7 +227,8 @@ Assets/PhoneSystem/
 ├── Runtime/
 │   ├── FranklinPhoneSystem.cs             # Điều hướng, nhập liệu và tích hợp HUD
 │   ├── FranklinPhoneHandPresentation.cs   # Cầm/rút máy, pose selfie, ngón tay và GC2 Look
-│   └── FranklinPhoneSelfieCamera.cs        # RenderTexture, Facing, capture PNG và Photos
+│   ├── FranklinPhoneSelfieCamera.cs        # RenderTexture, Facing, capture PNG và Photos
+│   └── FranklinPhoneVideoRecorder.cs       # Quay, lưu, thư viện và phát clip runtime
 └── Phone_A1_LP/                           # Model vật lý, mesh, material và animation màn hình
 ```
 

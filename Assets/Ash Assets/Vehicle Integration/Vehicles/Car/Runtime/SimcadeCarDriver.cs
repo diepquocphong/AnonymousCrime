@@ -74,6 +74,12 @@ namespace FranklinGame.Vehicles
         [Header("Fuel")]
         [SerializeField] private SimcadeCarFuel m_Fuel;
 
+        [Header("Lights")]
+        [SerializeField] private VehicleLights m_VehicleLights;
+
+        [Header("Horn")]
+        [SerializeField] private SimcadeCarHorn m_Horn;
+
         private Rigidbody m_Rigidbody;
         private CarEntry m_CarEntry;
         private bool m_IsVehicleEnabled;
@@ -92,6 +98,7 @@ namespace FranklinGame.Vehicles
         private bool m_HoldCameraDuringDestruction;
         private bool m_KeepEngineRunningAfterBailout;
         private bool m_HasFuel = true;
+        private bool m_HandbrakeInput;
         private float m_AccelerationInput;
         private float m_SteeringInput;
         private float m_ExitInputAvailableAt;
@@ -124,6 +131,12 @@ namespace FranklinGame.Vehicles
         public bool IsDestroyed => this.m_IsDestroyed;
         public bool HasFuel => this.m_HasFuel;
         public float ThrottleMagnitude => Mathf.Abs(this.m_AccelerationInput);
+        public float SignedAccelerationInput => this.m_AccelerationInput;
+        public bool IsHandbrakeRequested => this.m_HandbrakeInput ||
+            this.m_ExternalHandbrake;
+        public bool IsStoppingForExit => this.m_IsStoppingForExit;
+        public bool HeadlightsEnabled => this.m_VehicleLights != null &&
+            this.m_VehicleLights.AreLightsOn;
         public float DamageSteeringBias => this.m_DamageSteeringBias;
         public float MaximumDamageSteeringBias => this.m_MaxDamageSteeringBias;
         public float SlowModeMaxSpeedKph => this.m_SlowModeMaxSpeedKph;
@@ -144,6 +157,10 @@ namespace FranklinGame.Vehicles
                 this.m_Dashboard = this.GetComponent<SimcadeCarDashboard>();
             if (this.m_Fuel == null)
                 this.m_Fuel = this.GetComponent<SimcadeCarFuel>();
+            if (this.m_VehicleLights == null)
+                this.m_VehicleLights = this.GetComponent<VehicleLights>();
+            if (this.m_Horn == null)
+                this.m_Horn = this.GetComponent<SimcadeCarHorn>();
             if (this.m_Controller == null)
             {
                 this.m_Controller = this.GetComponent<SimcadeVehicleController>();
@@ -220,6 +237,7 @@ namespace FranklinGame.Vehicles
 
             if (this.m_IsStoppingForExit)
             {
+                this.m_HandbrakeInput = true;
                 this.m_AccelerationInput = 0f;
                 this.m_SteeringInput = Mathf.MoveTowards(
                     this.m_SteeringInput,
@@ -231,6 +249,7 @@ namespace FranklinGame.Vehicles
             }
 
             this.ReadInput(out float acceleration, out float steering, out bool handbrake);
+            this.m_HandbrakeInput = handbrake;
             steering = Mathf.Clamp(
                 steering + this.m_DamageSteeringBias,
                 -1f,
@@ -336,6 +355,7 @@ namespace FranklinGame.Vehicles
             this.m_AccelerationInput = 0f;
             this.m_SteeringInput = 0f;
             this.m_ExternalHandbrake = false;
+            this.m_HandbrakeInput = false;
             if (state)
             {
                 this.m_ExitInputAvailableAt = Time.unscaledTime + 0.5f;
@@ -402,6 +422,7 @@ namespace FranklinGame.Vehicles
                 this.m_Controller.enabled = false;
             }
             this.SetAudioActive(false);
+            this.SetHeadlightEnabled(false);
             this.SetMobileControlsActive(false);
             this.SetDashboardActive(false);
             if (!this.m_HoldCameraDuringDestruction)
@@ -581,6 +602,30 @@ namespace FranklinGame.Vehicles
             this.m_ExternalHandbrake = active;
         }
 
+        public void SetHeadlightEnabled(bool active)
+        {
+            if (this == null) return;
+            if (this.m_VehicleLights == null)
+                this.m_VehicleLights = this.GetComponent<VehicleLights>();
+            if (this.m_VehicleLights == null) return;
+
+            if (active) this.m_VehicleLights.LightsOn();
+            else this.m_VehicleLights.LightsOff();
+        }
+
+        public void ToggleHeadlights()
+        {
+            this.SetHeadlightEnabled(!this.HeadlightsEnabled);
+        }
+
+        public void SetHornPressed(bool pressed)
+        {
+            if (this == null) return;
+            if (this.m_Horn == null)
+                this.m_Horn = this.GetComponent<SimcadeCarHorn>();
+            this.m_Horn?.SetPressed(pressed);
+        }
+
         /// <summary>
         /// Called by SimcadeCarFuel when the GC2 fuel Attribute crosses empty.
         /// Steering, braking and momentum remain available; engine and throttle stop.
@@ -668,6 +713,8 @@ namespace FranklinGame.Vehicles
             this.m_VirtualSteerRight = false;
             this.m_VirtualHandbrake = false;
             this.m_VirtualSlowAccelerate = false;
+            this.m_HandbrakeInput = false;
+            this.m_Horn?.SetPressed(false);
         }
 
         public void ResetVehicle()
@@ -1323,6 +1370,8 @@ namespace FranklinGame.Vehicles
             this.m_CameraTargetAdditionalOffset = Vector3.zero;
             this.m_EnableCameraOrbit = true;
             this.m_SteeringWheel = steeringWheel;
+            this.m_VehicleLights = this.GetComponent<VehicleLights>();
+            this.m_Horn = this.GetComponent<SimcadeCarHorn>();
             this.m_DamageSteeringBias = 0f;
             this.m_MaxDamageSteeringBias = 0.16f;
             this.m_SlowModeMaxSpeedKph = 60f;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
 using GameCreator.Runtime.Stats;
@@ -187,6 +188,7 @@ namespace FranklinGame.Animations
         private bool m_HasDisabledSprintRootMotionRotation;
         private bool m_IsExternalAnimationLocked;
         private bool m_AreIdleVariationsSuppressed;
+        private readonly HashSet<object> m_IdleVariationSuppressionOwners = new();
         private bool m_IsFastLocomotionSuppressed;
         private int m_RunCameraFacingLayer = -1;
         private bool m_UseLeftRunStop;
@@ -227,7 +229,8 @@ namespace FranklinGame.Animations
         public bool IsExternalAnimationLocked => this.m_IsExternalAnimationLocked;
 
         public bool AreIdleVariationsSuppressed =>
-            this.m_AreIdleVariationsSuppressed;
+            this.m_AreIdleVariationsSuppressed ||
+            this.m_IdleVariationSuppressionOwners.Count > 0;
         public bool IsFastLocomotionSuppressed =>
             this.m_IsFastLocomotionSuppressed;
 
@@ -239,9 +242,41 @@ namespace FranklinGame.Animations
         {
             if (this.m_AreIdleVariationsSuppressed == suppressed) return;
 
+            bool wasSuppressed = this.AreIdleVariationsSuppressed;
             this.m_AreIdleVariationsSuppressed = suppressed;
+            this.OnIdleVariationSuppressionChanged(wasSuppressed);
+        }
+
+        /// <summary>
+        /// Adds an independent idle-variation suppression owner. This prevents one presentation
+        /// system from resuming idle gestures while another still needs a stable body pose.
+        /// </summary>
+        public void AcquireIdleVariationsSuppression(object owner)
+        {
+            if (owner == null) return;
+
+            bool wasSuppressed = this.AreIdleVariationsSuppressed;
+            if (!this.m_IdleVariationSuppressionOwners.Add(owner)) return;
+            this.OnIdleVariationSuppressionChanged(wasSuppressed);
+        }
+
+        /// <summary>Releases only the idle suppression previously acquired by owner.</summary>
+        public void ReleaseIdleVariationsSuppression(object owner)
+        {
+            if (owner == null) return;
+
+            bool wasSuppressed = this.AreIdleVariationsSuppressed;
+            if (!this.m_IdleVariationSuppressionOwners.Remove(owner)) return;
+            this.OnIdleVariationSuppressionChanged(wasSuppressed);
+        }
+
+        private void OnIdleVariationSuppressionChanged(bool wasSuppressed)
+        {
+            bool isSuppressed = this.AreIdleVariationsSuppressed;
+            if (wasSuppressed == isSuppressed) return;
+
             this.StopTrackingIdle();
-            if (suppressed && this.m_IsIdleGestureActive)
+            if (isSuppressed && this.m_IsIdleGestureActive)
                 this.StopOwnedCustomGesture();
         }
 
@@ -382,15 +417,6 @@ namespace FranklinGame.Animations
             this.CaptureModelRootBaseline();
             this.RefreshRuntimeCaches();
             this.ApplyJumpHeight();
-            FranklinRagdollGroundGuard groundGuard =
-                this.m_Character.GetComponent<FranklinRagdollGroundGuard>();
-            if (groundGuard == null)
-            {
-                groundGuard = this.m_Character.gameObject.AddComponent<
-                    FranklinRagdollGroundGuard
-                >();
-            }
-            groundGuard.Initialize(this.m_Character);
         }
 
         /// <summary>
@@ -1427,7 +1453,7 @@ namespace FranklinGame.Animations
         private bool CanPlayIdleVariation()
         {
             if (this.m_Character == null) return false;
-            if (this.m_AreIdleVariationsSuppressed) return false;
+            if (this.AreIdleVariationsSuppressed) return false;
             if (this.m_IdleVariations == null || this.m_IdleVariations.Length == 0) return false;
             if (this.m_Character.Driver == null || this.m_Character.Motion == null) return false;
             if (!this.m_Character.Driver.IsGrounded || this.m_Character.Motion.IsJumping) return false;

@@ -3,6 +3,32 @@ using UnityEngine;
 
 public class CharacterIKSetter : MonoBehaviour
 {
+    public readonly struct HandIKState
+    {
+        public Transform LeftTarget { get; }
+        public Transform RightTarget { get; }
+        public float LeftWeight { get; }
+        public float RightWeight { get; }
+        public float LeftRotationWeight { get; }
+        public float RightRotationWeight { get; }
+
+        public HandIKState(
+            Transform leftTarget,
+            Transform rightTarget,
+            float leftWeight,
+            float rightWeight,
+            float leftRotationWeight,
+            float rightRotationWeight)
+        {
+            LeftTarget = leftTarget;
+            RightTarget = rightTarget;
+            LeftWeight = leftWeight;
+            RightWeight = rightWeight;
+            LeftRotationWeight = leftRotationWeight;
+            RightRotationWeight = rightRotationWeight;
+        }
+    }
+
     private Animator animator;
 
     [Header("Hand IK Target References")]
@@ -97,6 +123,30 @@ public class CharacterIKSetter : MonoBehaviour
         this.rightWeight = rightIKWeight;
         this.leftRotationWeight = leftIKRotationWeight;
         this.rightRotationWeight = rightIKRotationWeight;
+    }
+
+    public HandIKState CaptureHandIKState()
+    {
+        return new HandIKState(
+            leftTarget,
+            rightTarget,
+            leftWeight,
+            rightWeight,
+            leftRotationWeight,
+            rightRotationWeight
+        );
+    }
+
+    public void RestoreHandIKState(HandIKState state)
+    {
+        SetIKTargets(
+            state.LeftTarget,
+            state.RightTarget,
+            state.LeftWeight,
+            state.RightWeight,
+            state.LeftRotationWeight,
+            state.RightRotationWeight
+        );
     }
 
     public void SetBeforeHandIK(Action callback)

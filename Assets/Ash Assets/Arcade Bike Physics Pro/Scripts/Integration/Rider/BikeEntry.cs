@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using FranklinGame.Animations;
+using FranklinGame.Shooter;
 using FranklinGame.Vehicles;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
@@ -64,7 +65,7 @@ public class BikeEntry : MonoBehaviour
     [Tooltip("State that represents the driving mode.")]
     public StateData drivingState = new StateData(StateData.StateType.State);
     [Tooltip("Layer for the driving state.")]
-    public int drivingStateLayer = 0;
+    public int drivingStateLayer = 1;
     [Tooltip("Transition time when entering driving state.")]
     public float drivingStateTransitionIn = 0.1f;
     [Tooltip("Transition time when exiting driving state.")]
@@ -103,6 +104,8 @@ public class BikeEntry : MonoBehaviour
 
     [Tooltip("Where the left foot should go when planted on the ground.")]
     public Transform groundLeftFootTarget;
+    [Tooltip("Optional right-foot ground target. When empty it is mirrored from Ground Left Foot across the bike center line.")]
+    public Transform groundRightFootTarget;
     [Tooltip("The left foot moves to the ground target while bike speed is below this value in km/h.")]
     [Min(0f)] public float groundFootSpeedKph = 3f;
     [Tooltip("How long, in seconds, to move the left foot from ground back to peg.")]
@@ -115,6 +118,20 @@ public class BikeEntry : MonoBehaviour
     public float leftFootIKWeight = 1f;
     [Tooltip("IK weight for the right foot.")]
     public float rightFootIKWeight = 1f;
+
+    [Header("Reverse Foot Push")]
+    [Tooltip("Alternates both seated rider feet on the ground while the bike reverses.")]
+    public bool reverseFootPushEnabled = true;
+    [Tooltip("Duration of one complete left/right pushing cycle.")]
+    [Min(0.35f)] public float reverseFootPushCycleDuration = 0.85f;
+    [Tooltip("Fore/aft travel of each planted foot in bike-local metres.")]
+    [Range(0.02f, 0.35f)] public float reverseFootPushStride = 0.27f;
+    [Tooltip("Maximum lift of the returning foot in bike-local metres.")]
+    [Range(0.01f, 0.2f)] public float reverseFootPushLift = 0.11f;
+    [Tooltip("How quickly the IK targets follow the generated pushing pose.")]
+    [Min(0.1f)] public float reverseFootPushResponse = 22f;
+    [Tooltip("Stops the gesture above this speed. Keep it slightly above reverse max speed.")]
+    [Min(0.5f)] public float reverseFootPushMaxSpeedKph = 8f;
 
     [Header("Rider Fit - Seat / Grips / Footpegs")]
     [Tooltip("Ergonomic family used by the editor Rider Fit tool.")]
@@ -164,9 +181,19 @@ public class BikeEntry : MonoBehaviour
     [Min(0.2f)] public float fallenBikeGripReach = 0.48f;
     [Tooltip("Maximum distance the parked bike may slide toward the Player to guarantee both hands can reach it.")]
     [Min(0f)] public float fallenBikeMaxAssistDistance = 0.75f;
+    [Tooltip("If GC2 cannot reach the lift point, pull the parked fallen bike toward the Player and continue recovery.")]
+    public bool fallenBikeMoveToPlayerWhenBlocked = true;
+    [Tooltip("Maximum time GC2 may try the recovery point before the bike takes over.")]
+    [Min(0.1f)] public float fallenBikeBlockedApproachTimeout = 1.25f;
+    [Tooltip("Duration of the one-shot fallen-bike relocation toward the Player.")]
+    [Min(0.05f)] public float fallenBikeRelocationDuration = 0.35f;
+    [Tooltip("Safety limit for a single blocked-recovery relocation.")]
+    [Min(0.5f)] public float fallenBikeMaxRelocationDistance = 3f;
     [Range(0f, 1f)] public float fallenBikeHandRotationWeight = 0.35f;
     public Vector3 fallenBikeSpinePositionOffset = new Vector3(0f, -0.06f, 0.04f);
     public Vector3 fallenBikeSpineRotationOffset = new Vector3(32f, 0f, 0f);
+    [SerializeField, HideInInspector]
+    private int fallenBikeBlockedRecoveryConfigurationVersion;
 
     // Legacy procedural lean data is kept only so existing prefabs deserialize
     // without losing user values. Rider Fit clips now own the torso pose.
@@ -209,9 +236,14 @@ public class BikeEntry : MonoBehaviour
     private bool isExiting = false;
     private Vector3 _origLeftFootLocalPos;
     private Quaternion _origLeftFootLocalRot;
+    private Vector3 _origRightFootLocalPos;
+    private Quaternion _origRightFootLocalRot;
     private bool _inBike = false;
     private bool _footOnGround = false;
     private Coroutine _footRoutine;
+    private Coroutine _rightFootRoutine;
+    private bool _reverseFootPushActive;
+    private float _reverseFootPushTime;
     private Character _mountedCharacter = null;
     private bool _liveRiderPosePreview;
     private Animator _livePoseAnimator;
@@ -241,6 +273,7 @@ public class BikeEntry : MonoBehaviour
     private float _airborneLiftVelocity;
 
     private const int SEATED_GRAVITY_LOCK_KEY = 0x42494B45;
+    private const int CURRENT_BLOCKED_RECOVERY_CONFIGURATION_VERSION = 1;
 
     private struct IgnoredCollisionPair
     {
@@ -283,6 +316,19 @@ public class BikeEntry : MonoBehaviour
     public Character SeatedCharacter => _mountedCharacter;
     public bool IsTransitioning => isEntering || isExiting;
     public bool IsUsingMirroredEntry => _activeEntryMirrored;
+    public bool HasCurrentBlockedRecoveryConfiguration =>
+        fallenBikeBlockedRecoveryConfigurationVersion >=
+        CURRENT_BLOCKED_RECOVERY_CONFIGURATION_VERSION;
+
+    public void ConfigureBlockedFallenBikeRecovery()
+    {
+        fallenBikeMoveToPlayerWhenBlocked = true;
+        fallenBikeBlockedApproachTimeout = 1.25f;
+        fallenBikeRelocationDuration = 0.35f;
+        fallenBikeMaxRelocationDistance = 3f;
+        fallenBikeBlockedRecoveryConfigurationVersion =
+            CURRENT_BLOCKED_RECOVERY_CONFIGURATION_VERSION;
+    }
 
     /// <summary>
     /// Entry API used by the same Franklin interaction manager as cars.
@@ -329,16 +375,7 @@ public class BikeEntry : MonoBehaviour
         ClearActiveEntrySide();
         SetLiveRiderPosePreview(false);
 
-        if (_footRoutine != null)
-        {
-            StopCoroutine(_footRoutine);
-            _footRoutine = null;
-        }
-        if (leftFootTarget != null)
-        {
-            leftFootTarget.localPosition = _origLeftFootLocalPos;
-            leftFootTarget.localRotation = _origLeftFootLocalRot;
-        }
+        ResetFootTargetsImmediate();
 
         Animator animator = character.GetComponentInChildren<Animator>();
         CharacterIKSetter ikSetter = animator != null
@@ -392,12 +429,15 @@ public class BikeEntry : MonoBehaviour
             entryParent.SetParent(bikeBody, true);
         }
 
-        if (bikeController != null
-         && bikeBody != null
-         && leftFootTarget != null)
+        if (leftFootTarget != null)
         {
             _origLeftFootLocalPos = leftFootTarget.localPosition;
             _origLeftFootLocalRot = leftFootTarget.localRotation;
+        }
+        if (rightFootTarget != null)
+        {
+            _origRightFootLocalPos = rightFootTarget.localPosition;
+            _origRightFootLocalRot = rightFootTarget.localRotation;
         }
     }
 
@@ -428,8 +468,23 @@ public class BikeEntry : MonoBehaviour
         fallenBikeStandDistance = Mathf.Max(0.4f, fallenBikeStandDistance);
         fallenBikeGripReach = Mathf.Max(0.2f, fallenBikeGripReach);
         fallenBikeMaxAssistDistance = Mathf.Max(0f, fallenBikeMaxAssistDistance);
+        fallenBikeBlockedApproachTimeout = Mathf.Max(
+            0.1f,
+            fallenBikeBlockedApproachTimeout
+        );
+        fallenBikeRelocationDuration = Mathf.Max(0.05f, fallenBikeRelocationDuration);
+        fallenBikeMaxRelocationDistance = Mathf.Max(
+            0.5f,
+            fallenBikeMaxRelocationDistance
+        );
         fallenBikeHandRotationWeight = Mathf.Clamp01(fallenBikeHandRotationWeight);
         groundFootSpeedKph = Mathf.Max(0f, groundFootSpeedKph);
+        footSmoothingTime = Mathf.Max(0.01f, footSmoothingTime);
+        reverseFootPushCycleDuration = Mathf.Max(0.35f, reverseFootPushCycleDuration);
+        reverseFootPushStride = Mathf.Clamp(reverseFootPushStride, 0.02f, 0.35f);
+        reverseFootPushLift = Mathf.Clamp(reverseFootPushLift, 0.01f, 0.2f);
+        reverseFootPushResponse = Mathf.Max(0.1f, reverseFootPushResponse);
+        reverseFootPushMaxSpeedKph = Mathf.Max(0.5f, reverseFootPushMaxSpeedKph);
         stoppedExitSpeedKph = Mathf.Max(0f, stoppedExitSpeedKph);
         exitStopTimeout = Mathf.Max(0.1f, exitStopTimeout);
         enterAlignmentDuration = Mathf.Max(0.05f, enterAlignmentDuration);
@@ -497,24 +552,85 @@ public class BikeEntry : MonoBehaviour
         if (!_inBike || bikeController == null || bikeBody == null) return;
 
         float speedKph = Mathf.Abs(bikeController.SpeedMetersPerSecond) * 3.6f;
+        FranklinArcadeBikeDriver arcadeDriver =
+            bikeController as FranklinArcadeBikeDriver;
+        bool reverseRequested = arcadeDriver?.IsReverseInputActive == true;
+        bool isAtReverseSideOfStop = arcadeDriver != null &&
+                                     arcadeDriver.SignedForwardSpeedMetersPerSecond <= 0.05f;
+        bool shouldPushWithFeet = reverseFootPushEnabled &&
+                                  reverseRequested &&
+                                  isAtReverseSideOfStop &&
+                                  speedKph <= reverseFootPushMaxSpeedKph &&
+                                  airborneState?.IsAirborne != true &&
+                                  leftFootTarget != null &&
+                                  rightFootTarget != null;
+
+        if (shouldPushWithFeet &&
+            TryGetGroundFootPose(
+                leftFootTarget,
+                groundLeftFootTarget,
+                false,
+                out Vector3 leftGroundPosition,
+                out Quaternion leftGroundRotation
+            ) &&
+            TryGetGroundFootPose(
+                rightFootTarget,
+                groundRightFootTarget,
+                true,
+                out Vector3 rightGroundPosition,
+                out Quaternion rightGroundRotation
+            ))
+        {
+            if (!_reverseFootPushActive)
+            {
+                StopFootRoutines();
+                _reverseFootPushActive = true;
+                _reverseFootPushTime = 0f;
+                _footOnGround = false;
+            }
+
+            AnimateReverseFootPush(
+                leftGroundPosition,
+                leftGroundRotation,
+                rightGroundPosition,
+                rightGroundRotation
+            );
+            return;
+        }
+
+        if (_reverseFootPushActive)
+        {
+            _reverseFootPushActive = false;
+            _reverseFootPushTime = 0f;
+            BlendFeetAfterReversePush(speedKph);
+            return;
+        }
+
         bool shouldBeGrounded = speedKph < groundFootSpeedKph;
 
         if (shouldBeGrounded != _footOnGround)
         {
             _footOnGround = shouldBeGrounded;
 
-            if (_footRoutine != null) StopCoroutine(_footRoutine);
+            if (_footRoutine != null)
+            {
+                StopCoroutine(_footRoutine);
+                _footRoutine = null;
+            }
 
             Vector3 targetPos;
             Quaternion targetRot;
 
-            if (_footOnGround && groundLeftFootTarget != null)
+            if (_footOnGround && TryGetGroundFootPose(
+                    leftFootTarget,
+                    groundLeftFootTarget,
+                    false,
+                    out Vector3 groundedPosition,
+                    out Quaternion groundedRotation
+                ))
             {
-                targetPos = bikeBody.InverseTransformPoint(
-                    groundLeftFootTarget.position
-                );
-                targetRot = Quaternion.Inverse(bikeBody.rotation)
-                          * groundLeftFootTarget.rotation;
+                targetPos = groundedPosition;
+                targetRot = groundedRotation;
             }
             else
             {
@@ -684,9 +800,16 @@ public class BikeEntry : MonoBehaviour
         {
             return;
         }
+        isEntering = true;
+        await FranklinShooterSystem.PrepareForBikeDriverEntry(character);
+        if (character == null || _mountedCharacter != null)
+        {
+            await FranklinShooterSystem.CancelBikeDriverEntry(character);
+            isEntering = false;
+            return;
+        }
         character.GetComponentInChildren<FranklinAnimationBridge>(true)
             ?.RestoreModelRootBaseline();
-        isEntering = true;
         SelectEntrySide(character);
 
         if (bikeController != null) bikeController.SetVehicleEnabled(false);
@@ -704,6 +827,7 @@ public class BikeEntry : MonoBehaviour
             if (character.Player != null)
                 character.Player.IsControllable = true;
             ClearActiveEntrySide();
+            await FranklinShooterSystem.CancelBikeDriverEntry(character);
             isEntering = false;
             return;
         }
@@ -721,6 +845,7 @@ public class BikeEntry : MonoBehaviour
                     character.Player.IsControllable = true;
                 EndEntryCollisionIgnore();
                 ClearActiveEntrySide();
+                await FranklinShooterSystem.CancelBikeDriverEntry(character);
                 isEntering = false;
                 return;
             }
@@ -736,6 +861,7 @@ public class BikeEntry : MonoBehaviour
             if (character != null && character.Player != null)
                 character.Player.IsControllable = true;
             ClearActiveEntrySide();
+            await FranklinShooterSystem.CancelBikeDriverEntry(character);
             isEntering = false;
             return;
         }
@@ -781,8 +907,13 @@ public class BikeEntry : MonoBehaviour
         if (vehicleRigidbody != null) vehicleRigidbody.isKinematic = true;
         BeginEntryCollisionIgnore(character);
 
+        // The seated state must not animate the gun hand. Without this mask the
+        // full-body rider clip keeps pulling RightArm back to the handlebar even
+        // after Shooter releases RightHand IK, making the gun and grip share a hand.
+        AvatarMask activeDrivingMask =
+            FranklinShooterSystem.BikeDriverAnimationMask ?? animationMask;
         StateData activeDrivingState = riderPoseClip != null
-            ? new StateData(riderPoseClip, animationMask)
+            ? new StateData(riderPoseClip, activeDrivingMask)
             : drivingState;
         var drivingConfig = new ConfigState(
             0f, 1f, 1f,
@@ -841,6 +972,8 @@ public class BikeEntry : MonoBehaviour
 
         _inBike = true;
         _footOnGround = false;
+        _reverseFootPushActive = false;
+        _reverseFootPushTime = 0f;
 
         if (hoverController != null)
         {
@@ -900,18 +1033,12 @@ public class BikeEntry : MonoBehaviour
             -sideDirection,
             Vector3.up
         );
-        await MoveCharacterToRecoveryPoint(
+        bool reachedRecoveryPoint = await MoveCharacterToRecoveryPoint(
             character,
             standingGround,
             standingRotation
         );
         if (character == null) return false;
-
-        Animator animator = character.GetComponentInChildren<Animator>();
-        CharacterIKSetter ikSetter = animator != null
-            ? animator.GetComponent<CharacterIKSetter>() ??
-              animator.gameObject.AddComponent<CharacterIKSetter>()
-            : null;
 
         bool mirroredRecovery = groundedSide > 0;
         Transform handleTarget = mirroredRecovery
@@ -920,6 +1047,50 @@ public class BikeEntry : MonoBehaviour
         Transform bodyTarget = mirroredRecovery
             ? fallenBikeBodyGripRight
             : fallenBikeBodyGripLeft;
+
+        if (!reachedRecoveryPoint)
+        {
+            if (!fallenBikeMoveToPlayerWhenBlocked ||
+                !await MoveFallenBikeToCharacter(
+                    character,
+                    handleTarget,
+                    bodyTarget,
+                    groundNormal
+                ))
+            {
+                return false;
+            }
+
+            // The bike now owns the fallback movement. Rebuild the upright target
+            // from its new position and face the Player toward the reachable grips.
+            if (!arcadeBikeRagdoll.TryGetManualRecoveryTarget(
+                    out targetBikePosition,
+                    out targetBikeRotation,
+                    out groundNormal
+                ))
+            {
+                return false;
+            }
+            standingRotation = GetRecoveryFacingRotation(
+                character,
+                handleTarget,
+                bodyTarget,
+                groundNormal
+            );
+            await SmoothAlignCharacterToPose(
+                character,
+                character.transform.position,
+                standingRotation
+            );
+            if (character == null) return false;
+        }
+
+        Animator animator = character.GetComponentInChildren<Animator>();
+        CharacterIKSetter ikSetter = animator != null
+            ? animator.GetComponent<CharacterIKSetter>() ??
+              animator.gameObject.AddComponent<CharacterIKSetter>()
+            : null;
+
         _activeIkSetter = ikSetter;
 
         Vector3 fallenStartBikePosition = transform.position;
@@ -1101,6 +1272,139 @@ public class BikeEntry : MonoBehaviour
         return Vector3.ClampMagnitude(assist, fallenBikeMaxAssistDistance);
     }
 
+    private async Task<bool> MoveFallenBikeToCharacter(
+        Character character,
+        Transform handleTarget,
+        Transform bodyTarget,
+        Vector3 groundNormal)
+    {
+        if (character == null || arcadeBikeRagdoll == null ||
+            !arcadeBikeRagdoll.RequiresManualRecovery)
+        {
+            return false;
+        }
+
+        Vector3 gripCenter = GetRecoveryGripCenter(handleTarget, bodyTarget);
+        Vector3 normal = groundNormal.sqrMagnitude > 0.001f
+            ? groundNormal.normalized
+            : Vector3.up;
+        Vector3 playerToGrip = Vector3.ProjectOnPlane(
+            gripCenter - character.transform.position,
+            normal
+        );
+        if (playerToGrip.sqrMagnitude < 0.001f)
+        {
+            playerToGrip = Vector3.ProjectOnPlane(
+                transform.position - character.transform.position,
+                normal
+            );
+        }
+        if (playerToGrip.sqrMagnitude < 0.001f)
+            playerToGrip = Vector3.ProjectOnPlane(character.transform.forward, normal);
+        if (playerToGrip.sqrMagnitude < 0.001f) playerToGrip = Vector3.forward;
+        playerToGrip.Normalize();
+
+        Vector3 desiredGripCenter = character.transform.position +
+                                    playerToGrip * fallenBikeGripReach;
+        Vector3 relocation = Vector3.ProjectOnPlane(
+            desiredGripCenter - gripCenter,
+            normal
+        );
+        relocation = Vector3.ClampMagnitude(
+            relocation,
+            Mathf.Max(0.5f, fallenBikeMaxRelocationDistance)
+        );
+
+        character.Motion?.MoveToDirection(
+            Vector3.zero,
+            Space.World,
+            Mathf.Max(1, entryApproachMotionPriority)
+        );
+        character.Motion?.StopToDirection(Mathf.Max(1, entryApproachMotionPriority));
+
+        Vector3 startPosition = transform.position;
+        Vector3 targetPosition = startPosition + relocation;
+        Quaternion parkedRotation = transform.rotation;
+        Quaternion playerStartRotation = character.transform.rotation;
+        Quaternion playerTargetRotation = Quaternion.LookRotation(
+            playerToGrip,
+            Vector3.up
+        );
+        float duration = Mathf.Max(0.05f, fallenBikeRelocationDuration);
+        float elapsed = 0f;
+        while (elapsed < duration && character != null &&
+               arcadeBikeRagdoll.RequiresManualRecovery)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float progress = Mathf.Clamp01(elapsed / duration);
+            progress = progress * progress * (3f - 2f * progress);
+            arcadeBikeRagdoll.SetManualRecoveryPose(
+                Vector3.Lerp(startPosition, targetPosition, progress),
+                parkedRotation
+            );
+            character.transform.rotation = Quaternion.Slerp(
+                playerStartRotation,
+                playerTargetRotation,
+                progress
+            );
+            await Task.Yield();
+        }
+
+        if (character == null || !arcadeBikeRagdoll.RequiresManualRecovery)
+            return false;
+
+        arcadeBikeRagdoll.SetManualRecoveryPose(targetPosition, parkedRotation);
+        character.transform.rotation = GetRecoveryFacingRotation(
+            character,
+            handleTarget,
+            bodyTarget,
+            normal
+        );
+        Physics.SyncTransforms();
+        return true;
+    }
+
+    private Vector3 GetRecoveryGripCenter(
+        Transform handleTarget,
+        Transform bodyTarget)
+    {
+        Vector3 center = Vector3.zero;
+        int count = 0;
+        if (handleTarget != null)
+        {
+            center += handleTarget.position;
+            count++;
+        }
+        if (bodyTarget != null)
+        {
+            center += bodyTarget.position;
+            count++;
+        }
+        return count > 0 ? center / count : transform.position;
+    }
+
+    private Quaternion GetRecoveryFacingRotation(
+        Character character,
+        Transform handleTarget,
+        Transform bodyTarget,
+        Vector3 groundNormal)
+    {
+        if (character == null) return Quaternion.identity;
+        Vector3 normal = groundNormal.sqrMagnitude > 0.001f
+            ? groundNormal.normalized
+            : Vector3.up;
+        Vector3 facing = Vector3.ProjectOnPlane(
+            GetRecoveryGripCenter(handleTarget, bodyTarget) -
+            character.transform.position,
+            normal
+        );
+        if (facing.sqrMagnitude < 0.001f)
+            facing = Vector3.ProjectOnPlane(character.transform.forward, normal);
+        return facing.sqrMagnitude > 0.001f
+            ? Quaternion.LookRotation(facing.normalized, Vector3.up)
+            : character.transform.rotation;
+    }
+
     private void SetFallenBikeRecoveryHands(
         CharacterIKSetter ikSetter,
         bool mirrored,
@@ -1140,6 +1444,229 @@ public class BikeEntry : MonoBehaviour
         }
     }
 
+    private void AnimateReverseFootPush(
+        Vector3 leftGroundPosition,
+        Quaternion leftGroundRotation,
+        Vector3 rightGroundPosition,
+        Quaternion rightGroundRotation)
+    {
+        _reverseFootPushTime += Time.deltaTime;
+        float cycle = Mathf.Max(0.35f, reverseFootPushCycleDuration);
+        float leftPhase = Mathf.Repeat(_reverseFootPushTime / cycle, 1f);
+        float rightPhase = Mathf.Repeat(leftPhase + 0.5f, 1f);
+
+        ApplyReverseFootPose(
+            leftFootTarget,
+            _origLeftFootLocalRot,
+            leftGroundPosition,
+            leftGroundRotation,
+            leftPhase
+        );
+        ApplyReverseFootPose(
+            rightFootTarget,
+            _origRightFootLocalRot,
+            rightGroundPosition,
+            rightGroundRotation,
+            rightPhase
+        );
+    }
+
+    private void ApplyReverseFootPose(
+        Transform foot,
+        Quaternion footpegRotation,
+        Vector3 groundPosition,
+        Quaternion groundRotation,
+        float phase)
+    {
+        if (foot == null) return;
+
+        // Keep the foot planted for most of the cycle so the IK chain reads as
+        // a deliberate push rather than a light stepping loop.
+        const float stanceFraction = 0.66f;
+        Vector3 localForward = foot.parent != null
+            ? foot.parent.InverseTransformDirection(bikeBody.forward).normalized
+            : bikeBody.forward;
+        Vector3 localUp = foot.parent != null
+            ? foot.parent.InverseTransformDirection(bikeBody.up).normalized
+            : bikeBody.up;
+
+        float forwardOffset;
+        float lift = 0f;
+        Quaternion targetRotation = groundRotation;
+
+        if (phase < stanceFraction)
+        {
+            float stance = phase / stanceFraction;
+            forwardOffset = Mathf.Lerp(
+                -reverseFootPushStride * 0.5f,
+                reverseFootPushStride * 0.5f,
+                Mathf.SmoothStep(0f, 1f, stance)
+            );
+        }
+        else
+        {
+            float swing = (phase - stanceFraction) / (1f - stanceFraction);
+            forwardOffset = Mathf.Lerp(
+                reverseFootPushStride * 0.5f,
+                -reverseFootPushStride * 0.5f,
+                Mathf.SmoothStep(0f, 1f, swing)
+            );
+            float swingArc = Mathf.Sin(swing * Mathf.PI);
+            lift = reverseFootPushLift * swingArc;
+            targetRotation = Quaternion.Slerp(
+                groundRotation,
+                footpegRotation,
+                swingArc * 0.45f
+            );
+        }
+
+        Vector3 targetPosition = groundPosition +
+                                 localForward * forwardOffset +
+                                 localUp * lift;
+        float response = 1f - Mathf.Exp(
+            -Mathf.Max(0.1f, reverseFootPushResponse) * Time.deltaTime
+        );
+        foot.localPosition = Vector3.Lerp(
+            foot.localPosition,
+            targetPosition,
+            response
+        );
+        foot.localRotation = Quaternion.Slerp(
+            foot.localRotation,
+            targetRotation,
+            response
+        );
+    }
+
+    private bool TryGetGroundFootPose(
+        Transform foot,
+        Transform explicitGroundTarget,
+        bool mirrorGroundLeft,
+        out Vector3 localPosition,
+        out Quaternion localRotation)
+    {
+        localPosition = Vector3.zero;
+        localRotation = Quaternion.identity;
+        if (foot == null || bikeBody == null) return false;
+
+        Vector3 worldPosition;
+        Quaternion worldRotation;
+        if (explicitGroundTarget != null)
+        {
+            worldPosition = explicitGroundTarget.position;
+            worldRotation = explicitGroundTarget.rotation;
+        }
+        else if (mirrorGroundLeft && groundLeftFootTarget != null)
+        {
+            Vector3 mirroredPosition = bikeBody.InverseTransformPoint(
+                groundLeftFootTarget.position
+            );
+            mirroredPosition.x = -mirroredPosition.x;
+            worldPosition = bikeBody.TransformPoint(mirroredPosition);
+
+            Vector3 mirroredForward = bikeBody.InverseTransformDirection(
+                groundLeftFootTarget.forward
+            );
+            Vector3 mirroredUp = bikeBody.InverseTransformDirection(
+                groundLeftFootTarget.up
+            );
+            mirroredForward.x = -mirroredForward.x;
+            mirroredUp.x = -mirroredUp.x;
+            worldRotation = Quaternion.LookRotation(
+                bikeBody.TransformDirection(mirroredForward),
+                bikeBody.TransformDirection(mirroredUp)
+            );
+        }
+        else
+        {
+            return false;
+        }
+
+        Transform parent = foot.parent;
+        if (parent == null)
+        {
+            localPosition = worldPosition;
+            localRotation = worldRotation;
+        }
+        else
+        {
+            localPosition = parent.InverseTransformPoint(worldPosition);
+            localRotation = Quaternion.Inverse(parent.rotation) * worldRotation;
+        }
+        return true;
+    }
+
+    private void BlendFeetAfterReversePush(float speedKph)
+    {
+        StopFootRoutines();
+        _footOnGround = speedKph < groundFootSpeedKph;
+
+        Vector3 leftPosition = _origLeftFootLocalPos;
+        Quaternion leftRotation = _origLeftFootLocalRot;
+        if (_footOnGround && TryGetGroundFootPose(
+                leftFootTarget,
+                groundLeftFootTarget,
+                false,
+                out Vector3 groundedPosition,
+                out Quaternion groundedRotation
+            ))
+        {
+            leftPosition = groundedPosition;
+            leftRotation = groundedRotation;
+        }
+
+        if (leftFootTarget != null)
+        {
+            _footRoutine = StartCoroutine(BlendFootTo(
+                leftFootTarget,
+                leftPosition,
+                leftRotation,
+                footSmoothingTime
+            ));
+        }
+        if (rightFootTarget != null)
+        {
+            _rightFootRoutine = StartCoroutine(BlendFootTo(
+                rightFootTarget,
+                _origRightFootLocalPos,
+                _origRightFootLocalRot,
+                footSmoothingTime
+            ));
+        }
+    }
+
+    private void StopFootRoutines()
+    {
+        if (_footRoutine != null)
+        {
+            StopCoroutine(_footRoutine);
+            _footRoutine = null;
+        }
+        if (_rightFootRoutine != null)
+        {
+            StopCoroutine(_rightFootRoutine);
+            _rightFootRoutine = null;
+        }
+    }
+
+    private void ResetFootTargetsImmediate()
+    {
+        StopFootRoutines();
+        if (leftFootTarget != null)
+        {
+            leftFootTarget.localPosition = _origLeftFootLocalPos;
+            leftFootTarget.localRotation = _origLeftFootLocalRot;
+        }
+        if (rightFootTarget != null)
+        {
+            rightFootTarget.localPosition = _origRightFootLocalPos;
+            rightFootTarget.localRotation = _origRightFootLocalRot;
+        }
+        _reverseFootPushActive = false;
+        _reverseFootPushTime = 0f;
+        _footOnGround = false;
+    }
+
     private async Task<bool> MoveCharacterToRecoveryPoint(
         Character character,
         Vector3 groundPoint,
@@ -1165,7 +1692,10 @@ public class BikeEntry : MonoBehaviour
             Mathf.Max(1, entryApproachMotionPriority)
         );
 
-        float deadline = Time.unscaledTime + Mathf.Max(0.1f, entryApproachTimeout);
+        float deadline = Time.unscaledTime + Mathf.Min(
+            Mathf.Max(0.1f, entryApproachTimeout),
+            Mathf.Max(0.1f, fallenBikeBlockedApproachTimeout)
+        );
         while (!_approachFinished && character != null &&
                Time.unscaledTime < deadline)
         {
@@ -1184,16 +1714,11 @@ public class BikeEntry : MonoBehaviour
         );
         float allowedError = Mathf.Max(0.15f, entryApproachStopDistance) + 0.05f;
         bool reachedArea = horizontalError.sqrMagnitude <= allowedError * allowedError;
-        bool succeeded = (_approachFinished && _approachSucceeded) || reachedArea;
-        if (succeeded)
-        {
-            await SmoothAlignCharacterToPose(
-                character,
-                targetRootPosition,
-                targetRotation
-            );
-        }
-        else
+        // GC2 may report a completed path at the closest navigable point on the
+        // opposite side of a wall. Only the real world-space distance is allowed
+        // to start the lift; otherwise the bike performs the fallback relocation.
+        bool succeeded = reachedArea;
+        if (!succeeded)
         {
             character.Motion.MoveToDirection(
                 Vector3.zero,
@@ -1203,19 +1728,17 @@ public class BikeEntry : MonoBehaviour
             character.Motion.StopToDirection(
                 Mathf.Max(1, entryApproachMotionPriority)
             );
-            // Navigation can fail beside a rotated MeshCollider or wall. The
-            // Player is already within interaction range, so force the same
-            // short alignment instead of cancelling the recovery sequence.
-            await SmoothAlignCharacterToPose(
-                character,
-                targetRootPosition,
-                targetRotation
-            );
-            succeeded = true;
+            _approachCharacter = null;
+            return false;
         }
 
+        await SmoothAlignCharacterToPose(
+            character,
+            targetRootPosition,
+            targetRotation
+        );
         _approachCharacter = null;
-        return succeeded;
+        return true;
     }
 
     private async Task SmoothAlignCharacterToPose(
@@ -1330,6 +1853,7 @@ public class BikeEntry : MonoBehaviour
         // the exit animation landing pose and safe character placement.
         ClearActiveEntrySide();
         SetLiveRiderPosePreview(false);
+        ResetFootTargetsImmediate();
 
         Animator animator = character.GetComponentInChildren<Animator>();
         if (animator != null)
@@ -1385,6 +1909,10 @@ public class BikeEntry : MonoBehaviour
         RestoreCharacterPhysics(character);
         EndEntryCollisionIgnore();
         Physics.SyncTransforms();
+
+        // Heavy Shooter weapons stay hidden through the complete exit gesture.
+        // Restore the exact cached weapon only after the rider is back on foot.
+        await FranklinShooterSystem.CompleteBikeDriverExit(character);
 
         if (character.Player != null)
         {

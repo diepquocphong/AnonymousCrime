@@ -63,6 +63,7 @@ namespace FranklinGame.Vehicles
         private SimcadeCarHealth m_CarHealth;
         private FranklinBikeHealth m_BikeHealth;
         private SimcadeCarDeformation m_CarDeformation;
+        private SimcadeCarDoorDamage m_CarDoorDamage;
         private FranklinBikeDeformation m_BikeDeformation;
         private SimcadeCarDestruction m_CarDestruction;
         private FranklinBikeDestruction m_BikeDestruction;
@@ -104,6 +105,7 @@ namespace FranklinGame.Vehicles
                 this.m_CarHealth?.RepairFull();
                 this.m_BikeHealth?.RepairFull();
                 this.m_CarDeformation?.ResetDeformation(true);
+                this.m_CarDoorDamage?.RepairAllDoors();
                 this.m_BikeDeformation?.ResetDeformation();
                 this.m_IsRepairing = false;
                 this.SetRepairProgress(0f);
@@ -176,7 +178,13 @@ namespace FranklinGame.Vehicles
 
             float current = this.GetCurrentHealth();
             float maximum = this.GetMaximumHealth();
-            if (maximum <= 0f || current >= maximum - 0.001f) return;
+            bool hasDoorDamage = this.m_CarDoorDamage != null &&
+                                 this.m_CarDoorDamage.HasDamagedDoors;
+            if (maximum <= 0f ||
+                (current >= maximum - 0.001f && !hasDoorDamage))
+            {
+                return;
+            }
 
             this.ResolveWallet();
             int price = this.GetRepairPrice();
@@ -273,6 +281,7 @@ namespace FranklinGame.Vehicles
             this.m_CarHealth = null;
             this.m_BikeHealth = null;
             this.m_CarDeformation = null;
+            this.m_CarDoorDamage = null;
             this.m_BikeDeformation = null;
             this.m_CarDestruction = null;
             this.m_BikeDestruction = null;
@@ -282,6 +291,7 @@ namespace FranklinGame.Vehicles
             this.m_CarHealth = vehicle.GetComponent<SimcadeCarHealth>();
             this.m_BikeHealth = vehicle.GetComponent<FranklinBikeHealth>();
             this.m_CarDeformation = vehicle.GetComponent<SimcadeCarDeformation>();
+            this.m_CarDoorDamage = vehicle.GetComponent<SimcadeCarDoorDamage>();
             this.m_BikeDeformation = vehicle.GetComponent<FranklinBikeDeformation>();
             this.m_CarDestruction = vehicle.GetComponent<SimcadeCarDestruction>();
             this.m_BikeDestruction = vehicle.GetComponent<FranklinBikeDestruction>();
@@ -308,7 +318,9 @@ namespace FranklinGame.Vehicles
         private int GetRepairPrice()
         {
             float missing = Mathf.Max(0f, this.GetMaximumHealth() - this.GetCurrentHealth());
-            if (missing <= 0.001f) return 0;
+            bool hasDoorDamage = this.m_CarDoorDamage != null &&
+                                 this.m_CarDoorDamage.HasDamagedDoors;
+            if (missing <= 0.001f && !hasDoorDamage) return 0;
             return Mathf.Max(
                 this.m_RepairBasePrice,
                 this.m_RepairBasePrice +
@@ -456,6 +468,7 @@ namespace FranklinGame.Vehicles
             this.m_CarHealth?.RepairFull();
             this.m_BikeHealth?.RepairFull();
             this.m_CarDeformation?.ResetDeformation(true);
+            this.m_CarDoorDamage?.RepairAllDoors();
             this.m_BikeDeformation?.ResetDeformation();
             this.m_IsRepairing = false;
             this.SetRepairProgress(0f);

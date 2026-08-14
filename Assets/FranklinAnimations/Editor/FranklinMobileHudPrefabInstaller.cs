@@ -97,6 +97,12 @@ namespace FranklinGame.UI.Editor
                 new Vector2(173.4f, 561.13f), new Vector2(165f, 165f)),
             new("Jump", "player-jump", 8, new Vector2(1f, 0f),
                 new Vector2(-505f, 170f), new Vector2(165f, 165f)),
+            new("Point Direction", "player-point-direction", 17,
+                new Vector2(0f, 0f), new Vector2(165.63f, 443f),
+                new Vector2(120f, 120f)),
+            new("Object Direction", "player-object-direction", 19,
+                new Vector2(0f, 0f), new Vector2(369.2f, 443f),
+                new Vector2(120f, 120f), true),
             new("Enter Vehicle", "vehicle-enter", 7, new Vector2(0.72f, 0.4f),
                 Vector2.zero, new Vector2(190f, 190f)),
             new("Bike Helmet On Foot", "vehicle-control-helmet", 16,
@@ -113,21 +119,23 @@ namespace FranklinGame.UI.Editor
             new("Accelerate", "vehicle-control-2", 4, new Vector2(1f, 0f),
                 new Vector2(-155f, 305f), new Vector2(288f, 288f)),
             new("Brake Reverse", "vehicle-control-3", 5, new Vector2(1f, 0f),
-                new Vector2(-455f, 190f), new Vector2(225f, 225f)),
+                new Vector2(-455f, 130f), new Vector2(225f, 225f)),
             new("Handbrake", "vehicle-control-4", 6, new Vector2(1f, 0f),
-                new Vector2(-455f, 430f), new Vector2(169f, 169f)),
+                new Vector2(-455f, 330f), new Vector2(169f, 169f)),
             new("Exit Vehicle", "vehicle-control-5", 7, new Vector2(1f, 1f),
                 new Vector2(-125f, -385f), new Vector2(170f, 170f)),
             new("Slow Drive", "vehicle-control-slow", 9, new Vector2(1f, 0f),
                 new Vector2(-155f, 82f), new Vector2(163f, 163f)),
             new("Bike Headlight", "vehicle-control-headlight", 10, new Vector2(1f, 1f),
                 new Vector2(-115f, -575f), new Vector2(155f, 155f), true),
+            new("Car Horn", "vehicle-control-horn", 18, new Vector2(1f, 1f),
+                new Vector2(-295f, -385f), new Vector2(155f, 155f)),
             new("Bike Wheelie", "vehicle-control-wheelie", 11, new Vector2(1f, 1f),
                 new Vector2(-285f, -575f), new Vector2(155f, 155f)),
             new("Bike Burnout", "vehicle-control-burnout", 12, new Vector2(1f, 1f),
                 new Vector2(-455f, -575f), new Vector2(155f, 155f)),
-            new("Bike Helmet", "vehicle-control-helmet", 16, new Vector2(1f, 0f),
-                new Vector2(-690f, 190f), new Vector2(165f, 165f))
+            new("Bike Helmet", "vehicle-control-helmet", 16, new Vector2(1f, 1f),
+                new Vector2(-315f, -385f), new Vector2(165f, 165f))
         };
 
         static FranklinMobileHudPrefabInstaller()
@@ -138,8 +146,11 @@ namespace FranklinGame.UI.Editor
         [MenuItem("Tools/Franklin Game/Install Player Mobile HUD")]
         public static void Install()
         {
+            EnsureSpriteImporter(UI_ROOT + "player-point-direction.png");
+            EnsureSpriteImporter(UI_ROOT + "player-object-direction.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-slow.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-headlight.png");
+            EnsureSpriteImporter(UI_ROOT + "vehicle-control-horn.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-wheelie.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-burnout.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-helmet.png");
@@ -628,11 +639,14 @@ namespace FranklinGame.UI.Editor
                    root.Find(ON_FOOT_GROUP) != null &&
                    root.Find(VEHICLE_GROUP) != null &&
                    HasButton(root.Find(ON_FOOT_GROUP), "Jump") &&
+                   HasButton(root.Find(ON_FOOT_GROUP), "Point Direction") &&
+                   HasButton(root.Find(ON_FOOT_GROUP), "Object Direction") &&
                    HasButton(root.Find(ON_FOOT_GROUP), "Enter Vehicle") &&
                    HasButton(root.Find(ON_FOOT_GROUP), "Bike Helmet On Foot") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Exit Vehicle") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Slow Drive") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Bike Headlight") &&
+                   HasButton(root.Find(VEHICLE_GROUP), "Car Horn") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Bike Wheelie") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Bike Burnout") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Bike Helmet") &&
@@ -705,6 +719,7 @@ namespace FranklinGame.UI.Editor
         private static void EnsureButton(RectTransform parent, ButtonDefinition definition)
         {
             Transform existing = FindDirectChild(parent, definition.Name);
+            bool isNew = existing == null;
             GameObject buttonObject = existing != null
                 ? existing.gameObject
                 : new GameObject(
@@ -717,12 +732,15 @@ namespace FranklinGame.UI.Editor
             buttonObject.layer = 5;
 
             RectTransform rect = buttonObject.GetComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.anchorMin = definition.Anchor;
-            rect.anchorMax = definition.Anchor;
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = definition.Position;
-            rect.sizeDelta = definition.Size;
+            if (rect.parent != parent) rect.SetParent(parent, false);
+            if (isNew)
+            {
+                rect.anchorMin = definition.Anchor;
+                rect.anchorMax = definition.Anchor;
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = definition.Position;
+                rect.sizeDelta = definition.Size;
+            }
 
             Image image = buttonObject.GetComponent<Image>();
             image.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(

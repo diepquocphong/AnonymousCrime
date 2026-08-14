@@ -39,6 +39,15 @@ namespace FranklinGame.Animations
 
         private void Awake()
         {
+            // Player.prefab owns the newer mobile guard. Never let both guards
+            // change solver settings and translate the same ragdoll in one tick.
+            if (this.TryGetComponent(out FranklinPlayerRagdollGroundGuard _))
+            {
+                this.enabled = false;
+                Destroy(this);
+                return;
+            }
+
             if (this.m_Character == null) this.m_Character = this.GetComponent<Character>();
         }
 

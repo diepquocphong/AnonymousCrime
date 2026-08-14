@@ -22,28 +22,52 @@ namespace FranklinGame.Vehicles
         {
             public CarEntrySideMode Side;
             public Transform Pivot;
+            public Transform OriginalParent;
+            public Vector3 OriginalLocalPosition;
+            public Quaternion OriginalLocalRotation;
+            public Vector3 OriginalLocalScale;
             public DoorDamageState State;
+            public BoxCollider Collider;
             public Rigidbody Body;
             public HingeJoint Hinge;
             public SimcadeLooseCarDoor LoosePart;
             public Renderer[] Renderers;
+            public bool CreatedCollider;
+            public bool CreatedBody;
+            public bool CreatedHinge;
+            public bool CreatedLoosePart;
         }
 
         [Header("Impact Thresholds")]
         [Tooltip("Accepted impact severity needed to unlatch the nearest door.")]
-        [SerializeField, Min(0.1f)] private float m_LooseImpactSeverity = 6.5f;
-        [Tooltip("Accepted impact severity needed to tear the nearest door off immediately.")]
-        [SerializeField, Min(0.2f)] private float m_DetachImpactSeverity = 12.5f;
+        [SerializeField, Min(0.1f)] private float m_LooseImpactSeverity = 8f;
+        [Tooltip("Accepted severity needed for a later impact to tear an already-loose door off.")]
+        [SerializeField, Min(0.2f)] private float m_DetachImpactSeverity = 16.5f;
+        [Tooltip("Only a catastrophic first impact may unlatch and detach a door in the same contact.")]
+        [SerializeField, Min(0.3f)] private float m_CatastrophicDetachImpactSeverity = 22f;
         [Tooltip("Maximum distance from the collision point to the visible door surface.")]
-        [SerializeField, Min(0.25f)] private float m_DoorImpactRadius = 1.15f;
+        [SerializeField, Min(0.25f)] private float m_DoorImpactRadius = 0.8f;
+
+        [Header("Door Windows")]
+        [Tooltip("Separate glass meshes are bound to their physical door at startup.")]
+        [SerializeField] private Transform m_DriverWindow;
+        [SerializeField] private Transform m_PassengerWindow;
+        [SerializeField] private Transform m_RearLeftWindow;
+        [SerializeField] private Transform m_RearRightWindow;
 
         [Header("Physical Door")]
         [SerializeField, Min(1f)] private float m_DoorMass = 34f;
-        [SerializeField, Min(0f)] private float m_OpenAngularVelocity = 3.8f;
+        [SerializeField, Min(0f)] private float m_OpenAngularVelocity = 3f;
         [SerializeField, Min(0f)] private float m_DetachVelocity = 2.2f;
         [SerializeField, Min(0f)] private float m_DetachAngularVelocity = 4.5f;
-        [SerializeField, Min(100f)] private float m_HingeBreakForce = 6800f;
-        [SerializeField, Min(100f)] private float m_HingeBreakTorque = 5200f;
+        [SerializeField, Min(100f)] private float m_HingeBreakForce = 14500f;
+        [SerializeField, Min(100f)] private float m_HingeBreakTorque = 12000f;
+        [Tooltip("Prevents the contact that unlatches the door from also removing it one physics step later.")]
+        [SerializeField, Min(0f)] private float m_LooseDoorDetachDelay = 0.45f;
+        [Tooltip("Minimum normal speed of a direct later hit on a loose door.")]
+        [SerializeField, Min(0f)] private float m_LooseDoorDetachSpeed = 13f;
+        [Tooltip("Minimum collision impulse divided by door mass for a direct later hit.")]
+        [SerializeField, Min(0f)] private float m_LooseDoorDetachImpulseSpeed = 8.5f;
         [SerializeField, Min(1f)] private float m_DetachedSettleDelay = 8f;
 
         private readonly DoorSlot[] m_Doors = new DoorSlot[4];
@@ -51,6 +75,48 @@ namespace FranklinGame.Vehicles
         private CarEntry m_Entry;
         private Rigidbody m_CarBody;
         private Collider[] m_CarColliders;
+
+        public bool HasCompleteWindowConfiguration =>
+            this.m_DriverWindow != null &&
+            this.m_PassengerWindow != null &&
+            this.m_RearLeftWindow != null &&
+            this.m_RearRightWindow != null;
+
+        public int DamagedDoorCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < this.m_Doors.Length; ++i)
+                {
+                    DoorSlot slot = this.m_Doors[i];
+                    if (slot != null && slot.State != DoorDamageState.Intact) count++;
+                }
+
+                return count;
+            }
+        }
+
+        public bool HasDamagedDoors => this.DamagedDoorCount > 0;
+
+        /// <summary>
+        /// Authoring API used by the existing Car installer. Reparenting keeps
+        /// world-space placement, so the glass immediately becomes part of the
+        /// matching door without duplicating a mesh or a Rigidbody.
+        /// </summary>
+        public void ConfigureWindows(
+            Transform driverWindow,
+            Transform passengerWindow,
+            Transform rearLeftWindow,
+            Transform rearRightWindow)
+        {
+            this.m_DriverWindow = driverWindow;
+            this.m_PassengerWindow = passengerWindow;
+            this.m_RearLeftWindow = rearLeftWindow;
+            this.m_RearRightWindow = rearRightWindow;
+            if (this.m_Entry == null) this.m_Entry = this.GetComponent<CarEntry>();
+            this.BindWindowsToDoors();
+        }
 
         public bool IsDoorMissing(CarEntrySideMode side)
         {
@@ -76,6 +142,31 @@ namespace FranklinGame.Vehicles
             }
 
             return true;
+        }
+
+        /// <summary>
+        /// Restores every loose or detached door to its authored closed pose.
+        /// The matching window remains below the door pivot, while temporary
+        /// physics components are disabled immediately and removed safely.
+        /// </summary>
+        public int RepairAllDoors()
+        {
+            int repaired = 0;
+            for (int i = 0; i < this.m_Doors.Length; ++i)
+            {
+                DoorSlot slot = this.m_Doors[i];
+                if (slot == null || slot.State == DoorDamageState.Intact) continue;
+                if (this.RepairDoor(slot)) repaired++;
+            }
+
+            return repaired;
+        }
+
+        public bool RepairDoor(CarEntrySideMode side)
+        {
+            DoorSlot slot = this.GetDoor(side);
+            return slot != null && slot.State != DoorDamageState.Intact &&
+                   this.RepairDoor(slot);
         }
 
         private void Awake()
@@ -106,18 +197,46 @@ namespace FranklinGame.Vehicles
         {
             if (this.m_Entry == null) return;
 
-            this.SetDoor(0, CarEntrySideMode.DriverDoor, this.m_Entry.doorTransform);
-            this.SetDoor(1, CarEntrySideMode.PassengerDoor, this.m_Entry.passengerDoorTransform);
-            this.SetDoor(2, CarEntrySideMode.RearLeftDoor, this.m_Entry.rearLeftDoorTransform);
-            this.SetDoor(3, CarEntrySideMode.RearRightDoor, this.m_Entry.rearRightDoorTransform);
+            this.ResolveWindowReferences();
+            this.BindWindowsToDoors();
+
+            this.SetDoor(
+                0, CarEntrySideMode.DriverDoor,
+                this.m_Entry.doorTransform
+            );
+            this.SetDoor(
+                1, CarEntrySideMode.PassengerDoor,
+                this.m_Entry.passengerDoorTransform
+            );
+            this.SetDoor(
+                2, CarEntrySideMode.RearLeftDoor,
+                this.m_Entry.rearLeftDoorTransform
+            );
+            this.SetDoor(
+                3, CarEntrySideMode.RearRightDoor,
+                this.m_Entry.rearRightDoorTransform
+            );
         }
 
-        private void SetDoor(int index, CarEntrySideMode side, Transform pivot)
+        private void SetDoor(
+            int index,
+            CarEntrySideMode side,
+            Transform pivot)
         {
             this.m_Doors[index] = new DoorSlot
             {
                 Side = side,
                 Pivot = pivot,
+                OriginalParent = pivot != null ? pivot.parent : null,
+                OriginalLocalPosition = pivot != null
+                    ? pivot.localPosition
+                    : Vector3.zero,
+                OriginalLocalRotation = pivot != null
+                    ? pivot.localRotation
+                    : Quaternion.identity,
+                OriginalLocalScale = pivot != null
+                    ? pivot.localScale
+                    : Vector3.one,
                 State = DoorDamageState.Intact,
                 Renderers = pivot != null
                     ? pivot.GetComponentsInChildren<Renderer>(true)
@@ -152,10 +271,15 @@ namespace FranklinGame.Vehicles
                 ? -collision.relativeVelocity.normalized
                 : contact.normal;
 
+            DoorDamageState stateAtImpact = slot.State;
             if (slot.State == DoorDamageState.Intact)
                 this.LoosenDoor(slot, impulseDirection, severity);
 
-            if (severity >= this.m_DetachImpactSeverity)
+            bool laterLooseDoorHit = stateAtImpact == DoorDamageState.Loose &&
+                severity >= this.m_DetachImpactSeverity;
+            bool catastrophicFirstHit = stateAtImpact == DoorDamageState.Intact &&
+                severity >= this.m_CatastrophicDetachImpactSeverity;
+            if (laterLooseDoorHit || catastrophicFirstHit)
                 this.DetachDoor(slot, impulseDirection, severity);
         }
 
@@ -202,10 +326,12 @@ namespace FranklinGame.Vehicles
             pivot.SetParent(null, true);
 
             BoxCollider doorCollider = pivot.GetComponent<BoxCollider>();
+            slot.CreatedCollider = doorCollider == null;
             if (doorCollider == null) doorCollider = pivot.gameObject.AddComponent<BoxCollider>();
             FitColliderToRenderers(pivot, doorCollider, slot.Renderers);
 
             Rigidbody body = pivot.GetComponent<Rigidbody>();
+            slot.CreatedBody = body == null;
             if (body == null) body = pivot.gameObject.AddComponent<Rigidbody>();
             body.mass = this.m_DoorMass;
             body.linearDamping = 0.08f;
@@ -216,6 +342,7 @@ namespace FranklinGame.Vehicles
             body.linearVelocity = this.m_CarBody.GetPointVelocity(hingePosition);
 
             HingeJoint hinge = pivot.GetComponent<HingeJoint>();
+            slot.CreatedHinge = hinge == null;
             if (hinge == null) hinge = pivot.gameObject.AddComponent<HingeJoint>();
             hinge.connectedBody = this.m_CarBody;
             hinge.autoConfigureConnectedAnchor = false;
@@ -245,10 +372,20 @@ namespace FranklinGame.Vehicles
             }
 
             SimcadeLooseCarDoor loosePart = pivot.GetComponent<SimcadeLooseCarDoor>();
+            slot.CreatedLoosePart = loosePart == null;
             if (loosePart == null)
                 loosePart = pivot.gameObject.AddComponent<SimcadeLooseCarDoor>();
-            loosePart.Initialize(this, slot.Side, body, this.m_DetachedSettleDelay);
+            loosePart.Initialize(
+                this,
+                slot.Side,
+                body,
+                this.m_LooseDoorDetachDelay,
+                this.m_LooseDoorDetachSpeed,
+                this.m_LooseDoorDetachImpulseSpeed,
+                this.m_DetachedSettleDelay
+            );
 
+            slot.Collider = doorCollider;
             slot.Body = body;
             slot.Hinge = hinge;
             slot.LoosePart = loosePart;
@@ -318,6 +455,48 @@ namespace FranklinGame.Vehicles
             );
         }
 
+        private bool RepairDoor(DoorSlot slot)
+        {
+            Transform pivot = slot.Pivot;
+            if (pivot == null) return false;
+
+            if (slot.LoosePart != null) slot.LoosePart.enabled = false;
+            if (slot.Hinge != null)
+            {
+                slot.Hinge.connectedBody = null;
+            }
+            if (slot.Collider != null) slot.Collider.enabled = false;
+            if (slot.Body != null)
+            {
+                slot.Body.linearVelocity = Vector3.zero;
+                slot.Body.angularVelocity = Vector3.zero;
+                slot.Body.isKinematic = true;
+                slot.Body.detectCollisions = false;
+            }
+
+            pivot.SetParent(slot.OriginalParent, false);
+            pivot.localPosition = slot.OriginalLocalPosition;
+            pivot.localRotation = slot.OriginalLocalRotation;
+            pivot.localScale = slot.OriginalLocalScale;
+
+            if (slot.CreatedHinge && slot.Hinge != null) Destroy(slot.Hinge);
+            if (slot.CreatedBody && slot.Body != null) Destroy(slot.Body);
+            if (slot.CreatedCollider && slot.Collider != null) Destroy(slot.Collider);
+            if (slot.CreatedLoosePart && slot.LoosePart != null) Destroy(slot.LoosePart);
+
+            slot.Collider = null;
+            slot.Body = null;
+            slot.Hinge = null;
+            slot.LoosePart = null;
+            slot.CreatedCollider = false;
+            slot.CreatedBody = false;
+            slot.CreatedHinge = false;
+            slot.CreatedLoosePart = false;
+            slot.State = DoorDamageState.Intact;
+            slot.Renderers = pivot.GetComponentsInChildren<Renderer>(true);
+            return true;
+        }
+
         private static void FitColliderToRenderers(
             Transform pivot,
             BoxCollider collider,
@@ -381,6 +560,52 @@ namespace FranklinGame.Vehicles
                    side == CarEntrySideMode.RearRightDoor;
         }
 
+        private void ResolveWindowReferences()
+        {
+            if (this.HasCompleteWindowConfiguration) return;
+
+            Transform[] transforms = this.GetComponentsInChildren<Transform>(true);
+            if (this.m_DriverWindow == null)
+                this.m_DriverWindow = FindNamedTransform(transforms, "FLWin");
+            if (this.m_PassengerWindow == null)
+                this.m_PassengerWindow = FindNamedTransform(transforms, "FRWin");
+            if (this.m_RearLeftWindow == null)
+                this.m_RearLeftWindow = FindNamedTransform(transforms, "RLWin");
+            if (this.m_RearRightWindow == null)
+                this.m_RearRightWindow = FindNamedTransform(transforms, "RRWin");
+        }
+
+        private void BindWindowsToDoors()
+        {
+            if (this.m_Entry == null) return;
+
+            BindWindow(this.m_DriverWindow, this.m_Entry.doorTransform);
+            BindWindow(this.m_PassengerWindow, this.m_Entry.passengerDoorTransform);
+            BindWindow(this.m_RearLeftWindow, this.m_Entry.rearLeftDoorTransform);
+            BindWindow(this.m_RearRightWindow, this.m_Entry.rearRightDoorTransform);
+        }
+
+        private static void BindWindow(Transform window, Transform door)
+        {
+            if (window == null || door == null || window == door || window.IsChildOf(door))
+                return;
+
+            window.SetParent(door, true);
+        }
+
+        private static Transform FindNamedTransform(Transform[] transforms, string targetName)
+        {
+            if (transforms == null) return null;
+
+            for (int i = 0; i < transforms.Length; ++i)
+            {
+                Transform candidate = transforms[i];
+                if (candidate != null && candidate.name == targetName) return candidate;
+            }
+
+            return null;
+        }
+
 #if UNITY_EDITOR
         private void OnValidate()
         {
@@ -389,8 +614,18 @@ namespace FranklinGame.Vehicles
                 this.m_LooseImpactSeverity + 0.1f,
                 this.m_DetachImpactSeverity
             );
+            this.m_CatastrophicDetachImpactSeverity = Mathf.Max(
+                this.m_DetachImpactSeverity + 0.1f,
+                this.m_CatastrophicDetachImpactSeverity
+            );
             this.m_DoorImpactRadius = Mathf.Max(0.25f, this.m_DoorImpactRadius);
             this.m_DoorMass = Mathf.Max(1f, this.m_DoorMass);
+            this.m_LooseDoorDetachDelay = Mathf.Max(0f, this.m_LooseDoorDetachDelay);
+            this.m_LooseDoorDetachSpeed = Mathf.Max(0f, this.m_LooseDoorDetachSpeed);
+            this.m_LooseDoorDetachImpulseSpeed = Mathf.Max(
+                0f,
+                this.m_LooseDoorDetachImpulseSpeed
+            );
             this.m_DetachedSettleDelay = Mathf.Max(1f, this.m_DetachedSettleDelay);
         }
 #endif
@@ -406,6 +641,10 @@ namespace FranklinGame.Vehicles
         private CarEntrySideMode m_Side;
         private Rigidbody m_Body;
         private float m_SettleDelay;
+        private float m_DetachDelay;
+        private float m_DetachSpeed;
+        private float m_DetachImpulseSpeed;
+        private float m_LoosenedAt;
         private float m_DetachedAt;
         private float m_StillSince;
         private bool m_Detached;
@@ -414,12 +653,19 @@ namespace FranklinGame.Vehicles
             SimcadeCarDoorDamage owner,
             CarEntrySideMode side,
             Rigidbody body,
+            float detachDelay,
+            float detachSpeed,
+            float detachImpulseSpeed,
             float settleDelay)
         {
             this.m_Owner = owner;
             this.m_Side = side;
             this.m_Body = body;
+            this.m_DetachDelay = detachDelay;
+            this.m_DetachSpeed = detachSpeed;
+            this.m_DetachImpulseSpeed = detachImpulseSpeed;
             this.m_SettleDelay = settleDelay;
+            this.m_LoosenedAt = Time.unscaledTime;
             this.m_Detached = false;
             this.m_StillSince = 0f;
         }
@@ -434,14 +680,34 @@ namespace FranklinGame.Vehicles
         private void OnCollisionEnter(Collision collision)
         {
             if (this.m_Detached || this.m_Owner == null || collision == null) return;
+            if (Time.unscaledTime - this.m_LoosenedAt < this.m_DetachDelay) return;
 
-            float speed = collision.relativeVelocity.magnitude;
-            if (speed < 8f) return;
+            float normalSpeed = GetNormalContactSpeed(collision);
+            float impulseSpeed = collision.impulse.magnitude /
+                Mathf.Max(1f, this.m_Body != null ? this.m_Body.mass : 1f);
+            if (normalSpeed < this.m_DetachSpeed ||
+                impulseSpeed < this.m_DetachImpulseSpeed)
+            {
+                return;
+            }
 
             Vector3 direction = collision.relativeVelocity.sqrMagnitude > 0.001f
                 ? -collision.relativeVelocity.normalized
                 : Vector3.zero;
-            this.m_Owner.RequestDetach(this.m_Side, direction, speed);
+            this.m_Owner.RequestDetach(
+                this.m_Side,
+                direction,
+                Mathf.Max(normalSpeed, impulseSpeed)
+            );
+        }
+
+        private static float GetNormalContactSpeed(Collision collision)
+        {
+            float relativeSpeed = collision.relativeVelocity.magnitude;
+            if (collision.contactCount <= 0) return relativeSpeed;
+
+            Vector3 normal = collision.GetContact(0).normal;
+            return Mathf.Abs(Vector3.Dot(collision.relativeVelocity, normal));
         }
 
         private void OnJointBreak(float breakForce)

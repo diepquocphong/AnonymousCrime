@@ -292,7 +292,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e2912f38526d541c098dbcef2fe9fab2, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: 
   m_Target:
     m_Property:
@@ -343,7 +343,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: 
   m_Instructions:
     m_Instructions:
@@ -517,7 +517,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e2912f38526d541c098dbcef2fe9fab2, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: 
   m_Target:
     m_Property:
@@ -568,7 +568,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: 
   m_Instructions:
     m_Instructions:
@@ -1118,7 +1118,7 @@ GameObject:
   - component: {fileID: 1521840501650848676}
   - component: {fileID: 3844766365259161854}
   - component: {fileID: 7283571585995786393}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: MobileBlobShadow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1134,7 +1134,7 @@ Transform:
   m_GameObject: {fileID: 736000255280241541}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.675, z: 0}
+  m_LocalPosition: {x: -0.432859, y: -0.675, z: 0.0010323524}
   m_LocalScale: {x: 1.9075803, y: 0.85, z: 4.233141}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1147,7 +1147,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 736000255280241541}
-  m_Mesh: {fileID: 4300000, guid: 626c74704e331c74f941e38b9e23032a, type: 3}
+  m_Mesh: {fileID: 4300000, guid: cf86768aabb30492e87bb27a79c579ee, type: 2}
 --- !u!23 &7283571585995786393
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1668,6 +1668,459 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!1 &910100000000000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 910100000000000002}
+  - component: {fileID: 910100000000000003}
+  m_Layer: 0
+  m_Name: Car Rear Brake Flare Left
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &910100000000000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 910100000000000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -1.00954, y: -0.173681, z: -2.03908}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6475209126892533336}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &910100000000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 910100000000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc4d76f733087744991913c9d19d5274, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.LensFlareComponentSRP
+  m_LensFlareData: {fileID: 11400000, guid: 7f3c1d1be1ce4a90a2e3f4c61f29b071, type: 2}
+  version: 0
+  intensity: 0
+  maxAttenuationDistance: 70
+  maxAttenuationScale: 40
+  distanceAttenuationCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0.12
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  scaleByDistanceCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  attenuationByLightShape: 0
+  radialScreenAttenuationCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  useOcclusion: 1
+  useBackgroundCloudOcclusion: 0
+  environmentOcclusion: 0
+  useWaterOcclusion: 0
+  occlusionRadius: 0.035
+  sampleCount: 4
+  occlusionOffset: 0.2
+  scale: 1
+  allowOffScreen: 0
+  volumetricCloudOcclusion: 0
+  occlusionRemapCurve:
+    <length>k__BackingField: 2
+    m_Loop: 0
+    m_ZeroValue: 1
+    m_Range: 1
+    m_Curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 1
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+  lightOverride: {fileID: 0}
+--- !u!1 &910100000000000011
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 910100000000000012}
+  - component: {fileID: 910100000000000013}
+  m_Layer: 0
+  m_Name: Car Rear Brake Flare Right
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &910100000000000012
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 910100000000000011}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.143826, y: -0.173681, z: -2.03908}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6475209126892533336}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &910100000000000013
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 910100000000000011}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cc4d76f733087744991913c9d19d5274, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.LensFlareComponentSRP
+  m_LensFlareData: {fileID: 11400000, guid: 7f3c1d1be1ce4a90a2e3f4c61f29b071, type: 2}
+  version: 0
+  intensity: 0
+  maxAttenuationDistance: 70
+  maxAttenuationScale: 40
+  distanceAttenuationCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 0.12
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  scaleByDistanceCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  attenuationByLightShape: 0
+  radialScreenAttenuationCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  useOcclusion: 1
+  useBackgroundCloudOcclusion: 0
+  environmentOcclusion: 0
+  useWaterOcclusion: 0
+  occlusionRadius: 0.035
+  sampleCount: 4
+  occlusionOffset: 0.2
+  scale: 1
+  allowOffScreen: 0
+  volumetricCloudOcclusion: 0
+  occlusionRemapCurve:
+    <length>k__BackingField: 2
+    m_Loop: 0
+    m_ZeroValue: 1
+    m_Range: 1
+    m_Curve:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 0
+        inSlope: 0
+        outSlope: 1
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 1
+        inSlope: 1
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
+  lightOverride: {fileID: 0}
+--- !u!1 &910300000000000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 910300000000000002}
+  - component: {fileID: 910300000000000004}
+  m_Layer: 0
+  m_Name: Car Horn Audio
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &910300000000000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 910300000000000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 1.35}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6475209126892533336}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!82 &910300000000000004
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 910300000000000001}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 8300000, guid: 8b4bf4bc31c5409c8a33c33122084a74, type: 3}
+  m_PlayOnAwake: 0
+  m_Volume: 0
+  m_Pitch: 1
+  Loop: 1
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 96
+  DopplerLevel: 0.2
+  MinDistance: 3
+  MaxDistance: 55
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &913303881678721640
 GameObject:
   m_ObjectHideFlags: 0
@@ -2117,6 +2570,8 @@ GameObject:
   - component: {fileID: 2366635193457452804}
   - component: {fileID: 6853005902781517826}
   - component: {fileID: 2053464713684727125}
+  - component: {fileID: 6341872034501287741}
+  - component: {fileID: 910300000000000003}
   - component: {fileID: 2869051609714795022}
   - component: {fileID: 397292701292203200}
   - component: {fileID: 4596240358959118080}
@@ -2125,6 +2580,7 @@ GameObject:
   - component: {fileID: 3419928902034986279}
   - component: {fileID: 1948572191909641474}
   - component: {fileID: 7586191646433272289}
+  - component: {fileID: 909900000000000001}
   - component: {fileID: 8618836756706307162}
   - component: {fileID: 7112345678901234567}
   - component: {fileID: 967255811771476149}
@@ -2134,7 +2590,7 @@ GameObject:
   - component: {fileID: 4849837362783367216}
   - component: {fileID: 807587882220604204}
   - component: {fileID: 9140105254052309305}
-  m_Layer: 0
+  m_Layer: 13
   m_Name: Car
   m_TagString: Player
   m_Icon: {fileID: 0}
@@ -2221,6 +2677,9 @@ Transform:
   - {fileID: 4808633786932953391}
   - {fileID: 7559998833505363318}
   - {fileID: 1521840501650848676}
+  - {fileID: 910100000000000002}
+  - {fileID: 910100000000000012}
+  - {fileID: 910300000000000002}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!65 &2366635193457452804
@@ -2291,7 +2750,52 @@ MonoBehaviour:
   backLightOnColor: {r: 3.4716978, g: 0, b: 0, a: 6}
   spotLight1: {fileID: 2979474921210363891}
   spotLight2: {fileID: 720783039034817612}
-  spotLightIntensity: 20
+  spotLightIntensity: 45
+--- !u!114 &6341872034501287741
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1012201392339528721}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e2aa8a743b54f3e8a4d56989fc72046, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Vehicles.SimcadeCarBrakeLights
+  m_Driver: {fileID: 3419928902034986279}
+  m_VehicleLights: {fileID: 2053464713684727125}
+  m_Rigidbody: {fileID: 6853005902781517826}
+  m_LeftBrakeFlare: {fileID: 910100000000000003}
+  m_RightBrakeFlare: {fileID: 910100000000000013}
+  m_HeadlightIntensity: 45
+  m_HeadlightRange: 42
+  m_HeadlightSpotAngle: 68
+  m_HeadlightInnerSpotAngle: 48
+  m_RunningLightMultiplier: 0.32
+  m_BrakeLightMultiplier: 1.8
+  m_BrakeFlareIntensity: 1.1
+  m_ReverseVelocityThreshold: 0.15
+  m_FadeInSpeed: 18
+  m_FadeOutSpeed: 6
+--- !u!114 &910300000000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1012201392339528721}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ff6ca810058472f81173b30c36c8070, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Vehicles.SimcadeCarHorn
+  m_Driver: {fileID: 3419928902034986279}
+  m_Source: {fileID: 910300000000000004}
+  m_Clip: {fileID: 8300000, guid: 8b4bf4bc31c5409c8a33c33122084a74, type: 3}
+  m_MaxVolume: 0.78
+  m_FadeInSpeed: 18
+  m_FadeOutSpeed: 14
 --- !u!114 &2869051609714795022
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2906,6 +3410,8 @@ MonoBehaviour:
   m_ShowMobileInputInEditor: 1
   m_Dashboard: {fileID: 967255811771476149}
   m_Fuel: {fileID: 7112345678901234567}
+  m_VehicleLights: {fileID: 2053464713684727125}
+  m_Horn: {fileID: 910300000000000003}
 --- !u!114 &1948572191909641474
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3078,6 +3584,30 @@ MonoBehaviour:
   m_HeavyMinVolume: 0.9
   m_HeavyMaxVolume: 1
   m_HeavyPitch: 0.9
+--- !u!114 &909900000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1012201392339528721}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6be28118fd4b46e2b9a13d30e62ddbac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Vehicles.SimcadeCarMetalDebris
+  m_ImpactAudio: {fileID: 7586191646433272289}
+  m_Body: {fileID: 6853005902781517826}
+  m_Material: {fileID: 2100000, guid: 8eb5fc3830da4bb2bf1ced2dd23d404e, type: 2}
+  m_MinImpactSpeedKph: 60
+  m_MinFragmentCount: 9
+  m_MaxFragmentCount: 16
+  m_FullBurstSeverity: 16
+  m_Lifetime: {x: 0.75, y: 1.2}
+  m_Speed: {x: 3.2, y: 7.2}
+  m_Size: {x: 0.21675, y: 0.39525}
+  m_Gravity: 1.45
+  m_ConfigurationVersion: 1
 --- !u!114 &8618836756706307162
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3313,15 +3843,23 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6c699e0a3e24d708e41a88fe2d68e06, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Vehicles.SimcadeCarDoorDamage
-  m_LooseImpactSeverity: 6.5
-  m_DetachImpactSeverity: 12.5
-  m_DoorImpactRadius: 1.15
+  m_LooseImpactSeverity: 8
+  m_DetachImpactSeverity: 16.5
+  m_CatastrophicDetachImpactSeverity: 22
+  m_DoorImpactRadius: 0.8
+  m_DriverWindow: {fileID: 4625998110853824089}
+  m_PassengerWindow: {fileID: 5317567650970074499}
+  m_RearLeftWindow: {fileID: 3067505545594668278}
+  m_RearRightWindow: {fileID: 8193102746368104489}
   m_DoorMass: 34
-  m_OpenAngularVelocity: 3.8
+  m_OpenAngularVelocity: 3
   m_DetachVelocity: 2.2
   m_DetachAngularVelocity: 4.5
-  m_HingeBreakForce: 6800
-  m_HingeBreakTorque: 5200
+  m_HingeBreakForce: 14500
+  m_HingeBreakTorque: 12000
+  m_LooseDoorDetachDelay: 0.45
+  m_LooseDoorDetachSpeed: 13
+  m_LooseDoorDetachImpulseSpeed: 8.5
   m_DetachedSettleDelay: 8
 --- !u!114 &9140105254052309305
 MonoBehaviour:
@@ -3338,9 +3876,12 @@ MonoBehaviour:
   m_ShadowTransform: {fileID: 1521840501650848676}
   m_ShadowRenderer: {fileID: 7283571585995786393}
   m_RenderCamera: {fileID: 0}
+  m_OrientationTransform: {fileID: 6475209126892533336}
+  m_FootprintCenter: {x: -0.432859, y: 0.0010323524}
   m_ShadowColor: {r: 0, g: 0, b: 0, a: 1}
-  m_Intensity: 0.68
-  m_Power: 1.7
+  m_Intensity: 0.94
+  m_Power: 1.35
+  m_Core: 0.58
   m_FootprintShape: 2
   m_VolumeSize: {x: 1.9075803, y: 0.85, z: 4.233141}
   m_GroundedPivotHeight: 0.7
@@ -3357,6 +3898,8 @@ MonoBehaviour:
   m_GroundOffset: 0.025
   m_MinGroundNormalY: 0.35
   m_HideWhenGroundMissing: 1
+  m_IgnoreRigidbodyReceivers: 1
+  m_SuppressInsideShadowOwner: 1
   m_ConfigureCameraDepth: 1
   m_MaxVisibleDistance: 45
   m_DistanceCheckInterval: 0.25
@@ -7025,9 +7568,9 @@ Light:
   m_Type: 0
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Intensity: 0
-  m_Range: 15
-  m_SpotAngle: 30
-  m_InnerSpotAngle: 21.80208
+  m_Range: 42
+  m_SpotAngle: 68
+  m_InnerSpotAngle: 48
   m_CookieSize2D: {x: 10, y: 10}
   m_Shadows:
     m_Type: 0
@@ -13681,9 +14224,9 @@ Light:
   m_Type: 0
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Intensity: 0
-  m_Range: 15
-  m_SpotAngle: 30
-  m_InnerSpotAngle: 21.80208
+  m_Range: 42
+  m_SpotAngle: 68
+  m_InnerSpotAngle: 48
   m_CookieSize2D: {x: 10, y: 10}
   m_Shadows:
     m_Type: 0
