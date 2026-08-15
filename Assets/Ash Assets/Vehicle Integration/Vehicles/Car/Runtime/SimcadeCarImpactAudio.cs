@@ -108,7 +108,6 @@ namespace FranklinGame.Vehicles
         protected virtual void Awake()
         {
             m_Body = GetComponent<Rigidbody>();
-            BuildEffectPool();
         }
 
         protected virtual void OnDisable()
@@ -221,7 +220,9 @@ namespace FranklinGame.Vehicles
         {
             if (m_ImpactEffectPrefab == null || m_EffectRoots != null) return;
 
-            int poolSize = Mathf.Clamp(m_EffectPoolSize, 2, 4);
+            int poolSize = Application.isMobilePlatform
+                ? 2
+                : Mathf.Clamp(m_EffectPoolSize, 2, 4);
             m_EffectRoots = new Transform[poolSize];
             m_EffectSystems = new ParticleSystem[poolSize][];
 
@@ -242,9 +243,32 @@ namespace FranklinGame.Vehicles
                     main.loop = false;
                     main.stopAction = ParticleSystemStopAction.None;
                     main.simulationSpace = ParticleSystemSimulationSpace.World;
+                    main.cullingMode = ParticleSystemCullingMode.Automatic;
+
+                    bool isSparkTrail = system.gameObject.name == "Sparks";
+                    int requiredParticles = isSparkTrail
+                        ? Mathf.Max(12, m_HeavySparkCount)
+                        : Mathf.Max(3, m_HeavyFlashCount);
+                    if (Application.isMobilePlatform)
+                        main.maxParticles = Mathf.Min(main.maxParticles, requiredParticles);
 
                     ParticleSystem.EmissionModule emission = system.emission;
                     emission.enabled = false;
+
+                    ParticleSystemRenderer effectRenderer =
+                        system.GetComponent<ParticleSystemRenderer>();
+                    if (effectRenderer != null)
+                    {
+                        effectRenderer.shadowCastingMode =
+                            UnityEngine.Rendering.ShadowCastingMode.Off;
+                        effectRenderer.receiveShadows = false;
+                        effectRenderer.lightProbeUsage =
+                            UnityEngine.Rendering.LightProbeUsage.Off;
+                        effectRenderer.reflectionProbeUsage =
+                            UnityEngine.Rendering.ReflectionProbeUsage.Off;
+                        effectRenderer.motionVectorGenerationMode =
+                            MotionVectorGenerationMode.ForceNoMotion;
+                    }
                     system.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
                 }
 
@@ -276,6 +300,9 @@ namespace FranklinGame.Vehicles
 
         private void PlayImpactEffect(Collision collision, bool isHeavy, float severity)
         {
+            // Collision VFX are event-only. Build the small pool on the first
+            // accepted contact instead of cloning it for every parked vehicle.
+            if (m_EffectRoots == null) BuildEffectPool();
             if (m_EffectRoots == null || m_EffectRoots.Length == 0) return;
 
             int index = m_NextEffectIndex;

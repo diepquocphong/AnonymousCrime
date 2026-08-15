@@ -21,6 +21,7 @@ namespace FranklinGame.UI
     public sealed class FranklinMobileHud : MonoBehaviour
     {
         private const float REFERENCE_REFRESH_SECONDS = 0.5f;
+        private const float ENTER_VEHICLE_REFRESH_SECONDS = 0.1f;
         private const string RESOURCE_ROOT = "FranklinMobileUI/";
         private const float BIKE_SPEED_UPDATE_SECONDS = 0.1f;
         private const float BIKE_FUEL_GAUGE_WIDTH = 74f;
@@ -42,6 +43,22 @@ namespace FranklinGame.UI
             new Vector2(176f, 48f);
         private static readonly Vector2 SPEED_BACKGROUND_OFFSET =
             new Vector2(0f, 3f);
+        private static readonly string[] DRIVING_ONLY_CONTROLS =
+        {
+            "Steer Left",
+            "Steer Right",
+            "Accelerate",
+            "Brake Reverse",
+            "Handbrake",
+            "Slow Drive",
+            "Bike Headlight",
+            "Car Horn",
+            "Car Rear View",
+            "Car Camera Mode",
+            "Bike Wheelie",
+            "Bike Burnout",
+            "Bike Helmet"
+        };
 
         private static readonly Dictionary<string, Sprite> SPRITES = new();
         private static readonly HashSet<object> CONTROL_SUPPRESSION_OWNERS = new();
@@ -110,12 +127,16 @@ namespace FranklinGame.UI
         private FranklinHudButton m_BikeBurnoutButton;
         private FranklinHudButton m_BikeHelmetButton;
         private FranklinHudButton m_OnFootHelmetButton;
+        private Character m_Player;
         private FranklinBikeHelmetController m_PlayerHelmetController;
         private FranklinAnimationBridge m_MovementBridge;
         private FranklinObjectDirectionToggle m_ObjectDirectionToggle;
         private FranklinCameraPointing m_CameraPointing;
         private FranklinVehicleInteractionManager m_VehicleInteraction;
         private IRvrVehicleInputController m_ActiveDriver;
+        private FranklinArcadeBikeDriver m_BikeReferenceDriver;
+        private BikeEntry m_ActiveBikeEntry;
+        private FranklinBikePassengerSeat m_ActiveBikePassengerSeat;
         private FranklinArcadeBikeDriver m_BikeHealthDriver;
         private FranklinBikeHealth m_ActiveBikeHealth;
         private FranklinArcadeBikeDriver m_BikeFuelDriver;
@@ -125,6 +146,8 @@ namespace FranklinGame.UI
         private GameObject m_TactileCanvas;
         private GameObject m_TactileMoveStick;
         private float m_NextReferenceRefresh;
+        private float m_NextEnterVehicleRefresh;
+        private bool m_CanRequestVehicleInteraction;
         private float m_NextBikeSpeedUpdate;
         private int m_LastDisplayedBikeSpeed = int.MinValue;
         private Vector2 m_BikeSpeedPosition;
@@ -133,6 +156,7 @@ namespace FranklinGame.UI
         private Vector2 m_BikeHealthVelocity;
         private float m_BikeFuelTarget;
         private float m_BikeFuelVelocity;
+        private bool m_HasBikeFuelValue;
         private bool m_HasBikeFuelTarget;
         private bool m_BikeTelemetrySuppressed;
         private bool m_WasDriving;
@@ -146,6 +170,9 @@ namespace FranklinGame.UI
         private bool m_MeleeButtonWasActive;
         private bool m_HasBikeSpeedPosition;
         private bool m_HasBikeHealthPosition;
+        private int m_BikeHudSafeRectFrame = -1;
+        private RectTransform m_BikeHudSafeRectOwner;
+        private Rect m_BikeHudSafeRect;
 
         public static bool IsActive => s_Instance != null &&
                                        s_Instance.isActiveAndEnabled;
@@ -303,15 +330,16 @@ namespace FranklinGame.UI
 
         private void Update()
         {
-            this.RefreshReferences(false);
-            this.UpdateBikeFuelFill();
-
             if (ControlsSuppressed)
             {
                 this.ApplyControlsSuppressed();
                 return;
             }
             if (this.m_HasAppliedSuppression) this.ReleaseControlsSuppression();
+
+            this.RefreshReferences(false);
+            this.UpdateBikeFuelFill();
+
             if (FastMovementSuppressed) this.ApplyFastMovementSuppressed();
             else this.ReleaseFastMovementSuppression();
 
@@ -339,20 +367,20 @@ namespace FranklinGame.UI
 
         private void ApplyControlsSuppressed()
         {
-            if (!this.m_HasAppliedSuppression)
-            {
-                this.ReleaseMovementInputs();
-                this.ReleaseVehicleInputs(this.m_ActiveDriver, true);
-            }
-            if (this.m_OnFootGroup != null) this.m_OnFootGroup.gameObject.SetActive(false);
-            if (this.m_VehicleGroup != null) this.m_VehicleGroup.gameObject.SetActive(false);
-            if (this.m_EnterVehicleButton != null)
-                this.m_EnterVehicleButton.SetActive(false);
-            if (this.m_TactileMoveStick != null) this.m_TactileMoveStick.SetActive(false);
+            if (this.m_HasAppliedSuppression) return;
+
+            this.ReleaseMovementInputs();
+            this.ReleaseVehicleInputs(this.m_ActiveDriver, true);
+            if (this.m_OnFootGroup != null)
+                SetGameObjectActive(this.m_OnFootGroup.gameObject, false);
+            if (this.m_VehicleGroup != null)
+                SetGameObjectActive(this.m_VehicleGroup.gameObject, false);
+            SetGameObjectActive(this.m_EnterVehicleButton, false);
+            SetGameObjectActive(this.m_TactileMoveStick, false);
             if (!this.m_UsesCanvasPlayerControl && this.m_TactileCanvas != null &&
                 this.m_TactileCanvas != this.gameObject)
             {
-                this.m_TactileCanvas.SetActive(false);
+                SetGameObjectActive(this.m_TactileCanvas, false);
             }
             this.m_HasAppliedSuppression = true;
         }
@@ -365,8 +393,10 @@ namespace FranklinGame.UI
             if (!this.m_UsesCanvasPlayerControl && this.m_TactileCanvas != null &&
                 this.m_TactileCanvas != this.gameObject)
             {
-                this.m_TactileCanvas.SetActive(true);
+                SetGameObjectActive(this.m_TactileCanvas, true);
             }
+            this.m_NextReferenceRefresh = 0f;
+            this.m_NextEnterVehicleRefresh = 0f;
         }
 
         private void ApplyFastMovementSuppressed()
@@ -1100,6 +1130,11 @@ namespace FranklinGame.UI
             if (!force && Time.unscaledTime < this.m_NextReferenceRefresh) return;
             this.m_NextReferenceRefresh = Time.unscaledTime + REFERENCE_REFRESH_SECONDS;
 
+            if (this.m_Player == null)
+            {
+                this.m_Player = ShortcutPlayer.Get<Character>();
+            }
+
             if (this.m_MovementBridge == null)
             {
                 this.m_MovementBridge = FindFirstObjectByType<FranklinAnimationBridge>();
@@ -1143,52 +1178,62 @@ namespace FranklinGame.UI
             }
 
             IRvrVehicleInputController previousDriver = this.m_ActiveDriver;
-            SimcadeCarDriver activeCar = null;
-            foreach (SimcadeCarDriver driver in FindObjectsByType<SimcadeCarDriver>(
-                         FindObjectsSortMode.None))
+            if (this.m_VehicleInteraction != null)
             {
-                if (driver != null && (driver.IsVehicleEnabled ||
-                                       driver.IsPassengerPresentationActive))
+                this.m_ActiveDriver = this.m_VehicleInteraction.ActiveVehicleDriver;
+                if (this.m_ActiveDriver == null && this.m_Player != null)
                 {
-                    activeCar = driver;
-                    break;
+                    // GC2 instructions can place Player in a passenger seat without
+                    // going through ManagerVehicle. Resolve only Player's short
+                    // parent chain; never fall back to a full-scene scan here.
+                    this.m_ActiveDriver =
+                        this.m_Player.GetComponentInParent<SimcadeCarDriver>() ??
+                        (IRvrVehicleInputController)this.m_Player.GetComponentInParent<
+                            FranklinArcadeBikeDriver
+                        >();
                 }
-            }
-
-            // A Car owns the shared vehicle HUD while its presentation is active. This also
-            // prevents a Bike driver that is still enabled for one handoff frame from keeping
-            // the Bike controls/telemetry bound over the Car HUD.
-            if (activeCar != null)
-            {
-                this.m_ActiveDriver = activeCar;
             }
             else
             {
-                Character player = ShortcutPlayer.Get<Character>();
-                FranklinArcadeBikeDriver firstActiveBike = null;
-                FranklinArcadeBikeDriver playerBike = null;
-                foreach (FranklinArcadeBikeDriver driver in
-                         FindObjectsByType<FranklinArcadeBikeDriver>(FindObjectsSortMode.None))
+                SimcadeCarDriver activeCar =
+                    SimcadeCarDriver.ActivePresentationDriver;
+
+                // Compatibility fallback for scenes that do not install the Player
+                // interaction manager. A Car owns the shared HUD while its presentation
+                // is active; otherwise locate the Bike that actually contains Player.
+                if (activeCar != null)
                 {
-                    if (driver == null || !driver.IsVehicleEnabled) continue;
-                    firstActiveBike ??= driver;
-
-                    BikeEntry entry = driver.GetComponent<BikeEntry>();
-                    FranklinBikePassengerSeat passenger =
-                        driver.GetComponent<FranklinBikePassengerSeat>();
-                    if (player != null &&
-                        ((entry != null && entry.SeatedCharacter == player) ||
-                         (passenger != null && passenger.Passenger == player)))
-                    {
-                        playerBike = driver;
-                        break;
-                    }
+                    this.m_ActiveDriver = activeCar;
                 }
+                else
+                {
+                    FranklinArcadeBikeDriver firstActiveBike = null;
+                    FranklinArcadeBikeDriver playerBike = null;
+                    foreach (FranklinArcadeBikeDriver driver in
+                             FindObjectsByType<FranklinArcadeBikeDriver>(
+                                 FindObjectsSortMode.None))
+                    {
+                        if (driver == null || !driver.IsVehicleEnabled) continue;
+                        firstActiveBike ??= driver;
 
-                // Prefer the Bike that actually contains Player. This keeps passenger
-                // HUD/exit routing deterministic even when several NPC Bikes are enabled.
-                this.m_ActiveDriver = playerBike ?? firstActiveBike;
+                        BikeEntry entry = driver.GetComponent<BikeEntry>();
+                        FranklinBikePassengerSeat passenger =
+                            driver.GetComponent<FranklinBikePassengerSeat>();
+                        if (this.m_Player != null &&
+                            ((entry != null && entry.SeatedCharacter == this.m_Player) ||
+                             (passenger != null &&
+                              passenger.Passenger == this.m_Player)))
+                        {
+                            playerBike = driver;
+                            break;
+                        }
+                    }
+
+                    this.m_ActiveDriver = playerBike ?? firstActiveBike;
+                }
             }
+
+            this.CacheActiveBikeReferences();
 
             if (previousDriver != null && previousDriver != this.m_ActiveDriver)
             {
@@ -1223,9 +1268,22 @@ namespace FranklinGame.UI
         {
             if (this.m_EnterVehicleButton == null) return;
 
+            if (isDriving)
+            {
+                this.m_CanRequestVehicleInteraction = false;
+                this.m_NextEnterVehicleRefresh = 0f;
+            }
+            else if (Time.unscaledTime >= this.m_NextEnterVehicleRefresh)
+            {
+                this.m_NextEnterVehicleRefresh = Time.unscaledTime +
+                    ENTER_VEHICLE_REFRESH_SECONDS;
+                this.m_CanRequestVehicleInteraction =
+                    this.m_VehicleInteraction != null &&
+                    this.m_VehicleInteraction.CanRequestVehicleInteraction;
+            }
+
             bool shouldShow = !isDriving &&
-                              this.m_VehicleInteraction != null &&
-                              this.m_VehicleInteraction.CanRequestVehicleInteraction;
+                              this.m_CanRequestVehicleInteraction;
             if (this.m_EnterVehicleButton.activeSelf != shouldShow)
             {
                 this.m_EnterVehicleButton.SetActive(shouldShow);
@@ -1282,7 +1340,7 @@ namespace FranklinGame.UI
                                  !this.m_WasPassengerMode;
             SetButtonActive(this.m_BikeHelmetButton, isDrivingBike);
 
-            FranklinBikeHelmetController helmet = this.ResolvePlayerHelmetController();
+            FranklinBikeHelmetController helmet = this.m_PlayerHelmetController;
             bool showOnFoot = !isDriving && helmet != null &&
                               (helmet.IsEquipped || helmet.IsTransitioning);
             if (showOnFoot && this.m_OnFootHelmetButton != null &&
@@ -1335,37 +1393,49 @@ namespace FranklinGame.UI
             out Character player)
         {
             passengerSeat = null;
-            player = null;
-            if (this.m_ActiveDriver is not FranklinArcadeBikeDriver bikeDriver)
+            player = this.m_Player;
+            if (this.m_ActiveDriver is not FranklinArcadeBikeDriver || player == null)
                 return false;
 
-            player = ShortcutPlayer.Get<Character>();
-            if (player == null) return false;
-            passengerSeat = bikeDriver.GetComponent<FranklinBikePassengerSeat>();
+            passengerSeat = this.m_ActiveBikePassengerSeat;
             return passengerSeat != null &&
                    passengerSeat.Passenger == player;
         }
 
         private bool IsPlayerBikeDriver()
         {
-            if (this.m_ActiveDriver is not FranklinArcadeBikeDriver bikeDriver)
+            if (this.m_ActiveDriver is not FranklinArcadeBikeDriver)
                 return false;
 
-            Character player = ShortcutPlayer.Get<Character>();
-            BikeEntry bikeEntry = bikeDriver.GetComponent<BikeEntry>();
-            return player != null &&
-                   bikeEntry != null &&
-                   bikeEntry.SeatedCharacter == player;
+            return this.m_Player != null &&
+                   this.m_ActiveBikeEntry != null &&
+                   this.m_ActiveBikeEntry.SeatedCharacter == this.m_Player;
         }
 
         private FranklinBikeHelmetController ResolvePlayerHelmetController()
         {
-            if (this.m_PlayerHelmetController == null)
+            if (this.m_PlayerHelmetController == null && this.m_Player != null)
             {
-                this.m_PlayerHelmetController =
-                    FindFirstObjectByType<FranklinBikeHelmetController>();
+                this.m_PlayerHelmetController = this.m_Player.GetComponentInChildren<
+                    FranklinBikeHelmetController
+                >(true);
             }
             return this.m_PlayerHelmetController;
+        }
+
+        private void CacheActiveBikeReferences()
+        {
+            FranklinArcadeBikeDriver bikeDriver =
+                this.m_ActiveDriver as FranklinArcadeBikeDriver;
+            if (this.m_BikeReferenceDriver == bikeDriver) return;
+
+            this.m_BikeReferenceDriver = bikeDriver;
+            this.m_ActiveBikeEntry = bikeDriver != null
+                ? bikeDriver.GetComponent<BikeEntry>()
+                : null;
+            this.m_ActiveBikePassengerSeat = bikeDriver != null
+                ? bikeDriver.GetComponent<FranklinBikePassengerSeat>()
+                : null;
         }
 
         private void EnsureBikeHealthUi()
@@ -1698,6 +1768,7 @@ namespace FranklinGame.UI
             this.m_ActiveBikeFuel = bikeDriver != null
                 ? bikeDriver.GetComponent<FranklinBikeFuel>()
                 : null;
+            this.m_HasBikeFuelValue = false;
             this.m_HasBikeFuelTarget = false;
             this.m_BikeFuelVelocity = 0f;
 
@@ -1715,11 +1786,16 @@ namespace FranklinGame.UI
         {
             float ratio = maximum > 0.001f ? Mathf.Clamp01(current / maximum) : 0f;
             this.m_BikeFuelTarget = ratio;
-            if (this.m_HasBikeFuelTarget) return;
-
+            if (!this.m_HasBikeFuelValue)
+            {
+                this.m_HasBikeFuelValue = true;
+                this.m_HasBikeFuelTarget = false;
+                this.m_BikeFuelVelocity = 0f;
+                if (this.m_BikeFuelFillImage != null)
+                    this.m_BikeFuelFillImage.fillAmount = ratio;
+                return;
+            }
             this.m_HasBikeFuelTarget = true;
-            if (this.m_BikeFuelFillImage != null)
-                this.m_BikeFuelFillImage.fillAmount = ratio;
         }
 
         private void UpdateBikeFuelFill()
@@ -1731,20 +1807,32 @@ namespace FranklinGame.UI
                 return;
             }
 
-            this.m_BikeFuelFillImage.fillAmount = Mathf.SmoothDamp(
-                this.m_BikeFuelFillImage.fillAmount,
+            float current = this.m_BikeFuelFillImage.fillAmount;
+            if (Mathf.Abs(current - this.m_BikeFuelTarget) < 0.0005f)
+            {
+                if (!Mathf.Approximately(current, this.m_BikeFuelTarget))
+                    this.m_BikeFuelFillImage.fillAmount = this.m_BikeFuelTarget;
+                this.m_BikeFuelVelocity = 0f;
+                this.m_HasBikeFuelTarget = false;
+                return;
+            }
+
+            float next = Mathf.SmoothDamp(
+                current,
                 this.m_BikeFuelTarget,
                 ref this.m_BikeFuelVelocity,
                 0.22f,
                 Mathf.Infinity,
                 Time.unscaledDeltaTime
             );
-            if (Mathf.Abs(this.m_BikeFuelFillImage.fillAmount - this.m_BikeFuelTarget) <
-                0.0005f)
+            if (Mathf.Abs(next - this.m_BikeFuelTarget) < 0.0005f)
             {
-                this.m_BikeFuelFillImage.fillAmount = this.m_BikeFuelTarget;
+                next = this.m_BikeFuelTarget;
                 this.m_BikeFuelVelocity = 0f;
+                this.m_HasBikeFuelTarget = false;
             }
+            if (!Mathf.Approximately(current, next))
+                this.m_BikeFuelFillImage.fillAmount = next;
         }
 
         private void SetBikeFuelVisible(bool visible)
@@ -1845,18 +1933,30 @@ namespace FranklinGame.UI
         {
             if (this.m_BikeSpeedBackground == null || this.m_BikeSpeedRoot == null) return;
 
-            this.m_BikeSpeedBackground.anchorMin = this.m_BikeSpeedRoot.anchorMin;
-            this.m_BikeSpeedBackground.anchorMax = this.m_BikeSpeedRoot.anchorMax;
-            this.m_BikeSpeedBackground.pivot = this.m_BikeSpeedRoot.pivot;
-            this.m_BikeSpeedBackground.anchoredPosition =
-                this.m_BikeSpeedRoot.anchoredPosition + SPEED_BACKGROUND_OFFSET;
+            if (this.m_BikeSpeedBackground.anchorMin != this.m_BikeSpeedRoot.anchorMin)
+                this.m_BikeSpeedBackground.anchorMin = this.m_BikeSpeedRoot.anchorMin;
+            if (this.m_BikeSpeedBackground.anchorMax != this.m_BikeSpeedRoot.anchorMax)
+                this.m_BikeSpeedBackground.anchorMax = this.m_BikeSpeedRoot.anchorMax;
+            if (this.m_BikeSpeedBackground.pivot != this.m_BikeSpeedRoot.pivot)
+                this.m_BikeSpeedBackground.pivot = this.m_BikeSpeedRoot.pivot;
+            SetAnchoredPositionIfChanged(
+                this.m_BikeSpeedBackground,
+                this.m_BikeSpeedRoot.anchoredPosition + SPEED_BACKGROUND_OFFSET
+            );
             Vector2 speedSize = this.m_BikeSpeedRoot.sizeDelta;
-            this.m_BikeSpeedBackground.sizeDelta = new Vector2(
+            Vector2 backgroundSize = new Vector2(
                 Mathf.Min(speedSize.x, SPEED_BACKGROUND_MAX_SIZE.x),
                 Mathf.Min(speedSize.y, SPEED_BACKGROUND_MAX_SIZE.y)
             );
-            this.m_BikeSpeedBackground.localRotation = this.m_BikeSpeedRoot.localRotation;
-            this.m_BikeSpeedBackground.localScale = this.m_BikeSpeedRoot.localScale;
+            if (this.m_BikeSpeedBackground.sizeDelta != backgroundSize)
+                this.m_BikeSpeedBackground.sizeDelta = backgroundSize;
+            if (this.m_BikeSpeedBackground.localRotation != this.m_BikeSpeedRoot.localRotation)
+            {
+                this.m_BikeSpeedBackground.localRotation =
+                    this.m_BikeSpeedRoot.localRotation;
+            }
+            if (this.m_BikeSpeedBackground.localScale != this.m_BikeSpeedRoot.localScale)
+                this.m_BikeSpeedBackground.localScale = this.m_BikeSpeedRoot.localScale;
         }
 
         private void UpdateBikeSpeed(FranklinArcadeBikeDriver bikeDriver)
@@ -1913,8 +2013,10 @@ namespace FranklinGame.UI
             {
                 this.m_HasBikeSpeedPosition = false;
                 this.m_BikeSpeedVelocity = Vector2.zero;
-                this.m_BikeSpeedRoot.anchoredPosition =
-                    this.m_BikeSpeedFixedScreenPosition;
+                SetAnchoredPositionIfChanged(
+                    this.m_BikeSpeedRoot,
+                    this.m_BikeSpeedFixedScreenPosition
+                );
             }
 
             this.SyncBikeSpeedBackgroundTransform();
@@ -1931,8 +2033,10 @@ namespace FranklinGame.UI
 
             if (this.m_BikeFuelRoot != null && this.m_BikeSpeedRoot != null)
             {
-                this.m_BikeFuelRoot.anchoredPosition =
-                    this.m_BikeSpeedRoot.anchoredPosition + this.m_BikeFuelGaugeOffset;
+                SetAnchoredPositionIfChanged(
+                    this.m_BikeFuelRoot,
+                    this.m_BikeSpeedRoot.anchoredPosition + this.m_BikeFuelGaugeOffset
+                );
             }
 
             if (this.m_BikeHealthRoot == null || this.m_VehicleGroup == null) return;
@@ -1996,7 +2100,10 @@ namespace FranklinGame.UI
                 );
             }
 
-            this.m_BikeHealthRoot.anchoredPosition = this.m_BikeHealthPosition;
+            SetAnchoredPositionIfChanged(
+                this.m_BikeHealthRoot,
+                this.m_BikeHealthPosition
+            );
         }
 
         private void ApplyBikeSpeedStyle()
@@ -2102,15 +2209,30 @@ namespace FranklinGame.UI
                     Time.unscaledDeltaTime
                 );
             }
-            this.m_BikeSpeedRoot.anchoredPosition = this.m_BikeSpeedPosition;
+            SetAnchoredPositionIfChanged(
+                this.m_BikeSpeedRoot,
+                this.m_BikeSpeedPosition
+            );
         }
 
         private Rect GetBikeHudSafeRect()
         {
+            if (this.m_BikeHudSafeRectFrame == Time.frameCount &&
+                this.m_BikeHudSafeRectOwner == this.m_VehicleGroup)
+            {
+                return this.m_BikeHudSafeRect;
+            }
+
+            this.m_BikeHudSafeRectFrame = Time.frameCount;
+            this.m_BikeHudSafeRectOwner = this.m_VehicleGroup;
             Rect fallback = this.m_VehicleGroup != null
                 ? this.m_VehicleGroup.rect
                 : new Rect(-960f, -540f, 1920f, 1080f);
-            if (this.m_VehicleGroup == null) return fallback;
+            if (this.m_VehicleGroup == null)
+            {
+                this.m_BikeHudSafeRect = fallback;
+                return fallback;
+            }
 
             Rect safeArea = Screen.safeArea;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
@@ -2124,15 +2246,25 @@ namespace FranklinGame.UI
                     null,
                     out Vector2 localMaximum))
             {
+                this.m_BikeHudSafeRect = fallback;
                 return fallback;
             }
 
-            return Rect.MinMaxRect(
+            this.m_BikeHudSafeRect = Rect.MinMaxRect(
                 Mathf.Min(localMinimum.x, localMaximum.x),
                 Mathf.Min(localMinimum.y, localMaximum.y),
                 Mathf.Max(localMinimum.x, localMaximum.x),
                 Mathf.Max(localMinimum.y, localMaximum.y)
             );
+            return this.m_BikeHudSafeRect;
+        }
+
+        private static void SetAnchoredPositionIfChanged(
+            RectTransform rect,
+            Vector2 position)
+        {
+            if (rect != null && rect.anchoredPosition != position)
+                rect.anchoredPosition = position;
         }
 
         private static void SetButtonActive(FranklinHudButton button, bool state)
@@ -2141,29 +2273,20 @@ namespace FranklinGame.UI
                 button.gameObject.SetActive(state);
         }
 
+        private static void SetGameObjectActive(GameObject target, bool state)
+        {
+            if (target != null && target.activeSelf != state)
+                target.SetActive(state);
+        }
+
         private void ApplyPassengerControlVisibility(bool passengerMode)
         {
             if (this.m_VehicleGroup == null) return;
-            string[] drivingOnlyControls =
-            {
-                "Steer Left",
-                "Steer Right",
-                "Accelerate",
-                "Brake Reverse",
-                "Handbrake",
-                "Slow Drive",
-                "Bike Headlight",
-                "Car Horn",
-                "Car Rear View",
-                "Car Camera Mode",
-                "Bike Wheelie",
-                "Bike Burnout",
-                "Bike Helmet"
-            };
-            foreach (string controlName in drivingOnlyControls)
+            foreach (string controlName in DRIVING_ONLY_CONTROLS)
             {
                 Transform control = this.m_VehicleGroup.Find(controlName);
-                if (control != null) control.gameObject.SetActive(!passengerMode);
+                if (control != null)
+                    SetGameObjectActive(control.gameObject, !passengerMode);
             }
             this.m_WasPassengerMode = passengerMode;
         }

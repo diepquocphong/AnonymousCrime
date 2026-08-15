@@ -37,6 +37,7 @@ namespace FranklinGame.Shooter
 
         public void SetToggled(bool toggled)
         {
+            if (this.m_Toggled == toggled) return;
             this.m_Toggled = toggled;
             this.SetVisual(this.m_Pressed);
         }

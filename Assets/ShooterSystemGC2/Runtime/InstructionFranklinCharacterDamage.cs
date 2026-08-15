@@ -6,7 +6,6 @@ using GameCreator.Runtime.Common;
 using GameCreator.Runtime.Shooter;
 using GameCreator.Runtime.Stats;
 using GameCreator.Runtime.VisualScripting;
-using PGBloodFactory = PampelGames.BloodFactory.BloodFactory;
 using UnityEngine;
 
 namespace FranklinGame.Shooter
@@ -41,7 +40,7 @@ namespace FranklinGame.Shooter
         [SerializeField, Min(0f)] private float m_HelmetImpulse = 8f;
         [SerializeField, Range(0f, 1f)] private float m_ArmorAbsorption = 0.65f;
         [SerializeField] private GameObject m_BloodHitEffect;
-        [SerializeField, Min(0.1f)] private float m_BloodEffectLifetime = 4f;
+        [SerializeField, Min(0.1f)] private float m_BloodEffectLifetime = 2f;
 
         [NonSerialized] private bool m_HasWarnedMissingHealth;
         [NonSerialized] private int m_LastBloodVictimId;
@@ -164,24 +163,13 @@ namespace FranklinGame.Shooter
                 ? Vector3.forward
                 : Vector3.up;
             Quaternion rotation = Quaternion.LookRotation(direction, up);
-            GameObject effect = UnityEngine.Object.Instantiate(
+            FranklinBloodHitPool.Spawn(
                 this.m_BloodHitEffect,
                 hitPoint + direction * 0.015f,
-                rotation
+                rotation,
+                (LayerMask) BLOOD_COLLISION_MASK,
+                this.BloodEffectLifetime
             );
-
-            PGBloodFactory factory = effect.GetComponent<PGBloodFactory>() ??
-                                     effect.GetComponentInChildren<PGBloodFactory>(true);
-            if (factory == null)
-            {
-                UnityEngine.Object.Destroy(effect);
-                return;
-            }
-
-            factory.executeOnAwake = false;
-            factory.collisionLayer = (LayerMask) BLOOD_COLLISION_MASK;
-            factory.Execute();
-            UnityEngine.Object.Destroy(effect, this.BloodEffectLifetime);
         }
 
         private static bool IsHeadshot(

@@ -336,8 +336,14 @@ namespace FranklinGame.Vehicles
             body.mass = this.m_DoorMass;
             body.linearDamping = 0.08f;
             body.angularDamping = 0.42f;
-            body.interpolation = RigidbodyInterpolation.Interpolate;
-            body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            // Door motion is large but non-critical presentation. Speculative
+            // CCD avoids ContinuousDynamic's expensive sweep while keeping the
+            // panel attached to the Car; interpolation is unnecessary at the
+            // mobile target frame rate.
+            body.interpolation = RigidbodyInterpolation.None;
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            body.solverIterations = 3;
+            body.solverVelocityIterations = 1;
             body.maxAngularVelocity = 14f;
             body.linearVelocity = this.m_CarBody.GetPointVelocity(hingePosition);
 
@@ -637,6 +643,8 @@ namespace FranklinGame.Vehicles
     /// </summary>
     internal sealed class SimcadeLooseCarDoor : MonoBehaviour
     {
+        private const float MAXIMUM_DETACHED_PHYSICS_SECONDS = 15f;
+
         private SimcadeCarDoorDamage m_Owner;
         private CarEntrySideMode m_Side;
         private Rigidbody m_Body;
@@ -719,23 +727,27 @@ namespace FranklinGame.Vehicles
         {
             if (!this.m_Detached || this.m_Body == null || this.m_Body.isKinematic)
                 return;
-            if (Time.unscaledTime - this.m_DetachedAt < this.m_SettleDelay) return;
+            float now = Time.unscaledTime;
+            float detachedDuration = now - this.m_DetachedAt;
+            if (detachedDuration < this.m_SettleDelay) return;
 
             bool still = this.m_Body.linearVelocity.sqrMagnitude < 0.04f &&
                          this.m_Body.angularVelocity.sqrMagnitude < 0.12f;
-            if (!still)
+            bool exceededPhysicsBudget =
+                detachedDuration >= MAXIMUM_DETACHED_PHYSICS_SECONDS;
+            if (!still && !exceededPhysicsBudget)
             {
                 this.m_StillSince = 0f;
                 return;
             }
 
-            if (this.m_StillSince <= 0f)
+            if (!exceededPhysicsBudget && this.m_StillSince <= 0f)
             {
-                this.m_StillSince = Time.unscaledTime;
+                this.m_StillSince = now;
                 return;
             }
 
-            if (Time.unscaledTime - this.m_StillSince < 1.25f) return;
+            if (!exceededPhysicsBudget && now - this.m_StillSince < 1.25f) return;
             this.m_Body.linearVelocity = Vector3.zero;
             this.m_Body.angularVelocity = Vector3.zero;
             this.m_Body.isKinematic = true;

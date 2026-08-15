@@ -11,6 +11,8 @@ namespace FranklinGame.Vehicles
     [DisallowMultipleComponent]
     public sealed class FranklinBikeDetachedPartCleanup : MonoBehaviour
     {
+        private const float GROUND_PROBE_INTERVAL = 0.2f;
+
         private readonly RaycastHit[] m_GroundHits = new RaycastHit[8];
 
         private Rigidbody m_Body;
@@ -24,6 +26,7 @@ namespace FranklinGame.Vehicles
         private float m_SinkDuration;
         private float m_SinkDistance;
         private float m_ReleasedAt;
+        private float m_NextGroundProbeAt;
         private float m_LastGroundContactAt = float.NegativeInfinity;
         private Vector3 m_GroundPoint;
         private Vector3 m_GroundNormal = Vector3.up;
@@ -54,6 +57,7 @@ namespace FranklinGame.Vehicles
             m_SinkDuration = Mathf.Max(0.1f, sinkDuration);
             m_SinkDistance = Mathf.Max(0.05f, sinkDistance);
             m_ReleasedAt = Time.unscaledTime;
+            m_NextGroundProbeAt = m_ReleasedAt + m_MaximumFlightTime;
             m_IsConfigured = m_Body != null && m_Colliders.Length > 0;
         }
 
@@ -87,10 +91,15 @@ namespace FranklinGame.Vehicles
             }
 
             if (elapsed < m_MaximumFlightTime) return;
-            if (TryFindGroundBelow(out RaycastHit hit))
+            float now = Time.unscaledTime;
+            if (now >= m_NextGroundProbeAt)
             {
-                SettleOnSurface(hit.point, hit.normal);
-                return;
+                m_NextGroundProbeAt = now + GROUND_PROBE_INTERVAL;
+                if (TryFindGroundBelow(out RaycastHit hit))
+                {
+                    SettleOnSurface(hit.point, hit.normal);
+                    return;
+                }
             }
 
             if (elapsed >= m_MaximumFlightTime + 8f)

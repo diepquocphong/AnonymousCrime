@@ -118,10 +118,11 @@ Hệ thống shooter mobile tích hợp với **Game Creator 2 Shooter** và dù
   `Universal Render Pipeline/Particles/Unlit` cục bộ, không còn dùng shader Built-in
   gây màu hồng trong URP.
 - Ground, dốc và tường dùng chung một GPU-instanced bullet-decal batch với ring-buffer
-  cố định 96 dấu, distance culling 36 m và không `Instantiate/Destroy` theo từng lỗ đạn.
-  Decal xe vẫn ở batch riêng để bám đúng transform đang di chuyển.
+  cố định 64 dấu; decal xe có batch 32 dấu riêng để bám đúng transform đang di chuyển.
+  Cả hai distance-cull ở 32 m, giới hạn lần lượt 6/4 dấu mới mỗi frame và tự ngừng
+  `LateUpdate` khi buffer trống; không `Instantiate/Destroy` theo từng lỗ đạn.
 - Particle `Dust` lấy từ `Hit_Gun` được dùng chung cho mọi súng thường qua pool của GC2
-  (12 instance ban đầu, trả pool sau 1 giây). Child `Decal` 5 giây của prefab mẫu bị loại
+  (8 instance ban đầu, trả pool sau 0.75 giây). Child `Decal` 5 giây của prefab mẫu bị loại
   vì dấu đạn lâu dài đã do batch cố định xử lý; hit Character/Car/Bike không tạo bụi tường.
 - Material model, vỏ đạn, projectile, laser và raycast nguồn trong
   `Shooter.Weapons@1.1.4` được bộ Repair tự nâng sang URP; màu gốc, metallic và
@@ -134,6 +135,32 @@ Hệ thống shooter mobile tích hợp với **Game Creator 2 Shooter** và dù
   và prop đó nên số đạn hiện tại được giữ nguyên. Nếu lúc restore Player đang lái Bike
   với súng nặng, cache điện thoại được chuyển sang cache Bike và chỉ restore khi xuống xe.
 - Keyboard debug: `Tab`, `Esc`, `R`, phím `1` đến `8`.
+
+## Ngân sách hiệu năng mobile
+
+- Fire, reload, đổi súng và đổi ghế vẫn xử lý theo event/frame ngay lập tức. Những việc
+  thụ động như đồng bộ HUD/camera được giới hạn 10 Hz; ammo panel trong weapon wheel là
+  5 Hz. Text, màu, radial fill và `RectTransform` chỉ được ghi khi giá trị thật sự đổi.
+- GC2 Shooter tiếp tục dùng `Physics.RaycastNonAlloc` với mask đầy đủ mọi layer. Không
+  thêm raycast hoặc mảng hit cấp phát theo từng viên; touch camera chỉ `RaycastAll` UI khi
+  một ngón chưa capture thực sự bắt đầu di chuyển ở nửa phải màn hình.
+- Muzzle flash dùng pool 4 slot/0.2 giây; impact thường 8 slot/0.75 giây; vỏ đạn prewarm
+  12 slot và trả pool sau 0.75 giây; raycast tracer tồn tại 0.1 giây. RPG impact dùng pool
+  2 slot/2.5 giây. Vì GC2 pool có thể nở khi mọi slot đều bận, thời gian sống ngắn là giới
+  hạn đồng thời chính và ngăn automatic weapon tích lũy hàng chục object lâu dài.
+- AK-74, M4, UZI và M249 bắn 10 viên/giây chỉ giữ camera shake `0.1s` mỗi phát. Trước đó
+  burst `0.5s` làm khoảng năm `ShakeSystem` cùng cập nhật và cộng rung liên tục.
+- Blood hit dùng pool cứng 6 slot, tối đa 2 splash mới mỗi frame và recycle slot cũ thay
+  vì tăng pool. Collision-spawned blood decal của BloodFactory được tắt; spray trúng đạn
+  vẫn hiện nhưng không sinh thêm object/particle theo từng giọt.
+- Animator parameter list của model súng được cache theo controller. Model ngoài camera
+  dùng `CullUpdateTransforms`; renderer súng tắt shadow caster/receiver, probe và motion
+  vector pass vì muzzle, IK và điểm spawn đạn đều nằm trên GC2 gameplay root, không nằm
+  trên model render.
+- Importer tự giới hạn UI ImageGen: weapon wheel tối đa 1024 px; icon súng và control
+  tối đa 256 px trên Android/iPhone, không mipmap/readback hay fallback physics shape.
+  Các giới hạn đều được `Install or Repair` tái áp dụng, tránh asset refresh trả về cấu
+  hình desktop tốn bộ nhớ.
 
 ## Damage Bike và Car
 
@@ -220,9 +247,13 @@ FranklinArmorAPI.RemoveArmor(character.gameObject);
   ghi-đông; state ngồi lái dùng mask `Franklin Bike Driver Seat And Left Hand` để
   loại `RightArm`, `RightFingers` và `RightHandIK`. Vì vậy tay phải và model súng
   chỉ đi theo pose Shooter layer 7/8, không còn bị clip lái kéo đồng thời về
-  ghi-đông. Những ô súng nặng bị khóa và làm mờ trong weapon wheel khi đang lái.
+  ghi-đông. Khi ADS, Sight local `bike-driver-aim` vẫn dùng đúng `Pistol_Aim` hoặc
+  `AK_Aim`, nhưng tắt FreeHand trái và tạm bỏ rider spine offset hậu kỳ; thả Fire
+  sẽ phục hồi pose lái nguyên bản. Những ô súng nặng bị khóa và làm mờ trong
+  weapon wheel khi đang lái.
 - Người ngồi sau dùng được toàn bộ tám khẩu súng. IK hai tay được nhả cho Shooter,
-  còn IK hai chân và lower-body pose vẫn do ghế hành khách giữ.
+  `Shooter_Locomotion` chạy qua upper-body mask, còn IK hai chân và lower-body pose
+  vẫn do ghế hành khách giữ.
 - Khi ngồi Bike, bắn không bật `Object Direction` vì Character root đang parent vào
   seat. Hướng bắn/aim do Shooter sight xử lý, tránh xoay lệch người khỏi yên xe.
 - Khi Wheelie hoặc Burnout bắt đầu, Shooter hủy Fire/ADS rồi tạm unequip và ẩn đúng

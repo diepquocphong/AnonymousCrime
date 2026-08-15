@@ -56,17 +56,11 @@ namespace FranklinGame.Vehicles
             m_Gravity = 1.45f;
             m_ConfigurationVersion = CurrentConfigurationVersion;
 
-            if (!Application.isPlaying) return;
-            BuildParticlePool();
-            ParticleSystemRenderer particleRenderer =
-                m_Particles != null ? m_Particles.GetComponent<ParticleSystemRenderer>() : null;
-            if (particleRenderer != null) particleRenderer.sharedMaterial = m_Material;
         }
 
         private void Awake()
         {
             ResolveReferences();
-            BuildParticlePool();
         }
 
         private void OnEnable()
@@ -97,10 +91,15 @@ namespace FranklinGame.Vehicles
 
         private void OnImpactAccepted(Collision collision, bool isHeavy, float severity)
         {
-            if (!IsConfigured || collision == null || m_Particles == null) return;
+            if (!IsConfigured || collision == null) return;
 
             float impactSpeedKph = GetImpactSpeedKph(collision);
             if (impactSpeedKph <= m_MinImpactSpeedKph) return;
+
+            // Most parked Cars never create debris. Allocate this one bounded
+            // particle system only after the first qualifying high-speed hit.
+            if (m_Particles == null) BuildParticlePool();
+            if (m_Particles == null) return;
 
             EmitFragments(
                 collision,

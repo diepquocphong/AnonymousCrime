@@ -131,6 +131,7 @@ namespace FranklinGame.Animations
         private CarEntry m_ActiveCarEntry;
         private BikeEntry m_ActiveBikeEntry;
         private SimcadeCarDriver m_ActiveSimcadeDriver;
+        private FranklinArcadeBikeDriver m_ActiveBikeDriver;
         private bool m_IsVehicleCameraActive;
         private SimcadeCarjacking m_ActiveCarjacking;
         private readonly Collider[] m_FallenBikeHits =
@@ -174,6 +175,16 @@ namespace FranklinGame.Animations
 
             this.RequestVehicleInteraction();
         }
+
+        /// <summary>
+        /// Driver selected by the Player's current vehicle interaction. The mobile
+        /// HUD reads this cached reference instead of searching every vehicle in the
+        /// scene while this manager is available.
+        /// </summary>
+        public IRvrVehicleInputController ActiveVehicleDriver =>
+            this.m_ActiveSimcadeDriver != null
+                ? this.m_ActiveSimcadeDriver
+                : this.m_ActiveBikeDriver;
 
         /// <summary>
         /// True only while RVR has selected the entry spot on an available car or bike.
@@ -232,6 +243,7 @@ namespace FranklinGame.Animations
             this.m_ActiveCarEntry = null;
             this.m_ActiveBikeEntry = null;
             this.m_ActiveSimcadeDriver = null;
+            this.m_ActiveBikeDriver = null;
             this.m_ActiveCarjacking = null;
             return true;
         }
@@ -255,6 +267,9 @@ namespace FranklinGame.Animations
             this.m_ActiveBikeEntry = vehicleEntry as BikeEntry;
             this.m_ActiveSimcadeDriver = this.m_ActiveCarEntry != null
                 ? this.m_ActiveCarEntry.GetComponent<SimcadeCarDriver>()
+                : null;
+            this.m_ActiveBikeDriver = this.m_ActiveBikeEntry != null
+                ? this.m_ActiveBikeEntry.GetComponent<FranklinArcadeBikeDriver>()
                 : null;
             this.DelayVehicleDrivingIdle(vehicleEntry);
 
@@ -443,6 +458,7 @@ namespace FranklinGame.Animations
             this.m_ActiveCarEntry = null;
             this.m_ActiveBikeEntry = null;
             this.m_ActiveSimcadeDriver = null;
+            this.m_ActiveBikeDriver = null;
             this.m_ActiveCarjacking = null;
             this.m_BikeMainShotAim?.Deactivate();
         }
@@ -610,6 +626,7 @@ namespace FranklinGame.Animations
             this.m_ActiveCarEntry = null;
             this.m_ActiveBikeEntry = null;
             this.m_ActiveSimcadeDriver = null;
+            this.m_ActiveBikeDriver = null;
             this.m_ActiveCarjacking = null;
         }
 

@@ -25,6 +25,9 @@ namespace FranklinGame.Vehicles
         [SerializeField] private GameObject m_CriticalWarningFire;
         [SerializeField] private GameObject m_DestroyedFire;
         [SerializeField] private SimcadeCarParticleWind m_ParticleWind;
+        [SerializeField, Min(10f)] private float m_LoopEffectsCullDistance = 55f;
+        [SerializeField, Range(0.5f, 2f)]
+        private float m_LoopEffectsLodInterval = 1f;
 
         [Header("Loop Audio")]
         [SerializeField] private AudioSource m_SmokeAudioSource;
@@ -51,6 +54,15 @@ namespace FranklinGame.Vehicles
         private bool m_HasExploded;
         private Coroutine m_PendingExplosion;
         private Coroutine m_CriticalHealthDrain;
+        private Coroutine m_LoopEffectsLodRoutine;
+        private ParticleSystem[] m_WeakSmokeParticles =
+            System.Array.Empty<ParticleSystem>();
+        private ParticleSystem[] m_CriticalFireParticles =
+            System.Array.Empty<ParticleSystem>();
+        private ParticleSystem[] m_DestroyedFireParticles =
+            System.Array.Empty<ParticleSystem>();
+        private bool m_LoopEffectsCulled;
+        private static Camera s_LoopEffectsCamera;
 
         public bool IsConfigured => m_Health != null && m_WeakHealthSmoke != null &&
             m_CriticalWarningFire != null && m_DestroyedFire != null &&
@@ -76,6 +88,7 @@ namespace FranklinGame.Vehicles
         private void Awake()
         {
             if (m_Health == null) m_Health = GetComponent<SimcadeCarHealth>();
+            CacheLoopParticles();
         }
 
         private void OnEnable()
@@ -102,6 +115,9 @@ namespace FranklinGame.Vehicles
                 m_Health.EventHealthChanged -= OnHealthChanged;
             CancelPendingExplosion();
             StopCriticalHealthDrain();
+            StopLoopEffectsLod();
+            m_LoopEffectsCulled = true;
+            ApplyLoopParticleCulling();
             m_ParticleWind?.SetWindActive(false);
             StopLoopAudio(m_SmokeAudioSource);
             StopLoopAudio(m_FireAudioSource);
@@ -158,6 +174,7 @@ namespace FranklinGame.Vehicles
             m_MinimumExplosionCameraHold = 0.9f;
             m_MaximumExplosionCameraHold = 2.5f;
             m_Destruction = destruction;
+            CacheLoopParticles();
         }
 
         public void RefreshFromHealth()
@@ -404,10 +421,20 @@ namespace FranklinGame.Vehicles
 
         private void RefreshWindActivity()
         {
-            bool active = (m_WeakHealthSmoke != null && m_WeakHealthSmoke.activeSelf) ||
-                (m_CriticalWarningFire != null && m_CriticalWarningFire.activeSelf) ||
-                (m_DestroyedFire != null && m_DestroyedFire.activeSelf);
-            m_ParticleWind?.SetWindActive(active);
+            bool active = HasActiveLoopEffects();
+            if (active)
+            {
+                RefreshLoopEffectsCullState();
+                EnsureLoopEffectsLod();
+            }
+            else
+            {
+                StopLoopEffectsLod();
+                m_LoopEffectsCulled = false;
+            }
+
+            ApplyLoopParticleCulling();
+            m_ParticleWind?.SetWindActive(active && !m_LoopEffectsCulled);
             RefreshLoopAudio();
         }
 
@@ -423,17 +450,117 @@ namespace FranklinGame.Vehicles
             SetLoopAudioState(
                 m_SmokeAudioSource,
                 m_SmokeLoopClip,
-                smokeActive,
+                smokeActive && !m_LoopEffectsCulled,
                 m_SmokeLoopVolume
             );
             SetLoopAudioState(
                 m_FireAudioSource,
                 m_FireLoopClip,
-                criticalFireActive || destroyedFireActive,
+                (criticalFireActive || destroyedFireActive) &&
+                !m_LoopEffectsCulled,
                 destroyedFireActive
                     ? m_DestroyedFireLoopVolume
                     : m_CriticalFireLoopVolume
             );
+        }
+
+        private bool HasActiveLoopEffects()
+        {
+            return (m_WeakHealthSmoke != null && m_WeakHealthSmoke.activeSelf) ||
+                   (m_CriticalWarningFire != null &&
+                    m_CriticalWarningFire.activeSelf) ||
+                   (m_DestroyedFire != null && m_DestroyedFire.activeSelf);
+        }
+
+        private void EnsureLoopEffectsLod()
+        {
+            if (m_LoopEffectsLodRoutine != null || !isActiveAndEnabled) return;
+            m_LoopEffectsLodRoutine = StartCoroutine(UpdateLoopEffectsLod());
+        }
+
+        private void StopLoopEffectsLod()
+        {
+            if (m_LoopEffectsLodRoutine == null) return;
+            StopCoroutine(m_LoopEffectsLodRoutine);
+            m_LoopEffectsLodRoutine = null;
+        }
+
+        private IEnumerator UpdateLoopEffectsLod()
+        {
+            WaitForSecondsRealtime wait = new WaitForSecondsRealtime(
+                Mathf.Clamp(m_LoopEffectsLodInterval, 0.5f, 2f)
+            );
+            while (isActiveAndEnabled && HasActiveLoopEffects())
+            {
+                yield return wait;
+                if (RefreshLoopEffectsCullState())
+                {
+                    ApplyLoopParticleCulling();
+                    m_ParticleWind?.SetWindActive(!m_LoopEffectsCulled);
+                    RefreshLoopAudio();
+                }
+            }
+            m_LoopEffectsLodRoutine = null;
+        }
+
+        private bool RefreshLoopEffectsCullState()
+        {
+            if (s_LoopEffectsCamera == null ||
+                !s_LoopEffectsCamera.isActiveAndEnabled)
+            {
+                s_LoopEffectsCamera = Camera.main;
+            }
+
+            bool culled = false;
+            if (s_LoopEffectsCamera != null)
+            {
+                float maximumDistance = Mathf.Max(10f, m_LoopEffectsCullDistance);
+                culled = (s_LoopEffectsCamera.transform.position - transform.position)
+                    .sqrMagnitude > maximumDistance * maximumDistance;
+            }
+
+            if (m_LoopEffectsCulled == culled) return false;
+            m_LoopEffectsCulled = culled;
+            return true;
+        }
+
+        private void ApplyLoopParticleCulling()
+        {
+            SetParticleArrayPaused(
+                m_WeakSmokeParticles,
+                m_WeakHealthSmoke != null && m_WeakHealthSmoke.activeSelf &&
+                m_LoopEffectsCulled
+            );
+            SetParticleArrayPaused(
+                m_CriticalFireParticles,
+                m_CriticalWarningFire != null &&
+                m_CriticalWarningFire.activeSelf && m_LoopEffectsCulled
+            );
+            SetParticleArrayPaused(
+                m_DestroyedFireParticles,
+                m_DestroyedFire != null && m_DestroyedFire.activeSelf &&
+                m_LoopEffectsCulled
+            );
+        }
+
+        private static void SetParticleArrayPaused(
+            ParticleSystem[] particles,
+            bool paused)
+        {
+            if (particles == null) return;
+            for (int i = 0; i < particles.Length; ++i)
+            {
+                ParticleSystem particle = particles[i];
+                if (particle == null) continue;
+                if (paused)
+                {
+                    if (particle.isPlaying) particle.Pause(true);
+                }
+                else if (particle.isPaused)
+                {
+                    particle.Play(true);
+                }
+            }
         }
 
         private static void SetLoopAudioState(
@@ -460,12 +587,34 @@ namespace FranklinGame.Vehicles
             if (source != null && source.isPlaying) source.Stop();
         }
 
-        private static void SetLoopEffectActive(GameObject effect, bool active)
+        private void CacheLoopParticles()
+        {
+            m_WeakSmokeParticles = GetParticles(m_WeakHealthSmoke);
+            m_CriticalFireParticles = GetParticles(m_CriticalWarningFire);
+            m_DestroyedFireParticles = GetParticles(m_DestroyedFire);
+        }
+
+        private static ParticleSystem[] GetParticles(GameObject effect)
+        {
+            return effect != null
+                ? effect.GetComponentsInChildren<ParticleSystem>(true)
+                : System.Array.Empty<ParticleSystem>();
+        }
+
+        private ParticleSystem[] GetCachedLoopParticles(GameObject effect)
+        {
+            if (effect == m_WeakHealthSmoke) return m_WeakSmokeParticles;
+            if (effect == m_CriticalWarningFire) return m_CriticalFireParticles;
+            if (effect == m_DestroyedFire) return m_DestroyedFireParticles;
+            return System.Array.Empty<ParticleSystem>();
+        }
+
+        private void SetLoopEffectActive(GameObject effect, bool active)
         {
             if (effect == null || effect.activeSelf == active) return;
+            ParticleSystem[] particles = GetCachedLoopParticles(effect);
             if (!active)
             {
-                ParticleSystem[] particles = effect.GetComponentsInChildren<ParticleSystem>(true);
                 for (int i = 0; i < particles.Length; ++i)
                     particles[i].Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             }
@@ -473,9 +622,8 @@ namespace FranklinGame.Vehicles
             effect.SetActive(active);
             if (!active) return;
 
-            ParticleSystem[] activeParticles = effect.GetComponentsInChildren<ParticleSystem>(true);
-            for (int i = 0; i < activeParticles.Length; ++i)
-                activeParticles[i].Play(true);
+            for (int i = 0; i < particles.Length; ++i)
+                particles[i].Play(true);
         }
 
         private void OnValidate()
@@ -496,6 +644,12 @@ namespace FranklinGame.Vehicles
             m_SmokeLoopVolume = Mathf.Clamp01(m_SmokeLoopVolume);
             m_CriticalFireLoopVolume = Mathf.Clamp01(m_CriticalFireLoopVolume);
             m_DestroyedFireLoopVolume = Mathf.Clamp01(m_DestroyedFireLoopVolume);
+            m_LoopEffectsCullDistance = Mathf.Max(10f, m_LoopEffectsCullDistance);
+            m_LoopEffectsLodInterval = Mathf.Clamp(
+                m_LoopEffectsLodInterval,
+                0.5f,
+                2f
+            );
             m_MinimumExplosionCameraHold = Mathf.Max(
                 0f,
                 m_MinimumExplosionCameraHold

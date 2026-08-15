@@ -328,6 +328,7 @@ namespace ArcadeBP_Pro
 
         public SkidmarkController skidmarkController { get; private set; }
         private ParticleSystem tireSmoke_ps;
+        private bool runtimeEffectsInitialized;
 
         #endregion
 
@@ -336,6 +337,34 @@ namespace ArcadeBP_Pro
 
         private void Awake()
         {
+            // Runtime smoke and skidmarks are created lazily in OnEnable. Franklin's
+            // driver disables parked controllers before their first OnEnable, which
+            // avoids allocating these effects for every Bike at scene load.
+        }
+
+        private void OnEnable()
+        {
+            EnsureRuntimeEffects();
+            if (skidmarkController != null) skidmarkController.enabled = true;
+        }
+
+        private void OnDisable()
+        {
+            if (tireSmoke_ps != null)
+            {
+                tireSmoke_ps.Stop(
+                    true,
+                    ParticleSystemStopBehavior.StopEmittingAndClear
+                );
+            }
+            if (skidmarkController != null) skidmarkController.enabled = false;
+        }
+
+        private void EnsureRuntimeEffects()
+        {
+            if (runtimeEffectsInitialized) return;
+            runtimeEffectsInitialized = true;
+
             if (bikeReferences.skidmarksPrefab != null)
             {
                 var skidmarkControllerInstance = Instantiate(bikeReferences.skidmarksPrefab);
@@ -358,6 +387,12 @@ namespace ArcadeBP_Pro
                 if (tireSmoke_ps != null)
                 {
                     tireSmoke_ps.Stop();
+                    if (Application.isMobilePlatform)
+                    {
+                        ParticleSystem.MainModule main = tireSmoke_ps.main;
+                        main.maxParticles = Mathf.Min(main.maxParticles, 80);
+                        main.cullingMode = ParticleSystemCullingMode.Automatic;
+                    }
                 }
                 else
                 {
@@ -368,11 +403,15 @@ namespace ArcadeBP_Pro
             {
                 Debug.LogWarning("No Tire Smoke Prefab has been assigned");
             }
+
+            if (skidmarkController != null)
+                skidmarkController.SkidmarkWidth = bikeGeometry.RearWheelWidth;
         }
 
 
         private void Start()
         {
+            EnsureRuntimeEffects();
             bikeReferences.BikeRb.useGravity = false;
             wasGrounded = bikeIsGrounded;
 
@@ -398,13 +437,25 @@ namespace ArcadeBP_Pro
 
         private void Update()
         {
-            PlaceWheelOnGround(bikeReferences.FrontWheelParent, bikeReferences.FrontWheel, bikeGeometry.FrontWheelRadius, bikeGeometry.FrontWheelAngle,
-                               maxFrontRaycastDistance, out frontWheelHit, out frontWheelIsGrounded, out groundNormal_front);
-            PlaceWheelOnGround(bikeReferences.RearWheelParent, bikeReferences.RearWheel, bikeGeometry.RearWheelRadius, bikeGeometry.RearWheelAngle,
-                               maxRearRaycastDistance, out rearWheelHit, out rearWheelIsGrounded, out groundNormal_rear);
-
-            // call calculate surface params only after placewheelonground is called.
-            calculateSurfaceParams();
+            // Ground contacts are sampled in FixedUpdate. Render frames only place
+            // the visual wheels from those cached hits, so 90/120 Hz mobile screens
+            // do not multiply the two suspension raycasts.
+            ApplyWheelGroundPosition(
+                bikeReferences.FrontWheel,
+                bikeGeometry.FrontWheelRadius,
+                bikeGeometry.FrontWheelAngle,
+                frontWheelHit,
+                frontWheelIsGrounded,
+                Time.deltaTime
+            );
+            ApplyWheelGroundPosition(
+                bikeReferences.RearWheel,
+                bikeGeometry.RearWheelRadius,
+                bikeGeometry.RearWheelAngle,
+                rearWheelHit,
+                rearWheelIsGrounded,
+                Time.deltaTime
+            );
             AlignRotator(bikeReferences.Rotator, projectedBikeForward, projectedBikeUp);
 
             //=======================================================================================================================//
@@ -458,6 +509,40 @@ namespace ArcadeBP_Pro
 
         private void FixedUpdate()
         {
+            SampleWheelGround(
+                bikeReferences.FrontWheelParent,
+                bikeGeometry.FrontWheelRadius,
+                maxFrontRaycastDistance,
+                out frontWheelHit,
+                out frontWheelIsGrounded,
+                out groundNormal_front
+            );
+            SampleWheelGround(
+                bikeReferences.RearWheelParent,
+                bikeGeometry.RearWheelRadius,
+                maxRearRaycastDistance,
+                out rearWheelHit,
+                out rearWheelIsGrounded,
+                out groundNormal_rear
+            );
+            ApplyWheelGroundPosition(
+                bikeReferences.FrontWheel,
+                bikeGeometry.FrontWheelRadius,
+                bikeGeometry.FrontWheelAngle,
+                frontWheelHit,
+                frontWheelIsGrounded,
+                Time.fixedDeltaTime
+            );
+            ApplyWheelGroundPosition(
+                bikeReferences.RearWheel,
+                bikeGeometry.RearWheelRadius,
+                bikeGeometry.RearWheelAngle,
+                rearWheelHit,
+                rearWheelIsGrounded,
+                Time.fixedDeltaTime
+            );
+            calculateSurfaceParams();
+
             localBikeVelocity = bikeReferences.Rotator.InverseTransformDirection(bikeReferences.BikeRb.linearVelocity);
 
             AddGravity();
@@ -501,29 +586,55 @@ namespace ArcadeBP_Pro
 
         #region Wheels Placement
 
-        private void PlaceWheelOnGround(Transform wheelParent, Transform wheel, float radius, float wheelAngle, float maxRaycastDistance,
-                                        out RaycastHit hit, out bool isGrounded, out Vector3 groundNormal)
+        private void SampleWheelGround(
+            Transform wheelParent,
+            float radius,
+            float maxRaycastDistance,
+            out RaycastHit hit,
+            out bool isGrounded,
+            out Vector3 groundNormal)
         {
             Vector3 raycastPosition = wheelParent.position + wheelParent.up * radius;
             Vector3 raycastDirection = -wheelParent.up;
 
             if (Physics.Raycast(raycastPosition, raycastDirection, out hit, maxRaycastDistance, bikeSettings.drivableLayerMask, QueryTriggerInteraction.Ignore))
             {
-                float h = radius * (1 / Mathf.Cos(wheelAngle * Mathf.Deg2Rad));
-                float localOffset = hit.distance - h - radius;
-                wheel.localPosition = new Vector3(0, -localOffset, 0);
                 isGrounded = true;
                 groundNormal = hit.normal;
             }
             else
             {
-                wheel.localPosition = Vector3.Lerp(wheel.localPosition, new Vector3(0, 0, 0), 20 * Time.deltaTime);
                 isGrounded = false;
                 groundNormal = Vector3.up;
             }
 
-            // debug raycast
+#if UNITY_EDITOR
             Debug.DrawRay(raycastPosition, raycastDirection * maxRaycastDistance, Color.red);
+#endif
+        }
+
+        private static void ApplyWheelGroundPosition(
+            Transform wheel,
+            float radius,
+            float wheelAngle,
+            RaycastHit hit,
+            bool isGrounded,
+            float deltaTime)
+        {
+            if (wheel == null) return;
+            if (isGrounded)
+            {
+                float h = radius * (1 / Mathf.Cos(wheelAngle * Mathf.Deg2Rad));
+                float localOffset = hit.distance - h - radius;
+                wheel.localPosition = new Vector3(0, -localOffset, 0);
+                return;
+            }
+
+            wheel.localPosition = Vector3.Lerp(
+                wheel.localPosition,
+                Vector3.zero,
+                20f * Mathf.Max(0f, deltaTime)
+            );
         }
 
         #endregion
@@ -661,7 +772,9 @@ namespace ArcadeBP_Pro
             Vector3 suspensionNormal = Vector3.ProjectOnPlane(normal, sidePlaneNormal);
 
             Vector3 springDir = suspensionNormal.normalized;
+#if UNITY_EDITOR
             Debug.DrawRay(transform.position, springDir, Color.green);
+#endif
 
             float springVel = Vector3.Dot(bikeReferences.BikeRb.linearVelocity, springDir);
             float springForce = bikeSuspension.SpringForce * (compression_Total - bikeSuspension.groundStickFactor * compression_Total);

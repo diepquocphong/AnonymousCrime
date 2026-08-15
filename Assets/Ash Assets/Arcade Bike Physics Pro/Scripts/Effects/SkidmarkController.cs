@@ -13,7 +13,8 @@ namespace ArcadeBP_Pro
         [HideInInspector]
         public float SkidmarkWidth = 0.5f;
 
-        private const int MaxSkidMarks = 2048;
+        private const int DesktopMaxSkidMarks = 2048;
+        private const int MobileMaxSkidMarks = 512;
         private const float contact_Offset = 0.02f;
         private const float MinDistance = 0.25f;
         private const float MinDistanceSquare = MinDistance * MinDistance;
@@ -45,6 +46,7 @@ namespace ArcadeBP_Pro
 
         bool meshUpdated;
         bool haveSetBounds;
+        int maxSkidMarks = DesktopMaxSkidMarks;
 
         Color32 black = Color.black;
 
@@ -60,9 +62,12 @@ namespace ArcadeBP_Pro
 
         protected void Start()
         {
-            skidmarks = new SkidMarkSection[MaxSkidMarks];
+            maxSkidMarks = Application.isMobilePlatform
+                ? MobileMaxSkidMarks
+                : DesktopMaxSkidMarks;
+            skidmarks = new SkidMarkSection[maxSkidMarks];
 
-            for (int i = 0; i < MaxSkidMarks; i++)
+            for (int i = 0; i < maxSkidMarks; i++)
             {
                 skidmarks[i] = new SkidMarkSection();
             }
@@ -84,16 +89,16 @@ namespace ArcadeBP_Pro
             }
             mf.sharedMesh = marksMesh;
 
-            vertices = new Vector3[MaxSkidMarks * 4];
-            normals = new Vector3[MaxSkidMarks * 4];
-            tangents = new Vector4[MaxSkidMarks * 4];
-            colors = new Color32[MaxSkidMarks * 4];
-            uvs = new Vector2[MaxSkidMarks * 4];
-            triangles = new int[MaxSkidMarks * 6];
+            vertices = new Vector3[maxSkidMarks * 4];
+            normals = new Vector3[maxSkidMarks * 4];
+            tangents = new Vector4[maxSkidMarks * 4];
+            colors = new Color32[maxSkidMarks * 4];
+            uvs = new Vector2[maxSkidMarks * 4];
+            triangles = new int[maxSkidMarks * 6];
 
             mr.shadowCastingMode = ShadowCastingMode.Off;
             mr.receiveShadows = false;
-            mr.material = SkidmarkMaterial;
+            mr.sharedMaterial = SkidmarkMaterial;
             mr.lightProbeUsage = LightProbeUsage.Off;
         }
 
@@ -177,7 +182,7 @@ namespace ArcadeBP_Pro
             UpdateSkidmarksMesh();
 
             int curIndex = markIndex;
-            markIndex = ++markIndex % MaxSkidMarks;
+            markIndex = ++markIndex % maxSkidMarks;
 
             return curIndex;
         }

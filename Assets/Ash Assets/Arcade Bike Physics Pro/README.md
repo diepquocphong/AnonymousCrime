@@ -857,6 +857,41 @@ public sealed class DirectAbpInputExample : MonoBehaviour
 
 ## 10. Lưu ý kỹ thuật
 
+### Mobile performance contract
+
+- Bike đang đỗ không gửi lại input `0` mỗi frame; `ArcadeBikeControllerPro`,
+  brake/reverse flare và các callback ragdoll đều ngủ cho tới khi có state thực
+  sự cần chạy. Light và SRP Lens Flare được disable hoàn toàn khi blend bằng `0`.
+  Nếu project đang đặt target cao hơn `60 FPS`, lúc lái Bike trên mobile driver
+  tạm cap ở `60` rồi khôi phục khi exit; cap mặc định `-1` hoặc thấp hơn không bị nâng.
+- Skidmark và tire smoke chỉ được tạo khi Bike đầu tiên được kích hoạt. Runtime
+  mobile dùng tối đa `512` skid sections (desktop `2048`) và `80` tire-smoke
+  particles; material skidmark dùng `sharedMaterial`, không clone material riêng.
+- Hai wheel/suspension raycast của ABP chạy theo `FixedUpdate`, không theo refresh
+  rate màn hình; mesh bánh vẫn dùng hit cache ở `Update`. Thiết bị 90/120 Hz vì vậy
+  không phát sinh thêm physics query so với cấu hình physics tick của project.
+- Collision spark pool chỉ tạo ở va chạm hợp lệ đầu tiên, có `2` slot trên mobile;
+  metal debris cũng tạo lazy, tối đa `20` billboard, không collision/trail/noise và
+  dùng culling `Automatic`. Ba burst nổ được giới hạn khoảng `42` particles.
+- Ragdoll chỉ bật `FixedUpdate/LateUpdate` trong thời gian xe thật sự đang ngã.
+  Side-ground probe chạy tối đa `10 Hz` trên mobile, bỏ qua probe khi xe còn nhanh/
+  chưa đủ nghiêng và không chạy ground-tunnelling scan khi Rigidbody đã sleep.
+- Destroyed fire, loop audio và particle wind tự dừng sau `10 s`. Crash-engine
+  không người lái cũng timeout sau `10 s`; terminal destruction dừng engine và
+  fuel tick ngay. Particle wind tối đa `4 Hz` trên mobile và chỉ ghi module của
+  particle system đang phát.
+- Mesh deformation vẫn giữ chất lượng panel gốc khi đang nhìn thấy, nhưng mobile
+  giới hạn `5` dent và bỏ CPU rebuild cho renderer ngoài camera. Health, damage và
+  destruction vẫn xử lý đầy đủ kể cả khi deformation hình ảnh bị LOD bỏ qua.
+- HUD bị suppression return trước mọi scan/animation. HUD bình thường cache Player,
+  BikeEntry, passenger, helmet và lấy active driver trực tiếp từ
+  `FranklinVehicleInteractionManager`; full-scene scan chỉ còn là compatibility
+  fallback cho scene không cài manager.
+- Các giới hạn này chặn tải nền và spike phổ biến của bike. Nhiệt độ cuối cùng vẫn
+  phụ thuộc GPU resolution, URP lights, chất lượng shadow và FPS target của từng
+  thiết bị; nên profile bản build thật bằng Unity Profiler/Android GPU Inspector
+  hoặc Xcode Instruments trước khi chốt quality tier.
+
 - Source hiện dùng API Unity 6 như `Rigidbody.linearVelocity` và namespace
   `Unity.Cinemachine`.
 - `ArcadeBikeControllerPro.Start()` tắt built-in gravity của Rigidbody;

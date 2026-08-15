@@ -51,6 +51,12 @@ namespace FranklinGame.Vehicles
 
         [SerializeField] private bool m_ReadKeyboardInput = true;
 
+        [Header("Mobile Thermal Budget")]
+        [SerializeField, Range(30, 60)]
+        [Tooltip("Only lowers an explicit mobile target above this value while riding. " +
+                 "It never raises Unity's default or a lower project frame cap.")]
+        private int m_MobileMaximumFrameRate = 60;
+
         [Header("Exit Stop")]
         [Tooltip("Planar deceleration applied while a moving bike is preparing to exit.")]
         [SerializeField, Min(0.1f)] private float m_ExitStopDeceleration = 7.5f;
@@ -63,6 +69,10 @@ namespace FranklinGame.Vehicles
         private bool m_KeepEngineRunningAfterCrash = true;
         [SerializeField, Range(0f, 1f)] private float m_CrashIdleEngineVolume = 0.5f;
         [SerializeField, Range(0.1f, 3f)] private float m_CrashIdleEnginePitch = 0.35f;
+        [SerializeField, Range(2f, 30f)]
+        [Tooltip("Maximum real-time duration for an unattended crashed Bike engine. " +
+                 "A finite timeout avoids a permanent audio voice and fuel coroutine on mobile.")]
+        private float m_CrashIdleEngineTimeout = 10f;
 
         private Rigidbody m_Rigidbody;
         private bool m_IsVehicleEnabled;
@@ -85,6 +95,11 @@ namespace FranklinGame.Vehicles
         private bool m_DrivingUseGravity;
         private float m_DrivingLinearDamping;
         private float m_DrivingAngularDamping;
+        private int m_DrivingSolverIterations;
+        private int m_DrivingSolverVelocityIterations;
+        private CollisionDetectionMode m_DrivingCollisionDetectionMode;
+        private RigidbodyInterpolation m_DrivingInterpolation;
+        private float m_DrivingMaxDepenetrationVelocity;
         private bool m_DrivingAutomaticCenterOfMass;
         private Vector3 m_DrivingCenterOfMass;
         private bool m_HasCapturedDrivingPhysics;
@@ -93,6 +108,11 @@ namespace FranklinGame.Vehicles
         private bool m_HasFuel = true;
         private float m_CurrentThrottle;
         private bool m_HornPressed;
+        private bool m_HornNeedsUpdate;
+        private float m_CrashEngineStopAt;
+        private FranklinBikeBrakeReverseFlare[] m_BrakeReverseFlares;
+        private bool m_HasAppliedMobileFrameRateCap;
+        private int m_PreviousMobileTargetFrameRate;
 
         public bool IsVehicleEnabled => this.m_IsVehicleEnabled;
         public bool IsDamageLocked => this.m_IsDamageLocked;
@@ -154,12 +174,18 @@ namespace FranklinGame.Vehicles
         private void Awake()
         {
             this.ResolveReferences();
+            this.CacheRuntimeEffects();
             if (this.m_Rigidbody != null)
             {
                 this.CaptureDrivingPhysicsSettings();
                 this.RestoreDrivingPhysicsSettings();
             }
             this.m_VehicleLights?.FrontLightsOff();
+
+            // This driver executes before ArcadeBikeControllerPro. Parking the
+            // controller here prevents every scene Bike from prewarming ABP smoke
+            // and skidmark objects before a Player actually chooses that Bike.
+            this.ApplyVehicleState();
         }
 
         private void Start()
@@ -174,29 +200,41 @@ namespace FranklinGame.Vehicles
             this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
             this.m_Fuel?.SetEngineActive(false);
             this.m_VehicleLights?.FrontLightsOff();
+            this.SetBrakeReverseEffectsRuntimeActive(false);
+            this.ApplyMobileFrameRateBudget(false);
             this.StopHornImmediately();
         }
 
         private void Update()
         {
+            // Parked Bikes have no frame work. Public entry/damage methods remain
+            // callable while this lightweight component waits for a state change.
+            if (!this.m_IsVehicleEnabled && !this.m_IsCrashEngineRunning &&
+                !this.m_HornNeedsUpdate)
+            {
+                if (this.m_StuntWeaponSuppressionActive)
+                    this.SetStuntWeaponSuppression(false);
+                return;
+            }
+
             if (!this.ResolveReferences()) return;
 
             this.UpdateHorn();
 
             if (!this.m_IsVehicleEnabled)
             {
-                this.SetStuntWeaponSuppression(false);
-                this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
-                this.UpdateCrashEngineAudio();
+                if (this.m_StuntWeaponSuppressionActive)
+                    this.SetStuntWeaponSuppression(false);
+                if (this.m_IsCrashEngineRunning) this.UpdateCrashEngineAudio();
                 return;
             }
 
             if (this.m_IsDamageLocked)
             {
-                this.SetStuntWeaponSuppression(false);
-                // Keep suspension and the seated exit flow alive, but a bike at
-                // zero GC2 health cannot receive any propulsion or steering.
-                this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
+                if (this.m_StuntWeaponSuppressionActive)
+                    this.SetStuntWeaponSuppression(false);
+                // SetDamageLocked already clears ABP input once. Avoid writing the
+                // same six zero values every render frame while waiting to exit.
                 return;
             }
 
@@ -354,6 +392,7 @@ namespace FranklinGame.Vehicles
             if (state)
             {
                 this.m_IsCrashEngineRunning = false;
+                this.m_CrashEngineStopAt = 0f;
                 bikeRagdoll?.DeactivateRagdollForDriving();
             }
             bool preserveDynamicRagdoll = !state && bikeRagdoll != null &&
@@ -394,6 +433,9 @@ namespace FranklinGame.Vehicles
             this.m_IsStoppingForExit = false;
             this.m_KeepDynamicWhenDisabled = true;
             this.m_IsCrashEngineRunning = this.m_KeepEngineRunningAfterCrash;
+            this.m_CrashEngineStopAt = this.m_IsCrashEngineRunning
+                ? Time.unscaledTime + Mathf.Max(2f, this.m_CrashIdleEngineTimeout)
+                : 0f;
             this.ResetVirtualInputs();
             this.m_ExternalHandbrake = false;
             this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
@@ -442,6 +484,21 @@ namespace FranklinGame.Vehicles
             this.m_Rigidbody.linearVelocity = Vector3.zero;
             this.m_Rigidbody.angularVelocity = Vector3.zero;
             this.ApplyVehicleState();
+        }
+
+        /// <summary>
+        /// Releases the crash-only audio voice and fuel tick immediately. Terminal
+        /// destruction calls this explicitly; ordinary crashes also use the finite
+        /// timeout configured above.
+        /// </summary>
+        public void StopCrashEngineImmediately()
+        {
+            this.m_IsCrashEngineRunning = false;
+            this.m_CrashEngineStopAt = 0f;
+            this.m_Fuel?.SetEngineActive(false);
+
+            AudioSource engine = this.m_Controller?.bikeAudio?.engineSound;
+            if (engine != null) engine.Stop();
         }
 
         public void BeginExitStop()
@@ -534,6 +591,7 @@ namespace FranklinGame.Vehicles
             this.m_ExternalHandbrake = false;
             this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
             this.m_VehicleLights?.FrontLightsOff();
+            this.SetBrakeReverseEffectsRuntimeActive(false);
         }
 
         public void ConfigureFuel(FranklinBikeFuel fuel)
@@ -603,14 +661,21 @@ namespace FranklinGame.Vehicles
                 return;
 
             this.m_HornPressed = pressed;
-            if (!pressed) return;
+            if (!pressed)
+            {
+                this.m_HornNeedsUpdate = this.m_HornSource != null &&
+                                         this.m_HornSource.isPlaying;
+                return;
+            }
 
             if (!this.EnsureHornSource())
             {
                 this.m_HornPressed = false;
+                this.m_HornNeedsUpdate = false;
                 return;
             }
 
+            this.m_HornNeedsUpdate = true;
             if (this.m_HornSource.isPlaying) return;
             this.m_HornSource.volume = 0f;
             this.m_HornSource.Play();
@@ -750,7 +815,7 @@ namespace FranklinGame.Vehicles
 
         private void UpdateHorn()
         {
-            if (this.m_HornSource == null) return;
+            if (!this.m_HornNeedsUpdate || this.m_HornSource == null) return;
             if (!this.m_IsVehicleEnabled || this.m_IsDamageLocked)
                 this.m_HornPressed = false;
 
@@ -772,12 +837,24 @@ namespace FranklinGame.Vehicles
             );
 
             if (!this.m_HornPressed && this.m_HornSource.volume <= 0.001f)
+            {
                 this.StopHornImmediately();
+                return;
+            }
+
+            if (this.m_HornPressed &&
+                Mathf.Abs(this.m_HornSource.volume - this.m_HornMaxVolume) <= 0.001f)
+            {
+                // The AudioSource loops natively; no C# polling is required while
+                // the held horn is already at its target volume.
+                this.m_HornNeedsUpdate = false;
+            }
         }
 
         private void StopHornImmediately()
         {
             this.m_HornPressed = false;
+            this.m_HornNeedsUpdate = false;
             if (this.m_HornSource == null) return;
             this.m_HornSource.Stop();
             this.m_HornSource.volume = 0f;
@@ -792,6 +869,14 @@ namespace FranklinGame.Vehicles
             this.m_DrivingUseGravity = this.m_Rigidbody.useGravity;
             this.m_DrivingLinearDamping = this.m_Rigidbody.linearDamping;
             this.m_DrivingAngularDamping = this.m_Rigidbody.angularDamping;
+            this.m_DrivingSolverIterations = this.m_Rigidbody.solverIterations;
+            this.m_DrivingSolverVelocityIterations =
+                this.m_Rigidbody.solverVelocityIterations;
+            this.m_DrivingCollisionDetectionMode =
+                this.m_Rigidbody.collisionDetectionMode;
+            this.m_DrivingInterpolation = this.m_Rigidbody.interpolation;
+            this.m_DrivingMaxDepenetrationVelocity =
+                this.m_Rigidbody.maxDepenetrationVelocity;
             this.m_DrivingAutomaticCenterOfMass =
                 this.m_Rigidbody.automaticCenterOfMass;
             this.m_DrivingCenterOfMass = this.m_Rigidbody.centerOfMass;
@@ -806,6 +891,14 @@ namespace FranklinGame.Vehicles
             this.m_Rigidbody.useGravity = this.m_DrivingUseGravity;
             this.m_Rigidbody.linearDamping = this.m_DrivingLinearDamping;
             this.m_Rigidbody.angularDamping = this.m_DrivingAngularDamping;
+            this.m_Rigidbody.solverIterations = this.m_DrivingSolverIterations;
+            this.m_Rigidbody.solverVelocityIterations =
+                this.m_DrivingSolverVelocityIterations;
+            this.m_Rigidbody.collisionDetectionMode =
+                this.m_DrivingCollisionDetectionMode;
+            this.m_Rigidbody.interpolation = this.m_DrivingInterpolation;
+            this.m_Rigidbody.maxDepenetrationVelocity =
+                this.m_DrivingMaxDepenetrationVelocity;
             if (this.m_DrivingAutomaticCenterOfMass)
             {
                 this.m_Rigidbody.ResetCenterOfMass();
@@ -890,6 +983,11 @@ namespace FranklinGame.Vehicles
                     engine.Stop();
                 }
             }
+
+            this.SetBrakeReverseEffectsRuntimeActive(
+                this.m_IsVehicleEnabled && !this.m_IsDamageLocked
+            );
+            this.ApplyMobileFrameRateBudget(this.m_IsVehicleEnabled);
         }
 
         private void EnsureCrashEngineAudioPlaying(AudioSource engine)
@@ -905,6 +1003,13 @@ namespace FranklinGame.Vehicles
             if (!this.m_IsCrashEngineRunning || !this.m_HasFuel ||
                 this.m_Controller == null)
             {
+                return;
+            }
+
+            if (this.m_CrashEngineStopAt > 0f &&
+                Time.unscaledTime >= this.m_CrashEngineStopAt)
+            {
+                this.StopCrashEngineImmediately();
                 return;
             }
 
@@ -946,10 +1051,20 @@ namespace FranklinGame.Vehicles
                 0.1f,
                 3f
             );
+            this.m_CrashIdleEngineTimeout = Mathf.Clamp(
+                this.m_CrashIdleEngineTimeout,
+                2f,
+                30f
+            );
             this.m_HornMaxVolume = Mathf.Clamp01(this.m_HornMaxVolume);
             this.m_HornPitch = Mathf.Clamp(this.m_HornPitch, 0.5f, 2f);
             this.m_HornFadeInSpeed = Mathf.Max(0.01f, this.m_HornFadeInSpeed);
             this.m_HornFadeOutSpeed = Mathf.Max(0.01f, this.m_HornFadeOutSpeed);
+            this.m_MobileMaximumFrameRate = Mathf.Clamp(
+                this.m_MobileMaximumFrameRate,
+                30,
+                60
+            );
             if (this.m_HornSource != null && this.m_HornClip != null)
                 this.EnsureHornSource();
         }
@@ -986,6 +1101,51 @@ namespace FranklinGame.Vehicles
             this.m_VirtualHandbrake = false;
             this.m_VirtualWheelie = false;
             this.m_VirtualBurnout = false;
+        }
+
+        private void CacheRuntimeEffects()
+        {
+            if (this.m_BrakeReverseFlares != null) return;
+            this.m_BrakeReverseFlares = this.GetComponentsInChildren<
+                FranklinBikeBrakeReverseFlare
+            >(true);
+        }
+
+        private void SetBrakeReverseEffectsRuntimeActive(bool active)
+        {
+            this.CacheRuntimeEffects();
+            if (this.m_BrakeReverseFlares == null) return;
+
+            for (int i = 0; i < this.m_BrakeReverseFlares.Length; ++i)
+            {
+                FranklinBikeBrakeReverseFlare flare = this.m_BrakeReverseFlares[i];
+                if (flare != null) flare.SetRuntimeActive(active);
+            }
+        }
+
+        private void ApplyMobileFrameRateBudget(bool active)
+        {
+            if (!Application.isMobilePlatform) return;
+
+            int cap = Mathf.Clamp(this.m_MobileMaximumFrameRate, 30, 60);
+            if (active)
+            {
+                if (this.m_HasAppliedMobileFrameRateCap ||
+                    Application.targetFrameRate <= cap)
+                {
+                    return;
+                }
+
+                this.m_PreviousMobileTargetFrameRate = Application.targetFrameRate;
+                Application.targetFrameRate = cap;
+                this.m_HasAppliedMobileFrameRateCap = true;
+                return;
+            }
+
+            if (!this.m_HasAppliedMobileFrameRateCap) return;
+            if (Application.targetFrameRate == cap)
+                Application.targetFrameRate = this.m_PreviousMobileTargetFrameRate;
+            this.m_HasAppliedMobileFrameRateCap = false;
         }
 
         private static bool GetFirstPersonPreference()

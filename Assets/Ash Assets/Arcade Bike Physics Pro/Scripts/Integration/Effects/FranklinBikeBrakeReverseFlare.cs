@@ -37,6 +37,8 @@ namespace FranklinGame.Vehicles
         {
             this.ResolveReferences();
             this.ApplyVisual(0f);
+            if (this.m_Driver == null || !this.m_Driver.IsVehicleEnabled)
+                this.enabled = false;
         }
 
         private void OnEnable()
@@ -57,6 +59,7 @@ namespace FranklinGame.Vehicles
             {
                 this.m_CurrentBlend = 0f;
                 this.ApplyVisual(0f);
+                this.enabled = false;
                 return;
             }
 
@@ -70,6 +73,23 @@ namespace FranklinGame.Vehicles
                 speed * Time.unscaledDeltaTime
             );
             this.ApplyVisual(this.m_CurrentBlend);
+        }
+
+        /// <summary>
+        /// The owning driver wakes this component only for the selected Bike.
+        /// Parked Bikes therefore contribute no Update callback, Light or SRP flare.
+        /// </summary>
+        public void SetRuntimeActive(bool active)
+        {
+            if (active)
+            {
+                if (!this.enabled) this.enabled = true;
+                return;
+            }
+
+            this.m_CurrentBlend = 0f;
+            this.ApplyVisual(0f);
+            if (this.enabled) this.enabled = false;
         }
 
         public void Configure(
@@ -131,14 +151,23 @@ namespace FranklinGame.Vehicles
         private void ApplyVisual(float blend)
         {
             blend = Mathf.Clamp01(blend);
+            bool visible = blend > 0.0001f;
             if (this.m_RedPointLight != null)
             {
-                this.m_RedPointLight.intensity = this.m_PointLightIntensity * blend;
+                float intensity = this.m_PointLightIntensity * blend;
+                if (!Mathf.Approximately(this.m_RedPointLight.intensity, intensity))
+                    this.m_RedPointLight.intensity = intensity;
+                if (this.m_RedPointLight.enabled != visible)
+                    this.m_RedPointLight.enabled = visible;
             }
 
             if (this.m_RedFlare != null)
             {
-                this.m_RedFlare.intensity = this.m_FlareIntensity * blend;
+                float intensity = this.m_FlareIntensity * blend;
+                if (!Mathf.Approximately(this.m_RedFlare.intensity, intensity))
+                    this.m_RedFlare.intensity = intensity;
+                if (this.m_RedFlare.enabled != visible)
+                    this.m_RedFlare.enabled = visible;
             }
         }
 

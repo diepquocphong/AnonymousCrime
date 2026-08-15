@@ -131,6 +131,17 @@ namespace FranklinGame.Vehicles
             this.ApplyHeadlightProfile();
         }
 
+        /// <summary>
+        /// Removes both frame callbacks while this Car is parked. VehicleLights
+        /// retains its normal head/tail emission; only brake/reverse presentation
+        /// sleeps until driving resumes.
+        /// </summary>
+        public void SetRuntimeActive(bool active)
+        {
+            if (this.enabled == active) return;
+            this.enabled = active;
+        }
+
         private void SyncFlareAnchors()
         {
             if (this.m_VehicleLights == null) return;

@@ -21,13 +21,13 @@ namespace FranklinGame.Vehicles
         [SerializeField, Min(0f)] private float m_WorldWindAcceleration = 0.9f;
         [SerializeField, Range(0f, 0.5f)] private float m_VehicleAirflowFactor = 0.14f;
         [SerializeField, Min(0.1f)] private float m_MaximumWindAcceleration = 6f;
-        [SerializeField, Range(2f, 12f)] private float m_UpdateRateHz = 8f;
+        [SerializeField, Range(2f, 4f)] private float m_UpdateRateHz = 4f;
 
         private Coroutine m_WindRoutine;
         private bool m_ShouldRun;
 
         public bool IsConfigured => m_CarBody != null && m_AffectedParticles != null &&
-            m_AffectedParticles.Length >= 4 && m_UpdateRateHz <= 8.01f;
+            m_AffectedParticles.Length >= 4 && m_UpdateRateHz <= 4.01f;
         public float UpdateRateHz => m_UpdateRateHz;
 
         public void Configure(
@@ -40,6 +40,16 @@ namespace FranklinGame.Vehicles
 
         public void SetWindActive(bool active)
         {
+            if (m_ShouldRun == active)
+            {
+                if (active && isActiveAndEnabled && m_WindRoutine == null)
+                {
+                    ApplyWind();
+                    m_WindRoutine = StartCoroutine(UpdateWindAtLowFrequency());
+                }
+                return;
+            }
+
             m_ShouldRun = active;
             if (!active)
             {
@@ -114,7 +124,7 @@ namespace FranklinGame.Vehicles
             m_WorldWindAcceleration = Mathf.Max(0f, m_WorldWindAcceleration);
             m_VehicleAirflowFactor = Mathf.Clamp(m_VehicleAirflowFactor, 0f, 0.5f);
             m_MaximumWindAcceleration = Mathf.Max(0.1f, m_MaximumWindAcceleration);
-            m_UpdateRateHz = Mathf.Clamp(m_UpdateRateHz, 2f, 8f);
+            m_UpdateRateHz = Mathf.Clamp(m_UpdateRateHz, 2f, 4f);
             if (m_AffectedParticles == null)
                 m_AffectedParticles = System.Array.Empty<ParticleSystem>();
         }

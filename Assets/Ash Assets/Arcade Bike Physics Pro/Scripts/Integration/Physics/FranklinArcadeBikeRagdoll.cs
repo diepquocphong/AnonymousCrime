@@ -68,6 +68,7 @@ namespace FranklinGame.Vehicles
         private readonly Collider[] m_WheelOverlapHits = new Collider[24];
         private Collider[] m_BodyAttachedColliders = Array.Empty<Collider>();
         private float m_StableGroundTimer;
+        private float m_ParkingProbeAccumulator;
         private int m_StableGroundSide;
         private int m_ParkedGroundSide;
         private Collider m_CachedSafetyGroundCollider;
@@ -164,7 +165,9 @@ namespace FranklinGame.Vehicles
             this.HardenDynamicBody();
             this.UpdateGroundSafetyCache();
             this.m_StableGroundTimer = 0f;
+            this.m_ParkingProbeAccumulator = 0f;
             this.IsRagdoll = true;
+            this.enabled = true;
             this.m_Driver.CrashDismount(fallSign, toppleAngularVelocity);
             return true;
         }
@@ -241,8 +244,10 @@ namespace FranklinGame.Vehicles
             this.m_ParkedGroundSide = 0;
             this.m_StableGroundSide = 0;
             this.m_StableGroundTimer = 0f;
+            this.m_ParkingProbeAccumulator = 0f;
             this.SetWheelCollidersEnabled(false);
             this.SetBodyColliderMode(false);
+            this.enabled = false;
         }
 
         /// <summary>
@@ -284,6 +289,9 @@ namespace FranklinGame.Vehicles
             this.CacheBodyAttachedColliders();
             this.SetWheelCollidersEnabled(false);
             this.SetBodyColliderMode(false);
+            // Parked bikes do not need Unity's FixedUpdate/LateUpdate dispatch.
+            // Public recovery/activation methods remain callable while disabled.
+            this.enabled = false;
         }
 
         private void LateUpdate()
@@ -299,13 +307,20 @@ namespace FranklinGame.Vehicles
         {
             if (!this.IsRagdoll) return;
             this.EnsureDynamicRagdollState();
-            this.PreventGroundTunnelling();
+            if (this.m_Body != null && !this.m_Body.IsSleeping())
+                this.PreventGroundTunnelling();
             if (Vector3.Angle(transform.up, Vector3.up) >=
                 this.m_ReleaseWheelCollidersAtTilt)
             {
                 this.SetWheelCollidersEnabled(false);
             }
-            this.UpdateGroundedSideParking();
+
+            this.m_ParkingProbeAccumulator += Time.fixedDeltaTime;
+            float parkingProbeInterval = Application.isMobilePlatform ? 0.1f : 0.04f;
+            if (this.m_ParkingProbeAccumulator < parkingProbeInterval) return;
+            float parkingProbeDelta = this.m_ParkingProbeAccumulator;
+            this.m_ParkingProbeAccumulator = 0f;
+            this.UpdateGroundedSideParking(parkingProbeDelta);
         }
 
         private void ResolveReferences()
@@ -889,7 +904,7 @@ namespace FranklinGame.Vehicles
             return found;
         }
 
-        private void UpdateGroundedSideParking()
+        private void UpdateGroundedSideParking(float probeDeltaTime)
         {
             if (this.m_Body == null) return;
 
@@ -898,11 +913,16 @@ namespace FranklinGame.Vehicles
                                   this.m_ParkLinearSpeed * this.m_ParkLinearSpeed &&
                               this.m_Body.angularVelocity.sqrMagnitude <=
                                   this.m_ParkAngularSpeed * this.m_ParkAngularSpeed;
-            int groundedSide = tilt >= this.m_MinimumSideTilt
-                ? this.GetGroundedSide()
-                : 0;
+            if (!slowEnough || tilt < this.m_MinimumSideTilt)
+            {
+                this.m_StableGroundTimer = 0f;
+                this.m_StableGroundSide = 0;
+                return;
+            }
+
+            int groundedSide = this.GetGroundedSide();
             bool sideGrounded = groundedSide != 0;
-            if (!slowEnough || !sideGrounded)
+            if (!sideGrounded)
             {
                 this.m_StableGroundTimer = 0f;
                 this.m_StableGroundSide = 0;
@@ -915,7 +935,7 @@ namespace FranklinGame.Vehicles
                 this.m_StableGroundTimer = 0f;
             }
 
-            this.m_StableGroundTimer += Time.fixedDeltaTime;
+            this.m_StableGroundTimer += Mathf.Max(0f, probeDeltaTime);
             if (this.m_StableGroundTimer < this.m_StableGroundTime) return;
 
             this.ParkForManualRecovery(groundedSide);
@@ -930,6 +950,7 @@ namespace FranklinGame.Vehicles
             this.m_ParkedGroundSide = groundedSide < 0 ? -1 : 1;
             this.m_StableGroundSide = this.m_ParkedGroundSide;
             this.m_StableGroundTimer = 0f;
+            this.m_ParkingProbeAccumulator = 0f;
             this.SetWheelCollidersEnabled(false);
             this.m_Driver?.ParkGroundedRagdoll();
             if (this.m_Body != null && !this.m_Body.isKinematic)
@@ -938,6 +959,7 @@ namespace FranklinGame.Vehicles
                 this.m_Body.angularVelocity = Vector3.zero;
                 this.m_Body.isKinematic = true;
             }
+            this.enabled = false;
         }
 
         private int GetGroundedSide()

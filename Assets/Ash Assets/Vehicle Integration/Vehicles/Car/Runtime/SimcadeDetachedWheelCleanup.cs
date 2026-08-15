@@ -21,6 +21,7 @@ namespace FranklinGame.Vehicles
         private float m_SinkDuration;
         private float m_SinkDistance;
         private float m_ReleasedAt;
+        private float m_NextGroundProbeAt;
         private float m_LastGroundContactAt = float.NegativeInfinity;
         private Vector3 m_GroundPoint;
         private Vector3 m_GroundNormal = Vector3.up;
@@ -50,6 +51,7 @@ namespace FranklinGame.Vehicles
             m_SinkDuration = Mathf.Max(0.1f, sinkDuration);
             m_SinkDistance = Mathf.Max(0.05f, sinkDistance);
             m_ReleasedAt = Time.unscaledTime;
+            m_NextGroundProbeAt = 0f;
             m_IsConfigured = m_Body != null && m_Collider != null;
         }
 
@@ -67,11 +69,12 @@ namespace FranklinGame.Vehicles
         {
             if (!m_IsConfigured || m_IsSettled || m_Body == null) return;
 
-            float elapsed = Time.unscaledTime - m_ReleasedAt;
+            float now = Time.unscaledTime;
+            float elapsed = now - m_ReleasedAt;
             if (elapsed < m_MinimumFlightTime) return;
 
             bool hasRecentGroundContact =
-                Time.unscaledTime - m_LastGroundContactAt <= 0.16f;
+                now - m_LastGroundContactAt <= 0.16f;
             bool hasSettledVelocity = m_Body.IsSleeping() ||
                 (m_Body.linearVelocity.sqrMagnitude <= 2.25f &&
                  m_Body.angularVelocity.sqrMagnitude <= 81f);
@@ -84,6 +87,17 @@ namespace FranklinGame.Vehicles
             }
 
             if (elapsed < m_MaximumFlightTime) return;
+
+            // A lost wheel used to raycast at the full physics rate for up to
+            // ten seconds. A 6.7 Hz ground probe is visually equivalent here
+            // and bounds the mobile physics-query cost.
+            if (elapsed >= m_MaximumFlightTime + 10f)
+            {
+                Destroy(gameObject);
+                return;
+            }
+            if (now < m_NextGroundProbeAt) return;
+            m_NextGroundProbeAt = now + 0.15f;
 
             Vector3 origin = transform.position + Vector3.up * 0.25f;
             float rayDistance = Mathf.Max(1.5f, m_WheelRadius * 4f);
@@ -98,9 +112,6 @@ namespace FranklinGame.Vehicles
                 SettleOnSurface(hit.point, hit.normal);
                 return;
             }
-
-            // Safety cleanup for a wheel that fell out of the playable world.
-            if (elapsed >= m_MaximumFlightTime + 10f) Destroy(gameObject);
         }
 
         private void RecordGroundContact(Collision collision)

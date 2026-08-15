@@ -213,10 +213,10 @@ namespace FranklinGame.Vehicles.Editor
             if (effects == null || !effects.IsConfigured)
                 throw new InvalidOperationException("Car damage effects are incomplete");
             if (particleWind == null || !particleWind.IsConfigured ||
-                particleWind.UpdateRateHz > 8.01f)
+                particleWind.UpdateRateHz > 4.01f)
             {
                 throw new InvalidOperationException(
-                    "Car smoke/fire world wind must be configured at <=8 Hz"
+                    "Car smoke/fire world wind must be configured at <=4 Hz"
                 );
             }
             if (destruction == null || !destruction.IsConfigured)

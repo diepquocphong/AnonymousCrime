@@ -186,12 +186,20 @@ namespace FranklinGame.Shooter
             for (int index = 0; index < touchscreen.touches.Count; index++)
             {
                 TouchControl touch = touchscreen.touches[index];
-                if (!CanBeginOrbit(touch)) continue;
+                if (touch == null || !touch.press.isPressed) continue;
 
                 // Capture the moving free touch instead of an unrelated held
                 // finger. This preserves Fire + orbit multi-touch behavior.
                 float magnitude = touch.delta.ReadValue().sqrMagnitude;
                 if (magnitude <= largestDelta) continue;
+
+                // UI raycasts are the expensive part of classifying a new orbit
+                // gesture. Reject stationary/left-side touches first so held HUD
+                // buttons do not repeatedly raycast the Canvas while another
+                // input provider asks for the same camera state.
+                Vector2 position = touch.position.ReadValue();
+                if (position.x <= Screen.width * 0.5f) continue;
+                if (IsOverInteractiveUi(position, touch.touchId.ReadValue())) continue;
 
                 captured = touch;
                 largestDelta = magnitude;
@@ -201,17 +209,6 @@ namespace FranklinGame.Shooter
             s_CapturedOrbitTouch = captured;
             s_CapturedOrbitTouchId = captured.touchId.ReadValue();
             return true;
-        }
-
-        private static bool CanBeginOrbit(TouchControl touch)
-        {
-            if (touch == null || !touch.press.isPressed) return false;
-
-            Vector2 position = touch.position.ReadValue();
-            if (position.x <= Screen.width * 0.5f) return false;
-
-            int touchId = touch.touchId.ReadValue();
-            return !IsOverInteractiveUi(position, touchId);
         }
 
         private static bool IsMouseOrbitGestureHeld()

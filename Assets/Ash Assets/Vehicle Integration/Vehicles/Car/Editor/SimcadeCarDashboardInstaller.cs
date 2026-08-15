@@ -226,6 +226,7 @@ namespace FranklinGame.Vehicles.Editor
 
             SerializedObject serializedDashboard = new SerializedObject(dashboard);
             if (serializedDashboard.FindProperty("m_UpdateInterval").floatValue < 0.099f ||
+                serializedDashboard.FindProperty("m_WorldFollowInterval").floatValue < 0.049f ||
                 serializedDashboard.FindProperty("m_SpeedFollowSmooth").floatValue < 0.03f ||
                 serializedDashboard.FindProperty("m_SpeedWorldLeftOffset").floatValue < 0.5f ||
                 serializedDashboard.FindProperty("m_SpeedWorldHeight").floatValue > 0.85f ||

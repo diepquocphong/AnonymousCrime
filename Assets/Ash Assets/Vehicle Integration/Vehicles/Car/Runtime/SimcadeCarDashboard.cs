@@ -43,6 +43,9 @@ namespace FranklinGame.Vehicles
         [SerializeField] private SimcadeCarHealth m_Health;
         [SerializeField] private SimcadeCarFuel m_Fuel;
         [SerializeField, Range(0.05f, 0.5f)] private float m_UpdateInterval = 0.1f;
+        [Tooltip("Giới hạn phép chiếu 8 góc body Car; 20 Hz đủ mượt cho HUD mobile.")]
+        [SerializeField, Range(0.033f, 0.1f)]
+        private float m_WorldFollowInterval = 0.05f;
 
         [Header("Speed Position (Editable)")]
         [Tooltip("Khoảng cách world-space sang trái thân xe.")]
@@ -112,17 +115,24 @@ namespace FranklinGame.Vehicles
         private Rect m_ChassisScreenRect;
         private bool m_HasChassisScreenRect;
         private Vector2 m_SpeedPosition;
+        private Vector2 m_SpeedTargetPosition;
         private Vector2 m_SpeedVelocity;
+        private Vector2 m_HealthPosition;
+        private Vector2 m_HealthTargetPosition;
+        private Vector2 m_HealthVelocity;
         private int m_CurrentTrackIndex;
         private int m_LastDisplayedSpeed = int.MinValue;
         private float m_NextTelemetryUpdate;
+        private float m_NextWorldFollowUpdate;
         private float m_NextSafeAreaUpdate;
         private float m_FuelFillTarget;
         private float m_FuelFillVelocity;
+        private bool m_HasFuelFillValue;
         private Rect m_LastSafeArea;
         private Vector2Int m_LastScreenSize;
         private bool m_IsRadioPlaying;
         private bool m_HasSpeedPosition;
+        private bool m_HasHealthPosition;
         private bool m_HasFuelFillTarget;
         private bool m_WasRearViewPressed;
 
@@ -213,10 +223,25 @@ namespace FranklinGame.Vehicles
                 RefreshSpeed(false);
             }
 
-            if (showTelemetry)
+            bool rearViewChanged = m_Driver != null &&
+                m_Driver.IsRearViewPressed != m_WasRearViewPressed;
+            if (showTelemetry &&
+                (now >= m_NextWorldFollowUpdate || !m_HasSpeedPosition ||
+                 rearViewChanged))
             {
+                m_NextWorldFollowUpdate = now + Mathf.Clamp(
+                    m_WorldFollowInterval,
+                    0.033f,
+                    0.1f
+                );
                 UpdateSpeedWorldFollow();
                 UpdateHealthWorldFollow();
+                m_WasRearViewPressed = m_Driver != null &&
+                    m_Driver.IsRearViewPressed;
+            }
+            if (showTelemetry)
+            {
+                SmoothWorldFollow();
                 UpdateFuelFill();
             }
 
@@ -245,8 +270,11 @@ namespace FranklinGame.Vehicles
                 if (s_CanvasRoot != null && !s_CanvasRoot.activeSelf)
                     s_CanvasRoot.SetActive(true);
                 m_HasSpeedPosition = false;
+                m_HasHealthPosition = false;
                 m_SpeedVelocity = Vector2.zero;
+                m_HealthVelocity = Vector2.zero;
                 m_NextTelemetryUpdate = 0f;
+                m_NextWorldFollowUpdate = 0f;
                 m_NextSafeAreaUpdate = 0f;
                 m_WasRearViewPressed = m_Driver != null &&
                     m_Driver.IsRearViewPressed;
@@ -313,7 +341,12 @@ namespace FranklinGame.Vehicles
             m_SpeedWorldHeight = worldHeight;
             m_SpeedScreenOffset = screenOffset;
             m_HasSpeedPosition = false;
-            if (IsVisible) UpdateSpeedWorldFollow();
+            if (IsVisible)
+            {
+                UpdateSpeedWorldFollow();
+                UpdateHealthWorldFollow();
+                SmoothWorldFollow();
+            }
         }
 
         public void SetHealthHudPosition(
@@ -324,7 +357,12 @@ namespace FranklinGame.Vehicles
             m_HealthWorldRightOffset = Mathf.Max(0.5f, worldRightOffset);
             m_HealthWorldHeight = worldHeight;
             m_HealthScreenOffset = screenOffset;
-            if (IsVisible) UpdateHealthWorldFollow();
+            m_HasHealthPosition = false;
+            if (IsVisible)
+            {
+                UpdateHealthWorldFollow();
+                SmoothWorldFollow();
+            }
         }
 
         /// <summary>
@@ -356,13 +394,17 @@ namespace FranklinGame.Vehicles
             if (!visible) return;
 
             m_HasSpeedPosition = false;
+            m_HasHealthPosition = false;
             m_SpeedVelocity = Vector2.zero;
+            m_HealthVelocity = Vector2.zero;
             m_NextTelemetryUpdate = 0f;
+            m_NextWorldFollowUpdate = 0f;
             RefreshSpeed(true);
             RefreshHealth();
             RefreshFuel();
             UpdateSpeedWorldFollow();
             UpdateHealthWorldFollow();
+            SmoothWorldFollow();
         }
 
         public void Configure(
@@ -678,29 +720,16 @@ namespace FranklinGame.Vehicles
                 safeRect.yMax - upperExtent
             );
 
-            bool rearViewPressed = m_Driver != null && m_Driver.IsRearViewPressed;
-            bool rearViewChanged = rearViewPressed != m_WasRearViewPressed;
-            m_WasRearViewPressed = rearViewPressed;
-            if (!m_HasSpeedPosition || rearViewChanged)
+            bool snap = !m_HasSpeedPosition ||
+                (m_Driver != null &&
+                 m_Driver.IsRearViewPressed != m_WasRearViewPressed);
+            m_SpeedTargetPosition = localPoint;
+            if (snap)
             {
                 m_SpeedPosition = localPoint;
+                m_SpeedVelocity = Vector2.zero;
                 m_HasSpeedPosition = true;
             }
-            else
-            {
-                m_SpeedPosition = Vector2.SmoothDamp(
-                    m_SpeedPosition,
-                    localPoint,
-                    ref m_SpeedVelocity,
-                    m_SpeedFollowSmooth,
-                    Mathf.Infinity,
-                    Time.unscaledDeltaTime
-                );
-            }
-            s_SpeedRect.anchoredPosition = m_SpeedPosition;
-            if (s_SpeedBackgroundRect != null)
-                s_SpeedBackgroundRect.anchoredPosition =
-                    m_SpeedPosition + SPEED_BACKGROUND_OFFSET;
         }
 
         private void UpdateHealthWorldFollow()
@@ -722,7 +751,7 @@ namespace FranklinGame.Vehicles
             }
             m_HasChassisScreenRect = true;
 
-            Vector2 fuelBarCenter = m_SpeedPosition + m_FuelGaugeOffset;
+            Vector2 fuelBarCenter = m_SpeedTargetPosition + m_FuelGaugeOffset;
             float healthBarCenterX = m_ChassisScreenRect.xMax +
                 m_TelemetrySideGap + HEALTH_GAUGE_WIDTH * 0.5f;
             float healthBarCenterY = fuelBarCenter.y - FUEL_GAUGE_HEIGHT * 0.5f +
@@ -744,7 +773,62 @@ namespace FranklinGame.Vehicles
                 safeRect.yMax - half.y
             );
 
-            s_HealthRect.anchoredPosition = localPoint;
+            bool snap = !m_HasHealthPosition ||
+                (m_Driver != null &&
+                 m_Driver.IsRearViewPressed != m_WasRearViewPressed);
+            m_HealthTargetPosition = localPoint;
+            if (snap)
+            {
+                m_HealthPosition = localPoint;
+                m_HealthVelocity = Vector2.zero;
+                m_HasHealthPosition = true;
+            }
+        }
+
+        private void SmoothWorldFollow()
+        {
+            if (m_HasSpeedPosition && s_SpeedRect != null)
+            {
+                m_SpeedPosition = Vector2.SmoothDamp(
+                    m_SpeedPosition,
+                    m_SpeedTargetPosition,
+                    ref m_SpeedVelocity,
+                    m_SpeedFollowSmooth,
+                    Mathf.Infinity,
+                    Time.unscaledDeltaTime
+                );
+                if ((s_SpeedRect.anchoredPosition - m_SpeedPosition).sqrMagnitude >
+                    0.0625f)
+                {
+                    s_SpeedRect.anchoredPosition = m_SpeedPosition;
+                }
+
+                Vector2 backgroundPosition =
+                    m_SpeedPosition + SPEED_BACKGROUND_OFFSET;
+                if (s_SpeedBackgroundRect != null &&
+                    (s_SpeedBackgroundRect.anchoredPosition -
+                     backgroundPosition).sqrMagnitude > 0.0625f)
+                {
+                    s_SpeedBackgroundRect.anchoredPosition =
+                        backgroundPosition;
+                }
+            }
+
+            if (!m_HasHealthPosition || s_HealthRect == null) return;
+
+            m_HealthPosition = Vector2.SmoothDamp(
+                m_HealthPosition,
+                m_HealthTargetPosition,
+                ref m_HealthVelocity,
+                m_SpeedFollowSmooth,
+                Mathf.Infinity,
+                Time.unscaledDeltaTime
+            );
+            if ((s_HealthRect.anchoredPosition - m_HealthPosition).sqrMagnitude >
+                0.0625f)
+            {
+                s_HealthRect.anchoredPosition = m_HealthPosition;
+            }
         }
 
         private void RefreshHealth()
@@ -781,11 +865,15 @@ namespace FranklinGame.Vehicles
             if (s_ActiveDashboard != this) return;
             float ratio = maximum > 0.001f ? Mathf.Clamp01(current / maximum) : 0f;
             m_FuelFillTarget = ratio;
-            if (m_HasFuelFillTarget) return;
-
+            if (!m_HasFuelFillValue)
+            {
+                m_HasFuelFillValue = true;
+                m_HasFuelFillTarget = false;
+                m_FuelFillVelocity = 0f;
+                if (s_FuelFillImage != null) s_FuelFillImage.fillAmount = ratio;
+                return;
+            }
             m_HasFuelFillTarget = true;
-            m_FuelFillVelocity = 0f;
-            if (s_FuelFillImage != null) s_FuelFillImage.fillAmount = ratio;
         }
 
         private void UpdateFuelFill()
@@ -804,6 +892,7 @@ namespace FranklinGame.Vehicles
             {
                 s_FuelFillImage.fillAmount = m_FuelFillTarget;
                 m_FuelFillVelocity = 0f;
+                m_HasFuelFillTarget = false;
             }
         }
 
@@ -1324,6 +1413,11 @@ namespace FranklinGame.Vehicles
         private void OnValidate()
         {
             m_UpdateInterval = Mathf.Clamp(m_UpdateInterval, 0.05f, 0.5f);
+            m_WorldFollowInterval = Mathf.Clamp(
+                m_WorldFollowInterval,
+                0.033f,
+                0.1f
+            );
             m_RadioVolume = Mathf.Clamp01(m_RadioVolume);
             m_SpeedWorldLeftOffset = Mathf.Max(0.5f, m_SpeedWorldLeftOffset);
             m_HealthWorldRightOffset = Mathf.Max(0.5f, m_HealthWorldRightOffset);

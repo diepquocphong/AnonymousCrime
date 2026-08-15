@@ -923,6 +923,14 @@ public class CarEntry : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (!isEntering && !isExiting &&
+            _entryAlignCharacter == null && _doorHandleIKSetter == null &&
+            _seatedChar == null && _rearLeftSeatedChar == null &&
+            _rearRightSeatedChar == null)
+        {
+            return;
+        }
+
         UpdateEntrySeatAlignment();
         UpdateDoorHandleIK();
 
@@ -1181,6 +1189,8 @@ public class CarEntry : MonoBehaviour
 
         if (madeCarTrigger && carCollider != null) carCollider.isTrigger = false;
         if (madeCarKinematic && carRigidbody != null) carRigidbody.isKinematic = false;
+        (externalDriveController as SimcadeCarDriver)
+            ?.FinalizeParkedPoseAfterKinematicTransition();
         Physics.SyncTransforms();
 
         await Task.Yield();
@@ -1268,6 +1278,8 @@ public class CarEntry : MonoBehaviour
             if (madeCarTrigger && carCollider != null) carCollider.isTrigger = false;
             if (madeCarKinematic && carRigidbody != null)
                 carRigidbody.isKinematic = false;
+            (externalDriveController as SimcadeCarDriver)
+                ?.FinalizeParkedPoseAfterKinematicTransition();
             Physics.SyncTransforms();
             _ = this.onExit.Run(new Args(this.gameObject));
         }
@@ -1398,6 +1410,8 @@ public class CarEntry : MonoBehaviour
 
         if (carCollider != null) carCollider.isTrigger = false;
         if (carRigidbody != null) carRigidbody.isKinematic = false;
+        (externalDriveController as SimcadeCarDriver)
+            ?.FinalizeParkedPoseAfterKinematicTransition();
 
         if (hoverController != null)
             hoverController.isVehicleEnabled = false;

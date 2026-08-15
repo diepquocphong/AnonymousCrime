@@ -36,6 +36,8 @@ namespace FranklinGame.Vehicles
         private bool m_HasInitializedStartingFuel;
         private bool m_IsBound;
         private bool m_HasWarnedMissingAttribute;
+        private bool m_HasPublishedFuelAvailability;
+        private bool m_LastPublishedHasFuel;
 
         public event Action<float, float> EventFuelChanged;
 
@@ -206,6 +208,7 @@ namespace FranklinGame.Vehicles
                 m_Traits.RuntimeAttributes.EventChange -= OnAttributeChanged;
             m_RuntimeFuel = null;
             m_IsBound = false;
+            m_HasPublishedFuelAvailability = false;
         }
 
         private void EnsureConsumption()
@@ -261,7 +264,16 @@ namespace FranklinGame.Vehicles
 
         private void NotifyFuelAvailability()
         {
-            m_Driver?.SetFuelAvailable(HasFuel);
+            bool hasFuel = HasFuel;
+            if (m_HasPublishedFuelAvailability &&
+                m_LastPublishedHasFuel == hasFuel)
+            {
+                return;
+            }
+
+            m_HasPublishedFuelAvailability = true;
+            m_LastPublishedHasFuel = hasFuel;
+            m_Driver?.SetFuelAvailable(hasFuel);
         }
 
         private void PublishFuel()

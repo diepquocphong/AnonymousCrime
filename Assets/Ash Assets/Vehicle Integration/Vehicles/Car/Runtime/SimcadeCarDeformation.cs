@@ -13,6 +13,8 @@ namespace FranklinGame.Vehicles
     [RequireComponent(typeof(SimcadeCarImpactAudio), typeof(SimcadeCarDriver))]
     public sealed class SimcadeCarDeformation : MonoBehaviour
     {
+        private const int MAXIMUM_PANELS_PER_IMPACT = 2;
+
         [Header("References")]
         [SerializeField] private SimcadeCarImpactAudio m_ImpactAudio;
         [SerializeField] private SimcadeCarDriver m_Driver;
@@ -25,11 +27,11 @@ namespace FranklinGame.Vehicles
         [SerializeField, Min(0.01f)] private float m_ImpactMultiplier = 1f;
         [SerializeField, Min(0.05f)] private float m_DamageRadius = 0.5f;
         [SerializeField, Min(0.01f)] private float m_MaximumVertexDisplacement = 0.2f;
-        [SerializeField, Min(0f)] private float m_MaximumVertexFracture = 0.03f;
+        [SerializeField, Min(0f)] private float m_MaximumVertexFracture;
 
         [Header("Mobile Event Budget")]
-        [SerializeField, Range(1, 20)] private int m_MaximumDentCount = 12;
-        [SerializeField, Range(1000, 40000)] private int m_MaximumVerticesPerPanel = 24000;
+        [SerializeField, Range(1, 20)] private int m_MaximumDentCount = 8;
+        [SerializeField, Range(1000, 40000)] private int m_MaximumVerticesPerPanel = 12000;
 
         [Header("Steering Misalignment")]
         [SerializeField, Min(0f)] private float m_SteeringDamageStartSeverity = 4.5f;
@@ -116,9 +118,9 @@ namespace FranklinGame.Vehicles
             m_ImpactMultiplier = 1f;
             m_DamageRadius = 0.5f;
             m_MaximumVertexDisplacement = 0.2f;
-            m_MaximumVertexFracture = 0.03f;
-            m_MaximumDentCount = 12;
-            m_MaximumVerticesPerPanel = 24000;
+            m_MaximumVertexFracture = 0f;
+            m_MaximumDentCount = 8;
+            m_MaximumVerticesPerPanel = 12000;
             m_SteeringDamageStartSeverity = 4.5f;
             m_SteeringDamageFullSeverity = 18f;
             m_MinSteeringBiasPerImpact = 0.005f;
@@ -202,27 +204,58 @@ namespace FranklinGame.Vehicles
 
             int changedVertices = 0;
             float broadPhaseRadiusSq = m_DamageRadius * m_DamageRadius;
+            PanelState nearestPanel = null;
+            PanelState secondPanel = null;
+            float nearestDistance = float.PositiveInfinity;
+            float secondDistance = float.PositiveInfinity;
             for (int i = 0; i < m_Panels.Length; ++i)
             {
                 PanelState panel = m_Panels[i];
                 if (panel?.Filter == null || panel.SourceMesh == null ||
+                    !panel.SourceMesh.isReadable ||
+                    panel.SourceMesh.vertexCount <= 0 ||
+                    panel.SourceMesh.vertexCount > m_MaximumVerticesPerPanel ||
                     !panel.Filter.gameObject.activeInHierarchy)
                 {
                     continue;
                 }
 
-                // Cheap rejection only. Unlike the former implementation, all
-                // render panels whose geometry can be inside Edy's radius are
-                // processed, so overlapping body pieces can dent together.
-                if (panel.Renderer != null &&
-                    panel.Renderer.bounds.SqrDistance(contact.point) > broadPhaseRadiusSq)
+                float panelDistance = panel.Renderer != null
+                    ? panel.Renderer.bounds.SqrDistance(contact.point)
+                    : 0f;
+                if (panelDistance > broadPhaseRadiusSq)
                 {
                     continue;
                 }
 
-                if (!EnsureRuntimeMesh(panel)) continue;
+                if (panelDistance < nearestDistance)
+                {
+                    secondPanel = nearestPanel;
+                    secondDistance = nearestDistance;
+                    nearestPanel = panel;
+                    nearestDistance = panelDistance;
+                }
+                else if (panelDistance < secondDistance)
+                {
+                    secondPanel = panel;
+                    secondDistance = panelDistance;
+                }
+            }
+
+            // A collision can overlap many split render pieces. Limiting Edy's
+            // O(vertex-count) pass to the two closest panels prevents one impact
+            // from scanning every body mesh while preserving the visible dent.
+            if (nearestPanel != null && EnsureRuntimeMesh(nearestPanel))
                 changedVertices += DeformPanel(
-                    panel,
+                    nearestPanel,
+                    contact.point,
+                    worldImpactVelocity
+                );
+            if (MAXIMUM_PANELS_PER_IMPACT > 1 && secondPanel != null &&
+                EnsureRuntimeMesh(secondPanel))
+            {
+                changedVertices += DeformPanel(
+                    secondPanel,
                     contact.point,
                     worldImpactVelocity
                 );

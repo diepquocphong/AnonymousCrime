@@ -12,8 +12,8 @@ namespace FranklinGame.Vehicles.Editor
         private const string CarModelPath =
             "Assets/Ash Assets/Vehicle Integration/Vehicles/Car/Models/Car.FBX";
 
-        // Edy's algorithm processes every visible mesh within the impact radius,
-        // so overlapping pieces no longer compete to become one selected panel.
+        // The runtime keeps all visible candidates but processes only the two
+        // closest meshes per impact for the mobile deformation budget.
         private static readonly string[] PanelNames =
         {
             "FrontBumper",
@@ -89,12 +89,12 @@ namespace FranklinGame.Vehicles.Editor
             }
             if (!deformation.UsesEdysMeshDeformation ||
                 deformation.DeformablePanelCount != PanelNames.Length ||
-                deformation.MaximumDentCount > 12 ||
-                deformation.MaximumVerticesPerPanel > 24000 ||
+                deformation.MaximumDentCount > 8 ||
+                deformation.MaximumVerticesPerPanel > 12000 ||
                 Mathf.Abs(deformation.MinimumImpactVelocity - 2.5f) > 0.01f ||
                 Mathf.Abs(deformation.DamageRadius - 0.5f) > 0.01f ||
                 Mathf.Abs(deformation.MaximumVertexDisplacement - 0.2f) > 0.01f ||
-                Mathf.Abs(deformation.MaximumVertexFracture - 0.03f) > 0.001f ||
+                deformation.MaximumVertexFracture > 0.001f ||
                 deformation.MaximumSteeringBiasPerImpact > 0.056f)
             {
                 throw new InvalidOperationException(
@@ -126,8 +126,8 @@ namespace FranklinGame.Vehicles.Editor
             Debug.Log(
                 $"Car deformation validation passed: {panels.Length} exterior panels, " +
                 $"largest panel {largestPanel} vertices ({totalVertices} total source vertices), " +
-                "Edy 5.5.3 render-mesh deformation across every panel inside the radius, " +
-                "normals/bounds refresh after each dent, <=12 impacts, persistent <=0.16 " +
+                "Edy 5.5.3 deformation on the two closest panels per impact, " +
+                "normals/bounds refresh after each dent, <=8 impacts, persistent <=0.16 " +
                 "steering bias and no EVP controller or deformable MeshCollider."
             );
         }

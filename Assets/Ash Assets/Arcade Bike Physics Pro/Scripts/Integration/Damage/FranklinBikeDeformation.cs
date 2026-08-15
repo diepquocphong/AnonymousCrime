@@ -155,7 +155,10 @@ namespace FranklinGame.Vehicles
 
         private void OnImpactAccepted(Collision collision, bool _, float __)
         {
-            if (m_DentCount >= m_MaximumDentCount || collision == null ||
+            int dentBudget = Application.isMobilePlatform
+                ? Mathf.Min(5, m_MaximumDentCount)
+                : m_MaximumDentCount;
+            if (m_DentCount >= dentBudget || collision == null ||
                 collision.contactCount <= 0 ||
                 collision.relativeVelocity.sqrMagnitude <
                     m_MinimumImpactVelocity * m_MinimumImpactVelocity)
@@ -181,6 +184,14 @@ namespace FranklinGame.Vehicles
                 PanelState panel = m_Panels[i];
                 if (panel?.Filter == null || panel.SourceMesh == null ||
                     !panel.Filter.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+                // Off-screen deformation still updates health/destruction, but
+                // skips a 10k-30k vertex CPU rebuild that the mobile Player cannot
+                // see. Visible panels retain the authored deformation quality.
+                if (Application.isMobilePlatform && panel.Renderer != null &&
+                    !panel.Renderer.isVisible)
                 {
                     continue;
                 }

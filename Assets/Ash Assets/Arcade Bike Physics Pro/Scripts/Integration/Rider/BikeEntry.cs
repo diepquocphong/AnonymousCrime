@@ -250,6 +250,7 @@ public class BikeEntry : MonoBehaviour
     private HumanPoseHandler _livePoseHandler;
     private HumanPose _liveHumanPose;
     private CharacterIKSetter _activeIkSetter;
+    private bool _shooterPoseActive;
     private Character _approachCharacter;
     private bool _approachFinished;
     private bool _approachSucceeded;
@@ -372,6 +373,7 @@ public class BikeEntry : MonoBehaviour
         if (character == null || character != _mountedCharacter || IsTransitioning)
             return false;
 
+        SetShooterPoseActive(false);
         ClearActiveEntrySide();
         SetLiveRiderPosePreview(false);
 
@@ -389,6 +391,7 @@ public class BikeEntry : MonoBehaviour
         _activeIkSetter = null;
         _inBike = false;
         _footOnGround = false;
+        ResetAirborneRiderLift();
         _mountedCharacter = null;
 
         character.transform.SetParent(null, true);
@@ -540,10 +543,26 @@ public class BikeEntry : MonoBehaviour
         if (_activeIkSetter != null)
         {
             _activeIkSetter.SetBeforeHandIK(
-                _liveRiderPosePreview ? ApplyLiveRiderPosePreview : null
+                _liveRiderPosePreview && !_shooterPoseActive
+                    ? ApplyLiveRiderPosePreview
+                    : null
             );
         }
         if (!_liveRiderPosePreview) ReleaseLivePoseHandler();
+    }
+
+    /// <summary>
+    /// Gives the upper body to the active GC2 weapon Sight without disturbing the
+    /// seated pelvis, legs or handlebar hand. The authored Bike spine offset is restored
+    /// as soon as ADS/fire ends.
+    /// </summary>
+    public void SetShooterPoseActive(bool active)
+    {
+        if (_shooterPoseActive == active) return;
+
+        _shooterPoseActive = active;
+        if (_activeIkSetter != null) ConfigureRiderIKSetter(_activeIkSetter);
+        if (active) ReleaseLivePoseHandler();
     }
 
 
@@ -667,32 +686,27 @@ public class BikeEntry : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (_mountedCharacter != null)
-        {
-            bool isAirborne = _inBike && airborneState?.IsAirborne == true;
-            _airborneDuration = isAirborne
-                ? _airborneDuration + Time.deltaTime
-                : 0f;
+        if (_mountedCharacter == null) return;
 
-            float targetLift = isAirborne &&
-                               _airborneDuration >= riderAirborneLiftDelay
-                ? riderAirborneLift
-                : 0f;
-            _currentAirborneLift = Mathf.SmoothDamp(
-                _currentAirborneLift,
-                targetLift,
-                ref _airborneLiftVelocity,
-                riderAirborneLiftSmoothTime,
-                Mathf.Infinity,
-                Time.deltaTime
-            );
-            _mountedCharacter.transform.localPosition =
-                riderSeatOffset + Vector3.up * _currentAirborneLift;
-        }
-        else
-        {
-            ResetAirborneRiderLift();
-        }
+        bool isAirborne = _inBike && airborneState?.IsAirborne == true;
+        _airborneDuration = isAirborne
+            ? _airborneDuration + Time.deltaTime
+            : 0f;
+
+        float targetLift = isAirborne &&
+                           _airborneDuration >= riderAirborneLiftDelay
+            ? riderAirborneLift
+            : 0f;
+        _currentAirborneLift = Mathf.SmoothDamp(
+            _currentAirborneLift,
+            targetLift,
+            ref _airborneLiftVelocity,
+            riderAirborneLiftSmoothTime,
+            Mathf.Infinity,
+            Time.deltaTime
+        );
+        _mountedCharacter.transform.localPosition =
+            riderSeatOffset + Vector3.up * _currentAirborneLift;
     }
 
     private void ResetAirborneRiderLift()
@@ -782,6 +796,7 @@ public class BikeEntry : MonoBehaviour
 
     private void OnDestroy()
     {
+        _shooterPoseActive = false;
         if (_seatedPhysics?.character != null)
             RestoreCharacterPhysics(_seatedPhysics.character);
         if (_activeIkSetter != null)
@@ -800,6 +815,7 @@ public class BikeEntry : MonoBehaviour
         {
             return;
         }
+        _shooterPoseActive = false;
         isEntering = true;
         await FranklinShooterSystem.PrepareForBikeDriverEntry(character);
         if (character == null || _mountedCharacter != null)
@@ -1811,6 +1827,7 @@ public class BikeEntry : MonoBehaviour
     public async void ExitBike(Character character)
     {
         if (IsTransitioning || character == null || character != _mountedCharacter) return;
+        SetShooterPoseActive(false);
         isExiting = true;
 
         Rigidbody bikeRigidbody = GetComponent<Rigidbody>();
@@ -1882,6 +1899,7 @@ public class BikeEntry : MonoBehaviour
         }
 
         _inBike = false;
+        ResetAirborneRiderLift();
         _mountedCharacter = null;
         character.transform.SetParent(null, true);
 
@@ -2499,11 +2517,13 @@ public class BikeEntry : MonoBehaviour
         if (ikSetter == null) return;
         _activeIkSetter = ikSetter;
         ikSetter.ConfigureManualSpineAdjustment(
-            riderSpinePositionOffset,
-            riderSpineRotationOffset
+            _shooterPoseActive ? Vector3.zero : riderSpinePositionOffset,
+            _shooterPoseActive ? Vector3.zero : riderSpineRotationOffset
         );
         ikSetter.SetBeforeHandIK(
-            _liveRiderPosePreview ? ApplyLiveRiderPosePreview : null
+            _liveRiderPosePreview && !_shooterPoseActive
+                ? ApplyLiveRiderPosePreview
+                : null
         );
     }
 

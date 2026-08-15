@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using Ashsvp;
 using FranklinGame.Shooter;
 using GameCreator.Runtime.Cameras;
@@ -28,6 +29,8 @@ namespace FranklinGame.Vehicles
             "Franklin.Vehicle.Car.FirstPersonView";
         private static bool s_FirstPersonPreferenceLoaded;
         private static bool s_FirstPersonPreferred;
+        private static readonly HashSet<SimcadeCarDriver>
+            s_ActivePresentationDrivers = new();
 
         [Header("Sim-Cade")]
         [SerializeField] private SimcadeVehicleController m_Controller;
@@ -101,7 +104,15 @@ namespace FranklinGame.Vehicles
         [SerializeField] private SimcadeCarHorn m_Horn;
 
         private Rigidbody m_Rigidbody;
+        private RigidbodyConstraints m_DrivingRigidbodyConstraints;
+        private bool m_RigidbodyConstraintsCached;
+        private bool m_ParkedRigidbodyFrozen;
         private CarEntry m_CarEntry;
+        private SimcadeCarBrakeLights m_BrakeLights;
+        private WheelSkid[] m_WheelSkids;
+        private AudioSource[] m_WheelSkidAudioSources;
+        private bool m_WheelSkidRuntimeState;
+        private bool m_WheelSkidRuntimeStateInitialized;
         private bool m_IsVehicleEnabled;
         private bool m_ExternalHandbrake;
         private bool m_VirtualAccelerate;
@@ -112,6 +123,10 @@ namespace FranklinGame.Vehicles
         private bool m_VirtualSlowAccelerate;
         private bool m_IsStoppingForExit;
         private bool m_IsCoastingAfterExit;
+        private float m_CoastingStopDeadline;
+        private bool m_IsInitialSettling;
+        private float m_InitialSettleAvailableAt;
+        private float m_InitialSettleDeadline;
         private bool m_IsPassengerPresentation;
         private bool m_IsDestroyed;
         private bool m_HoldCameraDuringBailout;
@@ -143,6 +158,7 @@ namespace FranklinGame.Vehicles
         private Camera m_UnityCamera;
         private bool m_GameCreatorCameraWasEnabled;
         private float m_CameraOrbitYaw;
+        private float m_LastAppliedCameraOrbitYaw = float.NaN;
         private float m_CameraOrbitVelocity;
         private float m_LastCameraOrbitInputTime;
         private bool m_RearViewPressed;
@@ -195,11 +211,45 @@ namespace FranklinGame.Vehicles
         public Transform VehicleBody => this.m_Controller != null
             ? this.m_Controller.VehicleBody
             : this.transform;
+        public static SimcadeCarDriver ActivePresentationDriver
+        {
+            get
+            {
+                Character player = ShortcutPlayer.Get<Character>();
+                SimcadeCarDriver fallback = null;
+                foreach (SimcadeCarDriver driver in s_ActivePresentationDrivers)
+                {
+                    if (driver == null ||
+                        (!driver.m_IsVehicleEnabled &&
+                         !driver.m_IsPassengerPresentation))
+                    {
+                        continue;
+                    }
+                    if (player != null && driver.m_CarEntry != null &&
+                        driver.m_CarEntry.IsCharacterSeated(player))
+                    {
+                        return driver;
+                    }
+                    fallback ??= driver;
+                }
+
+                // During scene bootstrap Player can be unavailable for one frame.
+                // Once Player exists, never bind its HUD to an NPC-driven Car.
+                return player == null ? fallback : null;
+            }
+        }
 
         private void Awake()
         {
             this.m_Rigidbody = this.GetComponent<Rigidbody>();
+            if (this.m_Rigidbody != null)
+            {
+                this.m_DrivingRigidbodyConstraints =
+                    this.m_Rigidbody.constraints;
+                this.m_RigidbodyConstraintsCached = true;
+            }
             this.m_CarEntry = this.GetComponent<CarEntry>();
+            this.m_BrakeLights = this.GetComponent<SimcadeCarBrakeLights>();
             if (this.m_Dashboard == null)
                 this.m_Dashboard = this.GetComponent<SimcadeCarDashboard>();
             if (this.m_Fuel == null)
@@ -237,6 +287,7 @@ namespace FranklinGame.Vehicles
             this.EnsureRuntimeCameraTarget();
             this.ResolveUnityCamera();
             if (this.ShouldShowMobileControls()) this.EnsureMobileControls();
+            this.BeginInitialSettlement();
             this.SetVehicleEnabled(false);
         }
 
@@ -244,6 +295,7 @@ namespace FranklinGame.Vehicles
         {
             this.m_IsVehicleEnabled = false;
             this.m_IsPassengerPresentation = false;
+            this.m_IsInitialSettling = false;
             this.m_HoldCameraDuringBailout = false;
             this.m_HoldCameraDuringDestruction = false;
             this.m_KeepEngineRunningAfterBailout = false;
@@ -260,11 +312,15 @@ namespace FranklinGame.Vehicles
             this.SetDashboardActive(false);
             this.SetAudioActive(false);
             this.m_Fuel?.SetEngineActive(false);
+            this.m_BrakeLights?.SetRuntimeActive(false);
+            this.SetWheelSkidRuntimeActive(false);
             this.ResetSteeringWheel();
+            this.RefreshActivePresentationDriver();
         }
 
         private void OnDestroy()
         {
+            s_ActivePresentationDrivers.Remove(this);
             this.DeactivateGc2FirstPersonCamera();
             this.RestoreFirstPersonPresentation();
             if (this.m_RuntimeFirstPersonCameraAnchor &&
@@ -278,7 +334,6 @@ namespace FranklinGame.Vehicles
 
         private void Update()
         {
-            this.UpdateControllerExecutionState();
             if (!this.m_IsVehicleEnabled && !this.m_IsPassengerPresentation) return;
 
             if (this.IsExitPressed())
@@ -336,6 +391,11 @@ namespace FranklinGame.Vehicles
 
         private void FixedUpdate()
         {
+            if (!this.m_IsStoppingForExit && !this.m_IsCoastingAfterExit &&
+                !this.m_IsInitialSettling)
+            {
+                return;
+            }
             if (this.m_Rigidbody == null || this.m_Rigidbody.isKinematic) return;
 
             Vector3 planarVelocity = Vector3.ProjectOnPlane(
@@ -343,6 +403,33 @@ namespace FranklinGame.Vehicles
                 Vector3.up
             );
             float planarSpeed = planarVelocity.magnitude;
+
+            if (this.m_IsInitialSettling)
+            {
+                bool grounded = this.m_Controller != null &&
+                    this.m_Controller.vehicleIsGrounded;
+                float verticalSpeed = Mathf.Abs(Vector3.Dot(
+                    this.m_Rigidbody.linearVelocity,
+                    Vector3.up
+                ));
+                bool stable = planarSpeed <= 0.15f &&
+                    verticalSpeed <= 0.15f &&
+                    this.m_Rigidbody.angularVelocity.sqrMagnitude <= 0.0225f;
+                bool minimumElapsed = Time.unscaledTime >=
+                    this.m_InitialSettleAvailableAt;
+                bool deadlineReached = Time.unscaledTime >=
+                    this.m_InitialSettleDeadline;
+                if ((grounded && stable && minimumElapsed) || deadlineReached)
+                {
+                    this.m_IsInitialSettling = false;
+                    if (grounded && stable)
+                    {
+                        this.FreezeParkedRigidbody();
+                    }
+                    this.UpdateControllerExecutionState();
+                }
+                return;
+            }
 
             if (this.m_IsStoppingForExit)
             {
@@ -354,8 +441,20 @@ namespace FranklinGame.Vehicles
                 return;
             }
 
+            bool coastGrounded = this.m_Controller != null &&
+                this.m_Controller.vehicleIsGrounded;
+            float coastVerticalSpeed = Mathf.Abs(Vector3.Dot(
+                this.m_Rigidbody.linearVelocity,
+                Vector3.up
+            ));
+            bool canSleepAfterCoast = coastGrounded &&
+                coastVerticalSpeed <= 0.15f;
+            bool coastIsSlow = planarSpeed <=
+                this.m_CoastingParkingSpeedKph / 3.6f;
+            bool coastTimedOut = Time.unscaledTime >=
+                this.m_CoastingStopDeadline;
             if (this.m_IsCoastingAfterExit &&
-                planarSpeed <= this.m_CoastingParkingSpeedKph / 3.6f)
+                ((coastIsSlow && canSleepAfterCoast) || coastTimedOut))
             {
                 this.m_IsCoastingAfterExit = false;
                 if (this.m_Controller != null)
@@ -365,12 +464,16 @@ namespace FranklinGame.Vehicles
                     this.SendInputs(0f, 0f, true);
                 }
 
-                Vector3 verticalVelocity = Vector3.Project(
-                    this.m_Rigidbody.linearVelocity,
-                    Vector3.up
-                );
-                this.m_Rigidbody.linearVelocity = verticalVelocity;
-                this.m_Rigidbody.angularVelocity = Vector3.zero;
+                if (canSleepAfterCoast)
+                {
+                    this.FreezeParkedRigidbody();
+                }
+                this.UpdateControllerExecutionState();
+                if (this.m_KeepEngineRunningAfterBailout && this.m_HasFuel &&
+                    !this.m_IsDestroyed)
+                {
+                    this.SuspendEngineAudioControllers();
+                }
             }
         }
 
@@ -406,8 +509,13 @@ namespace FranklinGame.Vehicles
         public void SetVehicleEnabled(bool state, bool preserveMomentum)
         {
             if (state && this.m_IsDestroyed) return;
+            if (state || preserveMomentum)
+            {
+                this.ReleaseParkedRigidbody(true);
+            }
             if (state)
             {
+                this.m_IsInitialSettling = false;
                 this.m_IsPassengerPresentation = false;
                 this.m_HoldCameraDuringBailout = false;
                 this.m_KeepEngineRunningAfterBailout = false;
@@ -415,6 +523,8 @@ namespace FranklinGame.Vehicles
             this.m_IsVehicleEnabled = state;
             this.m_IsStoppingForExit = false;
             this.m_IsCoastingAfterExit = !state && preserveMomentum;
+            if (this.m_IsCoastingAfterExit)
+                this.m_CoastingStopDeadline = Time.unscaledTime + 12f;
             this.ResetVirtualInputs();
             this.m_AccelerationInput = 0f;
             this.m_SteeringInput = 0f;
@@ -424,10 +534,13 @@ namespace FranklinGame.Vehicles
             {
                 this.m_ExitInputAvailableAt = Time.unscaledTime + 0.5f;
                 this.ResetCameraOrbit();
+                if (this.m_Rigidbody != null && !this.m_Rigidbody.isKinematic)
+                    this.m_Rigidbody.WakeUp();
             }
             else
             {
                 this.ResetSteeringWheel();
+                if (!preserveMomentum) this.SetHeadlightEnabled(false);
             }
 
             if (this.m_Controller != null)
@@ -438,7 +551,6 @@ namespace FranklinGame.Vehicles
             }
 
             this.SendInputs(0f, 0f, !state && !preserveMomentum);
-            this.UpdateControllerExecutionState();
             bool engineRequested = state || this.m_KeepEngineRunningAfterBailout;
             this.m_Fuel?.SetEngineActive(engineRequested);
             this.SetAudioActive(
@@ -446,6 +558,7 @@ namespace FranklinGame.Vehicles
             );
             this.SetMobileControlsActive(state && this.ShouldShowMobileControls());
             this.SetDashboardActive(state);
+            this.m_BrakeLights?.SetRuntimeActive(state);
             if (state)
             {
                 this.SetCameraActive(true);
@@ -461,12 +574,24 @@ namespace FranklinGame.Vehicles
                 this.SetCameraActive(false);
             }
 
-            if (!state && !preserveMomentum && this.m_Rigidbody != null &&
+            if (!state && !preserveMomentum && !this.m_IsInitialSettling &&
+                this.m_Rigidbody != null &&
                 !this.m_Rigidbody.isKinematic)
             {
-                this.m_Rigidbody.linearVelocity = Vector3.zero;
-                this.m_Rigidbody.angularVelocity = Vector3.zero;
+                bool grounded = this.m_Controller != null &&
+                    this.m_Controller.vehicleIsGrounded;
+                float verticalSpeed = Mathf.Abs(Vector3.Dot(
+                    this.m_Rigidbody.linearVelocity,
+                    Vector3.up
+                ));
+                if (grounded && verticalSpeed <= 0.15f)
+                {
+                    this.FreezeParkedRigidbody();
+                }
             }
+
+            this.UpdateControllerExecutionState();
+            this.RefreshActivePresentationDriver();
         }
 
         /// <summary>
@@ -477,6 +602,7 @@ namespace FranklinGame.Vehicles
         {
             if (this.m_IsDestroyed) return;
             this.m_IsDestroyed = true;
+            this.m_IsInitialSettling = false;
             this.m_IsPassengerPresentation = false;
             this.m_HoldCameraDuringBailout = false;
             this.m_KeepEngineRunningAfterBailout = false;
@@ -489,6 +615,7 @@ namespace FranklinGame.Vehicles
                 this.m_Controller.CanAccelerate = false;
                 this.m_Controller.enabled = false;
             }
+            this.SetWheelSkidRuntimeActive(false);
             this.SetAudioActive(false);
             this.SetHeadlightEnabled(false);
             this.SetMobileControlsActive(false);
@@ -506,6 +633,7 @@ namespace FranklinGame.Vehicles
             if (active && this.m_IsDestroyed) return;
             if (active && this.m_IsVehicleEnabled) return;
             this.m_IsPassengerPresentation = active;
+            this.RefreshActivePresentationDriver();
             if (active)
             {
                 this.m_ExitInputAvailableAt = Time.unscaledTime + 0.5f;
@@ -973,12 +1101,16 @@ namespace FranklinGame.Vehicles
         {
             s_FirstPersonPreferenceLoaded = false;
             s_FirstPersonPreferred = false;
+            s_ActivePresentationDrivers.Clear();
         }
 
         public void ResetVehicle()
         {
             if (this.m_Rigidbody == null) return;
 
+            bool settleAsParked = !this.m_IsVehicleEnabled &&
+                !this.m_IsCoastingAfterExit && !this.m_IsDestroyed;
+            this.ReleaseParkedRigidbody(true);
             Vector3 position = this.transform.position + Vector3.up;
             float yaw = this.transform.eulerAngles.y;
             this.m_Rigidbody.position = position;
@@ -987,6 +1119,19 @@ namespace FranklinGame.Vehicles
             {
                 this.m_Rigidbody.linearVelocity = Vector3.zero;
                 this.m_Rigidbody.angularVelocity = Vector3.zero;
+                this.m_Rigidbody.WakeUp();
+            }
+
+            if (settleAsParked && !this.m_Rigidbody.isKinematic)
+            {
+                this.BeginInitialSettlement();
+                if (this.m_Controller != null)
+                {
+                    this.m_Controller.CanDrive = false;
+                    this.m_Controller.CanAccelerate = false;
+                    this.SendInputs(0f, 0f, true);
+                }
+                this.UpdateControllerExecutionState();
             }
         }
 
@@ -1098,15 +1243,192 @@ namespace FranklinGame.Vehicles
         {
             if (this.m_Controller == null) return;
 
-            // Keep the component alive while the parked car has a dynamic body.
-            // Some of the original interaction setup is initialized while all
-            // vehicle behaviours are active. Suspend only during the temporary
-            // kinematic window used by the entry/exit animations.
-            bool shouldRun = !this.m_IsDestroyed && (this.m_IsVehicleEnabled ||
-                (this.m_Rigidbody != null && !this.m_Rigidbody.isKinematic));
+            // A parked Rigidbody still receives normal collision response from
+            // Unity; it does not need Sim-Cade's four suspension casts on every
+            // physics tick. Run wheel physics only during active driving and the
+            // bounded stop/coast hand-off.
+            bool canSimulate = this.m_Rigidbody == null ||
+                !this.m_Rigidbody.isKinematic;
+            bool shouldRun = !this.m_IsDestroyed && canSimulate &&
+                (this.m_IsVehicleEnabled || this.m_IsStoppingForExit ||
+                 this.m_IsCoastingAfterExit || this.m_IsInitialSettling);
             if (this.m_Controller.enabled != shouldRun)
             {
                 this.m_Controller.enabled = shouldRun;
+            }
+            this.SetWheelSkidRuntimeActive(
+                shouldRun && !this.m_IsInitialSettling
+            );
+        }
+
+        private void BeginInitialSettlement()
+        {
+            if (this.m_Rigidbody == null || this.m_Rigidbody.isKinematic) return;
+
+            // Let raycast suspension establish the authored ride height once.
+            // This bounded window avoids freezing a spawned Car above the road,
+            // while all parked per-frame vehicle work still sleeps afterwards.
+            this.m_IsInitialSettling = true;
+            this.m_InitialSettleAvailableAt = Time.unscaledTime + 0.25f;
+            this.m_InitialSettleDeadline = Time.unscaledTime + 1.5f;
+            this.m_Rigidbody.WakeUp();
+        }
+
+        /// <summary>
+        /// Reasserts the parked ride height after CarEntry finishes its temporary
+        /// kinematic animation window. Toggling isKinematic wakes a Rigidbody, so
+        /// Sleep alone is not sufficient once raycast suspension has been stopped.
+        /// </summary>
+        public void FinalizeParkedPoseAfterKinematicTransition()
+        {
+            if (this.m_Rigidbody == null || this.m_Rigidbody.isKinematic ||
+                this.m_IsVehicleEnabled || this.m_IsCoastingAfterExit ||
+                this.m_IsDestroyed)
+            {
+                return;
+            }
+
+            if (this.m_ParkedRigidbodyFrozen)
+            {
+                this.FreezeParkedRigidbody();
+                this.UpdateControllerExecutionState();
+                return;
+            }
+
+            bool grounded = this.m_Controller != null &&
+                this.m_Controller.vehicleIsGrounded;
+            float verticalSpeed = Mathf.Abs(Vector3.Dot(
+                this.m_Rigidbody.linearVelocity,
+                Vector3.up
+            ));
+            if (grounded && verticalSpeed <= 0.15f)
+            {
+                this.FreezeParkedRigidbody();
+            }
+            else
+            {
+                // An unusual airborne/slope exit must never be frozen in space.
+                // Give suspension one bounded opportunity to regain ride height.
+                this.ReleaseParkedRigidbody(true);
+                this.BeginInitialSettlement();
+                if (this.m_Controller != null)
+                {
+                    this.m_Controller.CanDrive = false;
+                    this.m_Controller.CanAccelerate = false;
+                    this.SendInputs(0f, 0f, true);
+                }
+            }
+            this.UpdateControllerExecutionState();
+        }
+
+        private void FreezeParkedRigidbody()
+        {
+            if (this.m_Rigidbody == null || this.m_Rigidbody.isKinematic ||
+                this.m_IsDestroyed)
+            {
+                return;
+            }
+
+            if (!this.m_RigidbodyConstraintsCached)
+            {
+                this.m_DrivingRigidbodyConstraints =
+                    this.m_Rigidbody.constraints;
+                this.m_RigidbodyConstraintsCached = true;
+            }
+
+            // Sim-Cade uses raycast suspension, not physical wheel colliders.
+            // A sleeping body can be woken by the exiting Character or an
+            // animated child door; with suspension disabled it would then fall
+            // until the chassis BoxCollider touches the ground. Freeze the
+            // already-grounded parked pose so every entry anchor keeps its
+            // authored height without paying four suspension casts per tick.
+            this.m_Rigidbody.linearVelocity = Vector3.zero;
+            this.m_Rigidbody.angularVelocity = Vector3.zero;
+            this.m_Rigidbody.constraints = RigidbodyConstraints.FreezeAll;
+            this.m_Rigidbody.Sleep();
+            this.m_ParkedRigidbodyFrozen = true;
+        }
+
+        private void ReleaseParkedRigidbody(bool wakeUp)
+        {
+            if (!this.m_ParkedRigidbodyFrozen || this.m_Rigidbody == null) return;
+
+            if (this.m_RigidbodyConstraintsCached)
+            {
+                this.m_Rigidbody.constraints =
+                    this.m_DrivingRigidbodyConstraints;
+            }
+            this.m_ParkedRigidbodyFrozen = false;
+            if (wakeUp && !this.m_Rigidbody.isKinematic)
+                this.m_Rigidbody.WakeUp();
+        }
+
+        private void SetWheelSkidRuntimeActive(bool active)
+        {
+            if (this.m_WheelSkids == null || this.m_WheelSkids.Length == 0)
+            {
+                this.m_WheelSkids = this.GetComponentsInChildren<WheelSkid>(true);
+                if (this.m_WheelSkids.Length == 0) return;
+
+                this.m_WheelSkidAudioSources =
+                    new AudioSource[this.m_WheelSkids.Length];
+                for (int i = 0; i < this.m_WheelSkids.Length; ++i)
+                {
+                    WheelSkid skid = this.m_WheelSkids[i];
+                    if (skid != null)
+                    {
+                        this.m_WheelSkidAudioSources[i] =
+                            skid.GetComponent<AudioSource>();
+                    }
+                }
+            }
+
+            if (this.m_WheelSkidRuntimeStateInitialized &&
+                this.m_WheelSkidRuntimeState == active)
+            {
+                return;
+            }
+
+            this.m_WheelSkidRuntimeStateInitialized = true;
+            this.m_WheelSkidRuntimeState = active;
+            for (int i = 0; i < this.m_WheelSkids.Length; ++i)
+            {
+                WheelSkid skid = this.m_WheelSkids[i];
+                if (skid == null) continue;
+
+                AudioSource source = this.m_WheelSkidAudioSources[i];
+                if (active)
+                {
+                    skid.enabled = true;
+                    if (source != null)
+                    {
+                        source.mute = true;
+                        if (!source.isPlaying && source.clip != null)
+                            source.Play();
+                    }
+                    continue;
+                }
+
+                skid.skidTotal = 0f;
+                skid.smoke?.stopSmoke();
+                if (source != null)
+                {
+                    source.mute = true;
+                    source.Stop();
+                }
+                skid.enabled = false;
+            }
+        }
+
+        private void RefreshActivePresentationDriver()
+        {
+            if (this.m_IsVehicleEnabled || this.m_IsPassengerPresentation)
+            {
+                s_ActivePresentationDrivers.Add(this);
+            }
+            else
+            {
+                s_ActivePresentationDrivers.Remove(this);
             }
         }
 
@@ -1118,6 +1440,15 @@ namespace FranklinGame.Vehicles
             this.m_AudioSystem.enabled = active;
             this.SetAudioSourceActive(this.m_AudioSystem.engineSound, active, true);
             this.SetAudioSourceActive(this.m_AudioSystem.GearSound, false, false);
+        }
+
+        private void SuspendEngineAudioControllers()
+        {
+            // A high-speed bailout intentionally leaves the engine loop audible.
+            // Once the bounded physics-coast handoff ends, its last idle pitch
+            // is stable; GearSystem/AudioSystem no longer need an Update loop.
+            if (this.m_GearSystem != null) this.m_GearSystem.enabled = false;
+            if (this.m_AudioSystem != null) this.m_AudioSystem.enabled = false;
         }
 
         private void SetAudioSourceActive(AudioSource source, bool active, bool loop)
@@ -1894,11 +2225,20 @@ namespace FranklinGame.Vehicles
         private void ApplyCameraOrbit()
         {
             if (this.m_RuntimeCameraOrbitTarget == null) return;
+            if (!float.IsNaN(this.m_LastAppliedCameraOrbitYaw) &&
+                Mathf.Abs(Mathf.DeltaAngle(
+                    this.m_LastAppliedCameraOrbitYaw,
+                    this.m_CameraOrbitYaw
+                )) < 0.001f)
+            {
+                return;
+            }
             this.m_RuntimeCameraOrbitTarget.localRotation = Quaternion.Euler(
                 0f,
                 this.m_CameraOrbitYaw,
                 0f
             );
+            this.m_LastAppliedCameraOrbitYaw = this.m_CameraOrbitYaw;
         }
 
         private void ResolveUnityCamera()

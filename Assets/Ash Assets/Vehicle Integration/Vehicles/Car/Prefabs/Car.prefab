@@ -3670,6 +3670,7 @@ MonoBehaviour:
   m_Health: {fileID: 8618836756706307162}
   m_Fuel: {fileID: 7112345678901234567}
   m_UpdateInterval: 0.1
+  m_WorldFollowInterval: 0.05
   m_SpeedWorldLeftOffset: 1.9
   m_SpeedWorldHeight: 0.82
   m_SpeedScreenOffset: {x: 0, y: -130}
@@ -3722,6 +3723,8 @@ MonoBehaviour:
   m_CriticalWarningFire: {fileID: 1139043333899017645}
   m_DestroyedFire: {fileID: 1599086282955692277}
   m_ParticleWind: {fileID: 185025722756399394}
+  m_LoopEffectsCullDistance: 55
+  m_LoopEffectsLodInterval: 1
   m_SmokeAudioSource: {fileID: 4377532577439156087}
   m_SmokeLoopClip: {fileID: 8300000, guid: 4409c2ca779a140c0b0093066f813b7a, type: 3}
   m_FireAudioSource: {fileID: 8659518485869937604}
@@ -3797,7 +3800,7 @@ MonoBehaviour:
   m_WorldWindAcceleration: 0.9
   m_VehicleAirflowFactor: 0.14
   m_MaximumWindAcceleration: 6
-  m_UpdateRateHz: 8
+  m_UpdateRateHz: 4
 --- !u!114 &4849837362783367216
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3828,9 +3831,9 @@ MonoBehaviour:
   m_ImpactMultiplier: 1
   m_DamageRadius: 0.5
   m_MaximumVertexDisplacement: 0.2
-  m_MaximumVertexFracture: 0.03
-  m_MaximumDentCount: 12
-  m_MaximumVerticesPerPanel: 24000
+  m_MaximumVertexFracture: 0
+  m_MaximumDentCount: 8
+  m_MaximumVerticesPerPanel: 12000
   m_SteeringDamageStartSeverity: 4.5
   m_SteeringDamageFullSeverity: 18
   m_MinSteeringBiasPerImpact: 0.005

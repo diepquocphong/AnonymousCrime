@@ -66,6 +66,11 @@ namespace FranklinGame.Vehicles
         private float m_ReachWeight;
         private bool m_IsEquipped;
         private bool m_HasWarnedMissingSetup;
+        private Transform m_LastHelmetPoseParent;
+        private Vector3 m_LastHelmetPosePosition;
+        private Vector3 m_LastHelmetPoseEuler;
+        private Vector3 m_LastHelmetPoseScale;
+        private bool m_HasAppliedHelmetPose;
 
         public bool IsEquipped => this.m_IsEquipped;
         public bool IsTransitioning => this.m_Transition != null;
@@ -144,7 +149,8 @@ namespace FranklinGame.Vehicles
                                  this.m_HelmetInstance.activeSelf;
             if (!helmetVisible && this.m_ReachWeight <= 0.0001f) return;
             if (!this.ResolveBones()) return;
-            if (helmetVisible) this.ApplyCurrentHelmetPose();
+            if (helmetVisible && this.HasHelmetPoseChanged())
+                this.ApplyCurrentHelmetPose();
             if (this.m_ReachWeight <= 0.0001f) return;
 
             Vector3 rightTarget = this.m_Head.TransformPoint(this.m_RightHandHeadOffset);
@@ -427,6 +433,12 @@ namespace FranklinGame.Vehicles
                     this.m_HeadLocalEuler,
                     this.m_HeadLocalScale
                 );
+                this.RememberHelmetPose(
+                    helmet.parent,
+                    this.m_HeadLocalPosition,
+                    this.m_HeadLocalEuler,
+                    this.m_HeadLocalScale
+                );
             }
             else if (helmet.parent == this.m_RightHand)
             {
@@ -436,7 +448,57 @@ namespace FranklinGame.Vehicles
                     this.m_HandLocalEuler,
                     this.m_HandLocalScale
                 );
+                this.RememberHelmetPose(
+                    helmet.parent,
+                    this.m_HandLocalPosition,
+                    this.m_HandLocalEuler,
+                    this.m_HandLocalScale
+                );
             }
+        }
+
+        private bool HasHelmetPoseChanged()
+        {
+            if (this.m_HelmetInstance == null) return false;
+            Transform parent = this.m_HelmetInstance.transform.parent;
+            Vector3 position;
+            Vector3 euler;
+            Vector3 scale;
+            if (parent == this.m_Head)
+            {
+                position = this.m_HeadLocalPosition;
+                euler = this.m_HeadLocalEuler;
+                scale = this.m_HeadLocalScale;
+            }
+            else if (parent == this.m_RightHand)
+            {
+                position = this.m_HandLocalPosition;
+                euler = this.m_HandLocalEuler;
+                scale = this.m_HandLocalScale;
+            }
+            else
+            {
+                return false;
+            }
+
+            return !this.m_HasAppliedHelmetPose ||
+                   this.m_LastHelmetPoseParent != parent ||
+                   this.m_LastHelmetPosePosition != position ||
+                   this.m_LastHelmetPoseEuler != euler ||
+                   this.m_LastHelmetPoseScale != scale;
+        }
+
+        private void RememberHelmetPose(
+            Transform parent,
+            Vector3 position,
+            Vector3 euler,
+            Vector3 scale)
+        {
+            this.m_LastHelmetPoseParent = parent;
+            this.m_LastHelmetPosePosition = position;
+            this.m_LastHelmetPoseEuler = euler;
+            this.m_LastHelmetPoseScale = scale;
+            this.m_HasAppliedHelmetPose = true;
         }
 
         private static void SetLocalPose(

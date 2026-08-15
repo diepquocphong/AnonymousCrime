@@ -150,6 +150,7 @@ namespace FranklinGame.Vehicles
         {
             if (m_IsDestroyed) return;
             m_IsDestroyed = true;
+            m_Driver?.StopCrashEngineImmediately();
             m_Health?.SetTerminallyDestroyed();
 
             Character occupant = m_CapturedOccupant ??
@@ -190,6 +191,10 @@ namespace FranklinGame.Vehicles
                 );
             }
             m_Driver?.SetDamageLocked(true);
+            // ActivateRagdoll/ReleaseForCrash can enter the ordinary crash path,
+            // which intentionally keeps the engine alive for a short time. A
+            // terminal wreck must override that state after every crash callback.
+            m_Driver?.StopCrashEngineImmediately();
             ApplyCharredAppearance(m_BikeRenderers, m_CharredBikeColor);
             DetachAndThrowExplosionParts(fallSign);
 

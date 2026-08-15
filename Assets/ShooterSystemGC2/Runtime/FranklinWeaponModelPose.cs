@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace FranklinGame.Shooter
 {
@@ -12,9 +13,15 @@ namespace FranklinGame.Shooter
         private const float STATE_TRANSITION = 0.02f;
 
         [SerializeField] private GameObject m_Model;
+        [SerializeField] private bool m_OptimizeRenderersForMobile = true;
 
         private Animator m_GameplayAnimator;
         private Animator m_ModelAnimator;
+        private RuntimeAnimatorController m_CachedController;
+        private AnimatorControllerParameter[] m_CachedParameters =
+            System.Array.Empty<AnimatorControllerParameter>();
+        private int m_CachedLayerCount;
+        private bool m_RenderersOptimized;
 
         public GameObject Model => this.m_Model;
         public Transform ModelTransform => this.m_Model != null ? this.m_Model.transform : null;
@@ -30,7 +37,13 @@ namespace FranklinGame.Shooter
 
             this.m_Model = Instantiate(modelPrefab, this.transform, false);
             this.m_Model.name = $"{modelPrefab.name} Visual Model";
+            this.m_ModelAnimator = null;
+            this.m_RenderersOptimized = false;
+            this.m_CachedController = null;
+            this.m_CachedParameters = System.Array.Empty<AnimatorControllerParameter>();
+            this.m_CachedLayerCount = 0;
             this.Apply(localPosition, localRotation, localScale);
+            this.OptimizeRenderers();
         }
 
         public void Apply(
@@ -53,6 +66,7 @@ namespace FranklinGame.Shooter
         public void BindAnimator()
         {
             if (this.m_Model == null) return;
+            this.OptimizeRenderers();
             this.m_GameplayAnimator = this.GetComponent<Animator>();
             if (this.m_GameplayAnimator == null) return;
 
@@ -75,8 +89,10 @@ namespace FranklinGame.Shooter
             if (this.m_ModelAnimator == null)
                 this.m_ModelAnimator = this.m_Model.AddComponent<Animator>();
 
-            if (this.m_ModelAnimator.runtimeAnimatorController !=
-                this.m_GameplayAnimator.runtimeAnimatorController)
+            RuntimeAnimatorController gameplayController =
+                this.m_GameplayAnimator.runtimeAnimatorController;
+            if (this.m_CachedController != gameplayController ||
+                this.m_ModelAnimator.runtimeAnimatorController != gameplayController)
             {
                 this.CopyAnimatorConfiguration();
             }
@@ -93,8 +109,47 @@ namespace FranklinGame.Shooter
             this.m_ModelAnimator.avatar = this.m_GameplayAnimator.avatar;
             this.m_ModelAnimator.applyRootMotion = false;
             this.m_ModelAnimator.updateMode = this.m_GameplayAnimator.updateMode;
-            this.m_ModelAnimator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            // The rendered Weapons Low model never owns muzzle/IK gameplay transforms.
+            // Let Unity skip its transform evaluation while it is outside the camera,
+            // which is important for mobile when several pooled weapon props exist.
+            this.m_ModelAnimator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
             this.m_ModelAnimator.speed = this.m_GameplayAnimator.speed;
+
+            this.m_CachedController = this.m_GameplayAnimator.runtimeAnimatorController;
+            this.m_CachedParameters = this.m_CachedController != null
+                ? this.m_GameplayAnimator.parameters
+                : System.Array.Empty<AnimatorControllerParameter>();
+            this.m_CachedLayerCount = Mathf.Min(
+                this.m_GameplayAnimator.layerCount,
+                this.m_ModelAnimator.layerCount
+            );
+        }
+
+        private void OptimizeRenderers()
+        {
+            if (this.m_RenderersOptimized || !this.m_OptimizeRenderersForMobile ||
+                this.m_Model == null)
+            {
+                return;
+            }
+
+            Renderer[] renderers = this.m_Model.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; ++i)
+            {
+                Renderer item = renderers[i];
+                if (item == null) continue;
+
+                // Weapon gameplay uses the GC2 prop root, not renderer transforms.
+                // These low-poly visuals do not need extra shadow, probe or motion-vector
+                // passes on mobile; the normal URP light still shades their material.
+                item.shadowCastingMode = ShadowCastingMode.Off;
+                item.receiveShadows = false;
+                item.lightProbeUsage = LightProbeUsage.Off;
+                item.reflectionProbeUsage = ReflectionProbeUsage.Off;
+                item.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
+            }
+
+            this.m_RenderersOptimized = true;
         }
 
         private void SyncAnimatorParameters()
@@ -102,8 +157,11 @@ namespace FranklinGame.Shooter
             if (this.m_GameplayAnimator.runtimeAnimatorController == null ||
                 this.m_ModelAnimator.runtimeAnimatorController == null) return;
 
-            foreach (AnimatorControllerParameter parameter in this.m_GameplayAnimator.parameters)
+            // Animator.parameters returns a new array. Cache it when the controller changes
+            // instead of allocating once per rendered frame while a weapon is equipped.
+            for (int i = 0; i < this.m_CachedParameters.Length; ++i)
             {
+                AnimatorControllerParameter parameter = this.m_CachedParameters[i];
                 switch (parameter.type)
                 {
                     case AnimatorControllerParameterType.Bool:
@@ -135,11 +193,7 @@ namespace FranklinGame.Shooter
                 this.m_GameplayAnimator.runtimeAnimatorController == null ||
                 this.m_ModelAnimator.runtimeAnimatorController == null) return;
 
-            int layers = Mathf.Min(
-                this.m_GameplayAnimator.layerCount,
-                this.m_ModelAnimator.layerCount
-            );
-            for (int layer = 0; layer < layers; ++layer)
+            for (int layer = 0; layer < this.m_CachedLayerCount; ++layer)
             {
                 AnimatorStateInfo source = this.m_GameplayAnimator.IsInTransition(layer)
                     ? this.m_GameplayAnimator.GetNextAnimatorStateInfo(layer)

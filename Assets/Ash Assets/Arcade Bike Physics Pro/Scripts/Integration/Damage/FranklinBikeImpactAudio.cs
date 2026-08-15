@@ -63,11 +63,7 @@ namespace FranklinGame.Vehicles
             m_DebrisConfigurationVersion = CurrentDebrisConfigurationVersion;
             if (!Application.isPlaying) return;
 
-            if (m_MetalDebrisParticles == null)
-            {
-                BuildMetalDebrisSystem();
-            }
-            else
+            if (m_MetalDebrisParticles != null)
             {
                 ParticleSystemRenderer particleRenderer =
                     m_MetalDebrisParticles.GetComponent<ParticleSystemRenderer>();
@@ -115,7 +111,6 @@ namespace FranklinGame.Vehicles
         {
             base.Awake();
             m_DebrisBody = GetComponent<Rigidbody>();
-            BuildMetalDebrisSystem();
         }
 
         protected override void OnDisable()
@@ -193,7 +188,7 @@ namespace FranklinGame.Vehicles
             main.maxParticles = DebrisParticleCap;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.scalingMode = ParticleSystemScalingMode.Shape;
-            main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
+            main.cullingMode = ParticleSystemCullingMode.Automatic;
             main.startLifetime = new ParticleSystem.MinMaxCurve(
                 m_DebrisLifetime.x,
                 m_DebrisLifetime.y
@@ -270,10 +265,12 @@ namespace FranklinGame.Vehicles
 
         private bool EmitMetalDebris(Collision collision, float severity)
         {
-            if (!m_EnableMetalDebris || m_MetalDebrisParticles == null || collision == null)
+            if (!m_EnableMetalDebris || m_MetalDebrisMaterial == null || collision == null)
             {
                 return false;
             }
+            if (m_MetalDebrisParticles == null) BuildMetalDebrisSystem();
+            if (m_MetalDebrisParticles == null) return false;
 
             Vector3 position = transform.position;
             Vector3 normal = transform.up;

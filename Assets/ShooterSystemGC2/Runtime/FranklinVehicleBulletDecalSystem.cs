@@ -23,12 +23,14 @@ namespace FranklinGame.Shooter
         private const string SHADER_NAME = "Franklin Game/Vehicle Bullet Decal Mobile";
 
         // A fixed circular buffer avoids Instantiate/Destroy and bounds mobile cost.
-        private const int MAX_VEHICLE_MARKS = 48;
-        private const int MAX_SURFACE_MARKS = 96;
+        private const int MAX_VEHICLE_MARKS = 32;
+        private const int MAX_SURFACE_MARKS = 64;
+        private const int MAX_VEHICLE_MARKS_PER_FRAME = 4;
+        private const int MAX_SURFACE_MARKS_PER_FRAME = 6;
         private const int DEFAULT_LAYER = 0;
-        private const float VEHICLE_MARK_LIFETIME = 45f;
-        private const float SURFACE_MARK_LIFETIME = 60f;
-        private const float MAX_DRAW_DISTANCE = 36f;
+        private const float VEHICLE_MARK_LIFETIME = 30f;
+        private const float SURFACE_MARK_LIFETIME = 40f;
+        private const float MAX_DRAW_DISTANCE = 32f;
         private const float SURFACE_OFFSET = 0.003f;
         private const float NORMAL_RAY_OFFSET = 0.08f;
         private const float NORMAL_RAY_DISTANCE = 0.18f;
@@ -55,6 +57,9 @@ namespace FranklinGame.Shooter
 
         private int m_NextVehicleMark;
         private int m_NextSurfaceMark;
+        private int m_BudgetFrame = -1;
+        private int m_VehicleMarksThisFrame;
+        private int m_SurfaceMarksThisFrame;
         private Mesh m_Quad;
         private Material m_VehicleMaterial;
         private Material m_SurfaceMaterial;
@@ -86,7 +91,7 @@ namespace FranklinGame.Shooter
             Vector3 normal = ResolveSurfaceNormal(collider, hitPoint, direction);
 
             FranklinVehicleBulletDecalSystem system = GetOrCreate();
-            if (system == null) return;
+            if (system == null || !system.TryConsumeMarkBudget(true)) return;
             system.AddMark(
                 system.m_VehicleMarks,
                 ref system.m_NextVehicleMark,
@@ -125,7 +130,7 @@ namespace FranklinGame.Shooter
             if (Vector3.Dot(normal, Vector3.up) < MIN_SUPPORTED_SURFACE_NORMAL_Y) return;
 
             FranklinVehicleBulletDecalSystem system = GetOrCreate();
-            if (system == null) return;
+            if (system == null || !system.TryConsumeMarkBudget(false)) return;
             system.AddMark(
                 system.m_SurfaceMarks,
                 ref system.m_NextSurfaceMark,
@@ -204,6 +209,9 @@ namespace FranklinGame.Shooter
                 "Environment Bullet Hole Runtime",
                 out this.m_OwnsSurfaceMaterial
             );
+
+            // No marks exist yet. Stay out of Unity's LateUpdate list until the first hit.
+            this.enabled = false;
         }
 
         private void LateUpdate()
@@ -217,7 +225,7 @@ namespace FranklinGame.Shooter
             bool useDistanceCulling = this.m_Camera != null;
             float maxDistanceSquared = MAX_DRAW_DISTANCE * MAX_DRAW_DISTANCE;
             float now = Time.time;
-            this.RenderMarks(
+            bool hasVehicleMarks = this.RenderMarks(
                 this.m_VehicleMarks,
                 this.m_VehicleMatrices,
                 this.m_VehicleMaterial,
@@ -226,7 +234,7 @@ namespace FranklinGame.Shooter
                 useDistanceCulling,
                 maxDistanceSquared
             );
-            this.RenderMarks(
+            bool hasSurfaceMarks = this.RenderMarks(
                 this.m_SurfaceMarks,
                 this.m_SurfaceMatrices,
                 this.m_SurfaceMaterial,
@@ -235,9 +243,11 @@ namespace FranklinGame.Shooter
                 useDistanceCulling,
                 maxDistanceSquared
             );
+
+            if (!hasVehicleMarks && !hasSurfaceMarks) this.enabled = false;
         }
 
-        private void RenderMarks(
+        private bool RenderMarks(
             Mark[] marks,
             Matrix4x4[] matrices,
             Material material,
@@ -246,9 +256,10 @@ namespace FranklinGame.Shooter
             bool useDistanceCulling,
             float maxDistanceSquared)
         {
-            if (material == null) return;
+            if (material == null) return false;
 
             int count = 0;
+            bool hasActiveMarks = false;
 
             for (int i = 0; i < marks.Length; ++i)
             {
@@ -261,6 +272,7 @@ namespace FranklinGame.Shooter
                     continue;
                 }
 
+                hasActiveMarks = true;
                 Vector3 position = mark.Anchor.TransformPoint(mark.LocalPosition);
                 if (useDistanceCulling &&
                     (position - cameraPosition).sqrMagnitude > maxDistanceSquared)
@@ -276,7 +288,7 @@ namespace FranklinGame.Shooter
                 );
             }
 
-            if (count == 0) return;
+            if (count == 0) return hasActiveMarks;
 
             RenderParams renderParams = new(material)
             {
@@ -292,6 +304,7 @@ namespace FranklinGame.Shooter
                 matrices,
                 count
             );
+            return hasActiveMarks;
         }
 
         private void AddMark(
@@ -336,6 +349,31 @@ namespace FranklinGame.Shooter
                 ExpireAt = Time.time + lifetime
             };
             nextMark = (nextMark + 1) % marks.Length;
+            this.enabled = true;
+        }
+
+        private bool TryConsumeMarkBudget(bool vehicle)
+        {
+            int frame = Time.frameCount;
+            if (this.m_BudgetFrame != frame)
+            {
+                this.m_BudgetFrame = frame;
+                this.m_VehicleMarksThisFrame = 0;
+                this.m_SurfaceMarksThisFrame = 0;
+            }
+
+            if (vehicle)
+            {
+                if (this.m_VehicleMarksThisFrame >= MAX_VEHICLE_MARKS_PER_FRAME)
+                    return false;
+                this.m_VehicleMarksThisFrame += 1;
+                return true;
+            }
+
+            if (this.m_SurfaceMarksThisFrame >= MAX_SURFACE_MARKS_PER_FRAME)
+                return false;
+            this.m_SurfaceMarksThisFrame += 1;
+            return true;
         }
 
         private void OnDestroy()
