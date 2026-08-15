@@ -56,7 +56,7 @@ namespace FranklinGame.Melee.Editor
 
         private const int COMBAT_LOCOMOTION_LAYER = 1;
         private const int FAST_LOCOMOTION_LAYER = 2;
-        private const float COMBAT_LOCOMOTION_IDLE_TIMEOUT = 5f;
+        private const float COMBAT_LOCOMOTION_IDLE_TIMEOUT = 2f;
 
         private const string LEFT_HAND_ID = "franklin-left-hand";
         private const string RIGHT_HAND_ID = "franklin-right-hand";

@@ -530,6 +530,16 @@ internal static class FranklinBikeImpactInstaller
             root.GetComponent<FranklinBikeDestruction>();
         if (destruction == null)
             destruction = root.AddComponent<FranklinBikeDestruction>();
+        Transform frontWheelDebris = FindTransform(root, "FrontWheelTarget");
+        Transform rearWheelDebris = FindTransform(root, "RearWheelTarget");
+        Transform engineDebris = FindEngineDebrisTransform(renderedBody);
+        if (frontWheelDebris == null || rearWheelDebris == null ||
+            engineDebris == null)
+        {
+            throw new InvalidOperationException(
+                $"{root.name} is missing a wheel or central mechanical debris target."
+            );
+        }
         destruction.Configure(
             health,
             driver,
@@ -537,6 +547,9 @@ internal static class FranklinBikeImpactInstaller
             entry,
             body,
             bikeRenderers,
+            frontWheelDebris,
+            rearWheelDebris,
+            engineDebris,
             occupantFireRoot.gameObject,
             "hp"
         );
@@ -1203,6 +1216,45 @@ internal static class FranklinBikeImpactInstaller
     {
         return root.GetComponentsInChildren<Transform>(true)
             .FirstOrDefault(candidate => candidate.name == name);
+    }
+
+    private static Transform FindEngineDebrisTransform(Transform renderedBody)
+    {
+        if (renderedBody == null) return null;
+
+        Transform best = null;
+        float bestScore = float.NegativeInfinity;
+        for (int i = 0; i < renderedBody.childCount; ++i)
+        {
+            Transform candidate = renderedBody.GetChild(i);
+            if (candidate == null || candidate.GetComponent<Renderer>() == null ||
+                candidate.localPosition.z > -0.15f)
+            {
+                continue;
+            }
+
+            string name = candidate.name;
+            float score = -Mathf.Abs(candidate.localPosition.z + 0.45f) * 10f;
+            if (name.IndexOf("Body_Solid", StringComparison.OrdinalIgnoreCase) >= 0)
+                score += 40f;
+            else if (name.IndexOf(
+                         "Texture_04_Part",
+                         StringComparison.OrdinalIgnoreCase
+                     ) >= 0)
+                score += 30f;
+            else if (name.IndexOf(
+                         "Texture_02_Part",
+                         StringComparison.OrdinalIgnoreCase
+                     ) >= 0)
+                score += 15f;
+            else
+                continue;
+
+            if (score <= bestScore) continue;
+            bestScore = score;
+            best = candidate;
+        }
+        return best;
     }
 }
 #endif

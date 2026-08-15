@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading.Tasks;
 using FranklinGame.Animations;
+using FranklinGame.Melee;
 using FranklinGame.UI;
 using FranklinGame.Vehicles;
 using GameCreator.Runtime.Characters;
@@ -33,14 +34,20 @@ namespace FranklinGame.Shooter
 
         private const string CATALOG_RESOURCE = "FranklinShooter/Franklin Shooter Catalog";
         private const string BACKGROUND_RESOURCE = "FranklinShooter/UI/weapon-wheel-background";
+        private const string FIRST_PERSON_ICON_RESOURCE =
+            "FranklinShooter/UI/Controls/first-person-camera";
+        private const string MOVEMENT_FIRST_PERSON_PREFERENCE_KEY =
+            "Franklin.Camera.OnFoot.Movement.FirstPerson";
+        private const string SHOOTER_FIRST_PERSON_PREFERENCE_KEY =
+            "Franklin.Camera.OnFoot.Shooter.FirstPerson";
         private const string BIKE_DRIVER_MASK_RESOURCE =
             "FranklinShooter/Animations/Franklin Bike Driver Seat And Left Hand";
-        private const string CAUTIOUS_LOCOMOTION_RESOURCE =
+        private const string SHOOTER_LOCOMOTION_RESOURCE =
             "FranklinShooter/Animations/Franklin Shooter Upper Body Locomotion";
         private const int SHOOTER_LOCOMOTION_LAYER = 7;
         private const float SHOOTER_LOCOMOTION_TRANSITION = 0.25f;
         private const float AIM_POSE_READY_DELAY = 0.30f;
-        private const float OBJECT_DIRECTION_IDLE_SECONDS = 5f;
+        private const float OBJECT_DIRECTION_IDLE_SECONDS = 1f;
         private const float PLAYER_RETRY_SECONDS = 0.4f;
         private const float CROSSHAIR_EXPANSION_SCALE = 0.5f;
         private const float CROSSHAIR_SCAN_SECONDS = 0.1f;
@@ -50,6 +57,12 @@ namespace FranklinGame.Shooter
             new(-113f, 94f);
         private static readonly Vector2 BIKE_FIRE_POSITION =
             new(-690f, 190f);
+        private static readonly Vector2 BIKE_MELEE_POSITION =
+            new(-875f, 190f);
+        private static readonly Vector2 ON_FOOT_MELEE_POSITION =
+            new(-83.1f, 254.9f);
+        private static readonly Vector2 ON_FOOT_FIRST_PERSON_POSITION =
+            new(-83f, 410f);
 
         private const BindingFlags CROSSHAIR_FIELD_FLAGS =
             BindingFlags.Instance | BindingFlags.NonPublic;
@@ -60,7 +73,6 @@ namespace FranklinGame.Shooter
             typeof(CrosshairUI).GetField("m_PositionX", CROSSHAIR_FIELD_FLAGS);
         private static readonly FieldInfo CROSSHAIR_POSITION_Y =
             typeof(CrosshairUI).GetField("m_PositionY", CROSSHAIR_FIELD_FLAGS);
-
         private static readonly Color CYAN = new(0.13f, 0.82f, 1f, 1f);
         private static readonly Color LIME = new(0.63f, 1f, 0.18f, 1f);
         private static readonly Color OFF_WHITE = new(0.92f, 0.94f, 0.94f, 1f);
@@ -73,7 +85,7 @@ namespace FranklinGame.Shooter
         private static bool s_PhoneUseActive;
 
         private FranklinShooterCatalog m_Catalog;
-        private StateBasicLocomotion m_CautiousLocomotion;
+        private StateBasicLocomotion m_ShooterLocomotion;
         private Character m_Player;
         private float m_NextPlayerLookup;
         private int m_SelectedIndex = -1;
@@ -85,6 +97,9 @@ namespace FranklinGame.Shooter
         private ShooterWeapon m_SingleRepeatWeapon;
         private int m_LastSingleRepeatShotFrame = int.MinValue;
         private bool m_CautiousWalk;
+        private bool m_MovementFirstPersonPreferred;
+        private bool m_ShooterFirstPersonPreferred;
+        private bool m_FirstPersonUsesShooterPreference;
         private bool m_HudTapBound;
         private float m_NextHudTapLookup;
         private float m_NextControlLookup;
@@ -93,6 +108,7 @@ namespace FranklinGame.Shooter
         private bool m_MeleeFightWasActive;
         private bool m_SidestepVisibilityWasEnabled;
         private bool m_OwnsIdleVariationSuppression;
+        private bool m_OwnsFireMovementSuppression;
         private bool m_OwnsObjectDirection;
         private float m_ObjectDirectionReturnAt = -1f;
         private ShooterWeapon m_ObservedShotWeapon;
@@ -111,6 +127,13 @@ namespace FranklinGame.Shooter
         private int m_BikeWeaponTransitionVersion;
         private bool m_BikeWeaponRestoreRequested;
         private Task m_BikeWeaponTask = Task.CompletedTask;
+        private bool m_BikeStuntActive;
+        private Character m_BikeStuntSuspendedPlayer;
+        private ShooterWeapon m_BikeStuntSuspendedWeapon;
+        private GameObject m_BikeStuntSuspendedProp;
+        private int m_BikeStuntSuspendedWeaponIndex = -1;
+        private int m_BikeStuntTransitionVersion;
+        private Task m_BikeStuntTask = Task.CompletedTask;
         private bool m_PhoneUseActive;
         private int m_PhoneSuspendedWeaponIndex = -1;
         private Character m_PhoneSuspendedPlayer;
@@ -129,8 +152,12 @@ namespace FranklinGame.Shooter
         private GameObject m_MeleeSidestepLeft;
         private GameObject m_MeleeSidestepRight;
         private Behaviour m_SidestepVisibility;
+        private FranklinMeleeController m_MeleeController;
         private FranklinAnimationBridge m_AnimationBridge;
         private FranklinObjectDirectionToggle m_ObjectDirectionToggle;
+        private FranklinShooterFirstPersonCamera m_FirstPersonCamera;
+        private GameObject m_FirstPersonControlRoot;
+        private FranklinShooterTouchButton m_FirstPersonButton;
         private Image m_SelectedIcon;
         private Image m_MeleeSwitchImage;
         private FranklinShooterTouchButton m_CautiousWalkButton;
@@ -183,6 +210,18 @@ namespace FranklinGame.Shooter
         }
 
         /// <summary>
+        /// Temporarily unequips the rider's exact Shooter weapon while Wheelie or
+        /// Burnout owns both hands. Releasing the stunt restores the cached weapon
+        /// and prop instead of creating a replacement instance.
+        /// </summary>
+        public static void SetBikeStuntWeaponSuppressed(
+            Character character,
+            bool active)
+        {
+            s_Instance?.SetBikeStuntWeaponSuppressedInternal(character, active);
+        }
+
+        /// <summary>
         /// Temporarily puts the active Shooter weapon away while the physical phone
         /// owns the right hand. Closing the phone restores the same catalog weapon.
         /// </summary>
@@ -218,9 +257,28 @@ namespace FranklinGame.Shooter
 
             s_Instance = this;
             DontDestroyOnLoad(this.gameObject);
+            this.m_FirstPersonCamera =
+                this.GetComponent<FranklinShooterFirstPersonCamera>() ??
+                this.gameObject.AddComponent<FranklinShooterFirstPersonCamera>();
+            this.m_MovementFirstPersonPreferred = PlayerPrefs.GetInt(
+                MOVEMENT_FIRST_PERSON_PREFERENCE_KEY,
+                0
+            ) != 0;
+            this.m_ShooterFirstPersonPreferred = PlayerPrefs.GetInt(
+                SHOOTER_FIRST_PERSON_PREFERENCE_KEY,
+                0
+            ) != 0;
             this.m_Catalog = Resources.Load<FranklinShooterCatalog>(CATALOG_RESOURCE);
-            this.m_CautiousLocomotion =
-                Resources.Load<StateBasicLocomotion>(CAUTIOUS_LOCOMOTION_RESOURCE);
+            this.m_ShooterLocomotion =
+                Resources.Load<StateBasicLocomotion>(SHOOTER_LOCOMOTION_RESOURCE);
+            if (this.m_ShooterLocomotion == null)
+            {
+                Debug.LogError(
+                    $"Shooter_Locomotion is missing at Resources/{SHOOTER_LOCOMOTION_RESOURCE}. " +
+                    "Run Tools/Franklin Game/Shooter System GC2/Install or Repair.",
+                    this
+                );
+            }
             if (this.m_Catalog == null)
             {
                 Debug.LogError(
@@ -268,6 +326,19 @@ namespace FranklinGame.Shooter
             }
 
             this.RefreshBikeSeatContext();
+
+            // GC2 states may be stopped by another transition while the fire button remains
+            // held. Re-enter the exact Shooter_Locomotion as soon as layer 7 becomes free.
+            // The seated vehicle state remains authoritative while riding.
+            if (this.m_BikeSeatRole == BikeSeatRole.None &&
+                (this.m_Aiming || this.m_FireHeld || this.m_TriggerPulled) &&
+                this.m_Player != null &&
+                this.m_ShooterLocomotion != null &&
+                this.m_Player.States.IsAvailable(SHOOTER_LOCOMOTION_LAYER))
+            {
+                this.SetShooterLocomotionActive(true);
+            }
+
             this.RefreshBikeReloadState();
             this.RefreshReloadIndicator();
             this.RefreshHeldSingleFire();
@@ -318,7 +389,7 @@ namespace FranklinGame.Shooter
         public void OpenWeaponMenu()
         {
             if (this.m_MenuRoot == null || this.m_Catalog == null ||
-                this.m_PhoneUseActive) return;
+                this.m_PhoneUseActive || this.m_BikeStuntActive) return;
             if ((this.m_FireHeld || this.m_TriggerPulled) && this.m_Player != null)
             {
                 ShooterWeapon active = this.GetActiveWeapon();
@@ -357,12 +428,26 @@ namespace FranklinGame.Shooter
         {
             if (this.m_Player == null || this.IsWeaponMenuOpen ||
                 this.m_PhoneUseActive) return;
+            if (action == FranklinShooterTouchButton.Action.FirstPersonCamera)
+            {
+                if (active)
+                {
+                    bool shooterPreference = this.ResolveFirstPersonPreferenceMode();
+                    bool preferred = shooterPreference
+                        ? !this.m_ShooterFirstPersonPreferred
+                        : !this.m_MovementFirstPersonPreferred;
+                    this.SetFirstPersonPreference(shooterPreference, preferred);
+                    this.ApplyFirstPersonPreference();
+                    this.RefreshFirstPersonControl();
+                }
+                return;
+            }
+
             ShooterWeapon weapon = this.GetActiveWeapon();
             if (weapon == null) return;
             if (!this.CanUseWeaponInCurrentSeat(weapon)) return;
             if (this.m_BikeSeatRole != BikeSeatRole.None &&
-                (action == FranklinShooterTouchButton.Action.Melee ||
-                 action == FranklinShooterTouchButton.Action.CautiousWalk ||
+                (action == FranklinShooterTouchButton.Action.CautiousWalk ||
                  action == FranklinShooterTouchButton.Action.Reload &&
                  this.m_BikeSeatRole == BikeSeatRole.Driver))
             {
@@ -403,6 +488,19 @@ namespace FranklinGame.Shooter
             }
         }
 
+        public void SetBikeFirstPersonOrbitSuppressed(bool suppressed)
+        {
+            this.m_FirstPersonCamera?.SetOrbitSuppressed(suppressed);
+            if (this.m_BikeSeatRole == BikeSeatRole.None) return;
+            if (this.m_BikeCameraAim == null && this.m_Player != null)
+            {
+                this.m_BikeCameraAim = this.m_Player
+                    .GetComponentInChildren<FranklinBikeMainShotAim>(true);
+            }
+
+            this.m_BikeCameraAim?.SetFirstPersonOrbitSuppressed(suppressed);
+        }
+
         private async Task<bool> TryBindPlayer(bool immediate)
         {
             if (this.m_Catalog == null) return false;
@@ -413,12 +511,19 @@ namespace FranklinGame.Shooter
 
             this.UnbindPlayer();
             this.m_Player = player;
+            this.m_FirstPersonCamera?.Initialize(this.m_Player);
+            this.m_MeleeController =
+                this.m_Player.GetComponent<FranklinMeleeController>();
             this.m_AnimationBridge = this.m_Player.GetComponentInChildren<FranklinAnimationBridge>(true);
             this.m_BikeCameraAim =
                 this.m_Player.GetComponentInChildren<FranklinBikeMainShotAim>(true);
             this.m_Player.Combat.EventEquip += this.OnWeaponChanged;
             this.m_Player.Combat.EventUnequip += this.OnWeaponChanged;
             this.RefreshSelectedIndex();
+            if (this.GetActiveWeapon() != null)
+            {
+                this.CancelMeleeForShooterEquip();
+            }
 
             if (this.m_PhoneUseActive)
             {
@@ -436,6 +541,7 @@ namespace FranklinGame.Shooter
 
         private void UnbindPlayer()
         {
+            this.m_FirstPersonCamera?.Initialize(null);
             ShooterWeapon activeWeapon = this.GetActiveWeapon();
             if (this.m_Player != null && activeWeapon != null)
             {
@@ -448,6 +554,7 @@ namespace FranklinGame.Shooter
             }
 
             this.SetCautiousWalk(false, true);
+            this.SetShooterLocomotionActive(false);
             this.SetObjectDirectionForShooting(false);
             this.ResetShotDirectionTracking();
             this.SetIdleAnimationSuppressed(false);
@@ -459,14 +566,19 @@ namespace FranklinGame.Shooter
 
             this.ClearPhoneSuspendedWeapon(true);
             this.ClearBikeSuspendedWeapon(true);
+            this.ClearBikeStuntSuspendedWeapon(true);
             this.m_Player = null;
+            this.m_MeleeController = null;
             this.m_AnimationBridge = null;
             this.m_ObjectDirectionToggle = null;
             ++this.m_PhoneTransitionVersion;
             ++this.m_BikeWeaponTransitionVersion;
+            ++this.m_BikeStuntTransitionVersion;
+            this.m_BikeStuntActive = false;
             this.m_PhoneSuspendedWeaponIndex = -1;
             this.m_PhoneSuspendTask = Task.CompletedTask;
             this.m_BikeWeaponTask = Task.CompletedTask;
+            this.m_BikeStuntTask = Task.CompletedTask;
             this.ClearBikeSeatContext();
             this.m_FireHeld = false;
             this.m_Aiming = false;
@@ -480,7 +592,7 @@ namespace FranklinGame.Shooter
             bool initializeEmptyMagazine = true)
         {
             if (this.m_IsSwitching || this.m_Player == null ||
-                this.m_PhoneUseActive) return false;
+                this.m_PhoneUseActive || this.m_BikeStuntActive) return false;
             FranklinShooterCatalog.Entry entry = this.m_Catalog.Get(index);
             if (entry?.Weapon == null || entry.PropPrefab == null) return false;
             if (this.m_BikeSeatRole == BikeSeatRole.Driver &&
@@ -496,6 +608,8 @@ namespace FranklinGame.Shooter
             }
 
             this.m_IsSwitching = true;
+            this.CancelMeleeForShooterEquip();
+            this.RefreshControlMode();
             try
             {
                 ShooterWeapon active = this.GetActiveWeapon();
@@ -519,9 +633,22 @@ namespace FranklinGame.Shooter
                     if (oldProp != null) this.m_Player.Props.RemoveInstance(oldProp);
                 }
 
-                GameObject prop = Instantiate(entry.PropPrefab);
-                prop.name = entry.DisplayName + " Weapon Prop";
-                prop.transform.localScale = Vector3.Scale(prop.transform.localScale, entry.LocalScale);
+                GameObject prop = new(entry.DisplayName + " Weapon Gameplay Root")
+                {
+                    layer = entry.PropPrefab.layer
+                };
+                prop.transform.localScale = Vector3.Scale(
+                    entry.PropPrefab.transform.localScale,
+                    entry.LocalScale
+                );
+                FranklinWeaponModelPose modelPose =
+                    prop.AddComponent<FranklinWeaponModelPose>();
+                modelPose.Initialize(
+                    entry.PropPrefab,
+                    entry.ModelLocalPosition,
+                    entry.ModelLocalRotation,
+                    entry.ModelLocalScale
+                );
                 this.m_Player.Props.AttachInstance(
                     new Bone(HumanBodyBones.RightHand), prop,
                     entry.LocalPosition, entry.LocalRotation
@@ -531,6 +658,7 @@ namespace FranklinGame.Shooter
                     prop,
                     new Args(this.m_Player.gameObject, prop)
                 );
+                modelPose.BindAnimator();
 
                 if (initializeEmptyMagazine &&
                     this.m_Player.Combat.RequestMunition(entry.Weapon) is ShooterMunition munition &&
@@ -582,6 +710,15 @@ namespace FranklinGame.Shooter
                         this.m_PhoneSuspendTask
                     );
                 }
+                if (!active &&
+                    !this.m_BikeStuntActive &&
+                    this.m_BikeStuntSuspendedWeapon != null)
+                {
+                    this.QueueBikeStuntWeaponRestore(
+                        this.m_Player,
+                        this.m_PhoneSuspendTask
+                    );
+                }
                 return;
             }
 
@@ -600,6 +737,14 @@ namespace FranklinGame.Shooter
                 if (this.m_BikeWeaponRestoreRequested)
                 {
                     this.QueueBikeDriverWeaponRestore(
+                        this.m_Player,
+                        this.m_PhoneSuspendTask
+                    );
+                }
+                if (!this.m_BikeStuntActive &&
+                    this.m_BikeStuntSuspendedWeapon != null)
+                {
+                    this.QueueBikeStuntWeaponRestore(
                         this.m_Player,
                         this.m_PhoneSuspendTask
                     );
@@ -723,6 +868,8 @@ namespace FranklinGame.Shooter
             }
 
             this.m_IsSwitching = true;
+            this.CancelMeleeForShooterEquip();
+            this.RefreshControlMode();
             bool restored = false;
             try
             {
@@ -780,6 +927,241 @@ namespace FranklinGame.Shooter
             this.m_PhoneSuspendedWeapon = null;
             this.m_PhoneSuspendedProp = null;
             this.m_PhoneSuspendedWeaponIndex = -1;
+        }
+
+        private void SetBikeStuntWeaponSuppressedInternal(
+            Character character,
+            bool active)
+        {
+            if (character == null || character != this.m_Player) return;
+
+            if (this.m_BikeStuntActive == active)
+            {
+                if (!active && this.m_BikeStuntSuspendedWeapon != null)
+                    this.QueueBikeStuntWeaponRestore(character, null);
+                return;
+            }
+
+            this.m_BikeStuntActive = active;
+            int version = ++this.m_BikeStuntTransitionVersion;
+            Task pending = this.m_BikeStuntTask;
+            this.m_BikeStuntTask = active
+                ? this.SuspendWeaponForBikeStunt(character, version, pending)
+                : this.RestoreWeaponAfterBikeStunt(
+                    character,
+                    version,
+                    pending,
+                    null
+                );
+            this.RefreshControlMode();
+        }
+
+        private async Task SuspendWeaponForBikeStunt(
+            Character character,
+            int version,
+            Task pending)
+        {
+            if (pending != null)
+            {
+                try
+                {
+                    await pending;
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception, this);
+                }
+            }
+
+            while (this.m_IsSwitching && this.m_BikeStuntActive && this != null)
+                await Task.Yield();
+            if (this == null ||
+                version != this.m_BikeStuntTransitionVersion ||
+                !this.m_BikeStuntActive ||
+                character == null ||
+                character != this.m_Player ||
+                this.m_BikeStuntSuspendedWeapon != null)
+            {
+                return;
+            }
+
+            ShooterWeapon weapon = this.GetActiveWeapon();
+            if (weapon == null) return;
+
+            ShooterStance stance = character.Combat.RequestStance<ShooterStance>();
+            this.CancelFireRequest(weapon, stance, true);
+            this.SetCautiousWalk(false, true);
+            this.SetObjectDirectionForShooting(false);
+            this.SetBikeShooterAim(false);
+
+            GameObject prop = character.Combat.GetProp(weapon);
+            this.m_BikeStuntSuspendedPlayer = character;
+            this.m_BikeStuntSuspendedWeapon = weapon;
+            this.m_BikeStuntSuspendedProp = prop;
+            this.m_BikeStuntSuspendedWeaponIndex =
+                this.m_Catalog?.IndexOf(weapon) ?? -1;
+            if (prop != null) prop.SetActive(false);
+
+            this.m_IsSwitching = true;
+            bool unequipped = false;
+            try
+            {
+                await character.Combat.Unequip(
+                    weapon,
+                    new Args(character.gameObject)
+                );
+                unequipped = !character.Combat.IsEquipped(weapon);
+            }
+            catch (Exception exception)
+            {
+                unequipped = !character.Combat.IsEquipped(weapon);
+                Debug.LogError(
+                    $"Could not temporarily unequip Bike stunt weapon: {exception}",
+                    this
+                );
+            }
+            finally
+            {
+                this.m_IsSwitching = false;
+                if (!unequipped)
+                {
+                    if (prop != null) prop.SetActive(true);
+                    this.ClearBikeStuntSuspendedWeapon(false);
+                }
+                this.m_Aiming = false;
+                this.RefreshMenuSelection();
+                this.RefreshControlMode();
+            }
+        }
+
+        private void QueueBikeStuntWeaponRestore(
+            Character character,
+            Task prerequisite)
+        {
+            if (character == null || character != this.m_Player) return;
+
+            int version = ++this.m_BikeStuntTransitionVersion;
+            Task pending = this.m_BikeStuntTask;
+            this.m_BikeStuntTask = this.RestoreWeaponAfterBikeStunt(
+                character,
+                version,
+                pending,
+                prerequisite
+            );
+        }
+
+        private async Task RestoreWeaponAfterBikeStunt(
+            Character character,
+            int version,
+            Task pending,
+            Task prerequisite)
+        {
+            foreach (Task task in new[] { pending, prerequisite })
+            {
+                if (task == null) continue;
+                try
+                {
+                    await task;
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception, this);
+                }
+            }
+
+            while (this.m_IsSwitching && !this.m_BikeStuntActive && this != null)
+                await Task.Yield();
+            if (this == null ||
+                version != this.m_BikeStuntTransitionVersion ||
+                this.m_BikeStuntActive ||
+                this.m_PhoneUseActive ||
+                character == null ||
+                character != this.m_Player ||
+                this.m_BikeStuntSuspendedWeapon == null)
+            {
+                return;
+            }
+
+            if (this.GetActiveWeapon() != null)
+            {
+                // A newer explicit selection wins over the cached stunt weapon.
+                this.ClearBikeStuntSuspendedWeapon(true);
+                this.RefreshControlMode();
+                return;
+            }
+
+            Character cachedPlayer = this.m_BikeStuntSuspendedPlayer;
+            ShooterWeapon weapon = this.m_BikeStuntSuspendedWeapon;
+            GameObject prop = this.m_BikeStuntSuspendedProp;
+            int catalogIndex = this.m_BikeStuntSuspendedWeaponIndex;
+            if (cachedPlayer == null || cachedPlayer != character || prop == null)
+            {
+                this.ClearBikeStuntSuspendedWeapon(true);
+                if (catalogIndex >= 0)
+                    await this.SelectWeapon(catalogIndex, false);
+                return;
+            }
+
+            this.m_IsSwitching = true;
+            this.CancelMeleeForShooterEquip();
+            this.RefreshControlMode();
+            bool restored = false;
+            try
+            {
+                prop.SetActive(true);
+                await character.Combat.Equip(
+                    weapon,
+                    prop,
+                    new Args(character.gameObject, prop)
+                );
+                restored = character.Combat.IsEquipped(weapon);
+                if (restored)
+                {
+                    this.m_SelectedIndex = catalogIndex;
+                    this.m_Aiming = false;
+                    this.SetCautiousWalk(false, true);
+                    this.ClearBikeStuntSuspendedWeapon(false);
+                }
+            }
+            catch (Exception exception)
+            {
+                restored = character != null && character.Combat.IsEquipped(weapon);
+                if (restored)
+                {
+                    this.m_SelectedIndex = catalogIndex;
+                    this.m_Aiming = false;
+                    this.SetCautiousWalk(false, true);
+                    this.ClearBikeStuntSuspendedWeapon(false);
+                }
+                Debug.LogError(
+                    $"Could not restore Bike stunt weapon: {exception}",
+                    this
+                );
+            }
+            finally
+            {
+                this.m_IsSwitching = false;
+                if (!restored && prop != null) prop.SetActive(false);
+                this.RefreshMenuSelection();
+                this.RefreshControlMode();
+            }
+        }
+
+        private void ClearBikeStuntSuspendedWeapon(bool removeProp)
+        {
+            if (removeProp &&
+                this.m_BikeStuntSuspendedPlayer != null &&
+                this.m_BikeStuntSuspendedProp != null)
+            {
+                this.m_BikeStuntSuspendedPlayer.Props.RemoveInstance(
+                    this.m_BikeStuntSuspendedProp
+                );
+            }
+
+            this.m_BikeStuntSuspendedPlayer = null;
+            this.m_BikeStuntSuspendedWeapon = null;
+            this.m_BikeStuntSuspendedProp = null;
+            this.m_BikeStuntSuspendedWeaponIndex = -1;
         }
 
         private void TransferPhoneSuspendedWeaponToBike()
@@ -977,6 +1359,8 @@ namespace FranklinGame.Shooter
             }
 
             this.m_IsSwitching = true;
+            this.CancelMeleeForShooterEquip();
+            this.RefreshControlMode();
             bool restored = false;
             try
             {
@@ -1384,17 +1768,26 @@ namespace FranklinGame.Shooter
             ShooterStance stance,
             int requestId)
         {
+            this.SetFireMovementStatesSuppressed(true);
             this.SetObjectDirectionForShooting(this.m_BikeSeatRole == BikeSeatRole.None);
             if (!this.SetAimActive(weapon, stance, true))
             {
-                if (requestId == this.m_FireRequestId) this.m_FireHeld = false;
+                if (requestId == this.m_FireRequestId)
+                {
+                    this.m_FireHeld = false;
+                    this.SetFireMovementStatesSuppressed(false);
+                }
                 return;
             }
 
             WeaponData initialData = stance.Get(weapon);
             if (initialData == null)
             {
-                if (requestId == this.m_FireRequestId) this.m_FireHeld = false;
+                if (requestId == this.m_FireRequestId)
+                {
+                    this.m_FireHeld = false;
+                    this.SetFireMovementStatesSuppressed(false);
+                }
                 return;
             }
 
@@ -1409,13 +1802,22 @@ namespace FranklinGame.Shooter
             while (Time.time < readyAt)
             {
                 if (!this.IsFireRequestValid(weapon, stance, firingSightId, requestId))
+                {
+                    if (requestId == this.m_FireRequestId)
+                        this.SetFireMovementStatesSuppressed(false);
                     return;
+                }
                 await Task.Yield();
             }
 
             // Require one fully evaluated frame after the 0.25 second GC2 sight blend.
             await Task.Yield();
-            if (!this.IsFireRequestValid(weapon, stance, firingSightId, requestId)) return;
+            if (!this.IsFireRequestValid(weapon, stance, firingSightId, requestId))
+            {
+                if (requestId == this.m_FireRequestId)
+                    this.SetFireMovementStatesSuppressed(false);
+                return;
+            }
 
             this.m_TriggerPulled = true;
             this.PrepareHeldSingleFire(weapon, stance);
@@ -1541,6 +1943,7 @@ namespace FranklinGame.Shooter
             }
 
             if (exitAim) this.SetAimActive(weapon, stance, false);
+            this.SetFireMovementStatesSuppressed(false);
         }
 
         private void InvalidateFireRequest()
@@ -1549,14 +1952,21 @@ namespace FranklinGame.Shooter
             this.m_FireHeld = false;
             this.m_TriggerPulled = false;
             this.ResetHeldSingleFire();
+            this.SetFireMovementStatesSuppressed(false);
         }
 
         private bool SetAimActive(ShooterWeapon weapon, ShooterStance stance, bool active)
         {
-            if (!active) this.SetBikeShooterAim(false);
-
             WeaponData data = stance.Get(weapon);
-            if (data == null) return false;
+            if (data == null)
+            {
+                if (!active)
+                {
+                    this.SetBikeShooterAim(false);
+                    this.SetShooterLocomotionActive(this.m_CautiousWalk);
+                }
+                return false;
+            }
 
             if (!active)
             {
@@ -1567,16 +1977,36 @@ namespace FranklinGame.Shooter
                     if (!this.m_CautiousWalk)
                         this.ApplyDefaultSightPose(weapon, false);
                 }
+                // GC2 Sight.Exit can author a hard-coded FOV tween. Notify the
+                // Bike camera only after ExitSight has started that tween so the
+                // Bike FPS profile can cancel and replace it with its own FOV.
+                this.SetBikeShooterAim(false);
+                this.SetShooterLocomotionActive(this.m_CautiousWalk);
                 return true;
             }
 
-            if (this.m_Aiming) return true;
+            // Shooter_Locomotion is the moving armed-pose foundation. It must enter before
+            // GC2 Sight layer 8 and remain alive for the whole aim/fire interval.
+            this.SetShooterLocomotionActive(true);
+
+            if (this.m_Aiming)
+            {
+                SightItem currentSight = weapon.Sights.Get(data.SightId);
+                if (currentSight?.Sight != null) return true;
+
+                // Never keep the Franklin state flagged as aiming when GC2 is actually
+                // pointing at a missing Sight asset. This can happen after an asset copy
+                // loses one of its object references.
+                this.m_Aiming = false;
+            }
 
             string[] preferred = { "aim-ads", "aim-scope-1", "aim-scope-2" };
             foreach (string id in preferred)
             {
                 IdString sightId = new(id);
-                if (!weapon.Sights.Contains(sightId)) continue;
+                SightItem sightItem = weapon.Sights.Get(sightId);
+                if (sightItem?.Sight == null) continue;
+
                 stance.EnterSight(weapon, sightId);
                 this.m_Aiming = true;
                 this.SetBikeShooterAim(true);
@@ -1584,6 +2014,29 @@ namespace FranklinGame.Shooter
                 return true;
             }
 
+            // Some GC2 weapon templates (for example Grenade, used by the RPG-7)
+            // deliberately expose only their default Sight. It is already entered when
+            // the weapon is equipped and is still a valid firing/aiming pose.
+            IdString fallbackSightId = data.SightId;
+            SightItem fallbackSight = weapon.Sights.Get(fallbackSightId);
+            if (fallbackSight?.Sight == null)
+            {
+                fallbackSightId = weapon.Sights.DefaultId;
+                fallbackSight = weapon.Sights.Get(fallbackSightId);
+            }
+
+            if (fallbackSight?.Sight != null)
+            {
+                if (data.SightId != fallbackSightId)
+                    stance.EnterSight(weapon, fallbackSightId);
+
+                this.m_Aiming = true;
+                this.SetBikeShooterAim(true);
+                this.CompactActiveCrosshairs();
+                return true;
+            }
+
+            this.SetShooterLocomotionActive(this.m_CautiousWalk);
             return false;
         }
 
@@ -1598,10 +2051,26 @@ namespace FranklinGame.Shooter
             ShooterWeapon weapon = this.GetActiveWeapon();
             if (weapon == null) return;
 
-            if (active && this.m_CautiousLocomotion != null)
+            this.SetShooterLocomotionActive(active || this.m_Aiming);
+
+            if (!this.m_Aiming) this.ApplyDefaultSightPose(weapon, active);
+        }
+
+        private void SetShooterLocomotionActive(bool active)
+        {
+            if (this.m_Player == null)
+            {
+                return;
+            }
+
+            // Full-body Shooter_Locomotion is the on-foot movement source. Bike/vehicle
+            // states own the seated pelvis, legs and steering hand and must not be replaced.
+            active &= this.m_BikeSeatRole == BikeSeatRole.None;
+
+            if (active && this.m_ShooterLocomotion != null)
             {
                 _ = this.m_Player.States.SetState(
-                    this.m_CautiousLocomotion,
+                    this.m_ShooterLocomotion,
                     SHOOTER_LOCOMOTION_LAYER,
                     BlendMode.Blend,
                     new ConfigState(
@@ -1612,17 +2081,14 @@ namespace FranklinGame.Shooter
                         SHOOTER_LOCOMOTION_TRANSITION
                     )
                 );
-            }
-            else
-            {
-                this.m_Player.States.Stop(
-                    SHOOTER_LOCOMOTION_LAYER,
-                    0f,
-                    SHOOTER_LOCOMOTION_TRANSITION
-                );
+                return;
             }
 
-            if (!this.m_Aiming) this.ApplyDefaultSightPose(weapon, active);
+            this.m_Player.States.Stop(
+                SHOOTER_LOCOMOTION_LAYER,
+                0f,
+                SHOOTER_LOCOMOTION_TRANSITION
+            );
         }
 
         // GC2 enters the default lowered-gun sight automatically. Normal walking keeps its
@@ -1725,7 +2191,7 @@ namespace FranklinGame.Shooter
         private async void SwitchToMelee()
         {
             if (this.m_IsSwitching || this.m_Player == null ||
-                this.m_BikeSeatRole != BikeSeatRole.None) return;
+                this.m_BikeStuntActive) return;
             ShooterWeapon weapon = this.GetActiveWeapon();
             if (weapon == null) return;
 
@@ -1769,6 +2235,7 @@ namespace FranklinGame.Shooter
                         this.SetCautiousWalk(false, true);
                     else if (this.GetActiveWeapon() == null)
                     {
+                        this.SetShooterLocomotionActive(false);
                         this.m_CautiousWalk = false;
                         this.RefreshCautiousWalkButton();
                     }
@@ -1891,6 +2358,7 @@ namespace FranklinGame.Shooter
 
             this.BuildWeaponMenu(canvasObject.transform);
             this.BuildShooterControls(canvasObject.transform);
+            this.BuildFirstPersonControl(canvasObject.transform);
             this.BuildHudTapTarget(canvasObject.transform);
             this.BuildReloadIndicator(canvasObject.transform);
             this.TryBindOnFootControls();
@@ -2126,7 +2594,7 @@ namespace FranklinGame.Shooter
             this.m_MeleeSwitchImage = CreateTouchButton(
                 "Switch To Melee", this.m_ControlsRoot.transform,
                 null,
-                new Vector2(-83.1f, 254.9f), new Vector2(140f, 140f),
+                ON_FOOT_MELEE_POSITION, new Vector2(140f, 140f),
                 FranklinShooterTouchButton.Action.Melee
             );
             Image reloadImage = CreateTouchButton(
@@ -2147,6 +2615,29 @@ namespace FranklinGame.Shooter
             this.RefreshCautiousWalkButton();
             this.RefreshBikeControlLayout();
             this.m_ControlsRoot.SetActive(false);
+        }
+
+        private void BuildFirstPersonControl(Transform parent)
+        {
+            this.m_FirstPersonControlRoot = CreateRect(
+                "First Person Camera Control",
+                parent,
+                Vector2.zero,
+                Vector2.zero
+            ).gameObject;
+            Stretch(this.m_FirstPersonControlRoot.GetComponent<RectTransform>());
+
+            Image firstPersonImage = CreateTouchButton(
+                "First Person Camera",
+                this.m_FirstPersonControlRoot.transform,
+                FIRST_PERSON_ICON_RESOURCE,
+                ON_FOOT_FIRST_PERSON_POSITION,
+                new Vector2(112f, 112f),
+                FranklinShooterTouchButton.Action.FirstPersonCamera
+            );
+            this.m_FirstPersonButton =
+                firstPersonImage.GetComponent<FranklinShooterTouchButton>();
+            this.m_FirstPersonControlRoot.SetActive(false);
         }
 
         private bool TryBindOnFootControls()
@@ -2189,12 +2680,17 @@ namespace FranklinGame.Shooter
 
         private void RefreshControlMode()
         {
-            bool hasShooterWeapon = this.HasActiveWeapon() || this.m_IsSwitching;
+            this.ApplyFirstPersonPreference();
+            this.RefreshFirstPersonControl();
+
+            bool hasShooterWeapon = this.HasActiveWeapon() ||
+                                    this.m_IsSwitching ||
+                                    this.m_BikeStuntActive ||
+                                    this.m_BikeStuntSuspendedWeapon != null;
             ShooterWeapon activeWeapon = this.GetActiveWeapon();
             bool hasUsableWeapon = activeWeapon != null &&
                                    this.CanUseWeaponInCurrentSeat(activeWeapon);
-            if (!hasShooterWeapon || this.m_BikeSeatRole != BikeSeatRole.None)
-                this.SetObjectDirectionForShooting(false);
+            this.RefreshObjectDirectionMode();
             this.SetIdleAnimationSuppressed(hasShooterWeapon);
             this.SetMeleeControlsSuppressed(hasShooterWeapon);
             this.RefreshBikeControlLayout();
@@ -2214,6 +2710,111 @@ namespace FranklinGame.Shooter
                 this.m_ControlsRoot.SetActive(showShooterControls);
         }
 
+        private bool CanPresentOnFootFirstPerson()
+        {
+            if (this.m_Player == null || this.m_PhoneUseActive ||
+                this.m_BikeSeatRole != BikeSeatRole.None ||
+                this.IsWeaponMenuOpen || FranklinMobileHud.ControlsSuppressed)
+            {
+                return false;
+            }
+
+            if (this.m_Player.Player == null || !this.m_Player.Player.IsControllable)
+                return false;
+
+            // Melee is TPS-only. IsReady avoids a TPS flash during the brief
+            // no-active-weapon gap while switching between Shooter weapons; the
+            // fallback covers characters that do not carry the melee component.
+            bool meleeMode = this.m_MeleeController?.IsReady == true ||
+                             this.GetActiveWeapon() == null && !this.m_IsSwitching;
+            if (meleeMode) return false;
+
+            // Entry components become parents of the Character during their authored
+            // transition. Yield before the Car/Bike camera selects its own FPS/TPS shot.
+            return this.m_Player.GetComponentInParent<CarEntry>() == null &&
+                   this.m_Player.GetComponentInParent<BikeEntry>() == null;
+        }
+
+        private void ApplyFirstPersonPreference()
+        {
+            if (this.m_FirstPersonCamera == null) return;
+
+            bool shooterPreference = this.ResolveFirstPersonPreferenceMode();
+            bool preferred = shooterPreference
+                ? this.m_ShooterFirstPersonPreferred
+                : this.m_MovementFirstPersonPreferred;
+            this.m_FirstPersonCamera.SetRequested(
+                preferred,
+                this.CanPresentOnFootFirstPerson(),
+                shooterPreference
+                    ? FranklinFirstPersonCameraManager.Context.Shooter
+                    : FranklinFirstPersonCameraManager.Context.PlayerMovement
+            );
+        }
+
+        private bool ResolveFirstPersonPreferenceMode()
+        {
+            if (this.GetActiveWeapon() != null ||
+                this.m_PhoneSuspendedWeapon != null ||
+                this.m_BikeSuspendedWeapon != null ||
+                this.m_BikeStuntSuspendedWeapon != null)
+            {
+                this.m_FirstPersonUsesShooterPreference = true;
+                return true;
+            }
+
+            bool shooterStateIsTemporarilySuspended =
+                this.m_IsSwitching ||
+                this.m_PhoneUseActive;
+            if (!shooterStateIsTemporarilySuspended)
+                this.m_FirstPersonUsesShooterPreference = false;
+
+            return this.m_FirstPersonUsesShooterPreference;
+        }
+
+        private void SetFirstPersonPreference(bool shooterPreference, bool preferred)
+        {
+            if (shooterPreference)
+            {
+                this.m_ShooterFirstPersonPreferred = preferred;
+                PlayerPrefs.SetInt(
+                    SHOOTER_FIRST_PERSON_PREFERENCE_KEY,
+                    preferred ? 1 : 0
+                );
+            }
+            else
+            {
+                this.m_MovementFirstPersonPreferred = preferred;
+                PlayerPrefs.SetInt(
+                    MOVEMENT_FIRST_PERSON_PREFERENCE_KEY,
+                    preferred ? 1 : 0
+                );
+            }
+
+            PlayerPrefs.Save();
+        }
+
+        private void RefreshFirstPersonControl()
+        {
+            if (this.m_FirstPersonControlRoot == null) return;
+
+            bool onFootControlsVisible = this.m_OnFootControls == null ||
+                                         this.m_OnFootControls.gameObject.activeInHierarchy;
+            bool show = this.CanPresentOnFootFirstPerson() &&
+                        !this.IsWeaponMenuOpen &&
+                        !FranklinMobileHud.ControlsSuppressed &&
+                        onFootControlsVisible;
+            if (this.m_FirstPersonControlRoot.activeSelf != show)
+                this.m_FirstPersonControlRoot.SetActive(show);
+
+            bool shooterPreference = this.ResolveFirstPersonPreferenceMode();
+            this.m_FirstPersonButton?.SetToggled(
+                shooterPreference
+                    ? this.m_ShooterFirstPersonPreferred
+                    : this.m_MovementFirstPersonPreferred
+            );
+        }
+
         private void RefreshBikeControlLayout()
         {
             bool isOnBike = this.m_BikeSeatRole != BikeSeatRole.None;
@@ -2228,10 +2829,13 @@ namespace FranklinGame.Shooter
                 if (this.m_ReloadButtonRect.gameObject.activeSelf != showReload)
                     this.m_ReloadButtonRect.gameObject.SetActive(showReload);
             }
-            if (this.m_MeleeSwitchImage != null &&
-                this.m_MeleeSwitchImage.gameObject.activeSelf == isOnBike)
+            if (this.m_MeleeSwitchImage != null)
             {
-                this.m_MeleeSwitchImage.gameObject.SetActive(!isOnBike);
+                this.m_MeleeSwitchImage.rectTransform.anchoredPosition = isOnBike
+                    ? BIKE_MELEE_POSITION
+                    : ON_FOOT_MELEE_POSITION;
+                if (!this.m_MeleeSwitchImage.gameObject.activeSelf)
+                    this.m_MeleeSwitchImage.gameObject.SetActive(true);
             }
             if (this.m_CautiousWalkButton != null &&
                 this.m_CautiousWalkButton.gameObject.activeSelf == isOnBike)
@@ -2284,7 +2888,7 @@ namespace FranklinGame.Shooter
             }
 
             this.m_ObjectDirectionReturnAt = -1f;
-            this.SetObjectDirectionForShooting(false);
+            this.RefreshObjectDirectionMode();
         }
 
         private void ArmObjectDirectionReturn()
@@ -2299,6 +2903,28 @@ namespace FranklinGame.Shooter
             this.m_LastObservedShotFrame = int.MinValue;
         }
 
+        private void RefreshObjectDirectionMode()
+        {
+            bool firstPersonOwnsFacing =
+                this.m_BikeSeatRole == BikeSeatRole.None &&
+                this.m_FirstPersonCamera != null &&
+                this.m_FirstPersonCamera.IsActive &&
+                this.CanPresentOnFootFirstPerson();
+            bool shooterOwnsFacing =
+                this.m_BikeSeatRole == BikeSeatRole.None &&
+                this.GetActiveWeapon() != null &&
+                (this.m_Aiming || this.m_FireHeld || this.m_TriggerPulled ||
+                 this.m_ObjectDirectionReturnAt >= 0f &&
+                 Time.time < this.m_ObjectDirectionReturnAt);
+
+            // GC2 Object Direction reads Main Camera forward. In FPS this makes
+            // the complete Character body align to orbit yaw, while the camera's
+            // own pitch remains independent. Vehicle seats never enter this path.
+            this.SetObjectDirectionForShooting(
+                firstPersonOwnsFacing || shooterOwnsFacing
+            );
+        }
+
         private void SetObjectDirectionForShooting(bool active)
         {
             if (active)
@@ -2306,7 +2932,7 @@ namespace FranklinGame.Shooter
                 if (this.m_OwnsObjectDirection &&
                     this.m_ObjectDirectionToggle != null &&
                     this.m_ObjectDirectionToggle.IsObjectDirectionEnabled &&
-                    this.m_Player?.Facing is UnitFacingObjectDirection)
+                    this.m_ObjectDirectionToggle.OwnsCurrentFacing)
                 {
                     return;
                 }
@@ -2324,7 +2950,8 @@ namespace FranklinGame.Shooter
                 if (this.m_AnimationBridge == null) return;
 
                 this.m_ObjectDirectionToggle ??=
-                    this.m_AnimationBridge.GetComponent<FranklinObjectDirectionToggle>();
+                    this.m_AnimationBridge
+                        .GetComponent<FranklinObjectDirectionToggle>();
                 if (this.m_ObjectDirectionToggle == null)
                 {
                     this.m_ObjectDirectionToggle = this.m_AnimationBridge.gameObject
@@ -2364,6 +2991,35 @@ namespace FranklinGame.Shooter
             this.m_OwnsIdleVariationSuppression = false;
         }
 
+        private void SetFireMovementStatesSuppressed(bool suppressed)
+        {
+            if (suppressed)
+            {
+                // Vehicle animation owns the seated body. This arbitration is only for the
+                // competing on-foot Walk/Jog/Sprint pipeline.
+                if (this.m_BikeSeatRole != BikeSeatRole.None ||
+                    this.m_OwnsFireMovementSuppression)
+                {
+                    return;
+                }
+
+                if (this.m_AnimationBridge == null && this.m_Player != null)
+                {
+                    this.m_AnimationBridge = this.m_Player
+                        .GetComponentInChildren<FranklinAnimationBridge>(true);
+                }
+                if (this.m_AnimationBridge == null) return;
+
+                this.m_AnimationBridge.AcquireFastLocomotionSuppression(this);
+                this.m_OwnsFireMovementSuppression = true;
+                return;
+            }
+
+            if (!this.m_OwnsFireMovementSuppression) return;
+            this.m_AnimationBridge?.ReleaseFastLocomotionSuppression(this);
+            this.m_OwnsFireMovementSuppression = false;
+        }
+
         private void SetMeleeControlsSuppressed(bool suppressed)
         {
             if (suppressed)
@@ -2392,6 +3048,17 @@ namespace FranklinGame.Shooter
                 this.m_SidestepVisibility.enabled = this.m_SidestepVisibilityWasEnabled;
             }
             this.m_MeleeSuppressed = false;
+        }
+
+        private void CancelMeleeForShooterEquip()
+        {
+            if (this.m_MeleeController == null && this.m_Player != null)
+            {
+                this.m_MeleeController =
+                    this.m_Player.GetComponent<FranklinMeleeController>();
+            }
+
+            this.m_MeleeController?.CancelAllMeleeStates();
         }
 
         private void BuildHudTapTarget(Transform parent)

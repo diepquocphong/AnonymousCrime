@@ -70,6 +70,12 @@ namespace FranklinGame.Vehicles
         public bool IsEquipped => this.m_IsEquipped;
         public bool IsTransitioning => this.m_Transition != null;
         public GameObject HelmetInstance => this.m_HelmetInstance;
+        public bool IsProtectingHead =>
+            this.m_IsEquipped &&
+            this.m_HelmetInstance != null &&
+            this.m_HelmetInstance.activeInHierarchy &&
+            this.m_Head != null &&
+            this.m_HelmetInstance.transform.parent == this.m_Head;
         public Vector3 HeadPosition
         {
             get => this.m_HeadLocalPosition;
@@ -205,6 +211,67 @@ namespace FranklinGame.Vehicles
 
             this.m_IsEquipped = equipped;
             this.EventHelmetChanged?.Invoke(equipped);
+            return true;
+        }
+
+        /// <summary>
+        /// Detaches the equipped Helmet and converts it into a short-lived physics prop.
+        /// Returns false when the Helmet is not currently protecting the Head bone.
+        /// </summary>
+        public bool KnockOffHelmet(Vector3 hitPoint, Vector3 impulse)
+        {
+            if (!this.ResolveBones() || !this.IsProtectingHead) return false;
+
+            if (this.m_Transition != null)
+            {
+                this.StopCoroutine(this.m_Transition);
+                this.m_Transition = null;
+            }
+
+            this.m_ReachWeight = 0f;
+            GameObject knockedHelmet = this.m_HelmetInstance;
+            this.m_HelmetInstance = null;
+            this.m_IsEquipped = false;
+
+            knockedHelmet.transform.SetParent(null, true);
+            knockedHelmet.SetActive(true);
+
+            Collider[] helmetColliders =
+                knockedHelmet.GetComponentsInChildren<Collider>(true);
+            if (helmetColliders.Length == 0)
+            {
+                BoxCollider box = knockedHelmet.AddComponent<BoxCollider>();
+                FitColliderToRenderers(knockedHelmet.transform, box);
+                helmetColliders = new Collider[] { box };
+            }
+
+            Collider[] characterColliders = this.GetComponentsInChildren<Collider>(true);
+            foreach (Collider helmetCollider in helmetColliders)
+            {
+                helmetCollider.enabled = true;
+                helmetCollider.isTrigger = false;
+                foreach (Collider characterCollider in characterColliders)
+                {
+                    if (characterCollider != null)
+                        Physics.IgnoreCollision(helmetCollider, characterCollider, true);
+                }
+            }
+
+            Rigidbody body = knockedHelmet.GetComponent<Rigidbody>();
+            if (body == null) body = knockedHelmet.AddComponent<Rigidbody>();
+            body.isKinematic = false;
+            body.detectCollisions = true;
+            body.mass = 1.15f;
+            body.interpolation = RigidbodyInterpolation.Interpolate;
+            body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            body.AddForceAtPosition(impulse, hitPoint, ForceMode.Impulse);
+            body.AddTorque(
+                UnityEngine.Random.insideUnitSphere * Mathf.Max(1f, impulse.magnitude * 0.3f),
+                ForceMode.Impulse
+            );
+
+            this.EventHelmetChanged?.Invoke(false);
+            Destroy(knockedHelmet, 8f);
             return true;
         }
 
@@ -392,6 +459,29 @@ namespace FranklinGame.Vehicles
             target.localPosition = localPosition;
             target.localRotation = Quaternion.Euler(localEuler);
             target.localScale = localScale;
+        }
+
+        private static void FitColliderToRenderers(Transform root, BoxCollider collider)
+        {
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            if (renderers.Length == 0)
+            {
+                collider.center = Vector3.zero;
+                collider.size = Vector3.one * 0.25f;
+                return;
+            }
+
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; ++i)
+                bounds.Encapsulate(renderers[i].bounds);
+
+            collider.center = root.InverseTransformPoint(bounds.center);
+            Vector3 scale = root.lossyScale;
+            collider.size = new Vector3(
+                bounds.size.x / Mathf.Max(0.0001f, Mathf.Abs(scale.x)),
+                bounds.size.y / Mathf.Max(0.0001f, Mathf.Abs(scale.y)),
+                bounds.size.z / Mathf.Max(0.0001f, Mathf.Abs(scale.z))
+            );
         }
 
         private static void ApplyArmReach(

@@ -293,7 +293,10 @@ namespace FranklinGame.Vehicles
 
         private static Character GetPlayerCharacter(Character character)
         {
-            return character != null && character.Player != null ? character : null;
+            // Character.Player is the configured GC2 player-control unit and is
+            // present on NPC Characters too. Character.IsPlayer is the actual
+            // ownership flag registered in ShortcutPlayer.
+            return character != null && character.IsPlayer ? character : null;
         }
 
         private static Character FindPlayerCharacter()
@@ -304,7 +307,7 @@ namespace FranklinGame.Vehicles
             );
             for (int i = 0; i < characters.Length; ++i)
             {
-                if (characters[i] != null && characters[i].Player != null)
+                if (characters[i] != null && characters[i].IsPlayer)
                     return characters[i];
             }
             return null;
@@ -351,7 +354,7 @@ namespace FranklinGame.Vehicles
                 ejectionVelocity
             );
 
-            bool isPlayer = character.Player != null;
+            bool isPlayer = character.IsPlayer;
             if (isPlayer)
             {
                 ApplyCharredAppearance(character.gameObject, m_CharredPlayerColor);

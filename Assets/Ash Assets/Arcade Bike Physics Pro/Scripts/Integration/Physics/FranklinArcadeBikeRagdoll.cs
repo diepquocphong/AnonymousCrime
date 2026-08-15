@@ -245,6 +245,38 @@ namespace FranklinGame.Vehicles
             this.SetBodyColliderMode(false);
         }
 
+        /// <summary>
+        /// Removes explosion debris colliders from the live wreck bookkeeping after
+        /// wheels/mechanical parts receive their own Rigidbodies. This keeps ground
+        /// tunnelling protection focused only on the remaining Bike root.
+        /// </summary>
+        public void RefreshAfterTerminalPartDetachment()
+        {
+            if (this.m_BodyMeshColliders != null)
+            {
+                int count = 0;
+                for (int i = 0; i < this.m_BodyMeshColliders.Length; ++i)
+                {
+                    MeshCollider collider = this.m_BodyMeshColliders[i];
+                    if (collider == null ||
+                        collider.attachedRigidbody != this.m_Body ||
+                        !collider.transform.IsChildOf(transform))
+                    {
+                        continue;
+                    }
+                    this.m_BodyMeshColliders[count++] = collider;
+                }
+                if (count != this.m_BodyMeshColliders.Length)
+                {
+                    Array.Resize(ref this.m_BodyMeshColliders, count);
+                }
+            }
+
+            this.SetWheelCollidersEnabled(false);
+            this.CacheBodyAttachedColliders();
+            this.RefreshRenderedBodySurfaceProbes();
+        }
+
         private void Awake()
         {
             this.ResolveReferences();

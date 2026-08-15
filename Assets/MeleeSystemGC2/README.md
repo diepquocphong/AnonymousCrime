@@ -85,6 +85,18 @@ bị tắt. Bấm combo liên tục không ghi đè mất tốc độ gốc đã
 Việc chọn và nối đòn vẫn do `MeleeStance`, `ComboSelector` và `ComboTree` của GC2 xử
 lý; controller chỉ cung cấp input A–H và chốt thời gian thoát an toàn.
 
+### Tương thích khi equip súng
+
+Ngay khi `FranklinShooterSystem` bắt đầu đổi sang một `ShooterWeapon`, hệ thống gọi
+`FranklinMeleeController.CancelAllMeleeStates()`. Lệnh này hủy ngay attack/reaction
+phase và input buffer, combat locomotion layer `1`, sidestep Dash, các coroutine ease,
+giới hạn tốc độ melee cùng toàn bộ gesture đấm, đá, reaction và sidestep. Transition
+được đặt `0`, nên state melee không chờ animation kết thúc trước khi nhường cho súng.
+
+Controller cũng nghe `Character.Combat.EventEquip` để xử lý súng được equip từ GC2
+Visual Scripting hoặc hệ thống khác. Trong khi còn `ShooterWeapon` đang trang bị,
+`Fight()` và lách trái/phải đều bị chặn, kể cả khi được gọi từ code thay vì UI.
+
 ## Unarmed Combat Locomotion State
 
 `States/Franklin Unarmed Combat Locomotion.asset` là GC2
@@ -101,13 +113,13 @@ lý; controller chỉ cung cấp input A–H và chốt thời gian thoát an to
 
 Field `State` của `Franklin Unarmed Weapon.asset` được giữ `None`, vì vậy việc equip
 weapon không tự bật combat locomotion. Chỉ `FranklinMeleeController.Fight()` mới bật
-state này ở layer `1`. Mỗi lần bấm Fight reset timer không hoạt động `5` giây. Khi hết
+state này ở layer `1`. Mỗi lần bấm Fight reset timer không hoạt động `2` giây. Khi hết
 timer, controller chờ đòn hiện tại kết thúc nếu cần rồi blend state ra và trở lại Walk.
 
 Walk mặc định là locomotion nền ở layer `-1`. Jog và Sprint dùng chung layer `2`, cao
 hơn Unarmed Combat Locomotion layer `1`; vì vậy khi Player Jog/Sprint, state di chuyển
 nhanh được ưu tiên. Ngay khi layer Jog/Sprint hoạt động, controller dừng hoàn toàn
-Unarmed Combat Locomotion, hủy timer năm giây đang chờ và nhả ngay giới hạn
+Unarmed Combat Locomotion, hủy timer hai giây đang chờ và nhả ngay giới hạn
 `Attack Movement Speed = 0.5`. Controller không khôi phục tốc độ Walk cũ trong nhánh
 này; nó giữ nguyên tốc độ Jog/Sprint vừa được `FranklinAnimationBridge` chọn. State
 combat không tự bật lại khi Jog/Sprint kết thúc; người chơi phải bấm Fight lần mới.
@@ -150,7 +162,7 @@ lớn/nhỏ hơn `1` cho phép chỉnh cảm giác animation mà không đổi k
 
 Lách chỉ bắt đầu khi GC2 melee đang ở phase `None`. Nút sẽ bị bỏ qua trong
 Anticipation, Strike, Recovery hoặc Reaction, nhờ đó không cắt animation đánh, hit
-timing hay reaction. Khi lách hợp lệ, combat locomotion được bật/reset timer năm giây;
+timing hay reaction. Khi lách hợp lệ, combat locomotion được bật/reset timer hai giây;
 GC2 khóa chân trong đúng thời gian Dash rồi tự nhả. Hai nút dùng input một lần qua
 `Button.onClick`, không chạy polling mỗi frame.
 
@@ -276,7 +288,7 @@ Các tối ưu này không thay đổi tám Skill, damage, thứ tự A–H ho�
 - `Skills/`: tám GC2 Melee Skill, mỗi asset tham chiếu đúng một clip đơn.
 - `Reactions/Franklin Hit Reactions.asset`: GC2 reaction theo hướng và Power.
 - `States/Franklin Unarmed Combat Locomotion.asset`: GC2 locomotion tám hướng được
-  bật bằng nút Fight và tự tắt sau năm giây không có input đánh.
+  bật bằng nút Fight và tự tắt sau hai giây không có input đánh.
 - `UI/sidestep-left.png`, `UI/sidestep-right.png`: icon lách trái/phải đồng bộ bộ nút
   mobile hiện tại; hai button được installer nhúng cạnh Fight.
 - `Franklin Unarmed Combos.asset`: ComboTree tám root A–H ở chế độ `AnyTime`; key được

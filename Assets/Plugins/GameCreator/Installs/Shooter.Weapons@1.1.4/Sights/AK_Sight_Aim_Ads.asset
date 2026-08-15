@@ -57,7 +57,7 @@ MonoBehaviour:
       m_IsEnabled: 1
       m_Value:
         serializedVersion: 2
-        m_Bits: 51
+        m_Bits: 4294967295
     m_MaxResolution:
       m_Property:
         rid: 8814677138683199754
@@ -98,7 +98,7 @@ MonoBehaviour:
       m_IsEnabled: 1
       m_Value:
         serializedVersion: 2
-        m_Bits: 51
+        m_Bits: 4294967295
     m_MaxDistance:
       m_Property:
         rid: 8814677138683199763
@@ -118,8 +118,8 @@ MonoBehaviour:
     m_TextureAlign: 0
   m_ReloadingUsesFK: 0
   m_ReloadingUsesIK: 0
-  m_ShootingUsesFK: 0
-  m_ShootingUsesIK: 0
+  m_ShootingUsesFK: 1
+  m_ShootingUsesIK: 1
   m_FixingUsesFK: 0
   m_FixingUsesIK: 0
   references:
@@ -139,7 +139,7 @@ MonoBehaviour:
             rid: 1903939074796290427
         m_LayerMask:
           serializedVersion: 2
-          m_Bits: 51
+          m_Bits: 4294967295
     - rid: 1903939074796290427
       type: {class: GetGameObjectCameraMain, ns: GameCreator.Runtime.Cameras, asm: GameCreator.Runtime.Core}
       data: 

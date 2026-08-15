@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using FranklinGame.Shooter;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
 using GameCreator.Runtime.Shooter;
@@ -21,6 +22,8 @@ namespace FranklinGame.UI
         [Header("Demo Data")]
         [SerializeField, Min(0)] private int m_Money = 12480;
         [SerializeField, Range(0f, 1f)] private float m_NormalizedHealth = 0.78f;
+        [SerializeField, Range(0f, 1f)] private float m_NormalizedArmor = 1f;
+        [SerializeField, Min(0f)] private float m_ArmorValue = 100f;
         [SerializeField] private string m_WeaponName = "PISTOL";
         [SerializeField, Min(0)] private int m_AmmoInClip = 12;
         [SerializeField, Min(0)] private int m_AmmoReserve = 48;
@@ -46,6 +49,8 @@ namespace FranklinGame.UI
         [SerializeField] private Text m_MoneyText;
         [SerializeField] private Image m_HealthFill;
         [SerializeField] private Text m_HealthText;
+        [SerializeField] private Image m_ArmorFill;
+        [SerializeField] private Text m_ArmorText;
         [SerializeField] private RectTransform m_WeaponCard;
         [SerializeField] private Image m_WeaponIcon;
         [SerializeField] private Sprite m_ArmedWeaponSprite;
@@ -65,6 +70,9 @@ namespace FranklinGame.UI
         private float m_NextPlayerLookupTime;
         private bool m_PlayerHealthBound;
         private bool m_HasWarnedMissingHealth;
+        private FranklinArmor m_PlayerArmor;
+        private float m_NextArmorLookupTime;
+        private bool m_PlayerArmorBound;
         private Character m_PlayerCharacter;
         private ShooterWeapon m_PlayerWeapon;
         private Sprite m_RuntimeWeaponSprite;
@@ -124,6 +132,7 @@ namespace FranklinGame.UI
         {
             this.BindQuickItemButtons();
             this.TryBindPlayerHealth(true);
+            this.TryBindPlayerArmor(true);
             this.TryBindPlayerWeapon(true);
             this.RefreshView();
         }
@@ -131,6 +140,7 @@ namespace FranklinGame.UI
         private void OnDisable()
         {
             this.UnbindPlayerHealth();
+            this.UnbindPlayerArmor();
             this.UnbindPlayerWeapon();
             this.UnbindQuickItemButtons();
         }
@@ -154,6 +164,17 @@ namespace FranklinGame.UI
             if (!this.m_PlayerHealthBound && Time.unscaledTime >= this.m_NextPlayerLookupTime)
             {
                 this.TryBindPlayerHealth(false);
+            }
+
+            if (this.m_PlayerArmorBound &&
+                (this.m_PlayerArmor == null || player != this.m_PlayerArmor.gameObject))
+            {
+                this.UnbindPlayerArmor();
+            }
+
+            if (!this.m_PlayerArmorBound && Time.unscaledTime >= this.m_NextArmorLookupTime)
+            {
+                this.TryBindPlayerArmor(false);
             }
 
             if (this.m_PlayerWeaponBound &&
@@ -192,6 +213,8 @@ namespace FranklinGame.UI
                 this.m_MoneyDisplayInitialized = true;
             }
             this.m_NormalizedHealth = Mathf.Clamp01(this.m_NormalizedHealth);
+            this.m_NormalizedArmor = Mathf.Clamp01(this.m_NormalizedArmor);
+            this.m_ArmorValue = Mathf.Max(0f, this.m_ArmorValue);
             this.m_AmmoInClip = Mathf.Max(0, this.m_AmmoInClip);
             this.m_AmmoReserve = Mathf.Max(0, this.m_AmmoReserve);
             if (string.IsNullOrWhiteSpace(this.m_HealthAttributeId))
@@ -285,6 +308,7 @@ namespace FranklinGame.UI
         {
             this.RefreshMoney();
             this.RefreshHealth();
+            this.RefreshArmor();
             this.RefreshWeapon();
             this.RefreshQuickItem();
         }
@@ -343,6 +367,17 @@ namespace FranklinGame.UI
             }
         }
 
+        private void RefreshArmor()
+        {
+            if (this.m_ArmorFill != null)
+                this.m_ArmorFill.fillAmount = this.m_NormalizedArmor;
+
+            if (this.m_ArmorText != null)
+                this.m_ArmorText.text = Mathf.CeilToInt(this.m_ArmorValue).ToString(
+                    DISPLAY_CULTURE
+                );
+        }
+
         private void TryBindPlayerHealth(bool immediate)
         {
             if (this.m_PlayerHealthBound) return;
@@ -397,6 +432,58 @@ namespace FranklinGame.UI
             this.m_PlayerHealth = null;
             this.m_PlayerTraits = null;
             this.m_PlayerHealthBound = false;
+        }
+
+        private void TryBindPlayerArmor(bool immediate)
+        {
+            if (this.m_PlayerArmorBound) return;
+            if (!immediate && Time.unscaledTime < this.m_NextArmorLookupTime) return;
+            this.m_NextArmorLookupTime = Time.unscaledTime + this.m_PlayerLookupInterval;
+
+            GameObject player = ShortcutPlayer.Instance;
+            FranklinArmor armor = FranklinArmorAPI.Get(player);
+            if (armor == null)
+            {
+                if (player != null) this.SetArmorPresentation(0f, 100f);
+                return;
+            }
+
+            this.m_PlayerArmor = armor;
+            this.m_PlayerArmor.EventArmorChanged += this.OnPlayerArmorChanged;
+            this.m_PlayerArmorBound = true;
+            this.RefreshArmorFromPlayer();
+        }
+
+        private void UnbindPlayerArmor()
+        {
+            if (this.m_PlayerArmor != null)
+                this.m_PlayerArmor.EventArmorChanged -= this.OnPlayerArmorChanged;
+
+            this.m_PlayerArmor = null;
+            this.m_PlayerArmorBound = false;
+            this.SetArmorPresentation(0f, 100f);
+        }
+
+        private void OnPlayerArmorChanged(float currentArmor, float maxArmor)
+        {
+            this.SetArmorPresentation(currentArmor, maxArmor);
+        }
+
+        private void RefreshArmorFromPlayer()
+        {
+            if (this.m_PlayerArmor == null) return;
+            this.SetArmorPresentation(
+                this.m_PlayerArmor.CurrentArmor,
+                this.m_PlayerArmor.MaxArmor
+            );
+        }
+
+        private void SetArmorPresentation(float currentArmor, float maxArmor)
+        {
+            float maximum = Mathf.Max(1f, maxArmor);
+            this.m_ArmorValue = Mathf.Clamp(currentArmor, 0f, maximum);
+            this.m_NormalizedArmor = Mathf.Clamp01(this.m_ArmorValue / maximum);
+            this.RefreshArmor();
         }
 
         private void OnPlayerHealthChanged(IdString attributeId, double change)

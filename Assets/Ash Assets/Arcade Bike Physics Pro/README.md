@@ -31,6 +31,7 @@ Arcade Bike Physics Pro/
 │   └── RiderPoses/                 # Rider Fit đang dùng và pose Legacy
 ├── Audio/
 │   ├── Engine/                     # Âm thanh động cơ
+│   ├── SFX/                        # Còi Bike 3D mono tối ưu mobile
 │   ├── Tires/                      # Skid/burnout loop
 │   └── Transmission/               # Chuyển số
 ├── Data/
@@ -111,7 +112,7 @@ flowchart LR
     subgraph Adapter["Lớp tích hợp Franklin"]
         DRIVER["FranklinArcadeBikeDriver"]
         HELMET["FranklinBikeHelmetController"]
-        CAMERA["FranklinBikeCameraManager"]
+        CAMERA["FranklinBikeMainShotAim\nTPS + FPS"]
         RAGDOLL["FranklinArcadeBikeRagdoll"]
         LIGHTS["VehicleLights"]
         FLARE["FranklinBikeBrakeReverseFlare"]
@@ -132,6 +133,7 @@ flowchart LR
     end
 
     HUD --> DRIVER
+    HUD -->|"Camera Mode"| DRIVER
     HUD -->|"Bike Helmet"| HELMET
     KEYBOARD --> DRIVER
     ENTRY -->|"enable / exit / crash release"| DRIVER
@@ -139,6 +141,7 @@ flowchart LR
     DRIVER -->|"ToggleRiderHelmet"| HELMET
     HELMET -->|"RightHand ↔ Head + arm bones"| RIDER["Humanoid Rider"]
     DRIVER -->|"provideInput mỗi frame"| INPUT
+    DRIVER -->|"SetFirstPersonView"| CAMERA
     INPUT --> CONTROLLER
     CONTROLLER --> PHYSICS
     CONTROLLER --> VISUAL
@@ -164,11 +167,18 @@ flowchart LR
 ### Quyết định tích hợp quan trọng
 
 - Mobile UI dùng `FranklinMobileHud`, không dùng HUD riêng của package.
+- Nút còi dạng hold dùng chung icon với Car nhưng gọi đúng driver hiện tại. Toàn
+  bộ cụm action Bike (`Camera Mode`, `Helmet`, `Exit`, `Horn`, `Wheelie`,
+  `Burnout`, `Headlight`) dùng cùng kích thước `155 × 155`.
 - Nút `Bike Helmet` nằm bên trái nút phanh/lùi khi lái Bike và gọi controller
   mũ dùng chung trên Player. Nếu Player exit trong lúc đang đội mũ, cùng nút đó
   tiếp tục hiện trong nhóm điều khiển đi bộ cho tới khi người dùng tháo mũ.
-- Tất cả bike dùng một `FranklinBikeCameraManager` dưới Player và GC2 Main
-  Camera Shot. Không tạo camera riêng cho từng bike.
+- Button persistence on-foot sao chép cùng anchor, position, size, rotation, scale,
+  sprite, material và màu của button trên Bike. Exit chỉ đổi nhóm HUD đang hiển thị,
+  không làm button đội nón nhảy vị trí hoặc thay đổi hình thức.
+- Tất cả bike dùng một `FranklinBikeMainShotAim` trên `ManagerVehicle` dưới
+  Player và đúng GC2 Main Camera Shot hiện tại. Nút `Camera Mode` dùng chung với
+  Car để toggle TPS/FPS; không tạo camera hoặc Shot riêng cho từng bike.
 - `bikeReferences.cameraController` để `null` trên bike đã tích hợp.
 - Ragdoll dùng `FranklinArcadeBikeRagdoll` trực tiếp trên Rigidbody thật của
   bike. Không dùng dummy-bike flow của `RagdollActivator` gốc.
@@ -467,9 +477,12 @@ File: [Scripts/Integration/Physics/FranklinArcadeBikeDriver.cs](Scripts/Integrat
 | `SetVirtualHandbrakeInput(active)` | Phanh tay/drift. |
 | `SetVirtualWheelieInput(active)` | Giữ input bốc bánh trước. |
 | `SetVirtualBurnoutInput(active)` | Gửi đồng thời accelerate + reverse để kích hoạt burnout ABP. |
+| `SetHornPressed(active)` | Nhấn/thả còi Bike 3D; AudioSource chỉ tạo một lần khi dùng lần đầu. |
 | `SetDamageLocked(locked)` | Khóa toàn bộ input lái khi Bike health bằng 0 nhưng vẫn giữ exit flow an toàn. |
 | `SetHandbrakeInput(active)` | Nguồn phanh tay bên ngoài HUD. |
 | `SetHeadlightEnabled(active)` | Bật/tắt đèn trước qua `VehicleLights`. |
+| `SetFirstPersonView(active)` | Toggle TPS/FPS và lưu lựa chọn dùng chung cho mọi Bike. |
+| `RestoreThirdPersonViewPreservingPreference()` | Tạm phục hồi TPS khi exit/crash mà không ghi đè lựa chọn đã lưu. |
 | `ToggleRiderHelmet()` | Đội/tháo mũ của rider hiện đang ngồi trên bike. |
 | `BeginExitStop()` | Khóa input và giảm tốc bike trước khi exit. |
 | `CancelExitStop()` | Hủy trạng thái chờ dừng để exit. |
@@ -478,6 +491,11 @@ File: [Scripts/Integration/Physics/FranklinArcadeBikeDriver.cs](Scripts/Integrat
 | `KeepCrashRagdollDynamic()` | Đảm bảo Rigidbody ragdoll không kinematic/freeze rotation. |
 | `ParkGroundedRagdoll()` | Park sau khi adapter xác nhận bike nằm ổn định trên ground. |
 | `ResetVehicle()` | Xóa velocity và dựng lại các transform điều khiển chính. |
+
+`FranklinArcadeBikeDriver` đồng thời gửi trạng thái stunt sang
+`FranklinShooterSystem.SetBikeStuntWeaponSuppressed(...)`. Wheelie/Burnout sẽ cache,
+tạm unequip weapon hiện tại và chỉ restore đúng instance đó sau khi stunt kết thúc.
+Luồng này áp dụng cho cả touch mobile và keyboard debug.
 
 Các property đọc quan trọng: `IsVehicleEnabled`, `IsDamageLocked`, `IsAirborne`,
 `IsCrashCoasting`, `VehicleBody`, `SpeedMetersPerSecond`,
@@ -527,9 +545,21 @@ GC2 vào `Character`. Chạy Trigger lần đầu để NPC ngồi sau và lần
 Nếu muốn test Player ngồi sau thì một NPC phải đang giữ ghế lái; hệ thống mặc định
 không cho ghế sau hoạt động khi Bike chưa có driver (`Require Driver`).
 
-Damage chỉ nhận từ `FranklinBikeImpactAudio.EventImpactAccepted`, vì vậy dùng
+Damage do va chạm nhận từ `FranklinBikeImpactAudio.EventImpactAccepted`, vì vậy dùng
 chung phân loại light/heavy, cooldown và pooled impact FX; không chạy thêm một
-`OnCollisionEnter` thứ hai. Player đang ngồi chỉ bị trừ `4–18 HP` sau khi
+`OnCollisionEnter` thứ hai. GC2 Shooter có thêm nguồn damage trực tiếp qua
+`Assets/ShooterSystemGC2/Runtime/InstructionFranklinVehicleDamage.cs`: Instruction
+tìm `FranklinBikeHealth` từ parent của collider trúng đạn và gọi `ApplyDamage`.
+Người bắn được bỏ qua nếu đang ngồi trên chính Bike đó. Bridge Shooter chỉ thay đổi
+health, không gọi trực tiếp deformation/destruction.
+
+Vỏ đạn vật lý Shooter (`AK`, `Pistol`, `Shotgun`, `Minigun`, `Sniper`) được gắn
+marker dùng chung `VehicleImpactIgnored`. `FranklinBikeImpactAudio` loại collision
+này trước cả nhánh debris 50 km/h và trước bộ phân loại impact kế thừa, nên shell
+vẫn rơi/nảy/phát tiếng riêng nhưng không làm móp Bike, trừ máu, phát crash VFX hoặc
+kích hoạt rider/bike ragdoll.
+
+Player đang ngồi chỉ bị trừ `4–18 HP` sau khi
 `FranklinBikeCrashRagdoll` xác nhận GC2 ragdoll đã thực sự bắt đầu; va chạm
 nặng nhưng không kích hoạt ragdoll không làm mất máu Player. Ở 0 HP, Bike bị khóa ga/lái và không hiện khả năng
 enter mới. Thanh máu Bike dùng chung `CanvasPlayerControl`, chỉ hiện khi Player đang lái Bike
@@ -562,11 +592,14 @@ instantiate tại thời điểm nổ.
 
 `FranklinBikeDestruction` ghi nhớ rider ngay lúc HP về 0, kể cả khi crash-ragdoll
 đã văng rider khỏi yên trước khi vụ nổ chạy. Explosion đặt Rigidbody Bike về
-dynamic, bỏ freeze rotation/kinematic, giữ bánh gắn với xe, áp lực ngã, làm sẫm
-renderer bằng `MaterialPropertyBlock`, đưa Player Traits `hp` về 0 và gắn fire
-4 giây. Sau explosion, wreck là terminal và API Repair chỉ còn tác dụng nếu gọi
-trong cửa sổ cảnh báo trước nổ. Luồng này không đổi camera: Bike vẫn dùng GC2
-Main Camera Shot.
+dynamic, bỏ freeze rotation/kinematic rồi tách đúng `FrontWheelTarget`,
+`RearWheelTarget` và một cụm cơ khí trung tâm của từng model thành ba Rigidbody
+debris. Vì tách cả wheel target nên mâm và lốp luôn bay cùng nhau. Các phần nhận
+vận tốc kế thừa, lực ngang/lực nâng và spin riêng; sau khi chạm ground chúng khóa
+physics, giữ 5 giây, chìm và tự dọn. Wreck còn lại nhận lực ngã, được làm sẫm bằng
+`MaterialPropertyBlock`; Player Traits `hp` về 0 và nhận fire 4 giây. Sau explosion,
+wreck là terminal và API Repair chỉ còn tác dụng nếu gọi trong cửa sổ cảnh báo
+trước nổ. Luồng này không đổi camera: Bike vẫn dùng GC2 Main Camera Shot.
 
 `FranklinBikeDeformation` nhận chính `EventImpactContactAccepted` đã qua cooldown
 và dùng kernel Edy giống Car, nhưng profile nhỏ hơn cho thân Bike: radius `0.38m`,
@@ -693,7 +726,50 @@ Trạng thái đọc: `IsRagdoll`, `RequiresManualRecovery`, `ParkedGroundSide` 
 
 - [`FranklinBikeMainShotAim`](Scripts/Integration/Camera/FranklinBikeMainShotAim.cs):
   `Activate(BikeEntry)` và `Deactivate()` quản lý một runtime GC2 Third Person
-  Aim dùng chung dưới Player mà không đổi Main Camera Shot.
+  Aim dùng chung dưới Player mà không đổi Main Camera Shot. `SetFirstPersonActive`
+  chuyển cùng Shot sang điểm mắt bám `Head/Neck`, đặt FOV/near clip/sensitivity
+  dành cho FPS, ẩn head + helmet bằng `FirstPersonHeadOcclusion`, rồi phục hồi
+  chính xác TPS/FOV khi tắt, exit hoặc ragdoll. Shooter shoulder framing tạm ngừng
+  trong FPS để không kéo camera lệch khỏi tâm mắt. Vị trí Head/Neck chỉ được lấy
+  một lần lúc bật FPS rồi chuyển sang local-space của seat; `Breathe`, Rider IK và
+  animation spine/neck vẫn chạy trên model nhưng không còn làm camera bob/orbit.
+- `Main Camera.prefab` vẫn giữ `Avoid Clip = Zoom In` cho TPS. Riêng lúc Bike FPS,
+  active Shot tạm dùng `Clip Through` để sphere-cast `0.4m` không đẩy camera khỏi
+  điểm mắt; khi về TPS/exit, giá trị clipping gốc được phục hồi từ snapshot.
+- Khi Bike FPS active, `FranklinMobileHud` ẩn riêng `km/h`, thanh xăng và thanh máu
+  Bike; các button lái vẫn hoạt động. Hệ thống không chặn/lọc touch và không sửa
+  nguồn orbit dùng chung của `Camera Shot.prefab`. Khi ba gauge bị ẩn, HUD cũng
+  dừng `WorldToScreenPoint`, cập nhật text tốc độ và `SmoothDamp` fill xăng.
+- Bike FPS dùng nguyên bản `ShotSystemThirdPerson.Alignment` của GC2 với
+  `AutoAlign = true`, `Delay = 0` và `SmoothTime = 0.3`. GC2 tự bỏ qua Align khi
+  raw orbit delta khác `0`, vì vậy manager không suy đoán trạng thái orbit từ touch
+  và không bật/tắt Align theo từng frame. Target là yaw-only của FPS anchor/seat,
+  không dùng `Bike.transform.forward`, nên lean/wheelie không làm Euler yaw dao
+  động và các model có visual-axis offset không trả camera lệch trái. `MaxYaw` bị
+  tắt riêng trong FPS để tránh bước nhảy `-1/359` của GC2 quanh hướng north.
+  Manager không gọi `SetRotation` mỗi frame; GC2 là owner duy nhất của
+  current/target smoothing.
+- `FranklinHudButton` báo riêng `PointerDown/PointerUp` cho Bike FPS. Trong lúc giữ
+  bất kỳ button điều khiển Bike nào, sensitivity orbit tạm bằng `0`; native Auto
+  Align vẫn giữ nguyên. Sau khi thả button, sensitivity phục hồi sau guard `0.08s`
+  để bỏ delta còn sót của frame `PointerUp`. Counter hỗ trợ
+  nhiều ngón tay mà không mở orbit sớm. Nút bắn dùng riêng
+  `FranklinShooterTouchButton.Action.Fire`, không đi qua suppression nên vẫn cho
+  phép điều khiển góc nhìn khi đang bắn. Các Shooter button khác như đổi melee vẫn
+  gọi suppression, vì ngoại lệ chỉ dành cho `Action.Fire`.
+- Mở menu súng chỉ ẩn/nhả các input lái đang giữ; `ReleaseVehicleInputs` không còn
+  tắt FPS trong suppression tạm thời. Toggle Camera Mode giữ nguyên state khi HUD
+  bị disable và đồng bộ lại với driver khi menu đóng.
+- Chế độ Bike TPS/FPS cuối được lưu tại PlayerPrefs key
+  `Franklin.Vehicle.Bike.FirstPersonView`. Exit/crash chỉ tạm phục hồi camera đi
+  bộ mà không ghi đè lựa chọn; lần enter Bike tiếp theo, kể cả Bike khác hoặc sau
+  khi mở lại game, ManagerVehicle khôi phục chế độ đã lưu ngay sau khi Main Shot
+  được activate.
+- FPS anchor là child cố định của seat. Mỗi frame manager chỉ chiếu `seat.forward`
+  lên ground plane và cập nhật yaw-only trước khi GC2 Shot chạy; không tìm
+  bone/component, không reflection, không raycast và không cấp phát trong hot path.
+  Reflection/snapshot chỉ chạy lúc toggle; `Avoid Clip` bị bypass trong FPS nên
+  không chạy sphere-cast camera `0.4m` trên mobile.
 - [`VehicleLights`](../Vehicle%20Integration/Core/Runtime/Vehicle/VehicleLights.cs):
   `FrontLightsOn()`, `FrontLightsOff()`, `LightsOn()` và `LightsOff()`.
 - [`FranklinBikeBrakeReverseFlare`](Scripts/Integration/Effects/FranklinBikeBrakeReverseFlare.cs):
@@ -721,6 +797,8 @@ public sealed class BikeButtonsExample : MonoBehaviour
     public void SteerLeftUp() => bike.SetVirtualSteerLeftInput(false);
 
     public void ToggleHeadlight(bool enabled) => bike.SetHeadlightEnabled(enabled);
+    public void HornDown() => bike.SetHornPressed(true);
+    public void HornUp() => bike.SetHornPressed(false);
     public void ToggleHelmet() => bike.ToggleRiderHelmet();
 }
 ```

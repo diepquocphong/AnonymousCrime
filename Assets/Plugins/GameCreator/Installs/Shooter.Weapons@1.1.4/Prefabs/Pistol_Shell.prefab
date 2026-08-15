@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7868179876891088174}
   - component: {fileID: 523863714980217709}
   - component: {fileID: 1278691612742676160}
+  - component: {fileID: 909800000000000001}
   m_Layer: 0
   m_Name: Pistol_Shell
   m_TagString: Untagged
@@ -141,6 +142,18 @@ MonoBehaviour:
         m_Values:
         - {fileID: 8300000, guid: b965890ba79ed4b54b588034e1edb42a, type: 3}
         - {fileID: 8300000, guid: cbdea86e68ea3434c9d92421a3d681e0, type: 3}
+--- !u!114 &909800000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3599771330249854657}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da72b40fc47c4c208492e1eef98c4ab3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Vehicles.VehicleImpactIgnored
 --- !u!1001 &7520953555325651096
 PrefabInstance:
   m_ObjectHideFlags: 0

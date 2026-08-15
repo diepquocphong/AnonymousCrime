@@ -14,13 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: GameCreator.Runtime.Melee::GameCreator.Runtime.Melee.Skill
   m_Title:
     m_Property:
-      rid: 9185873498292618113
+      rid: 9185873518031274191
   m_Description:
     m_Property:
-      rid: 9185873498292618114
+      rid: 9185873518031274192
   m_Icon:
     m_Property:
-      rid: 9185873498292618115
+      rid: 9185873518031274193
   m_Color:
     m_Property:
       rid: 9185873490633818307
@@ -54,19 +54,19 @@ MonoBehaviour:
   m_Effects:
     m_SoundUse:
       m_Property:
-        rid: 9185873498292618116
+        rid: 9185873518031274194
     m_SoundStrike:
       m_Property:
-        rid: 9185873498292618117
+        rid: 9185873518031274195
     m_SoundHit:
       m_Property:
-        rid: 9185873498292618118
+        rid: 9185873518031274196
     m_SoundBlocked:
       m_Property:
-        rid: 9185873498292618119
+        rid: 9185873518031274197
     m_SoundParried:
       m_Property:
-        rid: 9185873498292618120
+        rid: 9185873518031274198
     m_HitEffect:
       m_Property:
         rid: 9185873490633818314
@@ -85,21 +85,21 @@ MonoBehaviour:
   m_MeleeSequence:
     m_Sequence:
       m_Tracks:
-      - rid: 9185873498292618121
-      - rid: 9185873498292618122
-      - rid: 9185873498292618123
-      - rid: 9185873498292618124
-      - rid: 9185873498292618125
-      - rid: 9185873498292618126
+      - rid: 9185873518031274199
+      - rid: 9185873518031274200
+      - rid: 9185873518031274201
+      - rid: 9185873518031274202
+      - rid: 9185873518031274203
+      - rid: 9185873518031274204
   m_SpeedAnticipation:
     m_Property:
-      rid: 9185873498292618127
+      rid: 9185873518031274205
   m_SpeedStrike:
     m_Property:
-      rid: 9185873498292618128
+      rid: 9185873518031274206
   m_SpeedRecovery:
     m_Property:
-      rid: 9185873498292618129
+      rid: 9185873518031274207
   m_CanBlock:
     m_Conditions:
       m_Conditions: []
@@ -108,13 +108,13 @@ MonoBehaviour:
       m_Conditions: []
   m_PoiseArmor:
     m_Property:
-      rid: 9185873498292618130
+      rid: 9185873518031274208
   m_PoiseDamage:
     m_Property:
-      rid: 9185873498292618131
+      rid: 9185873518031274209
   m_Power:
     m_Property:
-      rid: 9185873498292618132
+      rid: 9185873518031274210
   m_OnStart:
     m_Instructions:
       m_Instructions: []
@@ -127,7 +127,7 @@ MonoBehaviour:
   m_OnHit:
     m_Instructions:
       m_Instructions:
-      - rid: 9185873498292618133
+      - rid: 9185873518031274211
   <EditorModelPath>k__BackingField: Assets/MeleeSystemGC2/Animations/KB_Punches.fbx
   references:
     version: 2
@@ -142,128 +142,128 @@ MonoBehaviour:
     - rid: 9185873490633818314
       type: {class: GetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 9185873498292618113
+    - rid: 9185873518031274191
       type: {class: GetStringString, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: Jab Right
-    - rid: 9185873498292618114
+    - rid: 9185873518031274192
       type: {class: GetStringString, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: Single right jab from Fighting Animset Pro.
-    - rid: 9185873498292618115
+    - rid: 9185873518031274193
       type: {class: GetSpriteInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Sprite: {fileID: 21300000, guid: 52e81c9e11d41483c9dafe2383fff20a, type: 3}
-    - rid: 9185873498292618116
+    - rid: 9185873518031274194
       type: {class: GetAudioClip, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: {fileID: 8300000, guid: fe39fbb0a4be64d9ba8d4e81b6b61584, type: 3}
-    - rid: 9185873498292618117
+    - rid: 9185873518031274195
       type: {class: GetAudioClip, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: {fileID: 8300000, guid: af314464c9f3f4814b4670bc5c4c5e3c, type: 3}
-    - rid: 9185873498292618118
+    - rid: 9185873518031274196
       type: {class: GetAudioClip, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: {fileID: 8300000, guid: 9e894360869eb46dd85e1684af6a168c, type: 3}
-    - rid: 9185873498292618119
+    - rid: 9185873518031274197
       type: {class: GetAudioClip, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: {fileID: 8300000, guid: 19496b8c6dce04bdb818f0b6a8912945, type: 3}
-    - rid: 9185873498292618120
+    - rid: 9185873518031274198
       type: {class: GetAudioClip, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: {fileID: 8300000, guid: bdc0dd13759984e8aa4b60c2e1446f66, type: 3}
-    - rid: 9185873498292618121
+    - rid: 9185873518031274199
       type: {class: TrackMeleePhases, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
       data:
         m_Clips:
-        - rid: 9185873498292618134
-    - rid: 9185873498292618122
+        - rid: 9185873518031274212
+    - rid: 9185873518031274200
       type: {class: TrackMeleeCancel, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
       data:
         m_Clips:
-        - rid: 9185873498292618135
-    - rid: 9185873498292618123
+        - rid: 9185873518031274213
+    - rid: 9185873518031274201
       type: {class: TrackMeleeRootMotionPosition, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
       data:
         m_Clips:
-        - rid: 9185873498292618136
-    - rid: 9185873498292618124
+        - rid: 9185873518031274214
+    - rid: 9185873518031274202
       type: {class: TrackMeleeRootMotionRotation, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
       data:
         m_Clips:
-        - rid: 9185873498292618137
-    - rid: 9185873498292618125
+        - rid: 9185873518031274215
+    - rid: 9185873518031274203
       type: {class: TrackMeleeMotionWarping, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
       data:
         m_Clips:
-        - rid: 9185873498292618138
-    - rid: 9185873498292618126
+        - rid: 9185873518031274216
+    - rid: 9185873518031274204
       type: {class: TrackDefault, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
       data:
         m_Clips: []
-    - rid: 9185873498292618127
+    - rid: 9185873518031274205
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 0.6000000238418579
-    - rid: 9185873498292618128
+    - rid: 9185873518031274206
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 0.46666666865348816
-    - rid: 9185873498292618129
+    - rid: 9185873518031274207
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 1
-    - rid: 9185873498292618130
+    - rid: 9185873518031274208
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 2
-    - rid: 9185873498292618131
+    - rid: 9185873518031274209
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 1.25
-    - rid: 9185873498292618132
+    - rid: 9185873518031274210
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 2.5
-    - rid: 9185873498292618133
+    - rid: 9185873518031274211
       type: {class: InstructionStatsChangeAttribute, ns: GameCreator.Runtime.Stats, asm: GameCreator.Runtime.Stats}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
         m_Target:
           m_Property:
-            rid: 9185873498292618139
+            rid: 9185873518031274217
         m_Attribute:
           m_Property:
-            rid: 9185873498292618140
+            rid: 9185873518031274218
         m_Change:
           m_Operation: 2
           m_Value:
             m_Property:
-              rid: 9185873498292618141
-    - rid: 9185873498292618134
+              rid: 9185873518031274219
+    - rid: 9185873518031274212
       type: {class: ClipMeleePhases, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
       data:
         m_Time: 0.3
         m_Duration: 0.3
-    - rid: 9185873498292618135
+    - rid: 9185873518031274213
       type: {class: ClipMeleeCancel, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
       data:
         m_Time: 0.20000002
         m_Duration: 0.5
-    - rid: 9185873498292618136
+    - rid: 9185873518031274214
       type: {class: ClipMeleeRootMotionPosition, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
       data:
         m_Time: 0.3
         m_Duration: 0
-    - rid: 9185873498292618137
+    - rid: 9185873518031274215
       type: {class: ClipMeleeRootMotionRotation, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
       data:
         m_Time: 0.3
         m_Duration: 0
-    - rid: 9185873498292618138
+    - rid: 9185873518031274216
       type: {class: ClipMeleeMotionWarping, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
       data:
         m_Time: 0
@@ -274,34 +274,34 @@ MonoBehaviour:
         m_Easing: 3
         m_Self:
           m_Property:
-            rid: 9185873498292618142
+            rid: 9185873518031274220
         m_Target:
           m_Property:
-            rid: 9185873498292618143
-    - rid: 9185873498292618139
+            rid: 9185873518031274221
+    - rid: 9185873518031274217
       type: {class: GetGameObjectTarget, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 9185873498292618140
+    - rid: 9185873518031274218
       type: {class: GetAttributeInstance, ns: GameCreator.Runtime.Stats, asm: GameCreator.Runtime.Stats}
       data:
         m_Attribute: {fileID: 11400000, guid: 4cf7ae5caa4804d0ea2548dceac15ffb, type: 2}
-    - rid: 9185873498292618141
+    - rid: 9185873518031274219
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 8
-    - rid: 9185873498292618142
+    - rid: 9185873518031274220
       type: {class: GetLocationMeleeSelfToTarget, ns: GameCreator.Runtime.Melee, asm: GameCreator.Runtime.Melee}
       data:
         m_Distance:
           m_Property:
-            rid: 9185873498292618144
+            rid: 9185873518031274222
         m_Axis: 5
         m_TrackTarget: 0
         m_Rotation: 0
-    - rid: 9185873498292618143
+    - rid: 9185873518031274221
       type: {class: GetLocationNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 9185873498292618144
+    - rid: 9185873518031274222
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 1

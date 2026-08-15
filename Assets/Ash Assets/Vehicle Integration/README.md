@@ -132,6 +132,7 @@ hoặc GC2 dùng chung, nên không được đưa vào domain Car:
 | `SimcadeCarParticleWind` | [`Vehicles/Car/Runtime/SimcadeCarParticleWind.cs`](Vehicles/Car/Runtime/SimcadeCarParticleWind.cs) | Lực gió world-space cho smoke/fire, cộng airflow ngược vận tốc xe và chỉ cập nhật 8 Hz khi VFX hoạt động. |
 | `SimcadeDetachedWheelCleanup` | [`Vehicles/Car/Runtime/SimcadeDetachedWheelCleanup.cs`](Vehicles/Car/Runtime/SimcadeDetachedWheelCleanup.cs) | Vòng đời debris bánh: văng, nằm phẳng theo ground, khóa physics 5 giây, chìm và tự dọn. |
 | `SimcadeCarImpactAudio` | [`Vehicles/Car/Runtime/SimcadeCarImpactAudio.cs`](Vehicles/Car/Runtime/SimcadeCarImpactAudio.cs) | Phân loại va chạm, audio, pooled spark/debris và phát event impact dùng chung. |
+| `VehicleImpactIgnored` | [`Vehicles/Car/Runtime/VehicleImpactIgnored.cs`](Vehicles/Car/Runtime/VehicleImpactIgnored.cs) | Marker cho physics prop nhẹ như shell: vẫn va chạm/phát tiếng riêng nhưng không đi vào damage, deformation, crash VFX hoặc ragdoll của Car/Bike. |
 | `SimcadeCarMetalDebris` | [`Vehicles/Car/Runtime/SimcadeCarMetalDebris.cs`](Vehicles/Car/Runtime/SimcadeCarMetalDebris.cs) | Tái sử dụng event impact để bắn mảnh kim loại lớn hơn Bike bằng một ParticleSystem pool tối ưu mobile. |
 | `SimcadeCarDoorDamage` | [`Vehicles/Car/Runtime/SimcadeCarDoorDamage.cs`](Vehicles/Car/Runtime/SimcadeCarDoorDamage.cs) | Tông mạnh tại từng cửa nhả chốt thành bản lề vật lý; kính đi cùng đúng cửa, còn cú cực mạnh hoặc va chạm trực tiếp tiếp theo mới làm cửa rời. |
 | `SimcadeCarDeformation` | [`Vehicles/Car/Runtime/SimcadeCarDeformation.cs`](Vehicles/Car/Runtime/SimcadeCarDeformation.cs) | Adapter event Sim-Cade gọi thuật toán deformation Edy cho các render mesh gần contact, đồng thời giữ sai lệch lái nhỏ. |
@@ -293,6 +294,9 @@ Trạng thái đọc nhanh:
 | `SetHeadlightEnabled(bool)` | Bật/tắt đồng thời đèn pha, spotlight và đèn hậu chạy đêm. |
 | `ToggleHeadlights()` | Đảo trạng thái đèn; dùng được từ GC2 Instruction hoặc UI chung. |
 | `SetHornPressed(bool)` | Nhấn/thả còi Car; HUD gọi `true` ở PointerDown và `false` ở PointerUp/PointerExit. |
+| `SetRearViewPressed(bool)` | Hold góc nhìn sau: `true` snap orbit camera Sim-Cade 180°, `false` snap ngay về đúng góc trước khi giữ. |
+| `SetFirstPersonView(bool)` | `true` chuyển camera hiện tại vào cabin; `false` phục hồi nguyên cấu hình chase TPS. Lựa chọn từ nút HUD được lưu dùng chung cho mọi Car. |
+| `RestoreThirdPersonViewPreservingPreference()` | Tạm trả camera về TPS cho exit/modal/destruction nhưng không đổi lựa chọn đã lưu. |
 | `BeginExitStop()` / `CancelExitStop()` | Hãm tốc có kiểm soát cho nhánh exit dưới ngưỡng. |
 | `BeginBailoutCameraHold()` / `EndBailoutCameraHold()` | Giữ camera xe thêm 2 giây khi nhảy khỏi xe. |
 | `BeginDestructionCameraHold()` | Giữ camera Sim-Cade đang active tại wreck; không tự bật camera cho Car rỗng/off-screen. |
@@ -300,7 +304,69 @@ Trạng thái đọc nhanh:
 | `KeepEngineRunningAfterBailout()` | Giữ tiếng động cơ và trạng thái máy khi Player nhảy khỏi xe. |
 | `ResetVehicle()` | Đưa xe về tư thế an toàn. |
 
-Thuộc tính đọc: `IsVehicleEnabled`, `IsPassengerPresentationActive`, `SpeedMetersPerSecond`, `SpeedKph`.
+Thuộc tính đọc: `IsVehicleEnabled`, `IsPassengerPresentationActive`,
+`IsRearViewPressed`, `IsFirstPersonViewActive`, `SpeedMetersPerSecond`,
+`SpeedKph`.
+
+### Camera nhìn phía sau dạng hold
+
+Nút ImageGen
+[`vehicle-control-rear-view.png`](../../UI/FranklinMobile/Resources/FranklinMobileUI/vehicle-control-rear-view.png)
+chỉ hiện khi Player thực sự lái Car. `PointerDown` gọi
+`SetRearViewPressed(true)` để xoay orbit target hiện có `180°`; `PointerUp`,
+`PointerExit`, exit Car, disable hoặc destruction đều nhả input. Camera trở về
+đúng yaw đã có trước lúc giữ nên không làm mất góc orbit do người chơi vừa chỉnh.
+Hai chiều nhìn sau/trở về đều snap ngay trong cùng frame và vô hiệu hóa state
+Cinemachine trước đó, nên không còn lerp hoặc damping khi giữ/nhả nút.
+
+Luồng này không tạo thêm Camera, Cinemachine rig, Canvas hay coroutine. Nó chỉ
+đổi yaw của orbit target vốn đã có, vì vậy phù hợp mobile và không ảnh hưởng
+camera Bike/GC2.
+
+### Chuyển TPS/FPS khi lái Car
+
+Nút toggle ImageGen
+[`vehicle-control-camera-mode.png`](../../UI/FranklinMobile/Resources/FranklinMobileUI/vehicle-control-camera-mode.png)
+đổi giữa chase TPS hiện tại và góc nhìn khoang lái. Khi bật FPS,
+`SimcadeCarDriver` lấy vị trí head bone Humanoid một lần và gắn camera nhìn trước
+vào Neck tại đúng vị trí đầu. Không parent trực tiếp vào Head vì Head được scale
+về `0` trong FPS; mount Neck vẫn đi theo chuyển động đầu nhưng giữ Transform camera
+hợp lệ. Chỉ khi giữ Rear View, anchor mới snap tức thì sang điểm thuộc ghế lái,
+lùi `0.24m` phía sau đầu để vai/lưng không che camera; nhả nút sẽ mount ngay lại
+vào đầu, không lerp.
+[`FirstPersonHeadOcclusion`](Vehicles/Car/Runtime/FirstPersonHeadOcclusion.cs)
+co head bone về scale `0` tại pivot cổ sau Animator/pose guard, tạo mặt cổ phẳng
+và ngăn đầu lọt vào camera dù chỉ một frame. Khi về TPS, exit, disable hoặc
+destruction, local position/scale ban đầu của đầu được phục hồi ngay. Nếu không
+đọc được head bone, driver dùng `First Person Fallback Offset`. FPS mặc định dùng
+FOV `82°`, near clip `0.04m`; offset/FOV/near clip vẫn chỉnh được trên component.
+
+FPS không tự mô phỏng orbit bằng Cinemachine nữa. Driver tái sử dụng chính GC2
+`ShotTypeThirdPerson` đang active của Player, đổi pivot sang head anchor, đặt
+shoulder/lift `0`, radius `0.015m` và zoom minimum `0`. Vì vậy input
+`HalfRightMobileController`/chuột/gamepad, pitch và yaw chạy đúng pipeline Camera
+Shot vốn đã dùng ngoài xe. Pitch dùng toàn dải `80°` (`±40°`); yaw GC2 được mở
+tối đa `179°` (`±89.5°`); sensitivity `(0.2, 0.18)` và smooth time `0.14s`.
+Auto Align của TPS được bật với `Delay = 0`: camera chỉ bắt đầu trở về hướng xe
+ngay sau khi người dùng thả orbit, còn trong thời gian giữ input thì pitch/yaw
+vẫn toàn quyền theo ngón tay/chuột/gamepad. Chase TPS Sim-Cade dùng cùng delay `0`.
+Nút hold nhìn sau vẫn snap tức thì và tạm chuyển pivot ra sau đầu. Khi về TPS,
+exit, disable hoặc destruction, driver phục hồi nguyên pivot, framing,
+sensitivity, pitch/yaw, align, zoom, rotation, FOV và near clip của GC2 Shot rồi
+trả quyền camera cho chase Sim-Cade. Không instantiate thêm Camera Shot.
+Chế độ cuối được lưu tại PlayerPrefs key `Franklin.Vehicle.Car.FirstPersonView`:
+exit/destruction chỉ tạm phục hồi camera Player và không ghi đè lựa chọn; lần enter
+Car tiếp theo (kể cả Car khác hoặc sau khi mở lại game) tự bật đúng TPS/FPS đã lưu.
+Runtime chỉ tạo lười một Transform anchor ở lần bật FPS đầu tiên và
+guard head chỉ ghi hai thuộc tính Transform trong `LateUpdate` khi FPS đang bật;
+không tạo Camera/Canvas/coroutine và không tìm bone mỗi frame. Khi FPS active,
+Dashboard chỉ ẩn km/h, thanh xăng và thanh máu; radio cùng các nút lái vẫn giữ.
+
+Vô lăng model vẫn được phép quay tối đa `360°`, nhưng hai target hand IK dùng góc
+riêng giới hạn mặc định `85°`. Vì vậy khi người dùng giữ trái/phải, hai bàn tay
+giữ nguyên tư thế quay tương ứng suốt thời gian hold thay vì đi hết một vòng rồi
+trở về tư thế thẳng. Nhả nút mới đưa tay và vô lăng về giữa; cách này chỉ cập nhật
+hai Transform sẵn có, không tạo rig hoặc allocation mỗi frame trên mobile.
 
 ### Đèn pha, đèn hậu và đèn phanh
 
@@ -366,6 +432,8 @@ không `Update`, allocation, tìm component hoặc tạo AudioClip runtime trên
 
 Component tự phân loại va chạm nhẹ/nặng theo impulse, điều chỉnh âm lượng/pitch so với động cơ và phát VFX tia lửa–mảnh vụn bằng pool. `EventImpactAccepted(bool isHeavy, float severity)` được phát một lần sau cooldown để `SimcadeCarHealth` dùng lại kết quả. `EventImpactContactAccepted(Collision, bool, float)` chuyển cùng kết quả và contact point cho deformation ngay trong callback, không tính collision lần hai. API `Configure(...)` chỉ dành cho installer/authoring.
 
+Năm prefab vỏ đạn Shooter (`AK`, `Pistol`, `Shotgun`, `Minigun`, `Sniper`) có marker `VehicleImpactIgnored`. Bộ phân loại Car và lớp Bike kế thừa đều loại chúng trước khi tính impact; collider, Rigidbody và âm thanh rơi/nảy riêng của shell vẫn giữ nguyên, nhưng shell không thể làm móp mesh, trừ máu xe, phát crash VFX hay kích hoạt ragdoll.
+
 ### `SimcadeCarMetalDebris`
 
 Component nghe trực tiếp `EventImpactContactAccepted` của `SimcadeCarImpactAudio`, vì vậy không tạo thêm callback collision hoặc tính severity lần hai. Mảnh vụn chỉ xuất hiện khi vận tốc tương đối hoặc vận tốc Car lớn hơn `60 km/h`; mọi va chạm ở hoặc dưới ngưỡng này, kể cả va chạm được phân loại nặng, đều không phát mảnh. Mỗi burst có `9–16` mảnh, size `0.21675–0.39525`, đã giảm thêm 15% từ profile Car trước đó. Runtime chỉ tạo một ParticleSystem pool tối đa `24` particle cho mỗi Car; billboard không collision, trail, noise, shadow, light probe hay motion vector và dùng chung atlas `MetalDebris.mat` với Bike để giữ chi phí mobile thấp.
@@ -405,7 +473,16 @@ Va chạm lệch trái/phải từ severity `4.5` trở lên cộng một steeri
 | `SetNormalizedHealth(float ratio)` | Đặt máu theo tỷ lệ `0..1`, phù hợp save/load hoặc garage. |
 | `EventHealthChanged(current, maximum)` | Event cho UI; không poll health mỗi frame. |
 
-Thuộc tính đọc: `CurrentHealth`, `MaximumHealth`, `HealthRatio`, `IsDestroyed`. Impact nhẹ gây `0.35–2.25` damage, impact nặng gây `4.5–14` damage theo severity (giảm khoảng 35% so với profile ban đầu); chỉ impact đã vượt ngưỡng/cooldown của `SimcadeCarImpactAudio` mới được tính. Phân loại âm thanh, VFX va chạm và deformation vẫn dùng severity gốc nên không bị làm yếu theo lượng máu trừ.
+Thuộc tính đọc: `CurrentHealth`, `MaximumHealth`, `HealthRatio`, `IsDestroyed`.
+Impact nhẹ gây `0.35–2.25` damage, impact nặng gây `4.5–14` damage theo severity
+(giảm khoảng 35% so với profile ban đầu); chỉ impact đã vượt ngưỡng/cooldown của
+`SimcadeCarImpactAudio` mới được tính. Ngoài va chạm, GC2 Shooter gọi
+`SimcadeCarHealth.ApplyDamage` qua
+`Assets/ShooterSystemGC2/Runtime/InstructionFranklinVehicleDamage.cs` khi projectile
+trúng một collider thuộc Car. Người bắn không gây damage cho chính Car đang ngồi.
+Bridge Shooter chỉ thay đổi health và không gọi trực tiếp deformation/destruction.
+Phân loại âm thanh, VFX va chạm và deformation vẫn dùng severity gốc nên không bị
+làm yếu theo lượng máu trừ.
 
 ### `SimcadeCarFuel`
 
@@ -547,7 +624,9 @@ rồi mới nổ một lần. Critical drain chỉ trừ Bike health, không tr�
 
 `FranklinBikeDestruction` lưu rider ở thời điểm `EventDestroyed`, nên vụ nổ vẫn
 trừ đúng Player dù `FranklinBikeCrashRagdoll` đã nhả rider khỏi seat. Xe thật
-được bỏ kinematic/freeze rotation, giữ nguyên hai bánh, trở thành fallen wreck,
+được bỏ kinematic/freeze rotation và trở thành fallen wreck. Hai wheel target
+(gồm cả mâm+lốp) cùng một mesh cơ khí trung tâm được tách thành Rigidbody debris,
+văng theo vận tốc explosion rồi khóa physics, giữ 5 giây, chìm và tự dọn. Wreck
 nhận lực ngã và char bằng `MaterialPropertyBlock`; Player Traits `hp` về 0 và
 nhận burn fire 4 giây. Không có camera explosion riêng cho Bike.
 
@@ -583,7 +662,8 @@ Chỉ các asset/dependency cần thiết được lấy từ `3D Fire and Explo
 | `SetPresentationActive(bool)` | Hiện/ẩn dashboard cùng trạng thái driver/passenger Car. |
 | `IsSharedHudActive` | Cho HUD vehicle dùng chung biết Car đang sở hữu Canvas; dùng để loại trừ telemetry Bike trong lúc chuyển vehicle. |
 | `SetSpeedHudPosition(float left, float height, Vector2 screenOffset)` | Chỉnh điểm bám world và bù vị trí pixel của km/h bằng code. |
-| `SetHealthHudPosition(float right, float height, Vector2 screenOffset)` | Chỉnh độc lập thanh máu bám bên phải thân xe và bù vị trí pixel. |
+| `SetHealthHudPosition(float right, float height, Vector2 screenOffset)` | Giữ API cấu hình profile và bù pixel cuối cho thanh máu mirror bên phải. |
+| `SetDrivingTelemetryVisible(bool)` | Ẩn/hiện riêng km/h, xăng và máu; FPS gọi API này mà không tắt radio. |
 | `ToggleRadio()` / `SetRadioEnabled(bool)` | Bật hoặc tắt radio. |
 | `PreviousTrack()` / `NextTrack()` | Chuyển track và bắt đầu phát. |
 | `SelectTrack(int index, bool play)` | Chọn track bằng code, hỗ trợ mở rộng playlist. |
@@ -593,7 +673,7 @@ Dashboard dùng đúng một Canvas static dùng chung với sorting order `1210
 - Tốc độ lấy từ `SimcadeCarDriver.SpeedKph`, cập nhật text tối đa 10 Hz. Tâm HUD lấy từ bounds của renderer thật thay vì pivot prefab, loại trừ particle/trail/line; khoảng cách trái/phải còn tự cộng half-width nhìn thấy theo góc camera. Vì vậy cùng một HUD giữ đúng tâm và kích thước trên các mẫu Car khác nhau. World target dùng local height `0.82m` và `SmoothDamp` `0.11s`.
 - Typography dùng `Josefin Sans Bold`; speed `56px`, hậu tố `km/h` `29px` và shadow nhẹ `1px`/alpha `0.34` để không tạo quầng đen trên màn hình nhỏ.
 - Thanh xăng nằm ngay dưới `km/h`, dùng sprite ImageGen flat vàng `VehicleFuelArc.png` kích thước nguồn `71x512`, alpha trong suốt, cong nhẹ sang trái (đã flip ngược hướng Car) và chỉ giữ shadow charcoal rất mềm. Không còn highlight, bevel hoặc gradient 3D. Một Image tối mờ làm rãnh nền; Image vàng phía trên dùng `Filled/Vertical` từ `E` lên `F`, nên `EventFuelChanged` chỉ đổi `fillAmount` và không rebuild custom mesh. Không có panel nền; texture tắt mipmap, clamp, giới hạn `512px` và nén cho mobile. Có thể chỉnh `Fuel Gauge Offset` trong Inspector.
-- Thanh xăng đi theo world target bên trái Car cùng cụm `km/h`; thanh máu xanh da trời dùng world target đối xứng bên phải. Hai phía dùng chung tâm renderer và cùng side offset thích ứng, sau đó bù theo tâm sprite và mép đáy nên không còn lệch do pivot của từng model. `Health Screen Offset` chỉ là fine-tuning, mặc định `(0,0)`. Bar máu cao `184px`, dày `40px`, icon dấu cộng xanh da trời nằm chính giữa trên đỉnh; `EventHealthChanged` chỉ đổi `fillAmount`, không poll hay custom mesh.
+- HUD project tám góc `BoxCollider` thân xe sang Canvas mỗi frame TPS và lấy trực tiếp mép trái/phải đang hiển thị. Cụm km/h/xăng nằm cách mép trái `45px`; thanh máu xanh da trời nằm cách mép phải đúng `45px`, nên camera sau/orbit không thể làm ba cụm phình xa khỏi Car. Không dùng tâm/bounds renderer vì cửa, flare, đèn và effect có thể làm sai kích thước. Đáy hai thanh luôn ngang nhau; `Health Screen Offset` chỉ là fine-tuning, mặc định `(0,0)`. Bar máu cao `184px`, dày `40px`, icon dấu cộng xanh da trời nằm chính giữa trên đỉnh; `EventHealthChanged` chỉ đổi `fillAmount`, không poll hay custom mesh. Khi FPS ẩn telemetry, phép project tám góc cũng không chạy.
 - Cụm radio neo cách đáy safe area `70px`, gần sát cạnh dưới nhưng vẫn tránh home indicator/tai thỏ ngang. Đĩa radio quay `38°/s` khi phát. Bốn button PNG alpha có vùng chạm `88x88`; trạng thái Off được thể hiện bằng tint và tên station.
 - Ba station CC0 dùng một `AudioSource` 2D, Vorbis quality `0.48`, `Streaming`, `loadInBackground=true`, `preloadAudioData=false`.
 - Static dò sóng dài `0.55s` dùng source 2D riêng, mono PCM/preload vì file rất nhỏ; chỉ phát khi bật/tắt/chuyển station.
@@ -653,6 +733,8 @@ flowchart LR
     Collision["OnCollisionEnter"] --> Impact["Một lần phân loại + cooldown"]
     Impact --> SoundFx["Audio + pooled sparks/debris"]
     Impact --> Damage["SimcadeCarHealth.ApplyDamage"]
+    ShooterHit["GC2 Shooter On Hit"] --> VehicleBridge["InstructionFranklinVehicleDamage"]
+    VehicleBridge --> Damage
     Damage --> GC2["GC2 health-attribute-id"]
     GC2 -->|"EventHealthChanged"| HealthBar["Larger mirrored vertical health fill + color"]
     RadioButtons["Power / Prev / Play / Next"] --> Tune["0.55 s radio static"]
@@ -661,12 +743,14 @@ flowchart LR
     RadioSource --> Disc["ImageGen disc quay khi phát"]
     BikeCollision["Bike OnCollisionEnter"] --> BikeImpact["Phân loại + cooldown dùng chung"]
     BikeImpact --> BikeDamage["FranklinBikeHealth.ApplyDamage"]
+    VehicleBridge --> BikeDamage
     BikeDamage --> BikeGC2["Bike GC2 health-attribute-id"]
     BikeGC2 -->|"0 HP"| BikeDisable["Khóa input + chặn enter"]
     BikeImpact --> BikeDent["Render-body deformation"]
     BikeImpact --> BikePlayer["Heavy: trừ Player hp"]
     BikeGC2 --> BikeVfx["Smoke / warning fire / explosion"]
     BikeVfx --> BikeWreck["Dynamic fallen wreck + Player hp 0"]
+    BikeWreck --> BikeParts["2 wheel targets + engine debris"]
 ```
 
 ## Radio CC0 và sprite ImageGen
@@ -686,7 +770,8 @@ Sprite [`Vehicles/Car/Textures/UI/Generated/`](Vehicles/Car/Textures/UI/Generate
 
 ```mermaid
 flowchart TD
-    A["RequestEnter(Character, side)"] --> B["Resolve cửa/ghế khả dụng gần nhất"]
+    A["Request enter Car/Bike"] --> A1["Tắt GC2 Object Direction"]
+    A1 --> B["Resolve cửa/ghế khả dụng gần nhất"]
     B --> C{"Ghế sau?"}
     C -- Có --> D["GC2 đi tới cửa sau"]
     D --> E["Mở cửa + animation vào"]
@@ -704,7 +789,12 @@ flowchart TD
     O --> J
 ```
 
-Điểm đứng cửa được tiếp cận bằng motion của GC2. Việc căn root/khung xương vào ghế chỉ bắt đầu trong đoạn animation bước vào cabin.
+`FranklinVehicleInteractionManager` tắt `FranklinObjectDirectionToggle` ngay sau khi
+xác nhận target và trước khi khóa movement/khởi chạy `CarEntry` hoặc `BikeEntry`.
+Nếu prefab gán trực tiếp GC2 `UnitFacingObjectDirection`, manager chuyển về
+`UnitFacingPivot` làm fallback. Vì vậy camera không còn ghi đè rotation root trong
+lúc Player đi tới điểm mở cửa. Điểm đứng cửa được tiếp cận bằng motion của GC2;
+việc căn root/khung xương vào ghế chỉ bắt đầu trong đoạn animation bước vào cabin.
 
 ## Luồng exit theo tốc độ
 
@@ -785,13 +875,14 @@ Prefab chính: `Vehicles/Car/Prefabs/Car.prefab`.
 
 | Nhánh | Cần kiểm tra |
 |---|---|
+| Object Direction → Enter Car/Bike | Giữ Object Direction rồi nhấn enter: chế độ phải tắt trước bước đi tới vehicle; Player tự quay đúng hướng cửa và không bị camera kéo ngược root. |
 | Enter trái/phải không NPC | Player đi tới đúng cửa, cửa mở một lần, không đứng/nhô lên nóc. |
 | Enter trái có NPC | Kéo NPC đúng landing point, NPC tắt vật lý khi ngồi và phục hồi một lần khi ra. |
 | Enter phải có NPC | Player vào ghế phụ, thân nghiêng/nhìn NPC, tay phải bám vô lăng, tay trái đẩy NPC. |
 | Ghế sau trái/phải | Cửa gần nhất được chọn; hai tay giữ trên đùi, không giơ lên trần. |
 | Exit dưới 50 km/h | Xe giảm tốc tự nhiên tới dừng rồi mới mở cửa; không sinh khói phanh giả. |
 | Exit trên 50 km/h | Không đứng lên; dùng 50 frame đầu, ragdoll, trừ Traits `hp` đúng một lần theo tốc độ, giữ camera/engine, cửa khép không kín. |
-| Camera/UI mobile | Orbit trái/phải có input, tự trở về khi thả; button enter/exit/slow có kích thước và vùng ngón cái đúng. |
+| Camera/UI mobile | Orbit trái/phải có input và tự trở về; giữ Rear View thấy đúng đường phía sau; toggle FPS nằm đúng mắt tài xế, không thấy mesh đầu, orbit/rear-view vẫn hoạt động; exit phục hồi đúng chase offset/FOV nhưng lần enter Car tiếp theo và lần mở game sau vẫn nhớ lựa chọn TPS/FPS cuối. |
 | Va chạm | Âm nhẹ/nặng nghe rõ hơn động cơ theo mức va chạm; spark/debris được pool; panel gần contact móp theo severity. |
 | Deformation mobile | Từ `2.5m/s` trở lên phải thấy panel trong radius móp, ánh sáng/mesh bounds cập nhật ngay; quá 12 impact không tiếp tục sửa vertex. |
 | Lệch lái do hỏng | Tông lệch trái/phải đủ mạnh làm xe kéo nhẹ về phía hỏng; bias không vượt `±0.16`, counter-steer và Reset API hoạt động. |
@@ -800,7 +891,7 @@ Prefab chính: `Vehicles/Car/Prefabs/Car.prefab`.
 | Máu Car | Va chạm nhẹ/nặng trừ đúng một lần; fill/icon xanh da trời và Repair API cập nhật ngay trên HUD dùng chung. |
 | Damage VFX | <=32% có khói; <=14% có warning fire; health 0 phải cảnh báo thêm 1.35s mới nổ; wreck terminal không nổ lại hoặc lái lại sau Repair. |
 | Gió VFX | Khi đứng yên smoke/fire nghiêng theo world wind; khi xe chạy, luồng khí bẻ ngược hướng vận tốc; hạt cũ ở world-space không bị kéo cứng theo xe. |
-| Phá hủy Car rỗng | Toàn bộ renderer Car cháy đen riêng instance; bốn bánh tách/văng, nằm phẳng, khóa physics 5 giây rồi chìm/ẩn; camera, dashboard và Car control ẩn. |
+| Phá hủy Car rỗng/NPC lái | Toàn bộ renderer Car cháy đen riêng instance; bốn bánh tách/văng, nằm phẳng, khóa physics 5 giây rồi chìm/ẩn; chỉ camera/dashboard/Car control của xe bị ẩn. HUD đi bộ của Player đứng ngoài phải giữ nguyên. |
 | Cleanup xác xe | Trước 15 giây không ẩn; sau 15 giây vẫn giữ nếu camera thấy hoặc Player gần hơn 35m; chỉ ẩn khi ngoài camera và Player đủ xa. |
 | Phá hủy khi Player ngồi | Player nằm gần Car, ragdoll không tự đứng, cháy đen + Fire3, Traits `hp` = 0; camera giữ hết burst rồi lerp 0.75s tới Player, controls vẫn ẩn ngay. |
 | Tốc độ | Hiển thị km/h bên trái thân xe, bám chuyển động/camera với target lag nhẹ; text không cập nhật khi số không đổi. |

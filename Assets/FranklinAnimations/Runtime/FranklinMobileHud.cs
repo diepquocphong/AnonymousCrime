@@ -104,6 +104,8 @@ namespace FranklinGame.UI
         private FranklinHudButton m_SlowDriveButton;
         private FranklinHudButton m_BikeHeadlightButton;
         private FranklinHudButton m_CarHornButton;
+        private FranklinHudButton m_CarRearViewButton;
+        private FranklinHudButton m_CarCameraModeButton;
         private FranklinHudButton m_BikeWheelieButton;
         private FranklinHudButton m_BikeBurnoutButton;
         private FranklinHudButton m_BikeHelmetButton;
@@ -132,6 +134,7 @@ namespace FranklinGame.UI
         private float m_BikeFuelTarget;
         private float m_BikeFuelVelocity;
         private bool m_HasBikeFuelTarget;
+        private bool m_BikeTelemetrySuppressed;
         private bool m_WasDriving;
         private bool m_WasPassengerMode;
         private bool m_HasAppliedMode;
@@ -339,7 +342,7 @@ namespace FranklinGame.UI
             if (!this.m_HasAppliedSuppression)
             {
                 this.ReleaseMovementInputs();
-                this.ReleaseVehicleInputs(this.m_ActiveDriver);
+                this.ReleaseVehicleInputs(this.m_ActiveDriver, true);
             }
             if (this.m_OnFootGroup != null) this.m_OnFootGroup.gameObject.SetActive(false);
             if (this.m_VehicleGroup != null) this.m_VehicleGroup.gameObject.SetActive(false);
@@ -473,10 +476,32 @@ namespace FranklinGame.UI
                     }
                     break;
                 case FranklinHudAction.CarHorn:
-                    if (this.m_ActiveDriver is SimcadeCarDriver hornCar &&
+                    if (this.m_ActiveDriver is FranklinArcadeBikeDriver hornBike)
+                    {
+                        hornBike.SetHornPressed(active);
+                    }
+                    else if (this.m_ActiveDriver is SimcadeCarDriver hornCar &&
                         hornCar != null)
                     {
                         hornCar.SetHornPressed(active);
+                    }
+                    break;
+                case FranklinHudAction.CarRearView:
+                    if (this.m_ActiveDriver is SimcadeCarDriver rearViewCar &&
+                        rearViewCar != null)
+                    {
+                        rearViewCar.SetRearViewPressed(active);
+                    }
+                    break;
+                case FranklinHudAction.CarCameraMode:
+                    if (this.m_ActiveDriver is FranklinArcadeBikeDriver cameraModeBike)
+                    {
+                        cameraModeBike.SetFirstPersonView(active);
+                    }
+                    else if (this.m_ActiveDriver is SimcadeCarDriver cameraModeCar &&
+                        cameraModeCar != null)
+                    {
+                        cameraModeCar.SetFirstPersonView(active);
                     }
                     break;
                 case FranklinHudAction.BikeWheelie:
@@ -518,6 +543,33 @@ namespace FranklinGame.UI
                     }
                     break;
             }
+        }
+
+        internal void SetButtonPointerState(FranklinHudAction action, bool pressed)
+        {
+            // Franklin Shooter Fire uses FranklinShooterTouchButton and therefore
+            // never enters this path. Every Franklin vehicle-control button does.
+            if (this.m_ActiveDriver is FranklinArcadeBikeDriver bikeDriver &&
+                bikeDriver.IsFirstPersonViewActive)
+            {
+                bikeDriver.SetFirstPersonOrbitSuppressed(pressed);
+            }
+            else if (this.m_ActiveDriver is SimcadeCarDriver carDriver &&
+                     carDriver.IsFirstPersonViewActive)
+            {
+                carDriver.SetFirstPersonOrbitSuppressed(pressed);
+            }
+        }
+
+        internal bool ShouldPreserveToggleStateOnDisable(FranklinHudAction action)
+        {
+            if (action != FranklinHudAction.CarCameraMode) return false;
+
+            // Camera mode is a saved preference. Hiding the shared button during
+            // exit, a modal menu or HUD rebuild must not synthesize a user toggle
+            // to TPS and overwrite that preference.
+            return this.m_ActiveDriver is FranklinArcadeBikeDriver ||
+                   this.m_ActiveDriver is SimcadeCarDriver;
         }
 
         private void BuildCanvas()
@@ -602,8 +654,8 @@ namespace FranklinGame.UI
                 "Bike Helmet On Foot",
                 "vehicle-control-helmet",
                 FranklinHudAction.BikeHelmet,
-                new Vector2(1f, 0f),
-                new Vector2(-690f, 190f),
+                new Vector2(1f, 1f),
+                new Vector2(-315f, -385f),
                 new Vector2(165f, 165f)
             );
             this.m_OnFootHelmetButton.gameObject.SetActive(false);
@@ -650,8 +702,8 @@ namespace FranklinGame.UI
                 "vehicle-control-helmet",
                 FranklinHudAction.BikeHelmet,
                 new Vector2(1f, 1f),
-                new Vector2(-315f, -385f),
-                new Vector2(165f, 165f)
+                new Vector2(-285f, -385f),
+                new Vector2(155f, 155f)
             );
             this.CreateButton(
                 this.m_VehicleGroup,
@@ -668,8 +720,8 @@ namespace FranklinGame.UI
                 "vehicle-control-5",
                 FranklinHudAction.VehicleInteraction,
                 new Vector2(1f, 1f),
-                new Vector2(-125f, -385f),
-                new Vector2(170f, 170f)
+                new Vector2(-115f, -385f),
+                new Vector2(155f, 155f)
             );
             this.m_CarHornButton = this.CreateButton(
                 this.m_VehicleGroup,
@@ -677,8 +729,27 @@ namespace FranklinGame.UI
                 "vehicle-control-horn",
                 FranklinHudAction.CarHorn,
                 new Vector2(1f, 1f),
-                new Vector2(-295f, -385f),
+                new Vector2(-625f, -575f),
                 new Vector2(155f, 155f)
+            );
+            this.m_CarRearViewButton = this.CreateButton(
+                this.m_VehicleGroup,
+                "Car Rear View",
+                "vehicle-control-rear-view",
+                FranklinHudAction.CarRearView,
+                new Vector2(1f, 1f),
+                new Vector2(-295f, -385f),
+                new Vector2(125f, 125f)
+            );
+            this.m_CarCameraModeButton = this.CreateButton(
+                this.m_VehicleGroup,
+                "Car Camera Mode",
+                "vehicle-control-camera-mode",
+                FranklinHudAction.CarCameraMode,
+                new Vector2(1f, 1f),
+                new Vector2(-455f, -385f),
+                new Vector2(155f, 155f),
+                true
             );
             this.m_SlowDriveButton = this.CreateButton(
                 this.m_VehicleGroup,
@@ -743,6 +814,8 @@ namespace FranklinGame.UI
             this.m_SlowDriveButton = FindButton("Slow Drive");
             this.m_BikeHeadlightButton = FindButton("Bike Headlight");
             this.m_CarHornButton = FindButton("Car Horn");
+            this.m_CarRearViewButton = FindButton("Car Rear View");
+            this.m_CarCameraModeButton = FindButton("Car Camera Mode");
             this.m_BikeWheelieButton = FindButton("Bike Wheelie");
             this.m_BikeBurnoutButton = FindButton("Bike Burnout");
             this.m_BikeHelmetButton = FindButton("Bike Helmet");
@@ -780,12 +853,12 @@ namespace FranklinGame.UI
             {
                 this.m_OnFootHelmetButton = this.CreateButton(
                 this.m_OnFootGroup,
-                "Bike Helmet On Foot",
-                "vehicle-control-helmet",
-                FranklinHudAction.BikeHelmet,
-                new Vector2(1f, 0f),
-                new Vector2(-690f, 190f),
-                new Vector2(165f, 165f)
+                    "Bike Helmet On Foot",
+                    "vehicle-control-helmet",
+                    FranklinHudAction.BikeHelmet,
+                    new Vector2(1f, 1f),
+                    new Vector2(-315f, -385f),
+                    new Vector2(165f, 165f)
                 );
                 this.m_OnFootHelmetButton.gameObject.SetActive(false);
             }
@@ -825,8 +898,35 @@ namespace FranklinGame.UI
                     "vehicle-control-horn",
                     FranklinHudAction.CarHorn,
                     new Vector2(1f, 1f),
-                    new Vector2(-295f, -385f),
+                    new Vector2(-625f, -575f),
                     new Vector2(155f, 155f)
+                );
+            }
+
+            if (this.m_CarRearViewButton == null)
+            {
+                this.m_CarRearViewButton = this.CreateButton(
+                    this.m_VehicleGroup,
+                    "Car Rear View",
+                    "vehicle-control-rear-view",
+                    FranklinHudAction.CarRearView,
+                    new Vector2(1f, 1f),
+                    new Vector2(-295f, -385f),
+                    new Vector2(125f, 125f)
+                );
+            }
+
+            if (this.m_CarCameraModeButton == null)
+            {
+                this.m_CarCameraModeButton = this.CreateButton(
+                    this.m_VehicleGroup,
+                    "Car Camera Mode",
+                    "vehicle-control-camera-mode",
+                    FranklinHudAction.CarCameraMode,
+                    new Vector2(1f, 1f),
+                    new Vector2(-455f, -385f),
+                    new Vector2(155f, 155f),
+                    true
                 );
             }
 
@@ -864,8 +964,8 @@ namespace FranklinGame.UI
                     "vehicle-control-helmet",
                     FranklinHudAction.BikeHelmet,
                     new Vector2(1f, 1f),
-                    new Vector2(-315f, -385f),
-                    new Vector2(165f, 165f)
+                    new Vector2(-285f, -385f),
+                    new Vector2(155f, 155f)
                 );
             }
 
@@ -1138,12 +1238,29 @@ namespace FranklinGame.UI
                 isDriving && this.m_ActiveDriver is SimcadeCarDriver carDriver &&
                 carDriver != null &&
                 carDriver.IsVehicleEnabled;
-            bool showCarHorn = isDriving &&
-                this.m_ActiveDriver is SimcadeCarDriver hornCar &&
-                hornCar != null &&
-                hornCar.IsVehicleEnabled;
+            bool showVehicleHorn = showBikeControls ||
+                isDriving && this.m_ActiveDriver is SimcadeCarDriver hornCar &&
+                hornCar != null && hornCar.IsVehicleEnabled;
+            bool showCarRearView = isDriving &&
+                this.m_ActiveDriver is SimcadeCarDriver rearViewCar &&
+                rearViewCar != null &&
+                rearViewCar.IsVehicleEnabled;
+            bool showCarCameraMode = isDriving &&
+                (this.m_ActiveDriver is FranklinArcadeBikeDriver cameraModeBike &&
+                 cameraModeBike.IsVehicleEnabled && !this.m_WasPassengerMode ||
+                 this.m_ActiveDriver is SimcadeCarDriver cameraModeCar &&
+                 cameraModeCar != null && cameraModeCar.IsVehicleEnabled);
+            this.m_BikeTelemetrySuppressed = bikeDriver != null &&
+                                             bikeDriver.IsFirstPersonViewActive;
             SetButtonActive(this.m_BikeHeadlightButton, showVehicleHeadlight);
-            SetButtonActive(this.m_CarHornButton, showCarHorn);
+            SetButtonActive(this.m_CarHornButton, showVehicleHorn);
+            SetButtonActive(this.m_CarRearViewButton, showCarRearView);
+            SetButtonActive(this.m_CarCameraModeButton, showCarCameraMode);
+            this.m_CarCameraModeButton?.SetToggleState(
+                bikeDriver != null && bikeDriver.IsFirstPersonViewActive ||
+                this.m_ActiveDriver is SimcadeCarDriver cameraCar &&
+                cameraCar != null && cameraCar.IsFirstPersonViewActive
+            );
             SetButtonActive(this.m_BikeWheelieButton, showBikeControls);
             SetButtonActive(this.m_BikeBurnoutButton, showBikeControls);
             this.BindBikeHealth(bikeDriver);
@@ -1163,7 +1280,49 @@ namespace FranklinGame.UI
             FranklinBikeHelmetController helmet = this.ResolvePlayerHelmetController();
             bool showOnFoot = !isDriving && helmet != null &&
                               (helmet.IsEquipped || helmet.IsTransitioning);
+            if (showOnFoot && this.m_OnFootHelmetButton != null &&
+                !this.m_OnFootHelmetButton.gameObject.activeSelf)
+            {
+                this.SyncOnFootHelmetButtonAppearance();
+            }
             SetButtonActive(this.m_OnFootHelmetButton, showOnFoot);
+        }
+
+        /// <summary>
+        /// The on-foot control is a persistence proxy because VehicleGroup is hidden
+        /// after exit. Keep it visually identical to the authored Bike button so an
+        /// equipped helmet never appears to jump, resize or change icon during exit.
+        /// </summary>
+        private void SyncOnFootHelmetButtonAppearance()
+        {
+            if (this.m_BikeHelmetButton == null ||
+                this.m_OnFootHelmetButton == null)
+            {
+                return;
+            }
+
+            RectTransform source = this.m_BikeHelmetButton.transform as RectTransform;
+            RectTransform target = this.m_OnFootHelmetButton.transform as RectTransform;
+            if (source != null && target != null)
+            {
+                target.anchorMin = source.anchorMin;
+                target.anchorMax = source.anchorMax;
+                target.pivot = source.pivot;
+                target.anchoredPosition = source.anchoredPosition;
+                target.sizeDelta = source.sizeDelta;
+                target.localRotation = source.localRotation;
+                target.localScale = source.localScale;
+            }
+
+            Image sourceImage = this.m_BikeHelmetButton.GetComponent<Image>();
+            Image targetImage = this.m_OnFootHelmetButton.GetComponent<Image>();
+            if (sourceImage == null || targetImage == null) return;
+
+            targetImage.sprite = sourceImage.sprite;
+            targetImage.material = sourceImage.material;
+            targetImage.preserveAspect = sourceImage.preserveAspect;
+            targetImage.type = sourceImage.type;
+            targetImage.color = sourceImage.color;
         }
 
         private bool TryGetPlayerBikePassenger(
@@ -1509,7 +1668,8 @@ namespace FranklinGame.UI
 
         private void SetBikeHealthVisible(bool visible)
         {
-            visible &= !SimcadeCarDashboard.IsSharedHudActive;
+            visible &= !SimcadeCarDashboard.IsSharedHudActive &&
+                       !this.m_BikeTelemetrySuppressed;
             if (this.m_BikeHealthRoot != null &&
                 this.m_BikeHealthRoot.gameObject.activeSelf != visible)
             {
@@ -1559,7 +1719,12 @@ namespace FranklinGame.UI
 
         private void UpdateBikeFuelFill()
         {
-            if (!this.m_HasBikeFuelTarget || this.m_BikeFuelFillImage == null) return;
+            if (this.m_BikeTelemetrySuppressed ||
+                !this.m_HasBikeFuelTarget ||
+                this.m_BikeFuelFillImage == null)
+            {
+                return;
+            }
 
             this.m_BikeFuelFillImage.fillAmount = Mathf.SmoothDamp(
                 this.m_BikeFuelFillImage.fillAmount,
@@ -1579,7 +1744,8 @@ namespace FranklinGame.UI
 
         private void SetBikeFuelVisible(bool visible)
         {
-            visible &= !SimcadeCarDashboard.IsSharedHudActive;
+            visible &= !SimcadeCarDashboard.IsSharedHudActive &&
+                       !this.m_BikeTelemetrySuppressed;
             if (this.m_BikeFuelRoot != null &&
                 this.m_BikeFuelRoot.gameObject.activeSelf != visible)
             {
@@ -1690,7 +1856,9 @@ namespace FranklinGame.UI
 
         private void UpdateBikeSpeed(FranklinArcadeBikeDriver bikeDriver)
         {
-            bool visible = bikeDriver != null;
+            bool visible = bikeDriver != null &&
+                           !this.m_BikeTelemetrySuppressed &&
+                           !SimcadeCarDashboard.IsSharedHudActive;
             if (this.m_BikeSpeedRoot != null &&
                 this.m_BikeSpeedRoot.gameObject.activeSelf != visible)
             {
@@ -1749,7 +1917,7 @@ namespace FranklinGame.UI
 
         private void UpdateBikeGaugePositions(FranklinArcadeBikeDriver bikeDriver)
         {
-            if (bikeDriver == null)
+            if (bikeDriver == null || this.m_BikeTelemetrySuppressed)
             {
                 this.m_HasBikeHealthPosition = false;
                 this.m_BikeHealthVelocity = Vector2.zero;
@@ -1981,6 +2149,8 @@ namespace FranklinGame.UI
                 "Slow Drive",
                 "Bike Headlight",
                 "Car Horn",
+                "Car Rear View",
+                "Car Camera Mode",
                 "Bike Wheelie",
                 "Bike Burnout",
                 "Bike Helmet"
@@ -2001,7 +2171,9 @@ namespace FranklinGame.UI
             this.m_CameraPointing?.SetVirtualPointInput(false);
         }
 
-        private void ReleaseVehicleInputs(IRvrVehicleInputController driver)
+        private void ReleaseVehicleInputs(
+            IRvrVehicleInputController driver,
+            bool preserveFirstPersonView = false)
         {
             if (driver == null) return;
             driver.SetVirtualAccelerateInput(false);
@@ -2012,7 +2184,10 @@ namespace FranklinGame.UI
             driver.SetVirtualHandbrakeInput(false);
             if (driver is FranklinArcadeBikeDriver bikeDriver)
             {
+                if (!preserveFirstPersonView)
+                    bikeDriver.RestoreThirdPersonViewPreservingPreference();
                 bikeDriver.SetHeadlightEnabled(false);
+                bikeDriver.SetHornPressed(false);
                 bikeDriver.SetVirtualWheelieInput(false);
                 bikeDriver.SetVirtualBurnoutInput(false);
             }
@@ -2020,6 +2195,11 @@ namespace FranklinGame.UI
             {
                 carDriver.SetHeadlightEnabled(false);
                 carDriver.SetHornPressed(false);
+                carDriver.SetRearViewPressed(false);
+                if (!preserveFirstPersonView)
+                {
+                    carDriver.RestoreThirdPersonViewPreservingPreference();
+                }
             }
         }
 
@@ -2093,7 +2273,9 @@ namespace FranklinGame.UI
         BikeHelmet,
         PointDirection,
         CarHorn,
-        ObjectDirection
+        ObjectDirection,
+        CarRearView,
+        CarCameraMode
     }
 
 }

@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Threading.Tasks;
+using FranklinGame.Shooter;
+using FranklinGame.Vehicles;
 using GameCreator.Runtime.Cameras;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
@@ -24,7 +26,6 @@ namespace FranklinGame.Animations
 
         private const BindingFlags PRIVATE_INSTANCE =
             BindingFlags.Instance | BindingFlags.NonPublic;
-
         private static readonly FieldInfo PIVOT_FIELD =
             typeof(ShotSystemThirdPerson).GetField("m_Pivot", PRIVATE_INSTANCE);
         private static readonly FieldInfo SHOULDER_FIELD =
@@ -88,9 +89,17 @@ namespace FranklinGame.Animations
         private bool m_HasSnapshot;
         private bool m_ShooterAimRequested;
         private bool m_ShooterAimApplied;
+        private bool m_FirstPersonActive;
+        private bool m_FirstPersonProfileRestorePending;
+        private GameObject m_FirstPersonAnchor;
+        private FirstPersonHeadOcclusion m_FirstPersonHeadOcclusion;
+        private FranklinFirstPersonCameraManager m_FirstPersonCameraManager;
         private GameObject m_RecoveryPivot;
 
         public bool IsActive { get; private set; }
+        public bool IsFirstPersonActive =>
+            this.m_FirstPersonCameraManager != null &&
+            this.m_FirstPersonCameraManager.IsOwnedBy(this);
         public ShotCamera ActiveShot => this.m_ActiveShot;
 
         private struct Snapshot
@@ -113,11 +122,40 @@ namespace FranklinGame.Animations
         private void Awake()
         {
             this.ResolvePlayer();
+            this.ResolveFirstPersonCameraManager();
         }
 
         private void OnDisable()
         {
             this.Deactivate();
+        }
+
+        private void LateUpdate()
+        {
+            if (!this.m_FirstPersonActive) return;
+
+            if (!this.IsFirstPersonActive)
+            {
+                // The unified manager may yield to another FPS context or an
+                // external GC2 Shot. Never let a stale local presentation make a
+                // later SetFirstPersonActive(true) look successfully applied.
+                bool anotherOwnerIsPresent =
+                    this.m_FirstPersonCameraManager?.IsActive == true;
+                this.EndFirstPersonPresentation(!anotherOwnerIsPresent);
+                if (this.IsActive) this.ApplyShooterAimFraming(true);
+                return;
+            }
+
+            if (this.m_FirstPersonProfileRestorePending)
+            {
+                this.m_FirstPersonProfileRestorePending = false;
+                this.m_FirstPersonCameraManager.ReapplyOwnedProfile(this);
+            }
+
+            // Another facade can finish its stale presentation one frame after
+            // Bike acquires the shared manager. Repair head occlusion without
+            // rebuilding or rotating the GC2 Camera Shot.
+            this.EnsureFirstPersonHeadOcclusion();
         }
 
         private void OnDestroy()
@@ -141,7 +179,19 @@ namespace FranklinGame.Animations
             // Inspector changes made during Play Mode update the active Main Shot immediately.
             if (Application.isPlaying && this.IsActive)
             {
-                this.ApplySettings();
+                if (this.IsFirstPersonActive &&
+                    this.m_FirstPersonAnchor != null)
+                {
+                    this.m_FirstPersonCameraManager.Activate(
+                        this,
+                        FranklinFirstPersonCameraManager.Context.Bike,
+                        this.m_ActiveShot,
+                        this.m_FirstPersonAnchor.transform,
+                        this.ResolveFirstPersonHeading(),
+                        this.RefreshFirstPersonCameraPose
+                    );
+                }
+                else if (!this.m_FirstPersonActive) this.ApplySettings();
                 this.ApplyShooterAimFraming(true);
             }
         }
@@ -189,9 +239,21 @@ namespace FranklinGame.Animations
 
         public void Deactivate()
         {
-            if (!this.IsActive && !this.m_HasSnapshot) return;
+            bool ownsFirstPerson = this.IsFirstPersonActive;
+            bool hasFirstPersonPresentation =
+                this.m_FirstPersonActive || this.m_FirstPersonAnchor != null;
+            if (!this.IsActive && !this.m_HasSnapshot &&
+                !ownsFirstPerson && !hasFirstPersonPresentation)
+            {
+                return;
+            }
 
-            if (this.m_ThirdPerson != null && this.m_ShooterAimApplied)
+            if (ownsFirstPerson)
+                this.m_FirstPersonCameraManager.Deactivate(this, true, 0f);
+            bool anotherOwnerIsPresent =
+                this.m_FirstPersonCameraManager?.IsActive == true;
+            this.EndFirstPersonPresentation(!anotherOwnerIsPresent);
+            if (this.m_ThirdPerson != null)
                 this.m_ThirdPerson.Aim(0f, 0f, 0f, 0f);
             this.m_ShooterAimRequested = false;
             this.m_ShooterAimApplied = false;
@@ -205,13 +267,109 @@ namespace FranklinGame.Animations
         }
 
         /// <summary>
+        /// Switches the shared GC2 Main Camera Shot between the Bike TPS profile
+        /// and a head-mounted first-person profile. No Camera or Shot is replaced.
+        /// </summary>
+        public bool SetFirstPersonActive(bool active)
+        {
+            if (active && (!this.IsActive || this.m_ThirdPerson == null)) return false;
+
+            if (active)
+            {
+                if (!this.ResolveFirstPersonCameraManager()) return false;
+
+                // A previous owner transfer can leave the local presentation flag
+                // true while the manager no longer belongs to Bike. Clear only our
+                // anchor/reference; ending the shared head component here would
+                // break the new owner's presentation.
+                if (this.m_FirstPersonActive && !this.IsFirstPersonActive)
+                {
+                    this.EndFirstPersonPresentation(
+                        !this.m_FirstPersonCameraManager.IsActive
+                    );
+                }
+
+                if (!this.EnsureFirstPersonAnchor()) return false;
+                // ThirdPersonAim is an additive runtime layer and is not part of
+                // the manager's base-field snapshot. Clear any residual TPS aim
+                // blend before handing the same GC2 Shot to the FPS profile.
+                this.m_ThirdPerson.Aim(0f, 0f, 0f, 0f);
+                this.m_ShooterAimApplied = false;
+                if (!this.m_FirstPersonCameraManager.Activate(
+                        this,
+                        FranklinFirstPersonCameraManager.Context.Bike,
+                        this.m_ActiveShot,
+                        this.m_FirstPersonAnchor.transform,
+                        this.ResolveFirstPersonHeading(),
+                        this.RefreshFirstPersonCameraPose
+                    ))
+                {
+                    bool anotherOwnerIsPresent =
+                        this.m_FirstPersonCameraManager.IsActive;
+                    this.EndFirstPersonPresentation(!anotherOwnerIsPresent);
+                    this.ApplyShooterAimFraming(true);
+                    return false;
+                }
+
+                this.m_FirstPersonActive = true;
+                this.m_FirstPersonCameraManager.SetBikeShooterPositionActive(
+                    this,
+                    this.m_ShooterAimRequested
+                );
+                this.EnsureFirstPersonHeadOcclusion();
+                this.ApplyShooterAimFraming(true);
+            }
+            else
+            {
+                bool ownsFirstPerson = this.IsFirstPersonActive;
+                bool hasFirstPersonPresentation =
+                    this.m_FirstPersonActive || this.m_FirstPersonAnchor != null;
+                if (!ownsFirstPerson && !hasFirstPersonPresentation) return true;
+
+                if (ownsFirstPerson)
+                    this.m_FirstPersonCameraManager.Deactivate(this, true, 0f);
+                bool anotherOwnerIsPresent =
+                    this.m_FirstPersonCameraManager?.IsActive == true;
+                this.EndFirstPersonPresentation(!anotherOwnerIsPresent);
+                if (this.IsActive && this.m_ThirdPerson != null)
+                {
+                    this.ApplyShooterAimFraming(true);
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Shifts the current Bike Camera Shot so the rider and Bike stay left of
         /// the Shooter reticle. The base Bike shoulder remains untouched.
         /// </summary>
         public void SetShooterAimActive(bool active)
         {
+            bool wasRequested = this.m_ShooterAimRequested;
             this.m_ShooterAimRequested = active;
+            if (active) this.m_FirstPersonProfileRestorePending = false;
+            if (this.IsFirstPersonActive)
+            {
+                this.m_FirstPersonCameraManager.SetBikeShooterPositionActive(
+                    this,
+                    active
+                );
+            }
             this.ApplyShooterAimFraming();
+
+            if (!active && wasRequested && this.IsFirstPersonActive)
+                this.m_FirstPersonProfileRestorePending = true;
+        }
+
+        /// <summary>
+        /// Temporarily prevents the shared mobile orbit input from changing the
+        /// Bike FPS Shot while a Franklin vehicle-control button owns a pointer.
+        /// Shooter Fire deliberately does not call this API.
+        /// </summary>
+        public void SetFirstPersonOrbitSuppressed(bool suppressed)
+        {
+            this.m_FirstPersonCameraManager?.SetOrbitSuppressed(this, suppressed);
         }
 
         /// <summary>
@@ -299,6 +457,29 @@ namespace FranklinGame.Animations
             return this.m_Player != null;
         }
 
+        private bool ResolveFirstPersonCameraManager()
+        {
+            if (this.m_FirstPersonCameraManager == null && this.ResolvePlayer())
+            {
+                this.m_FirstPersonCameraManager =
+                    FranklinFirstPersonCameraManager.Resolve(this.m_Player);
+            }
+
+            return this.m_FirstPersonCameraManager != null;
+        }
+
+        private Transform ResolveFirstPersonHeading()
+        {
+            return this.m_ActiveBike != null &&
+                   this.m_ActiveBike.entryParent != null
+                ? this.m_ActiveBike.entryParent
+                : this.m_ActiveBike != null
+                    ? this.m_ActiveBike.transform
+                    : this.m_Player != null
+                        ? this.m_Player.transform
+                        : this.transform;
+        }
+
         private bool ResolveMainCamera()
         {
             if (this.m_MainCamera == null)
@@ -373,6 +554,7 @@ namespace FranklinGame.Animations
         {
             bool shouldApply = this.m_ShooterAimRequested &&
                                this.IsActive &&
+                               !this.IsFirstPersonActive &&
                                this.m_ThirdPerson != null;
             if (!immediate && this.m_ShooterAimApplied == shouldApply) return;
             if (this.m_ThirdPerson == null)
@@ -418,6 +600,97 @@ namespace FranklinGame.Animations
                 maxYaw.IsEnabled = this.m_Snapshot.MaxYawEnabled;
                 maxYaw.Value = this.m_Snapshot.MaxYaw;
             }
+        }
+
+        private bool EnsureFirstPersonAnchor()
+        {
+            if (this.m_Player == null || !this.ResolveFirstPersonCameraManager())
+                return false;
+            if (this.m_FirstPersonAnchor != null) return true;
+
+            Transform seat = this.ResolveFirstPersonHeading();
+            this.m_FirstPersonAnchor = new GameObject(
+                "Bike First Person Camera Anchor (Runtime)"
+            );
+            this.m_FirstPersonAnchor.transform.SetPositionAndRotation(
+                this.m_Player.transform.position,
+                GetYawOnlyRotation(seat, Quaternion.identity)
+            );
+            this.m_FirstPersonAnchor.transform.SetParent(seat, true);
+            this.RefreshFirstPersonCameraPose();
+
+            return true;
+        }
+
+        private void RefreshFirstPersonCameraPose()
+        {
+            if (this.m_FirstPersonAnchor == null || this.m_Player == null ||
+                this.m_FirstPersonCameraManager == null)
+            {
+                return;
+            }
+
+            Animator animator = this.m_Player.Animim?.Animator;
+            Transform heading = this.ResolveFirstPersonHeading();
+            this.m_FirstPersonAnchor.transform.position =
+                this.m_FirstPersonCameraManager.GetEyeWorldPosition(
+                    FranklinFirstPersonCameraManager.Context.Bike,
+                    animator,
+                    heading,
+                    this.m_Player.transform
+                );
+        }
+
+        private void EnsureFirstPersonHeadOcclusion()
+        {
+            if (!this.IsFirstPersonActive || this.m_Player == null) return;
+
+            Animator animator = this.m_Player.Animim.Animator;
+            if (animator != null)
+            {
+                this.m_FirstPersonHeadOcclusion ??=
+                    animator.GetComponent<FirstPersonHeadOcclusion>();
+                if (this.m_FirstPersonHeadOcclusion == null)
+                {
+                    this.m_FirstPersonHeadOcclusion =
+                        animator.gameObject.AddComponent<FirstPersonHeadOcclusion>();
+                }
+                if (!this.m_FirstPersonHeadOcclusion.enabled)
+                    this.m_FirstPersonHeadOcclusion.Begin(animator);
+            }
+        }
+
+        private void EndFirstPersonPresentation(bool restoreHeadOcclusion)
+        {
+            if (this.m_FirstPersonHeadOcclusion != null)
+            {
+                if (restoreHeadOcclusion) this.m_FirstPersonHeadOcclusion.End();
+                this.m_FirstPersonHeadOcclusion = null;
+            }
+
+            this.DestroyFirstPersonAnchor();
+            this.m_FirstPersonActive = false;
+            this.m_FirstPersonProfileRestorePending = false;
+        }
+
+        private static Quaternion GetYawOnlyRotation(
+            Transform source,
+            Quaternion fallback)
+        {
+            if (source == null) return fallback;
+
+            Vector3 forward = Vector3.ProjectOnPlane(source.forward, Vector3.up);
+            return forward.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(forward.normalized, Vector3.up)
+                : fallback;
+        }
+
+        private void DestroyFirstPersonAnchor()
+        {
+            if (this.m_FirstPersonAnchor == null) return;
+            if (Application.isPlaying) Destroy(this.m_FirstPersonAnchor);
+            else DestroyImmediate(this.m_FirstPersonAnchor);
+            this.m_FirstPersonAnchor = null;
         }
 
         private GameObject ResolvePivot()

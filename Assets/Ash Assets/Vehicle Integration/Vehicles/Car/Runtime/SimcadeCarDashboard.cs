@@ -63,6 +63,10 @@ namespace FranklinGame.Vehicles
         [Tooltip("Bù pixel bổ sung sau khi tự mirror theo thanh xăng; mặc định (0,0).")]
         [SerializeField] private Vector2 m_HealthScreenOffset = Vector2.zero;
 
+        [Header("Shared Telemetry Spacing")]
+        [Tooltip("Khoảng cách pixel giữa mép thân Car và thanh xăng/máu.")]
+        [SerializeField, Min(0f)] private float m_TelemetrySideGap = 45f;
+
         [Header("Radio")]
         [SerializeField] private AudioSource m_RadioSource;
         [SerializeField] private AudioSource m_RadioTuningSource;
@@ -100,13 +104,15 @@ namespace FranklinGame.Vehicles
         private static Image s_FuelFillImage;
         private static Material s_HealthGaugeAlphaTintMaterial;
         private static bool s_RefuelPromptVisible;
+        private static bool s_TelemetryVisible = true;
         private Camera m_HudCamera;
+        private BoxCollider m_BodyCollider;
         private Vector3 m_VisualCenterLocal;
-        private Vector3 m_VisualExtentsLocal;
+        private Vector3 m_MirrorCenterLocal;
+        private Rect m_ChassisScreenRect;
+        private bool m_HasChassisScreenRect;
         private Vector2 m_SpeedPosition;
         private Vector2 m_SpeedVelocity;
-        private Vector2 m_HealthPosition;
-        private Vector2 m_HealthVelocity;
         private int m_CurrentTrackIndex;
         private int m_LastDisplayedSpeed = int.MinValue;
         private float m_NextTelemetryUpdate;
@@ -117,8 +123,8 @@ namespace FranklinGame.Vehicles
         private Vector2Int m_LastScreenSize;
         private bool m_IsRadioPlaying;
         private bool m_HasSpeedPosition;
-        private bool m_HasHealthPosition;
         private bool m_HasFuelFillTarget;
+        private bool m_WasRearViewPressed;
 
         public bool IsConfigured => m_Driver != null && m_Health != null && m_Fuel != null &&
             m_RadioSource != null && m_RadioTuningSource != null &&
@@ -198,15 +204,21 @@ namespace FranklinGame.Vehicles
             if (s_ActiveDashboard != this || !IsVisible) return;
 
             float now = Time.unscaledTime;
-            if (now >= m_NextTelemetryUpdate)
+            bool showTelemetry = m_Driver == null ||
+                !m_Driver.IsFirstPersonViewActive;
+            SetDrivingTelemetryVisible(showTelemetry);
+            if (showTelemetry && now >= m_NextTelemetryUpdate)
             {
                 m_NextTelemetryUpdate = now + m_UpdateInterval;
                 RefreshSpeed(false);
             }
 
-            UpdateSpeedWorldFollow();
-            UpdateHealthWorldFollow();
-            UpdateFuelFill();
+            if (showTelemetry)
+            {
+                UpdateSpeedWorldFollow();
+                UpdateHealthWorldFollow();
+                UpdateFuelFill();
+            }
 
             if (m_IsRadioPlaying && s_RadioDiscRect != null)
                 s_RadioDiscRect.Rotate(0f, 0f, -38f * Time.unscaledDeltaTime);
@@ -234,18 +246,20 @@ namespace FranklinGame.Vehicles
                     s_CanvasRoot.SetActive(true);
                 m_HasSpeedPosition = false;
                 m_SpeedVelocity = Vector2.zero;
-                m_HasHealthPosition = false;
-                m_HealthVelocity = Vector2.zero;
                 m_NextTelemetryUpdate = 0f;
                 m_NextSafeAreaUpdate = 0f;
+                m_WasRearViewPressed = m_Driver != null &&
+                    m_Driver.IsRearViewPressed;
                 RefreshSpeed(true);
                 RefreshHealth();
                 RefreshFuel();
                 RefreshRadioStatus();
                 RefreshRadioRootVisibility();
                 ApplySafeArea(true);
-                UpdateSpeedWorldFollow();
-                UpdateHealthWorldFollow();
+                SetDrivingTelemetryVisible(
+                    m_Driver == null || !m_Driver.IsFirstPersonViewActive,
+                    true
+                );
             }
             else
             {
@@ -310,8 +324,45 @@ namespace FranklinGame.Vehicles
             m_HealthWorldRightOffset = Mathf.Max(0.5f, worldRightOffset);
             m_HealthWorldHeight = worldHeight;
             m_HealthScreenOffset = screenOffset;
-            m_HasHealthPosition = false;
             if (IsVisible) UpdateHealthWorldFollow();
+        }
+
+        /// <summary>
+        /// Shows or hides only speed, fuel and health. Radio and driving controls
+        /// remain available in FPS. The static HUD state follows the active Car.
+        /// </summary>
+        public void SetDrivingTelemetryVisible(bool visible)
+        {
+            SetDrivingTelemetryVisible(visible, false);
+        }
+
+        private void SetDrivingTelemetryVisible(bool visible, bool force)
+        {
+            if (s_ActiveDashboard != this) return;
+            bool changed = s_TelemetryVisible != visible;
+            if (!force && !changed) return;
+
+            s_TelemetryVisible = visible;
+            if (s_SpeedRect != null && s_SpeedRect.gameObject.activeSelf != visible)
+                s_SpeedRect.gameObject.SetActive(visible);
+            if (s_SpeedBackgroundRect != null &&
+                s_SpeedBackgroundRect.gameObject.activeSelf != visible)
+            {
+                s_SpeedBackgroundRect.gameObject.SetActive(visible);
+            }
+            if (s_HealthRect != null && s_HealthRect.gameObject.activeSelf != visible)
+                s_HealthRect.gameObject.SetActive(visible);
+
+            if (!visible) return;
+
+            m_HasSpeedPosition = false;
+            m_SpeedVelocity = Vector2.zero;
+            m_NextTelemetryUpdate = 0f;
+            RefreshSpeed(true);
+            RefreshHealth();
+            RefreshFuel();
+            UpdateSpeedWorldFollow();
+            UpdateHealthWorldFollow();
         }
 
         public void Configure(
@@ -467,7 +518,15 @@ namespace FranklinGame.Vehicles
             }
 
             m_VisualCenterLocal = hasBounds ? localBounds.center : Vector3.zero;
-            m_VisualExtentsLocal = hasBounds ? localBounds.extents : Vector3.one;
+            // The model/renderers include offset auxiliaries, while the root body
+            // collider is authored around the actual visible chassis. Use its
+            // stable center/edges so effects cannot pull telemetry apart.
+            m_BodyCollider = GetComponent<BoxCollider>();
+            m_MirrorCenterLocal = m_BodyCollider != null &&
+                                  m_BodyCollider.enabled &&
+                                  !m_BodyCollider.isTrigger
+                ? m_BodyCollider.center
+                : m_VisualCenterLocal;
         }
 
         private Vector3 GetHudWorldCenter(float worldHeight)
@@ -481,21 +540,64 @@ namespace FranklinGame.Vehicles
             return worldCenter;
         }
 
-        private float GetSymmetricSideOffset()
+        private Vector3 GetHudMirrorWorldCenter(float worldHeight)
         {
-            float minimum = Mathf.Max(m_SpeedWorldLeftOffset, m_HealthWorldRightOffset);
-            if (m_HudCamera == null) return minimum;
+            Vector3 worldCenter = transform.TransformPoint(new Vector3(
+                m_MirrorCenterLocal.x,
+                0f,
+                m_MirrorCenterLocal.z
+            ));
+            worldCenter.y = transform.position.y + worldHeight;
+            return worldCenter;
+        }
 
-            Vector3 cameraRight = m_HudCamera.transform.right;
-            Vector3 localRightExtent = transform.TransformVector(
-                Vector3.right * m_VisualExtentsLocal.x
-            );
-            Vector3 localForwardExtent = transform.TransformVector(
-                Vector3.forward * m_VisualExtentsLocal.z
-            );
-            float visibleHalfWidth = Mathf.Abs(Vector3.Dot(localRightExtent, cameraRight)) +
-                Mathf.Abs(Vector3.Dot(localForwardExtent, cameraRight));
-            return Mathf.Max(minimum, visibleHalfWidth + 0.8f);
+        private bool TryGetChassisScreenRect(out Rect screenRect)
+        {
+            screenRect = default;
+            if (m_BodyCollider == null || !m_BodyCollider.enabled ||
+                s_SafeAreaRoot == null || m_HudCamera == null)
+            {
+                return false;
+            }
+
+            Vector3 center = m_BodyCollider.center;
+            Vector3 extents = m_BodyCollider.size * 0.5f;
+            float minimumX = float.PositiveInfinity;
+            float maximumX = float.NegativeInfinity;
+            float minimumY = float.PositiveInfinity;
+            float maximumY = float.NegativeInfinity;
+            bool hasPoint = false;
+
+            for (int corner = 0; corner < 8; ++corner)
+            {
+                Vector3 localCorner = center + new Vector3(
+                    (corner & 1) == 0 ? -extents.x : extents.x,
+                    (corner & 2) == 0 ? -extents.y : extents.y,
+                    (corner & 4) == 0 ? -extents.z : extents.z
+                );
+                Vector3 screenPoint = m_HudCamera.WorldToScreenPoint(
+                    m_BodyCollider.transform.TransformPoint(localCorner)
+                );
+                if (screenPoint.z <= 0.01f) continue;
+                if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        s_SafeAreaRoot,
+                        screenPoint,
+                        null,
+                        out Vector2 localPoint))
+                {
+                    continue;
+                }
+
+                minimumX = Mathf.Min(minimumX, localPoint.x);
+                maximumX = Mathf.Max(maximumX, localPoint.x);
+                minimumY = Mathf.Min(minimumY, localPoint.y);
+                maximumY = Mathf.Max(maximumY, localPoint.y);
+                hasPoint = true;
+            }
+
+            if (!hasPoint) return false;
+            screenRect = Rect.MinMaxRect(minimumX, minimumY, maximumX, maximumY);
+            return true;
         }
 
         private void RefreshSpeed(bool force)
@@ -515,8 +617,7 @@ namespace FranklinGame.Vehicles
                 m_HudCamera = Camera.main;
             if (m_HudCamera == null) return;
 
-            Vector3 worldTarget = GetHudWorldCenter(m_SpeedWorldHeight) -
-                m_HudCamera.transform.right * GetSymmetricSideOffset();
+            Vector3 worldTarget = GetHudMirrorWorldCenter(m_SpeedWorldHeight);
             Vector3 screenPoint = m_HudCamera.WorldToScreenPoint(worldTarget);
             if (screenPoint.z <= 0.01f) return;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
@@ -528,7 +629,25 @@ namespace FranklinGame.Vehicles
                 return;
             }
 
-            localPoint += m_SpeedScreenOffset;
+            m_HasChassisScreenRect = TryGetChassisScreenRect(
+                out m_ChassisScreenRect
+            );
+            if (m_HasChassisScreenRect)
+            {
+                float fuelBarCenterX = m_ChassisScreenRect.xMin -
+                    m_TelemetrySideGap - FUEL_GAUGE_WIDTH * 0.5f;
+                localPoint.x = fuelBarCenterX - m_FuelGaugeOffset.x +
+                    m_SpeedScreenOffset.x;
+            }
+            else
+            {
+                localPoint.x -= Mathf.Max(
+                    m_SpeedWorldLeftOffset,
+                    m_HealthWorldRightOffset
+                ) * 100f;
+                localPoint.x += m_SpeedScreenOffset.x;
+            }
+            localPoint.y += m_SpeedScreenOffset.y;
 
             Rect safeRect = s_SafeAreaRoot.rect;
             Vector2 half = s_SpeedRect.rect.size * 0.5f;
@@ -559,7 +678,10 @@ namespace FranklinGame.Vehicles
                 safeRect.yMax - upperExtent
             );
 
-            if (!m_HasSpeedPosition)
+            bool rearViewPressed = m_Driver != null && m_Driver.IsRearViewPressed;
+            bool rearViewChanged = rearViewPressed != m_WasRearViewPressed;
+            m_WasRearViewPressed = rearViewPressed;
+            if (!m_HasSpeedPosition || rearViewChanged)
             {
                 m_SpeedPosition = localPoint;
                 m_HasSpeedPosition = true;
@@ -583,26 +705,32 @@ namespace FranklinGame.Vehicles
 
         private void UpdateHealthWorldFollow()
         {
-            if (s_HealthRect == null || s_SafeAreaRoot == null) return;
+            if (s_HealthRect == null || s_SafeAreaRoot == null ||
+                !m_HasSpeedPosition)
+            {
+                return;
+            }
 
             if (m_HudCamera == null || !m_HudCamera.isActiveAndEnabled)
                 m_HudCamera = Camera.main;
             if (m_HudCamera == null) return;
 
-            Vector3 worldTarget = GetHudWorldCenter(m_HealthWorldHeight) +
-                m_HudCamera.transform.right * GetSymmetricSideOffset();
-            Vector3 screenPoint = m_HudCamera.WorldToScreenPoint(worldTarget);
-            if (screenPoint.z <= 0.01f) return;
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    s_SafeAreaRoot,
-                    screenPoint,
-                    null,
-                    out Vector2 localPoint))
+            if (!m_HasChassisScreenRect &&
+                !TryGetChassisScreenRect(out m_ChassisScreenRect))
             {
                 return;
             }
+            m_HasChassisScreenRect = true;
 
-            localPoint += GetMirroredHealthScreenOffset();
+            Vector2 fuelBarCenter = m_SpeedPosition + m_FuelGaugeOffset;
+            float healthBarCenterX = m_ChassisScreenRect.xMax +
+                m_TelemetrySideGap + HEALTH_GAUGE_WIDTH * 0.5f;
+            float healthBarCenterY = fuelBarCenter.y - FUEL_GAUGE_HEIGHT * 0.5f +
+                HEALTH_GAUGE_HEIGHT * 0.5f;
+            Vector2 localPoint = new Vector2(
+                healthBarCenterX - HEALTH_GAUGE_BAR_OFFSET_X,
+                healthBarCenterY - HEALTH_GAUGE_BAR_OFFSET_Y
+            ) + m_HealthScreenOffset;
             Rect safeRect = s_SafeAreaRoot.rect;
             Vector2 half = s_HealthRect.rect.size * 0.5f;
             localPoint.x = Mathf.Clamp(
@@ -616,33 +744,7 @@ namespace FranklinGame.Vehicles
                 safeRect.yMax - half.y
             );
 
-            if (!m_HasHealthPosition)
-            {
-                m_HealthPosition = localPoint;
-                m_HasHealthPosition = true;
-            }
-            else
-            {
-                m_HealthPosition = Vector2.SmoothDamp(
-                    m_HealthPosition,
-                    localPoint,
-                    ref m_HealthVelocity,
-                    m_SpeedFollowSmooth,
-                    Mathf.Infinity,
-                    Time.unscaledDeltaTime
-                );
-            }
-            s_HealthRect.anchoredPosition = m_HealthPosition;
-        }
-
-        private Vector2 GetMirroredHealthScreenOffset()
-        {
-            float mirroredX = -(m_SpeedScreenOffset.x + m_FuelGaugeOffset.x) -
-                HEALTH_GAUGE_BAR_OFFSET_X;
-            float alignedBottomY = m_SpeedScreenOffset.y + m_FuelGaugeOffset.y -
-                FUEL_GAUGE_HEIGHT * 0.5f - HEALTH_GAUGE_BAR_OFFSET_Y +
-                HEALTH_GAUGE_HEIGHT * 0.5f;
-            return new Vector2(mirroredX, alignedBottomY) + m_HealthScreenOffset;
+            s_HealthRect.anchoredPosition = localPoint;
         }
 
         private void RefreshHealth()
@@ -803,6 +905,7 @@ namespace FranklinGame.Vehicles
 
             BuildFuelGauge();
             BuildHealthGauge();
+            s_TelemetryVisible = true;
 
             RectTransform radioRoot = CreateRect(
                 "Radio Controls",
@@ -1205,7 +1308,6 @@ namespace FranklinGame.Vehicles
             s_SafeAreaRoot.offsetMin = Vector2.zero;
             s_SafeAreaRoot.offsetMax = Vector2.zero;
             m_HasSpeedPosition = false;
-            m_HasHealthPosition = false;
         }
 
         private static void EnsureEventSystem()
@@ -1226,6 +1328,7 @@ namespace FranklinGame.Vehicles
             m_SpeedWorldLeftOffset = Mathf.Max(0.5f, m_SpeedWorldLeftOffset);
             m_HealthWorldRightOffset = Mathf.Max(0.5f, m_HealthWorldRightOffset);
             m_SpeedFollowSmooth = Mathf.Clamp(m_SpeedFollowSmooth, 0.03f, 0.3f);
+            m_TelemetrySideGap = Mathf.Max(0f, m_TelemetrySideGap);
         }
     }
 }

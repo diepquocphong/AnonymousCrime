@@ -28,6 +28,9 @@ namespace FranklinGame.Shooter
             [SerializeField] private Vector3 m_LocalPosition = new(-0.04f, 0.09f, 0.04f);
             [SerializeField] private Vector3 m_LocalRotation = new(-90f, 0f, 90f);
             [SerializeField] private Vector3 m_LocalScale = Vector3.one;
+            [SerializeField] private Vector3 m_ModelLocalPosition = Vector3.zero;
+            [SerializeField] private Vector3 m_ModelLocalRotation = Vector3.zero;
+            [SerializeField] private Vector3 m_ModelLocalScale = Vector3.one;
 
             public string Id => this.m_Id;
             public string DisplayName => this.m_DisplayName;
@@ -37,8 +40,13 @@ namespace FranklinGame.Shooter
             public Sprite Icon => this.m_Icon;
             public int StartingMagazine => Mathf.Max(0, this.m_StartingMagazine);
             public Vector3 LocalPosition => this.m_LocalPosition;
+            public Vector3 LocalEulerAngles => this.m_LocalRotation;
             public Quaternion LocalRotation => Quaternion.Euler(this.m_LocalRotation);
             public Vector3 LocalScale => this.m_LocalScale;
+            public Vector3 ModelLocalPosition => this.m_ModelLocalPosition;
+            public Vector3 ModelLocalEulerAngles => this.m_ModelLocalRotation;
+            public Quaternion ModelLocalRotation => Quaternion.Euler(this.m_ModelLocalRotation);
+            public Vector3 ModelLocalScale => this.m_ModelLocalScale;
         }
 
         [SerializeField] private Entry[] m_Weapons = Array.Empty<Entry>();

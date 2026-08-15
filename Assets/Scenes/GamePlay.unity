@@ -850,6 +850,67 @@ Transform:
   - {fileID: 887842278}
   m_Father: {fileID: 923071251}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &657318546
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 2818276778289055273, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: managedReferences[9185873306362052897].m_StartState
+      value: 
+      objectReference: {fileID: 11400000, guid: e51616817681546bcbe34d1c43f9497a, type: 2}
+    - target: {fileID: 5364405789980172438, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: m_Name
+      value: NPC (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 7862008611753459182, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 2.4733267
+      objectReference: {fileID: 0}
+    - target: {fileID: 7862008611753459182, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.3000002
+      objectReference: {fileID: 0}
+    - target: {fileID: 7862008611753459182, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.09728042
+      objectReference: {fileID: 0}
+    - target: {fileID: 7862008611753459182, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7862008611753459182, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7862008611753459182, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7862008611753459182, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7862008611753459182, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7862008611753459182, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7862008611753459182, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: d819840d9935145eca0c0ac2b5f0c238, type: 3}
 --- !u!1 &660321367
 GameObject:
   m_ObjectHideFlags: 0
@@ -2348,51 +2409,44 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1175230903}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GameCreator.Runtime.Core::GameCreator.Runtime.VisualScripting.Trigger
   m_Instructions:
     m_Instructions:
-    - rid: 9185873494458499333
-    - rid: 9185873494458499331
+    - rid: 9185873518493172177
   m_TriggerEvent:
-    rid: 9185873494458499330
+    rid: 9185873518031274374
   references:
     version: 2
     RefIds:
-    - rid: 9185873494458499330
-      type: {class: EventOnStart, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+    - rid: 9185873518031274374
+      type: {class: EventOnInputButton, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      data:
+        m_Button:
+          m_Input:
+            rid: 9185873518031274377
+        m_MinDistance:
+          m_MinDistance: 0
+          m_To:
+            m_Property:
+              rid: 9185873518031274376
+          m_Radius: 2
+          m_Offset: {x: 0, y: 0, z: 0}
+    - rid: 9185873518031274376
+      type: {class: GetGameObjectPlayer, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 9185873494458499331
-      type: {class: InstructionCommonTimeScale, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+    - rid: 9185873518031274377
+      type: {class: InputButtonKeyboardPress, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Key: 30
+    - rid: 9185873518493172177
+      type: {class: InstructionCommonDebugPause, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
-        m_TimeScale:
-          m_Property:
-            rid: 9185873494458499332
-        m_TransitionDuration: 0.25
-        m_Layer: 0
-    - rid: 9185873494458499332
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 0
-    - rid: 9185873494458499333
-      type: {class: InstructionCommonTimeWait, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
-      data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
-        m_Seconds:
-          m_Property:
-            rid: 9185873494458499334
-        m_Mode:
-          m_UpdateTime: 0
-    - rid: 9185873494458499334
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 10
 --- !u!1001 &1184916513
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -5165,6 +5219,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 995000000000000003, guid: 4e56c1128fbfe42c498bd1b48b13b8df, type: 3}
+      propertyPath: m_BikeShooterPosition.y
+      value: -0.08
+      objectReference: {fileID: 0}
+    - target: {fileID: 995000000000000003, guid: 4e56c1128fbfe42c498bd1b48b13b8df, type: 3}
+      propertyPath: m_BikeShooterPosition.z
+      value: 0.1
+      objectReference: {fileID: 0}
     - target: {fileID: 5364405789980172438, guid: 4e56c1128fbfe42c498bd1b48b13b8df, type: 3}
       propertyPath: m_Name
       value: Player
@@ -5388,6 +5450,22 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2388274866722542675, guid: 71da6758535084b2c98162ad30c409ad, type: 3}
+      propertyPath: managedReferences[9185873306362052906].m_ShotSystemViewport.m_ClipPlaneNear.m_Value
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2388274866722542675, guid: 71da6758535084b2c98162ad30c409ad, type: 3}
+      propertyPath: managedReferences[9185873306362052906].m_ShotSystemViewport.m_ClipPlaneFar.m_IsEnabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2388274866722542675, guid: 71da6758535084b2c98162ad30c409ad, type: 3}
+      propertyPath: managedReferences[9185873306362052906].m_ShotSystemViewport.m_ClipPlaneNear.m_IsEnabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2388274866722542675, guid: 71da6758535084b2c98162ad30c409ad, type: 3}
+      propertyPath: managedReferences[9185873306362052906].m_ShotSystemViewport.m_OrthographicSize.m_IsEnabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4176520112101643234, guid: 71da6758535084b2c98162ad30c409ad, type: 3}
       propertyPath: m_Name
       value: Camera Shot
@@ -5467,3 +5545,4 @@ SceneRoots:
   - {fileID: 1159788401}
   - {fileID: 983196773}
   - {fileID: 1322886015}
+  - {fileID: 657318546}

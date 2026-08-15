@@ -23,6 +23,7 @@ namespace FranklinGame.UI
         [SerializeField] private bool m_IsToggle;
         [SerializeField] private bool m_UseOpaqueVisual;
         private bool m_IsPressed;
+        private bool m_IsPointerDown;
         private bool m_IsToggled;
         private int m_ActivePointerId = int.MinValue;
         private Vector3 m_RestScale = Vector3.one;
@@ -56,8 +57,27 @@ namespace FranklinGame.UI
             this.SetVisual(this.m_IsToggle && this.m_IsToggled);
         }
 
+        internal void SetToggleState(bool toggled)
+        {
+            if (!this.m_IsToggle || this.m_IsToggled == toggled) return;
+            this.m_IsToggled = toggled;
+            this.SetVisual(this.m_IsToggled);
+        }
+
+        private void OnEnable()
+        {
+            if (this.m_IsToggle) this.SetVisual(this.m_IsToggled);
+        }
+
         public void OnPointerDown(PointerEventData eventData)
         {
+            if (this.m_IsPointerDown) return;
+            this.m_IsPointerDown = true;
+            this.m_ActivePointerId = eventData != null
+                ? eventData.pointerId
+                : int.MinValue;
+            this.m_Hud?.SetButtonPointerState(this.m_Action, true);
+
             if (this.m_IsToggle)
             {
                 this.m_IsToggled = !this.m_IsToggled;
@@ -67,10 +87,6 @@ namespace FranklinGame.UI
             }
 
             if (this.m_IsPressed) return;
-
-            this.m_ActivePointerId = eventData != null
-                ? eventData.pointerId
-                : int.MinValue;
             this.m_IsPressed = true;
             this.SetVisual(true);
             this.m_Hud?.SetAction(this.m_Action, true);
@@ -78,19 +94,26 @@ namespace FranklinGame.UI
 
         public void OnPointerUp(PointerEventData eventData)
         {
-            if (this.m_IsToggle) return;
             if (!this.IsActivePointer(eventData)) return;
+            if (this.m_IsToggle)
+            {
+                this.ReleasePointer();
+                return;
+            }
             this.Release();
         }
 
         public void OnPointerExit(PointerEventData eventData)
         {
-            if (this.m_IsToggle) return;
-
             // Jog and Sprint are hold controls. Keep their original pointer captured until
             // PointerUp so a small thumb drift or a second orbit finger cannot interrupt run.
             if (this.m_Action is FranklinHudAction.Jog or FranklinHudAction.Sprint) return;
             if (!this.IsActivePointer(eventData)) return;
+            if (this.m_IsToggle)
+            {
+                this.ReleasePointer();
+                return;
+            }
             this.Release();
         }
 
@@ -98,15 +121,17 @@ namespace FranklinGame.UI
         {
             if (this.m_IsToggle)
             {
-                if (this.m_IsToggled)
+                bool preserveToggle =
+                    this.m_Hud?.ShouldPreserveToggleStateOnDisable(this.m_Action) == true;
+                this.ReleasePointer();
+                if (!preserveToggle && this.m_IsToggled)
                 {
                     this.m_Hud?.SetAction(this.m_Action, false);
                 }
 
-                this.m_IsToggled = false;
+                if (!preserveToggle) this.m_IsToggled = false;
                 this.m_IsPressed = false;
-                this.m_ActivePointerId = int.MinValue;
-                this.SetVisual(false);
+                this.SetVisual(preserveToggle && this.m_IsToggled);
                 return;
             }
 
@@ -116,16 +141,28 @@ namespace FranklinGame.UI
 
         private void Release()
         {
-            if (!this.m_IsPressed) return;
+            if (!this.m_IsPressed)
+            {
+                this.ReleasePointer();
+                return;
+            }
             this.m_IsPressed = false;
-            this.m_ActivePointerId = int.MinValue;
             this.SetVisual(false);
             this.m_Hud?.SetAction(this.m_Action, false);
+            this.ReleasePointer();
+        }
+
+        private void ReleasePointer()
+        {
+            if (!this.m_IsPointerDown) return;
+            this.m_IsPointerDown = false;
+            this.m_ActivePointerId = int.MinValue;
+            this.m_Hud?.SetButtonPointerState(this.m_Action, false);
         }
 
         private bool IsActivePointer(PointerEventData eventData)
         {
-            return this.m_IsPressed &&
+            return this.m_IsPointerDown &&
                    (eventData == null || eventData.pointerId == this.m_ActivePointerId);
         }
 

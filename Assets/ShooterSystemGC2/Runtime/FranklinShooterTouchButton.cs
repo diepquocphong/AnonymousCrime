@@ -13,7 +13,8 @@ namespace FranklinGame.Shooter
             Fire,
             Reload,
             Melee,
-            CautiousWalk
+            CautiousWalk,
+            FirstPersonCamera
         }
 
         [SerializeField] private Action m_Action;
@@ -46,6 +47,10 @@ namespace FranklinGame.Shooter
             this.m_Pressed = true;
             this.m_PointerId = eventData?.pointerId ?? int.MinValue;
             this.SetVisual(true);
+            if (this.m_Action != Action.Fire)
+            {
+                FranklinShooterSystem.Instance?.SetBikeFirstPersonOrbitSuppressed(true);
+            }
             FranklinShooterSystem.Instance?.SetTouchAction(this.m_Action, true);
         }
 
@@ -57,6 +62,10 @@ namespace FranklinGame.Shooter
 
         public void OnPointerExit(PointerEventData eventData)
         {
+            // Fire owns the pointer from PointerDown until that same finger sends PointerUp.
+            // Leaving the button bounds must not release the trigger: mobile players often
+            // drift the firing thumb while a second finger orbits the camera.
+            if (this.m_Action == Action.Fire) return;
             if (!this.IsActivePointer(eventData)) return;
             this.Release();
         }
@@ -75,6 +84,10 @@ namespace FranklinGame.Shooter
             this.m_PointerId = int.MinValue;
             this.SetVisual(false);
             FranklinShooterSystem.Instance?.SetTouchAction(this.m_Action, false);
+            if (this.m_Action != Action.Fire)
+            {
+                FranklinShooterSystem.Instance?.SetBikeFirstPersonOrbitSuppressed(false);
+            }
         }
 
         private void SetVisual(bool pressed)

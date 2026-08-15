@@ -1,6 +1,9 @@
 using System.Collections;
 using Ashsvp;
+using FranklinGame.Shooter;
+using GameCreator.Runtime.Cameras;
 using GameCreator.Runtime.Characters;
+using GameCreator.Runtime.Common;
 using FranklinGame.UI;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -21,6 +24,11 @@ namespace FranklinGame.Vehicles
     [RequireComponent(typeof(Rigidbody), typeof(SimcadeVehicleController))]
     public sealed class SimcadeCarDriver : MonoBehaviour, IRvrVehicleInputController
     {
+        private const string FIRST_PERSON_PREFERENCE_KEY =
+            "Franklin.Vehicle.Car.FirstPersonView";
+        private static bool s_FirstPersonPreferenceLoaded;
+        private static bool s_FirstPersonPreferred;
+
         [Header("Sim-Cade")]
         [SerializeField] private SimcadeVehicleController m_Controller;
         [SerializeField] private GearSystem m_GearSystem;
@@ -46,6 +54,10 @@ namespace FranklinGame.Vehicles
         [SerializeField] private Transform m_SteeringWheel;
         [SerializeField, Min(0f)] private float m_SteeringWheelMaxAngle = 360f;
         [SerializeField, Min(0f)] private float m_SteeringWheelResponse = 15f;
+        [Tooltip("Maximum visual hand turn. Kept below one full wheel turn so " +
+                 "the palms remain held left/right while steering is held.")]
+        [SerializeField, Range(15f, 140f)]
+        private float m_SteeringHandsMaxAngle = 85f;
 
         [Header("Sim-Cade Camera")]
         [SerializeField] private GameObject m_ChaseCameraPrefab;
@@ -60,8 +72,16 @@ namespace FranklinGame.Vehicles
         [SerializeField, Min(0f)] private float m_TouchOrbitSensitivity = 0.12f;
         [SerializeField, Min(0f)] private float m_GamepadOrbitSpeed = 120f;
         [SerializeField, Range(0f, 0.95f)] private float m_GamepadOrbitDeadZone = 0.15f;
-        [SerializeField, Min(0f)] private float m_OrbitRecenterDelay = 0.65f;
+        [SerializeField, Min(0f)] private float m_OrbitRecenterDelay;
         [SerializeField, Min(0.01f)] private float m_OrbitRecenterTime = 0.45f;
+
+        [Header("Hold Rear View")]
+        [SerializeField] private bool m_EnableHoldRearView = true;
+
+        [Header("GC2 FPS Pivot")]
+        [Tooltip("Optional runtime pivot container. All FPS camera tuning comes " +
+                 "from the Player child ManagerCameraFPS.")]
+        [SerializeField] private Transform m_FirstPersonCameraAnchor;
 
         [Header("Sim-Cade Mobile UI")]
         [SerializeField] private GameObject m_MobileInputPrefab;
@@ -103,6 +123,13 @@ namespace FranklinGame.Vehicles
         private float m_SteeringInput;
         private float m_ExitInputAvailableAt;
         private Quaternion m_SteeringWheelInitialRotation;
+        private Transform m_SteeringLeftHandTarget;
+        private Transform m_SteeringRightHandTarget;
+        private Vector3 m_SteeringLeftHandLocalPosition;
+        private Vector3 m_SteeringRightHandLocalPosition;
+        private Quaternion m_SteeringLeftHandLocalRotation;
+        private Quaternion m_SteeringRightHandLocalRotation;
+        private bool m_SteeringHandTargetsCached;
 
         private GameObject m_RuntimeCameraRig;
         private Transform m_RuntimeCameraTarget;
@@ -112,10 +139,28 @@ namespace FranklinGame.Vehicles
         private bool m_BrainWasEnabled;
         private bool m_CreatedBrain;
         private Behaviour m_GameCreatorCamera;
+        private MainCamera m_Gc2MainCamera;
+        private Camera m_UnityCamera;
         private bool m_GameCreatorCameraWasEnabled;
         private float m_CameraOrbitYaw;
         private float m_CameraOrbitVelocity;
         private float m_LastCameraOrbitInputTime;
+        private bool m_RearViewPressed;
+        private float m_RearViewReturnYaw;
+        private bool m_FirstPersonViewActive;
+        private bool m_RuntimeFirstPersonCameraAnchor;
+        private Transform m_FirstPersonForwardMountParent;
+        private Vector3 m_FirstPersonForwardMountLocalPosition;
+        private Quaternion m_FirstPersonForwardMountLocalRotation;
+        private Transform m_FirstPersonRearMountParent;
+        private Vector3 m_FirstPersonRearMountLocalPosition;
+        private Quaternion m_FirstPersonRearMountLocalRotation;
+        private bool m_FirstPersonMountsPrepared;
+        private float m_FirstPersonReturnYaw;
+        private FirstPersonHeadOcclusion m_FirstPersonHeadOcclusion;
+        private FranklinFirstPersonCameraManager m_FirstPersonCameraManager;
+        private Vector2 m_Gc2RearViewReturnRotation;
+        private bool m_Gc2FirstPersonActive;
         private Coroutine m_DestructionCameraRoutine;
 
         private GameObject m_MobileCanvas;
@@ -137,6 +182,8 @@ namespace FranklinGame.Vehicles
         public bool IsStoppingForExit => this.m_IsStoppingForExit;
         public bool HeadlightsEnabled => this.m_VehicleLights != null &&
             this.m_VehicleLights.AreLightsOn;
+        public bool IsRearViewPressed => this.m_RearViewPressed;
+        public bool IsFirstPersonViewActive => this.m_FirstPersonViewActive;
         public float DamageSteeringBias => this.m_DamageSteeringBias;
         public float MaximumDamageSteeringBias => this.m_MaxDamageSteeringBias;
         public float SlowModeMaxSpeedKph => this.m_SlowModeMaxSpeedKph;
@@ -177,6 +224,7 @@ namespace FranklinGame.Vehicles
             if (this.m_SteeringWheel != null)
             {
                 this.m_SteeringWheelInitialRotation = this.m_SteeringWheel.localRotation;
+                this.CacheSteeringHandTargets();
             }
         }
 
@@ -217,6 +265,13 @@ namespace FranklinGame.Vehicles
 
         private void OnDestroy()
         {
+            this.DeactivateGc2FirstPersonCamera();
+            this.RestoreFirstPersonPresentation();
+            if (this.m_RuntimeFirstPersonCameraAnchor &&
+                this.m_FirstPersonCameraAnchor != null)
+            {
+                Destroy(this.m_FirstPersonCameraAnchor.gameObject);
+            }
             if (this.m_RuntimeCameraRig != null) Destroy(this.m_RuntimeCameraRig);
             if (this.m_MobileCanvas != null) Destroy(this.m_MobileCanvas);
         }
@@ -332,6 +387,15 @@ namespace FranklinGame.Vehicles
                 target,
                 blend
             );
+
+            // The wheel mesh may spin a full revolution, but its IK targets must
+            // not follow that entire circle. Otherwise a held ±1 input makes the
+            // palms pass through the turn and return to their neutral pose at
+            // 360 degrees. Keep the lightweight target pose at a natural capped
+            // angle so both hands visibly remain left/right until input release.
+            this.UpdateSteeringHandTargets(
+                -this.m_SteeringInput * this.m_SteeringHandsMaxAngle
+            );
         }
 
         public void SetVehicleEnabled(bool state)
@@ -385,6 +449,10 @@ namespace FranklinGame.Vehicles
             if (state)
             {
                 this.SetCameraActive(true);
+                if (GetFirstPersonPreference())
+                {
+                    this.ApplyFirstPersonView(true, false);
+                }
             }
             else if (!this.m_HoldCameraDuringBailout &&
                      !this.m_HoldCameraDuringDestruction &&
@@ -480,6 +548,12 @@ namespace FranklinGame.Vehicles
         /// </summary>
         public bool BeginDestructionCameraHold()
         {
+            if (this.m_Gc2FirstPersonActive)
+            {
+                // Destruction hold/lerp is authored on the Sim-Cade chase rig.
+                // Restore that rig in the same frame before capturing ownership.
+                this.ApplyFirstPersonView(false, false);
+            }
             bool cameraIsActive = this.m_RuntimeCameraRig != null &&
                 this.m_RuntimeCameraRig.activeSelf;
             this.m_HoldCameraDuringDestruction = cameraIsActive;
@@ -705,8 +779,163 @@ namespace FranklinGame.Vehicles
             this.m_VirtualHandbrake = active;
         }
 
+        /// <summary>
+        /// Hold to snap the existing Sim-Cade orbit camera 180 degrees. Releasing
+        /// immediately restores the exact orbit angle that was active before the
+        /// button press. No extra Camera or Cinemachine rig is created.
+        /// </summary>
+        public void SetRearViewPressed(bool active)
+        {
+            if (active)
+            {
+                if (!this.m_EnableHoldRearView || !this.m_IsVehicleEnabled ||
+                    this.m_IsDestroyed || this.m_RearViewPressed)
+                {
+                    return;
+                }
+
+                this.m_RearViewReturnYaw = this.m_CameraOrbitYaw;
+                this.m_RearViewPressed = true;
+                this.m_CameraOrbitYaw = 180f;
+                this.m_CameraOrbitVelocity = 0f;
+                if (this.m_FirstPersonViewActive)
+                {
+                    this.ApplyFirstPersonAnchorMount(true);
+                    this.ApplyGc2FirstPersonRearView(true);
+                }
+                this.ApplyCameraOrbit();
+                if (this.m_CinemachineCamera != null)
+                    this.m_CinemachineCamera.PreviousStateIsValid = false;
+                return;
+            }
+
+            if (!this.m_RearViewPressed) return;
+
+            this.m_RearViewPressed = false;
+            this.m_CameraOrbitYaw = this.m_RearViewReturnYaw;
+            this.m_CameraOrbitVelocity = 0f;
+            this.m_LastCameraOrbitInputTime = Time.unscaledTime;
+            if (this.m_FirstPersonViewActive)
+            {
+                this.ApplyFirstPersonAnchorMount(false);
+                this.ApplyGc2FirstPersonRearView(false);
+            }
+            this.ApplyCameraOrbit();
+            if (this.m_CinemachineCamera != null)
+                this.m_CinemachineCamera.PreviousStateIsValid = false;
+        }
+
+        /// <summary>
+        /// Uses the active GC2 Third Person Camera Shot as a head-mounted cockpit
+        /// view. Passing false restores its complete snapshot and returns camera
+        /// ownership to the existing Sim-Cade chase rig.
+        /// </summary>
+        public void SetFirstPersonView(bool active)
+        {
+            this.ApplyFirstPersonView(active, true);
+        }
+
+        /// <summary>
+        /// Lets the shared mobile HUD temporarily reserve a pointer without
+        /// introducing a second Car-specific orbit implementation.
+        /// </summary>
+        public void SetFirstPersonOrbitSuppressed(bool suppressed)
+        {
+            this.m_FirstPersonCameraManager?.SetOrbitSuppressed(
+                this,
+                suppressed
+            );
+        }
+
+        /// <summary>
+        /// Restores TPS for an exit, modal UI or destruction handoff without
+        /// overwriting the camera mode selected by the user.
+        /// </summary>
+        public void RestoreThirdPersonViewPreservingPreference()
+        {
+            this.ApplyFirstPersonView(false, false);
+        }
+
+        private void ApplyFirstPersonView(bool active, bool persistPreference)
+        {
+            if (active && (!this.m_IsVehicleEnabled || this.m_IsDestroyed ||
+                           this.m_IsPassengerPresentation))
+            {
+                return;
+            }
+
+            if (this.m_FirstPersonViewActive == active)
+            {
+                if (!active)
+                {
+                    this.DeactivateGc2FirstPersonCamera();
+                    this.RestoreFirstPersonPresentation();
+                }
+                return;
+            }
+
+            this.EnsureCameraRig();
+            this.EnsureRuntimeCameraTarget();
+            if (active && this.EnsureFirstPersonCameraAnchor() == null) return;
+
+            if (this.m_RearViewPressed)
+            {
+                this.m_CameraOrbitYaw = this.m_RearViewReturnYaw;
+                this.m_RearViewPressed = false;
+            }
+
+            if (active)
+            {
+                this.m_FirstPersonReturnYaw = this.m_CameraOrbitYaw;
+                this.m_CameraOrbitYaw = 0f;
+                this.m_FirstPersonViewActive = true;
+                this.PrepareFirstPersonPresentation();
+                if (!this.ActivateGc2FirstPersonCamera())
+                {
+                    this.m_FirstPersonViewActive = false;
+                    this.RestoreFirstPersonPresentation();
+                    this.m_CameraOrbitYaw = this.m_FirstPersonReturnYaw;
+                    this.m_FirstPersonReturnYaw = 0f;
+                    return;
+                }
+            }
+            else
+            {
+                this.DeactivateGc2FirstPersonCamera();
+                this.m_FirstPersonViewActive = false;
+                this.RestoreFirstPersonPresentation();
+                this.m_CameraOrbitYaw = this.m_FirstPersonReturnYaw;
+                this.m_FirstPersonReturnYaw = 0f;
+            }
+
+            this.m_CameraOrbitVelocity = 0f;
+            this.m_LastCameraOrbitInputTime = Time.unscaledTime;
+            this.ApplyCameraOrbit();
+            if (!this.m_Gc2FirstPersonActive) this.ApplyCameraViewMode();
+            this.m_Dashboard?.SetDrivingTelemetryVisible(!active);
+            if (persistPreference && this.m_IsVehicleEnabled &&
+                !this.m_IsDestroyed && !this.m_IsPassengerPresentation)
+            {
+                SetFirstPersonPreference(active);
+            }
+        }
+
         private void ResetVirtualInputs()
         {
+            if (this.m_FirstPersonViewActive)
+            {
+                // Exit/disable restores the Player camera without changing the
+                // saved TPS/FPS choice used by the next Car.
+                this.ApplyFirstPersonView(false, false);
+            }
+
+            if (this.m_RearViewPressed)
+            {
+                this.m_CameraOrbitYaw = this.m_RearViewReturnYaw;
+                this.m_CameraOrbitVelocity = 0f;
+                this.ApplyCameraOrbit();
+            }
+
             this.m_VirtualAccelerate = false;
             this.m_VirtualBrakeReverse = false;
             this.m_VirtualSteerLeft = false;
@@ -714,7 +943,36 @@ namespace FranklinGame.Vehicles
             this.m_VirtualHandbrake = false;
             this.m_VirtualSlowAccelerate = false;
             this.m_HandbrakeInput = false;
+            this.m_RearViewPressed = false;
+            this.m_RearViewReturnYaw = 0f;
             this.m_Horn?.SetPressed(false);
+        }
+
+        private static bool GetFirstPersonPreference()
+        {
+            if (s_FirstPersonPreferenceLoaded) return s_FirstPersonPreferred;
+
+            s_FirstPersonPreferred = PlayerPrefs.GetInt(
+                FIRST_PERSON_PREFERENCE_KEY,
+                0
+            ) != 0;
+            s_FirstPersonPreferenceLoaded = true;
+            return s_FirstPersonPreferred;
+        }
+
+        private static void SetFirstPersonPreference(bool active)
+        {
+            s_FirstPersonPreferred = active;
+            s_FirstPersonPreferenceLoaded = true;
+            PlayerPrefs.SetInt(FIRST_PERSON_PREFERENCE_KEY, active ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetFirstPersonPreferenceCache()
+        {
+            s_FirstPersonPreferenceLoaded = false;
+            s_FirstPersonPreferred = false;
         }
 
         public void ResetVehicle()
@@ -1087,11 +1345,8 @@ namespace FranklinGame.Vehicles
                 }
 
                 this.m_CinemachineBrain.enabled = true;
-                Transform cameraTarget = this.EnsureRuntimeCameraTarget();
-                this.m_CinemachineCamera.Follow = this.m_RuntimeCameraOrbitTarget != null
-                    ? this.m_RuntimeCameraOrbitTarget
-                    : cameraTarget;
-                this.m_CinemachineCamera.LookAt = cameraTarget;
+                this.EnsureRuntimeCameraTarget();
+                this.ApplyCameraViewMode();
                 this.m_CinemachineCamera.Priority = this.m_CameraPriority;
                 this.m_CinemachineCamera.PreviousStateIsValid = false;
                 this.m_RuntimeCameraRig.SetActive(true);
@@ -1120,6 +1375,355 @@ namespace FranklinGame.Vehicles
             this.m_RuntimeCameraRig.name = "Sim-Cade Chase Camera (Runtime)";
             this.m_CinemachineCamera = this.m_RuntimeCameraRig.GetComponent<CinemachineCamera>();
             this.m_RuntimeCameraRig.SetActive(false);
+        }
+
+        private void ApplyCameraViewMode()
+        {
+            if (this.m_CinemachineCamera == null) return;
+
+            Transform thirdPersonTarget = this.EnsureRuntimeCameraTarget();
+            this.m_CinemachineCamera.Follow = this.m_RuntimeCameraOrbitTarget != null
+                ? this.m_RuntimeCameraOrbitTarget
+                : thirdPersonTarget;
+            this.m_CinemachineCamera.LookAt = thirdPersonTarget;
+
+            this.m_CinemachineCamera.PreviousStateIsValid = false;
+        }
+
+        private Transform EnsureFirstPersonCameraAnchor()
+        {
+            if (this.m_FirstPersonCameraAnchor != null)
+                return this.m_FirstPersonCameraAnchor;
+
+            Character driver = this.m_CarEntry != null
+                ? this.m_CarEntry.SeatedCharacter
+                : null;
+            if (!this.ResolveFirstPersonCameraManager(driver)) return null;
+
+            Transform parent = this.m_CarEntry != null &&
+                               this.m_CarEntry.entryParent != null
+                ? this.m_CarEntry.entryParent
+                : this.m_CameraTarget != null
+                    ? this.m_CameraTarget
+                    : this.transform;
+            GameObject anchorObject = new GameObject(
+                "Sim-Cade First Person Camera Anchor (Runtime)"
+            );
+            this.m_FirstPersonCameraAnchor = anchorObject.transform;
+            Animator animator = driver != null ? driver.Animim.Animator : null;
+            Vector3 worldPosition =
+                this.m_FirstPersonCameraManager.GetEyeWorldPosition(
+                    FranklinFirstPersonCameraManager.Context.Car,
+                    animator,
+                    parent,
+                    driver != null ? driver.transform : parent
+                );
+            this.m_FirstPersonCameraAnchor.SetPositionAndRotation(
+                worldPosition,
+                parent.rotation
+            );
+            this.m_FirstPersonCameraAnchor.SetParent(parent, true);
+            this.m_RuntimeFirstPersonCameraAnchor = true;
+            return this.m_FirstPersonCameraAnchor;
+        }
+
+        private void PrepareFirstPersonPresentation()
+        {
+            if (this.m_FirstPersonCameraAnchor == null)
+            {
+                return;
+            }
+
+            Character driver = this.m_CarEntry != null
+                ? this.m_CarEntry.SeatedCharacter
+                : null;
+            if (!this.ResolveFirstPersonCameraManager(driver)) return;
+
+            this.RefreshFirstPersonPreviewPose();
+
+            Animator animator = driver != null
+                ? driver.Animim.Animator
+                : null;
+            if (animator == null) return;
+
+            this.m_FirstPersonHeadOcclusion =
+                animator.GetComponent<FirstPersonHeadOcclusion>();
+            bool requiresHeadOcclusionBegin =
+                this.m_FirstPersonHeadOcclusion == null;
+            if (this.m_FirstPersonHeadOcclusion == null)
+            {
+                this.m_FirstPersonHeadOcclusion =
+                    animator.gameObject.AddComponent<FirstPersonHeadOcclusion>();
+            }
+            if (requiresHeadOcclusionBegin ||
+                !this.m_FirstPersonHeadOcclusion.enabled)
+            {
+                this.m_FirstPersonHeadOcclusion.Begin(animator);
+            }
+        }
+
+        /// <summary>
+        /// Rebuilds both Car FPS mounts after the Player manager's Position or
+        /// Fallback Position changes in Play Mode. This only updates presentation
+        /// transforms; head occlusion remains owned by the activation lifecycle.
+        /// </summary>
+        private void RefreshFirstPersonPreviewPose()
+        {
+            if (this.m_FirstPersonCameraAnchor == null) return;
+
+            Character driver = this.m_CarEntry != null
+                ? this.m_CarEntry.SeatedCharacter
+                : null;
+            if (!this.ResolveFirstPersonCameraManager(driver)) return;
+
+            Transform heading = this.m_CarEntry != null &&
+                                this.m_CarEntry.entryParent != null
+                ? this.m_CarEntry.entryParent
+                : this.m_CameraTarget != null
+                    ? this.m_CameraTarget
+                    : this.transform;
+            Animator animator = driver != null
+                ? driver.Animim.Animator
+                : null;
+            Transform head = animator != null && animator.isHuman
+                ? animator.GetBoneTransform(HumanBodyBones.Head)
+                : null;
+            Transform neck = animator != null && animator.isHuman
+                ? animator.GetBoneTransform(HumanBodyBones.Neck)
+                : null;
+            Transform forwardMount = neck != null
+                ? neck
+                : head != null && head.parent != null
+                    ? head.parent
+                    : animator != null
+                        ? animator.transform
+                        : heading;
+
+            Vector3 eyeWorldPosition =
+                this.m_FirstPersonCameraManager.GetEyeWorldPosition(
+                    FranklinFirstPersonCameraManager.Context.Car,
+                    animator,
+                    heading,
+                    driver != null ? driver.transform : heading
+                );
+            Vector3 rearWorldPosition =
+                this.m_FirstPersonCameraManager.GetCarRearWorldPosition(
+                    animator,
+                    heading,
+                    driver != null ? driver.transform : heading
+                );
+
+            // Forward view follows Neck (or the safest available Animator/seat
+            // transform), while rear view remains seat-owned so the torso cannot
+            // move over the camera. Rebuilding both caches prevents a rear-view
+            // toggle from restoring the pre-preview Position.
+            CacheFirstPersonMount(
+                forwardMount,
+                eyeWorldPosition,
+                heading.rotation,
+                out this.m_FirstPersonForwardMountLocalPosition,
+                out this.m_FirstPersonForwardMountLocalRotation
+            );
+            this.m_FirstPersonForwardMountParent = forwardMount;
+            CacheFirstPersonMount(
+                heading,
+                rearWorldPosition,
+                heading.rotation,
+                out this.m_FirstPersonRearMountLocalPosition,
+                out this.m_FirstPersonRearMountLocalRotation
+            );
+            this.m_FirstPersonRearMountParent = heading;
+            this.m_FirstPersonMountsPrepared = true;
+            this.ApplyFirstPersonAnchorMount(this.m_RearViewPressed);
+        }
+
+        private void RestoreFirstPersonPresentation()
+        {
+            if (this.m_FirstPersonHeadOcclusion != null)
+            {
+                this.m_FirstPersonHeadOcclusion.End();
+                this.m_FirstPersonHeadOcclusion = null;
+            }
+
+            this.m_FirstPersonMountsPrepared = false;
+            this.m_FirstPersonForwardMountParent = null;
+            this.m_FirstPersonRearMountParent = null;
+
+            if (!this.m_RuntimeFirstPersonCameraAnchor ||
+                this.m_FirstPersonCameraAnchor == null)
+            {
+                return;
+            }
+
+            Transform parent = this.m_CarEntry != null &&
+                               this.m_CarEntry.entryParent != null
+                ? this.m_CarEntry.entryParent
+                : this.m_CameraTarget != null
+                    ? this.m_CameraTarget
+                    : this.transform;
+            this.m_FirstPersonCameraAnchor.SetParent(parent, false);
+            this.m_FirstPersonCameraAnchor.localPosition = Vector3.zero;
+            this.m_FirstPersonCameraAnchor.localRotation = Quaternion.identity;
+        }
+
+        private static void CacheFirstPersonMount(
+            Transform parent,
+            Vector3 worldPosition,
+            Quaternion worldRotation,
+            out Vector3 localPosition,
+            out Quaternion localRotation)
+        {
+            localPosition = parent.InverseTransformPoint(worldPosition);
+            localRotation = Quaternion.Inverse(parent.rotation) * worldRotation;
+        }
+
+        private void ApplyFirstPersonAnchorMount(bool rearView)
+        {
+            if (!this.m_FirstPersonMountsPrepared ||
+                this.m_FirstPersonCameraAnchor == null)
+            {
+                return;
+            }
+
+            Transform mountParent = rearView
+                ? this.m_FirstPersonRearMountParent
+                : this.m_FirstPersonForwardMountParent;
+            if (mountParent == null) return;
+
+            this.m_FirstPersonCameraAnchor.SetParent(mountParent, false);
+            this.m_FirstPersonCameraAnchor.localPosition = rearView
+                ? this.m_FirstPersonRearMountLocalPosition
+                : this.m_FirstPersonForwardMountLocalPosition;
+            this.m_FirstPersonCameraAnchor.localRotation = rearView
+                ? this.m_FirstPersonRearMountLocalRotation
+                : this.m_FirstPersonForwardMountLocalRotation;
+        }
+
+        private bool ResolveFirstPersonCameraManager(Character driver = null)
+        {
+            driver ??= this.m_CarEntry != null
+                ? this.m_CarEntry.SeatedCharacter
+                : null;
+            if (driver == null) return false;
+
+            this.m_FirstPersonCameraManager =
+                FranklinFirstPersonCameraManager.Resolve(driver);
+            return this.m_FirstPersonCameraManager != null;
+        }
+
+        private bool ActivateGc2FirstPersonCamera()
+        {
+            if (this.m_Gc2FirstPersonActive &&
+                this.m_FirstPersonCameraManager != null &&
+                this.m_FirstPersonCameraManager.IsOwnedBy(this))
+            {
+                return true;
+            }
+            if (this.m_FirstPersonCameraAnchor == null) return false;
+
+            this.ResolveUnityCamera();
+            if (this.m_Gc2MainCamera == null)
+            {
+                this.m_Gc2MainCamera = ShortcutMainCamera.Get<MainCamera>();
+            }
+            if (this.m_Gc2MainCamera == null) return false;
+
+            ShotCamera shot = this.m_Gc2MainCamera.Transition.CurrentShotCamera;
+            Character driver = this.m_CarEntry != null
+                ? this.m_CarEntry.SeatedCharacter
+                : null;
+            if (!this.ResolveFirstPersonCameraManager(driver)) return false;
+
+            if (this.m_RuntimeCameraRig != null)
+                this.m_RuntimeCameraRig.SetActive(false);
+            if (this.m_CinemachineBrain != null)
+                this.m_CinemachineBrain.enabled = false;
+            this.m_Gc2MainCamera.enabled = true;
+
+            Transform heading = this.m_CarEntry != null &&
+                                this.m_CarEntry.entryParent != null
+                ? this.m_CarEntry.entryParent
+                : this.transform;
+            if (!this.m_FirstPersonCameraManager.Activate(
+                    this,
+                    FranklinFirstPersonCameraManager.Context.Car,
+                    shot,
+                    this.m_FirstPersonCameraAnchor,
+                    heading,
+                    this.RefreshFirstPersonPreviewPose
+                ))
+            {
+                this.m_Gc2MainCamera.enabled = false;
+                if (this.m_CinemachineBrain != null)
+                    this.m_CinemachineBrain.enabled = true;
+                if (this.m_RuntimeCameraRig != null)
+                    this.m_RuntimeCameraRig.SetActive(true);
+                return false;
+            }
+
+            this.m_Gc2FirstPersonActive = true;
+            return true;
+        }
+
+        private void DeactivateGc2FirstPersonCamera()
+        {
+            if (!this.m_Gc2FirstPersonActive) return;
+
+            this.m_FirstPersonCameraManager?.Deactivate(this, true, 0f);
+
+            if (this.m_Gc2MainCamera != null)
+            {
+                this.m_Gc2MainCamera.enabled = false;
+            }
+
+            if (this.m_CinemachineBrain != null)
+                this.m_CinemachineBrain.enabled = true;
+            if (this.m_RuntimeCameraRig != null)
+            {
+                this.m_RuntimeCameraRig.SetActive(true);
+                if (this.m_CinemachineCamera != null)
+                    this.m_CinemachineCamera.PreviousStateIsValid = false;
+            }
+
+            this.m_Gc2FirstPersonActive = false;
+            this.m_Gc2RearViewReturnRotation = Vector2.zero;
+        }
+
+        private void ApplyGc2FirstPersonRearView(bool rearView)
+        {
+            if (!this.m_Gc2FirstPersonActive ||
+                this.m_FirstPersonCameraManager == null ||
+                !this.m_FirstPersonCameraManager.IsOwnedBy(this))
+            {
+                return;
+            }
+
+            if (rearView)
+            {
+                this.m_Gc2RearViewReturnRotation =
+                    this.m_FirstPersonCameraManager.GetRotation(this);
+                this.m_FirstPersonCameraManager.SetAlignmentSuspended(this, true);
+                Vector3 forward = this.m_CarEntry != null &&
+                                  this.m_CarEntry.entryParent != null
+                    ? this.m_CarEntry.entryParent.forward
+                    : this.transform.forward;
+                this.m_FirstPersonCameraManager.SetDirection(
+                    this,
+                    -forward,
+                    false
+                );
+            }
+            else
+            {
+                this.m_FirstPersonCameraManager.SetRotation(
+                    this,
+                    this.m_Gc2RearViewReturnRotation,
+                    false
+                );
+                this.m_FirstPersonCameraManager.SetAlignmentSuspended(this, false);
+            }
+
+            this.m_Gc2MainCamera?.Sync();
         }
 
         private Transform EnsureRuntimeCameraTarget()
@@ -1185,7 +1789,20 @@ namespace FranklinGame.Vehicles
 
         private void UpdateCameraOrbit()
         {
-            if (!this.m_EnableCameraOrbit || this.m_RuntimeCameraOrbitTarget == null) return;
+            // The active GC2 TPS Shot owns mobile/mouse/gamepad pitch and yaw in
+            // FPS. Reading the same input here would apply the delta twice.
+            if (this.m_Gc2FirstPersonActive) return;
+            if (this.m_RuntimeCameraOrbitTarget == null) return;
+
+            if (this.m_RearViewPressed)
+            {
+                this.m_CameraOrbitYaw = 180f;
+                this.m_CameraOrbitVelocity = 0f;
+                this.ApplyCameraOrbit();
+                return;
+            }
+
+            if (!this.m_EnableCameraOrbit) return;
 
             float yawDelta = 0f;
             bool isInteracting = false;
@@ -1266,6 +1883,8 @@ namespace FranklinGame.Vehicles
 
         private void ResetCameraOrbit()
         {
+            this.m_RearViewPressed = false;
+            this.m_RearViewReturnYaw = 0f;
             this.m_CameraOrbitYaw = 0f;
             this.m_CameraOrbitVelocity = 0f;
             this.m_LastCameraOrbitInputTime = Time.unscaledTime;
@@ -1284,26 +1903,39 @@ namespace FranklinGame.Vehicles
 
         private void ResolveUnityCamera()
         {
-            if (this.m_CinemachineBrain != null) return;
+            if (this.m_CinemachineBrain != null &&
+                this.m_UnityCamera != null &&
+                this.m_Gc2MainCamera != null)
+            {
+                return;
+            }
 
             Camera unityCamera = Camera.main;
             if (unityCamera == null) unityCamera = FindFirstObjectByType<Camera>();
             if (unityCamera == null) return;
+            this.m_UnityCamera = unityCamera;
 
-            this.m_CinemachineBrain = unityCamera.GetComponent<CinemachineBrain>();
-            this.m_CreatedBrain = this.m_CinemachineBrain == null;
-            if (this.m_CreatedBrain)
+            if (this.m_CinemachineBrain == null)
             {
-                this.m_CinemachineBrain = unityCamera.gameObject.AddComponent<CinemachineBrain>();
+                this.m_CinemachineBrain =
+                    unityCamera.GetComponent<CinemachineBrain>();
+                this.m_CreatedBrain = this.m_CinemachineBrain == null;
+                if (this.m_CreatedBrain)
+                {
+                    this.m_CinemachineBrain =
+                        unityCamera.gameObject.AddComponent<CinemachineBrain>();
+                }
+
+                this.m_BrainWasEnabled = this.m_CinemachineBrain.enabled;
             }
 
-            this.m_BrainWasEnabled = this.m_CinemachineBrain.enabled;
             foreach (Behaviour behaviour in unityCamera.GetComponents<Behaviour>())
             {
                 if (behaviour != null &&
                     behaviour.GetType().FullName == "GameCreator.Runtime.Cameras.MainCamera")
                 {
                     this.m_GameCreatorCamera = behaviour;
+                    this.m_Gc2MainCamera = behaviour as MainCamera;
                     // ResolveUnityCamera can run during the mobile prewarm while
                     // Sim-Cade is inactive. Capture GC2's real initial state so
                     // SetCameraActive(false) restores it instead of applying the
@@ -1329,11 +1961,99 @@ namespace FranklinGame.Vehicles
             return null;
         }
 
+        private void CacheSteeringHandTargets()
+        {
+            if (this.m_SteeringWheel == null || this.m_CarEntry == null) return;
+
+            this.m_SteeringLeftHandTarget =
+                this.m_CarEntry.steeringWheelLeftHandTarget;
+            this.m_SteeringRightHandTarget =
+                this.m_CarEntry.steeringWheelRightHandTarget;
+            if (this.m_SteeringLeftHandTarget == null ||
+                this.m_SteeringRightHandTarget == null)
+            {
+                return;
+            }
+
+            this.m_SteeringLeftHandLocalPosition =
+                this.m_SteeringWheel.InverseTransformPoint(
+                    this.m_SteeringLeftHandTarget.position
+                );
+            this.m_SteeringRightHandLocalPosition =
+                this.m_SteeringWheel.InverseTransformPoint(
+                    this.m_SteeringRightHandTarget.position
+                );
+            Quaternion inverseWheelRotation =
+                Quaternion.Inverse(this.m_SteeringWheel.rotation);
+            this.m_SteeringLeftHandLocalRotation = inverseWheelRotation *
+                this.m_SteeringLeftHandTarget.rotation;
+            this.m_SteeringRightHandLocalRotation = inverseWheelRotation *
+                this.m_SteeringRightHandTarget.rotation;
+            this.m_SteeringHandTargetsCached = true;
+        }
+
+        private void UpdateSteeringHandTargets(float angle)
+        {
+            if (!this.m_SteeringHandTargetsCached)
+            {
+                this.CacheSteeringHandTargets();
+            }
+            if (!this.m_SteeringHandTargetsCached ||
+                this.m_SteeringWheel == null)
+            {
+                return;
+            }
+
+            Quaternion desiredLocalRotation = this.m_SteeringWheelInitialRotation *
+                Quaternion.AngleAxis(angle, Vector3.forward);
+            Quaternion parentRotation = this.m_SteeringWheel.parent != null
+                ? this.m_SteeringWheel.parent.rotation
+                : Quaternion.identity;
+            Quaternion desiredWorldRotation = parentRotation * desiredLocalRotation;
+            Vector3 wheelScale = this.m_SteeringWheel.lossyScale;
+
+            this.ApplySteeringHandTargetPose(
+                this.m_SteeringLeftHandTarget,
+                this.m_SteeringLeftHandLocalPosition,
+                this.m_SteeringLeftHandLocalRotation,
+                desiredWorldRotation,
+                wheelScale
+            );
+            this.ApplySteeringHandTargetPose(
+                this.m_SteeringRightHandTarget,
+                this.m_SteeringRightHandLocalPosition,
+                this.m_SteeringRightHandLocalRotation,
+                desiredWorldRotation,
+                wheelScale
+            );
+        }
+
+        private void ApplySteeringHandTargetPose(
+            Transform target,
+            Vector3 wheelLocalPosition,
+            Quaternion wheelLocalRotation,
+            Quaternion desiredWheelWorldRotation,
+            Vector3 wheelWorldScale)
+        {
+            if (target == null) return;
+
+            Vector3 scaledPosition = Vector3.Scale(
+                wheelLocalPosition,
+                wheelWorldScale
+            );
+            target.SetPositionAndRotation(
+                this.m_SteeringWheel.position +
+                    desiredWheelWorldRotation * scaledPosition,
+                desiredWheelWorldRotation * wheelLocalRotation
+            );
+        }
+
         private void ResetSteeringWheel()
         {
             if (this.m_SteeringWheel != null)
             {
                 this.m_SteeringWheel.localRotation = this.m_SteeringWheelInitialRotation;
+                this.UpdateSteeringHandTargets(0f);
             }
         }
 
@@ -1348,6 +2068,11 @@ namespace FranklinGame.Vehicles
                 this.m_DamageSteeringBias,
                 -this.m_MaxDamageSteeringBias,
                 this.m_MaxDamageSteeringBias
+            );
+            this.m_SteeringHandsMaxAngle = Mathf.Clamp(
+                this.m_SteeringHandsMaxAngle,
+                15f,
+                140f
             );
         }
 
@@ -1375,6 +2100,8 @@ namespace FranklinGame.Vehicles
             this.m_DamageSteeringBias = 0f;
             this.m_MaxDamageSteeringBias = 0.16f;
             this.m_SlowModeMaxSpeedKph = 60f;
+            this.m_SteeringHandsMaxAngle = 85f;
+            this.m_SteeringHandTargetsCached = false;
         }
 #endif
     }

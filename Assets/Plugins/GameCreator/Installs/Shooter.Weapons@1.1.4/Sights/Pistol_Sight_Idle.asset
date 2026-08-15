@@ -55,7 +55,7 @@ MonoBehaviour:
       m_IsEnabled: 1
       m_Value:
         serializedVersion: 2
-        m_Bits: 51
+        m_Bits: 4294967295
     m_MaxResolution:
       m_Property:
         rid: 8814677073454694482
@@ -79,6 +79,9 @@ MonoBehaviour:
         rid: 8814677073454694488
     m_TextureMode: 0
     m_TextureAlign: 0
+    m_PrefabDot:
+      m_Property:
+        rid: 9185873520708813620
   m_Crosshair:
     m_UseCrosshair:
       m_Property:
@@ -88,11 +91,12 @@ MonoBehaviour:
     m_UseLaser:
       m_Property:
         rid: 8814677073454694490
+    m_Offset: {x: 0, y: 0, z: 0}
     m_UseRaycast:
       m_IsEnabled: 1
       m_Value:
         serializedVersion: 2
-        m_Bits: 51
+        m_Bits: 4294967295
     m_MaxDistance:
       m_Property:
         rid: 8814677073454694491
@@ -227,3 +231,7 @@ MonoBehaviour:
     - rid: 8814677087023530351
       type: {class: GetBoolFalse, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
+    - rid: 9185873520708813620
+      type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_GameObject: {fileID: 0}

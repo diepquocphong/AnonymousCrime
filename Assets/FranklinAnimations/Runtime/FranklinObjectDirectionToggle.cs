@@ -17,6 +17,10 @@ namespace FranklinGame.Animations
         private bool m_IsObjectDirectionEnabled;
 
         public bool IsObjectDirectionEnabled => this.m_IsObjectDirectionEnabled;
+        public bool OwnsCurrentFacing =>
+            this.m_IsObjectDirectionEnabled &&
+            this.m_Character != null &&
+            ReferenceEquals(this.m_Character.Facing, this.m_ObjectDirectionFacing);
 
         private void Awake()
         {

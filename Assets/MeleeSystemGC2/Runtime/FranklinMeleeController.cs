@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
 using GameCreator.Runtime.Melee;
+using GameCreator.Runtime.Shooter;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -95,7 +96,7 @@ namespace FranklinGame.Melee
         private int m_JogSprintLayer = 2;
         [SerializeField, Min(0.1f)]
         [Tooltip("Seconds without another Fight input before combat locomotion returns to Walk.")]
-        private float m_CombatLocomotionIdleTimeout = 5f;
+        private float m_CombatLocomotionIdleTimeout = 2f;
         [SerializeField, Range(0f, 0.5f)]
         private float m_CombatLocomotionTransition = 0.15f;
 
@@ -163,7 +164,11 @@ namespace FranklinGame.Melee
         public bool IsReady =>
             this.m_Character != null &&
             this.m_UnarmedWeapon != null &&
-            this.m_Character.Combat.IsEquipped(this.m_UnarmedWeapon);
+            this.m_Character.Combat.IsEquipped(this.m_UnarmedWeapon) &&
+            !this.HasShooterWeaponEquipped;
+
+        private bool HasShooterWeaponEquipped =>
+            this.m_Character?.Combat.GetActiveWeapon<ShooterWeapon>() != null;
 
         public float GlobalSkillSpeed
         {
@@ -227,6 +232,24 @@ namespace FranklinGame.Melee
             this.ApplyGlobalReactionSpeed();
             this.ApplyEffectiveInputBuffer();
             this.CacheReactionDurations();
+        }
+
+        private void OnEnable()
+        {
+            if (this.m_Character == null)
+            {
+                this.m_Character = this.GetComponent<Character>();
+            }
+
+            if (this.m_Character == null) return;
+
+            this.m_Character.Combat.EventEquip -= this.OnWeaponEquipped;
+            this.m_Character.Combat.EventEquip += this.OnWeaponEquipped;
+
+            if (this.HasShooterWeaponEquipped)
+            {
+                this.CancelAllMeleeStates();
+            }
         }
 
         private void OnValidate()
@@ -310,6 +333,12 @@ namespace FranklinGame.Melee
         {
             if (!this.isActiveAndEnabled) return;
 
+            if (this.HasShooterWeaponEquipped)
+            {
+                this.CancelAllMeleeStates();
+                return;
+            }
+
             try
             {
                 await this.EnsureEquipped();
@@ -353,7 +382,8 @@ namespace FranklinGame.Melee
         private async void StartSidestep(float directionSign, AnimationClip animationClip)
         {
             if (!this.isActiveAndEnabled || animationClip == null ||
-                this.m_Character == null || this.m_IsSidestepping)
+                this.m_Character == null || this.m_IsSidestepping ||
+                this.HasShooterWeaponEquipped)
             {
                 return;
             }
@@ -362,7 +392,11 @@ namespace FranklinGame.Melee
             try
             {
                 await this.EnsureEquipped();
-                if (!this.IsReady || this.m_IsSidestepping) return;
+                if (!this.IsReady || this.m_IsSidestepping ||
+                    this.HasShooterWeaponEquipped)
+                {
+                    return;
+                }
 
                 MeleeStance stance = this.m_MeleeStance ??
                     this.m_Character.Combat.RequestStance<MeleeStance>();
@@ -1017,16 +1051,23 @@ namespace FranklinGame.Melee
             }
         }
 
-        private void OnDisable()
+        private void OnWeaponEquipped(IWeapon weapon, GameObject instance)
+        {
+            if (weapon is ShooterWeapon)
+            {
+                this.CancelAllMeleeStates();
+            }
+        }
+
+        /// <summary>
+        /// Immediately releases every state, gesture and movement override owned by melee.
+        /// Shooter calls this at the beginning of equip; EventEquip is the fallback for
+        /// weapons equipped through other GC2 workflows.
+        /// </summary>
+        public void CancelAllMeleeStates()
         {
             this.CancelCombatLocomotionTimeout();
             this.StopCombatLocomotion(0f);
-
-            if (this.m_IsSidestepping && this.m_Character?.Dash.IsDashing == true)
-            {
-                this.m_Character.Dash.Cancel();
-            }
-            this.m_IsSidestepping = false;
 
             if (this.m_ResetAttackRoutine != null)
             {
@@ -1049,7 +1090,58 @@ namespace FranklinGame.Melee
             this.StopReactionEase();
             this.m_PreviousMeleePhase = MeleePhase.None;
 
+            if (this.m_IsSidestepping && this.m_Character?.Dash.IsDashing == true)
+            {
+                this.m_Character.Dash.Cancel();
+            }
+            this.m_IsSidestepping = false;
+
+            this.m_MeleeStance?.ForceCancel();
+            this.StopMeleeGesturesImmediately();
             this.RestoreAttackMovementSpeed();
+
+            // Stop layer 1 even if the local flag was desynchronized by another system.
+            this.m_Character?.States?.Stop(this.m_CombatLocomotionLayer, 0f, 0f);
+        }
+
+        private void StopMeleeGesturesImmediately()
+        {
+            if (this.m_Character?.Gestures == null) return;
+
+            foreach (Skill skill in this.m_AttackSkills)
+            {
+                if (skill?.Animation != null)
+                {
+                    this.m_Character.Gestures.Stop(skill.Animation, 0f, 0f);
+                }
+            }
+
+            foreach (AnimationClip reaction in this.m_ReactionAnimations)
+            {
+                if (reaction != null)
+                {
+                    this.m_Character.Gestures.Stop(reaction, 0f, 0f);
+                }
+            }
+
+            if (this.m_SidestepLeft != null)
+            {
+                this.m_Character.Gestures.Stop(this.m_SidestepLeft, 0f, 0f);
+            }
+            if (this.m_SidestepRight != null)
+            {
+                this.m_Character.Gestures.Stop(this.m_SidestepRight, 0f, 0f);
+            }
+        }
+
+        private void OnDisable()
+        {
+            if (this.m_Character != null)
+            {
+                this.m_Character.Combat.EventEquip -= this.OnWeaponEquipped;
+            }
+
+            this.CancelAllMeleeStates();
 
             this.m_EquipTask = null;
 
@@ -1057,11 +1149,6 @@ namespace FranklinGame.Melee
             this.RestoreAuthoredSkillTrail();
             this.RestoreAuthoredReactionSpeed();
 
-            if (!Application.isPlaying) return;
-
-            // Combat's runtime stance dictionary may already be disposed during a domain reload.
-            // Only cancel the cached stance instead of requesting a new one while shutting down.
-            this.m_MeleeStance?.ForceCancel();
         }
 
         private void RestoreAuthoredSkillSpeed()

@@ -121,7 +121,7 @@ namespace FranklinGame.Vehicles
 
         protected virtual void OnCollisionEnter(Collision collision)
         {
-            if (!IsConfigured || collision == null) return;
+            if (!IsConfigured || collision == null || IsIgnoredImpact(collision)) return;
 
             float contactSpeed = GetNormalContactSpeed(collision);
             float impulseSpeed = collision.impulse.magnitude /
@@ -183,6 +183,18 @@ namespace FranklinGame.Vehicles
 
             m_LastImpactSeverity = severity;
             m_NextImpactTime = now + m_ImpactCooldown;
+        }
+
+        /// <summary>
+        /// Shared by Car and Bike so lightweight props such as ejected shell
+        /// casings never reach audio, VFX, health, deformation or ragdoll events.
+        /// Their own colliders and collision audio continue to work normally.
+        /// </summary>
+        protected static bool IsIgnoredImpact(Collision collision)
+        {
+            Collider otherCollider = collision != null ? collision.collider : null;
+            return otherCollider != null &&
+                otherCollider.GetComponentInParent<VehicleImpactIgnored>() != null;
         }
 
         /// <summary>

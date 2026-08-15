@@ -1,4 +1,6 @@
 using ArcadeBP_Pro;
+using FranklinGame.Animations;
+using FranklinGame.Shooter;
 using GameCreator.Runtime.Characters;
 using UnityEngine;
 
@@ -19,10 +21,24 @@ namespace FranklinGame.Vehicles
         IRvrVehicleInputController,
         IRvrVehicleAirborneState
     {
+        private const string FIRST_PERSON_PREFERENCE_KEY =
+            "Franklin.Vehicle.Bike.FirstPersonView";
+
+        private static bool s_FirstPersonPreferenceLoaded;
+        private static bool s_FirstPersonPreferred;
+
         [SerializeField] private ArcadeBikeControllerPro m_Controller;
         [SerializeField] private BikeEntry m_BikeEntry;
         [SerializeField] private VehicleLights m_VehicleLights;
         [SerializeField] private FranklinBikeFuel m_Fuel;
+
+        [Header("Horn")]
+        [SerializeField] private AudioClip m_HornClip;
+        [SerializeField] private AudioSource m_HornSource;
+        [SerializeField, Range(0f, 1f)] private float m_HornMaxVolume = 0.72f;
+        [SerializeField, Range(0.5f, 2f)] private float m_HornPitch = 1.18f;
+        [SerializeField, Min(0.01f)] private float m_HornFadeInSpeed = 18f;
+        [SerializeField, Min(0.01f)] private float m_HornFadeOutSpeed = 14f;
 
         [Header("Slow Drive")]
         [SerializeField, Range(0.1f, 1f)] private float m_SlowThrottle = 0.35f;
@@ -58,6 +74,9 @@ namespace FranklinGame.Vehicles
         private bool m_VirtualHandbrake;
         private bool m_VirtualWheelie;
         private bool m_VirtualBurnout;
+        private bool m_StuntWeaponSuppressionActive;
+        private Character m_StuntWeaponRider;
+        private FranklinBikeMainShotAim m_FirstPersonCameraManager;
         private bool m_ExternalHandbrake;
         private bool m_ShooterReloadSteeringLocked;
         private bool m_IsStoppingForExit;
@@ -73,6 +92,7 @@ namespace FranklinGame.Vehicles
         private bool m_IsDamageLocked;
         private bool m_HasFuel = true;
         private float m_CurrentThrottle;
+        private bool m_HornPressed;
 
         public bool IsVehicleEnabled => this.m_IsVehicleEnabled;
         public bool IsDamageLocked => this.m_IsDamageLocked;
@@ -82,6 +102,9 @@ namespace FranklinGame.Vehicles
                                   !this.m_Controller.rearWheelIsGrounded;
         public bool IsCrashCoasting => !this.m_IsVehicleEnabled &&
                                        this.m_KeepDynamicWhenDisabled;
+        public bool IsFirstPersonViewActive =>
+            this.m_FirstPersonCameraManager != null &&
+            this.m_FirstPersonCameraManager.IsFirstPersonActive;
         public bool UseSeatEntryAlignment => false;
 
         public Transform VehicleBody
@@ -151,14 +174,18 @@ namespace FranklinGame.Vehicles
             this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
             this.m_Fuel?.SetEngineActive(false);
             this.m_VehicleLights?.FrontLightsOff();
+            this.StopHornImmediately();
         }
 
         private void Update()
         {
             if (!this.ResolveReferences()) return;
 
+            this.UpdateHorn();
+
             if (!this.m_IsVehicleEnabled)
             {
+                this.SetStuntWeaponSuppression(false);
                 this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
                 this.UpdateCrashEngineAudio();
                 return;
@@ -166,6 +193,7 @@ namespace FranklinGame.Vehicles
 
             if (this.m_IsDamageLocked)
             {
+                this.SetStuntWeaponSuppression(false);
                 // Keep suspension and the seated exit flow alive, but a bike at
                 // zero GC2 health cannot receive any propulsion or steering.
                 this.ProvideInput(0f, 0f, 0f, 0f, 0f, 0f);
@@ -204,6 +232,7 @@ namespace FranklinGame.Vehicles
 
                 if (keyboard.eKey.wasPressedThisFrame)
                 {
+                    this.SetStuntWeaponSuppression(false);
                     this.RequestExit();
                     return;
                 }
@@ -226,6 +255,12 @@ namespace FranklinGame.Vehicles
                 accelerate = 0f;
                 wheelie = 0f;
             }
+
+            bool stuntInputActive = wheelie > 0.01f ||
+                                    (accelerate > 0.01f && reverse > 0.01f);
+            this.SetStuntWeaponSuppression(
+                stuntInputActive && !this.m_IsStoppingForExit
+            );
 
             if (this.m_IsStoppingForExit)
             {
@@ -519,6 +554,7 @@ namespace FranklinGame.Vehicles
                 this.m_VirtualSlowAccelerate = false;
                 this.m_VirtualWheelie = false;
                 this.m_VirtualBurnout = false;
+                this.SetStuntWeaponSuppression(false);
                 this.m_CurrentThrottle = 0f;
             }
 
@@ -555,6 +591,97 @@ namespace FranklinGame.Vehicles
             {
                 this.m_VehicleLights.FrontLightsOff();
             }
+        }
+
+        /// <summary>
+        /// Starts or releases the Bike's 3D hold horn. Its AudioSource is created
+        /// once on first use and reused for the lifetime of the Bike.
+        /// </summary>
+        public void SetHornPressed(bool pressed)
+        {
+            if (pressed && (!this.m_IsVehicleEnabled || this.m_IsDamageLocked))
+                return;
+
+            this.m_HornPressed = pressed;
+            if (!pressed) return;
+
+            if (!this.EnsureHornSource())
+            {
+                this.m_HornPressed = false;
+                return;
+            }
+
+            if (this.m_HornSource.isPlaying) return;
+            this.m_HornSource.volume = 0f;
+            this.m_HornSource.Play();
+        }
+
+        /// <summary>
+        /// Delegates Bike FPS to the shared ManagerVehicle camera component under
+        /// Player. Every bike therefore uses the same GC2 Main Camera Shot.
+        /// </summary>
+        public void SetFirstPersonView(bool active)
+        {
+            this.ApplyFirstPersonView(active, true);
+        }
+
+        /// <summary>
+        /// Temporarily restores TPS for exit, crash or modal UI without changing
+        /// the FPS/TPS choice saved by the Player.
+        /// </summary>
+        public void RestoreThirdPersonViewPreservingPreference()
+        {
+            this.ApplyFirstPersonView(false, false);
+        }
+
+        /// <summary>
+        /// Called after ManagerVehicle has activated the Bike Main Shot. This
+        /// second handoff is required because BikeEntry enables physics before
+        /// the shared GC2 camera profile becomes active.
+        /// </summary>
+        public void RestorePreferredFirstPersonView()
+        {
+            if (this.m_IsVehicleEnabled && GetFirstPersonPreference())
+                this.ApplyFirstPersonView(true, false);
+        }
+
+        private void ApplyFirstPersonView(bool active, bool persistPreference)
+        {
+            if (active && (!this.m_IsVehicleEnabled || this.m_IsDamageLocked)) return;
+
+            Character rider = active
+                ? this.m_BikeEntry?.SeatedCharacter
+                : this.m_StuntWeaponRider ?? this.m_BikeEntry?.SeatedCharacter;
+            if (active)
+            {
+                if (rider == null) return;
+                this.m_FirstPersonCameraManager = rider.GetComponentInChildren<
+                    FranklinBikeMainShotAim
+                >(true);
+            }
+
+            bool applied = active
+                ? this.m_FirstPersonCameraManager != null &&
+                  this.m_FirstPersonCameraManager.SetFirstPersonActive(true)
+                : true;
+            if (!applied) return;
+
+            if (!active)
+            {
+                this.m_FirstPersonCameraManager?.SetFirstPersonActive(false);
+                this.m_FirstPersonCameraManager = null;
+            }
+
+            if (persistPreference && this.m_IsVehicleEnabled &&
+                !this.m_IsDamageLocked)
+            {
+                SetFirstPersonPreference(active);
+            }
+        }
+
+        public void SetFirstPersonOrbitSuppressed(bool suppressed)
+        {
+            this.m_FirstPersonCameraManager?.SetFirstPersonOrbitSuppressed(suppressed);
         }
 
         public void RequestExit()
@@ -600,6 +727,60 @@ namespace FranklinGame.Vehicles
             if (this.m_Fuel == null) this.m_Fuel = this.GetComponent<FranklinBikeFuel>();
             if (this.m_Rigidbody == null) this.m_Rigidbody = this.GetComponent<Rigidbody>();
             return this.m_Controller != null && this.m_Rigidbody != null;
+        }
+
+        private bool EnsureHornSource()
+        {
+            if (this.m_HornClip == null) return false;
+            if (this.m_HornSource == null)
+                this.m_HornSource = this.gameObject.AddComponent<AudioSource>();
+
+            this.m_HornSource.clip = this.m_HornClip;
+            this.m_HornSource.playOnAwake = false;
+            this.m_HornSource.loop = true;
+            this.m_HornSource.spatialBlend = 1f;
+            this.m_HornSource.dopplerLevel = 0.2f;
+            this.m_HornSource.minDistance = 3f;
+            this.m_HornSource.maxDistance = 45f;
+            this.m_HornSource.rolloffMode = AudioRolloffMode.Logarithmic;
+            this.m_HornSource.priority = 96;
+            this.m_HornSource.pitch = this.m_HornPitch;
+            return true;
+        }
+
+        private void UpdateHorn()
+        {
+            if (this.m_HornSource == null) return;
+            if (!this.m_IsVehicleEnabled || this.m_IsDamageLocked)
+                this.m_HornPressed = false;
+
+            if (!this.m_HornSource.isPlaying)
+            {
+                if (!this.m_HornPressed || !this.EnsureHornSource()) return;
+                this.m_HornSource.volume = 0f;
+                this.m_HornSource.Play();
+            }
+
+            float targetVolume = this.m_HornPressed ? this.m_HornMaxVolume : 0f;
+            float fadeSpeed = this.m_HornPressed
+                ? this.m_HornFadeInSpeed
+                : this.m_HornFadeOutSpeed;
+            this.m_HornSource.volume = Mathf.MoveTowards(
+                this.m_HornSource.volume,
+                targetVolume,
+                fadeSpeed * Time.unscaledDeltaTime
+            );
+
+            if (!this.m_HornPressed && this.m_HornSource.volume <= 0.001f)
+                this.StopHornImmediately();
+        }
+
+        private void StopHornImmediately()
+        {
+            this.m_HornPressed = false;
+            if (this.m_HornSource == null) return;
+            this.m_HornSource.Stop();
+            this.m_HornSource.volume = 0f;
         }
 
         private void CaptureDrivingPhysicsSettings()
@@ -765,6 +946,12 @@ namespace FranklinGame.Vehicles
                 0.1f,
                 3f
             );
+            this.m_HornMaxVolume = Mathf.Clamp01(this.m_HornMaxVolume);
+            this.m_HornPitch = Mathf.Clamp(this.m_HornPitch, 0.5f, 2f);
+            this.m_HornFadeInSpeed = Mathf.Max(0.01f, this.m_HornFadeInSpeed);
+            this.m_HornFadeOutSpeed = Mathf.Max(0.01f, this.m_HornFadeOutSpeed);
+            if (this.m_HornSource != null && this.m_HornClip != null)
+                this.EnsureHornSource();
         }
 
         private void ProvideInput(
@@ -788,6 +975,9 @@ namespace FranklinGame.Vehicles
 
         private void ResetVirtualInputs()
         {
+            this.RestoreThirdPersonViewPreservingPreference();
+            this.SetStuntWeaponSuppression(false);
+            this.SetHornPressed(false);
             this.m_VirtualAccelerate = false;
             this.m_VirtualSlowAccelerate = false;
             this.m_VirtualBrakeReverse = false;
@@ -796,6 +986,48 @@ namespace FranklinGame.Vehicles
             this.m_VirtualHandbrake = false;
             this.m_VirtualWheelie = false;
             this.m_VirtualBurnout = false;
+        }
+
+        private static bool GetFirstPersonPreference()
+        {
+            if (s_FirstPersonPreferenceLoaded) return s_FirstPersonPreferred;
+
+            s_FirstPersonPreferred = PlayerPrefs.GetInt(
+                FIRST_PERSON_PREFERENCE_KEY,
+                0
+            ) != 0;
+            s_FirstPersonPreferenceLoaded = true;
+            return s_FirstPersonPreferred;
+        }
+
+        private static void SetFirstPersonPreference(bool active)
+        {
+            s_FirstPersonPreferred = active;
+            s_FirstPersonPreferenceLoaded = true;
+            PlayerPrefs.SetInt(FIRST_PERSON_PREFERENCE_KEY, active ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetFirstPersonPreferenceCache()
+        {
+            s_FirstPersonPreferenceLoaded = false;
+            s_FirstPersonPreferred = false;
+        }
+
+        private void SetStuntWeaponSuppression(bool active)
+        {
+            if (this.m_StuntWeaponSuppressionActive == active) return;
+
+            Character rider = active
+                ? this.m_BikeEntry?.SeatedCharacter
+                : this.m_StuntWeaponRider ?? this.m_BikeEntry?.SeatedCharacter;
+            if (active && rider == null) return;
+
+            this.m_StuntWeaponSuppressionActive = active;
+            if (active) this.m_StuntWeaponRider = rider;
+            FranklinShooterSystem.SetBikeStuntWeaponSuppressed(rider, active);
+            if (!active) this.m_StuntWeaponRider = null;
         }
     }
 }

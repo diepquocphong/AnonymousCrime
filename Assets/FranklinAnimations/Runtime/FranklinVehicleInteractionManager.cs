@@ -64,6 +64,9 @@ namespace FranklinGame.Animations
         [SerializeField]
         [Tooltip("Applies bike-only TPS aim values to the current GC2 Main Camera Shot.")]
         private FranklinBikeMainShotAim m_BikeMainShotAim;
+        [SerializeField]
+        [Tooltip("Turns off the Player's temporary GC2 Object Direction mode before vehicle entry begins.")]
+        private FranklinObjectDirectionToggle m_ObjectDirectionToggle;
 
         [Header("Fallen bike interaction")]
         [SerializeField, Min(0.5f)]
@@ -108,8 +111,8 @@ namespace FranklinGame.Animations
         [SerializeField] private bool m_EnableVehicleMaxYaw;
         [SerializeField, Range(0f, 179f)] private float m_VehicleMaxYaw = 100f;
         [SerializeField, Min(0f)] private float m_VehicleSmoothTime = 0.15f;
-        [SerializeField] private bool m_VehicleAutoAlign;
-        [SerializeField, Min(0f)] private float m_VehicleAlignDelay = 3f;
+        [SerializeField] private bool m_VehicleAutoAlign = true;
+        [SerializeField, Min(0f)] private float m_VehicleAlignDelay;
         [SerializeField, Min(0f)] private float m_VehicleAlignSmoothTime = 3f;
 
         private bool m_IsVehicleAnimationLocked;
@@ -242,6 +245,10 @@ namespace FranklinGame.Animations
                 return false;
             }
 
+            // Object Direction continuously writes the Character root rotation from
+            // the camera. Release it before GC2 starts walking toward either a Car
+            // or Bike entry point so it cannot fight the authored approach/door pose.
+            this.DisableObjectDirectionBeforeVehicleEntry();
             this.LockMovementAnimation();
             this.m_ActiveVehiclePivot = vehicleEntry.gameObject;
             this.m_ActiveCarEntry = vehicleEntry as CarEntry;
@@ -500,8 +507,40 @@ namespace FranklinGame.Animations
             {
                 this.m_BikeMainShotAim = this.GetComponent<FranklinBikeMainShotAim>();
             }
+            if (this.m_ObjectDirectionToggle == null && this.m_Player != null)
+            {
+                this.m_ObjectDirectionToggle = this.m_Player.GetComponentInChildren<
+                    FranklinObjectDirectionToggle
+                >(true);
+            }
 
             return this.m_Player != null;
+        }
+
+        private void DisableObjectDirectionBeforeVehicleEntry()
+        {
+            if (this.m_Player == null) return;
+
+            if (this.m_ObjectDirectionToggle == null)
+            {
+                this.m_ObjectDirectionToggle = this.m_Player.GetComponentInChildren<
+                    FranklinObjectDirectionToggle
+                >(true);
+            }
+
+            // Normal mobile path: this also restores the exact facing mode that
+            // was active before the Object Direction hold began (normally Pivot).
+            this.m_ObjectDirectionToggle?.SetObjectDirectionEnabled(false);
+
+            // Scene/prefab fallback: Object Direction may have been assigned
+            // directly in GC2 without FranklinObjectDirectionToggle owning it.
+            if (this.m_Player.Facing is UnitFacingObjectDirection)
+            {
+                this.m_Player.Kernel.ChangeFacing(
+                    this.m_Player,
+                    new UnitFacingPivot()
+                );
+            }
         }
 
         private void LockMovementAnimation()
@@ -647,7 +686,12 @@ namespace FranklinGame.Animations
             // Only its Third Person aim values are temporarily overridden.
             if (this.m_ActiveBikeEntry != null)
             {
-                this.m_BikeMainShotAim?.Activate(this.m_ActiveBikeEntry);
+                if (this.m_BikeMainShotAim?.Activate(this.m_ActiveBikeEntry) == true)
+                {
+                    this.m_ActiveBikeEntry
+                        .GetComponent<FranklinArcadeBikeDriver>()
+                        ?.RestorePreferredFirstPersonView();
+                }
                 return;
             }
             if (!this.m_UseVehicleCamera || this.m_IsVehicleCameraActive) return;

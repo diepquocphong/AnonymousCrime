@@ -3393,6 +3393,7 @@ MonoBehaviour:
   m_SteeringWheel: {fileID: 828204137598588610}
   m_SteeringWheelMaxAngle: 360
   m_SteeringWheelResponse: 15
+  m_SteeringHandsMaxAngle: 85
   m_ChaseCameraPrefab: {fileID: 2201551064685261137, guid: 584526281a774fb4e97c1a57cace0fb0, type: 3}
   m_CameraTarget: {fileID: 6475209126892533336}
   m_AutoCenterCameraTarget: 1
@@ -3403,8 +3404,10 @@ MonoBehaviour:
   m_TouchOrbitSensitivity: 0.12
   m_GamepadOrbitSpeed: 120
   m_GamepadOrbitDeadZone: 0.15
-  m_OrbitRecenterDelay: 0.65
+  m_OrbitRecenterDelay: 0
   m_OrbitRecenterTime: 0.45
+  m_EnableHoldRearView: 1
+  m_FirstPersonCameraAnchor: {fileID: 0}
   m_MobileInputPrefab: {fileID: 1949208663535683518, guid: 9889818cb0b9d384cbda300852615f57, type: 3}
   m_UseMobileInput: 1
   m_ShowMobileInputInEditor: 1
@@ -3675,6 +3678,7 @@ MonoBehaviour:
   m_HealthWorldRightOffset: 1.9
   m_HealthWorldHeight: 0.82
   m_HealthScreenOffset: {x: 0, y: 0}
+  m_TelemetrySideGap: 45
   m_RadioSource: {fileID: 7627067886336509982}
   m_RadioTuningSource: {fileID: 3582807522634589951}
   m_RadioTuningClip: {fileID: 8300000, guid: 72d5c046d3d8342ea9b9213559a969a8, type: 3}

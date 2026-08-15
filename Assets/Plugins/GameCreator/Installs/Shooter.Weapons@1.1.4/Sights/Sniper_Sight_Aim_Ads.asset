@@ -55,7 +55,7 @@ MonoBehaviour:
       m_IsEnabled: 1
       m_Value:
         serializedVersion: 2
-        m_Bits: 51
+        m_Bits: 4294967295
     m_MaxResolution:
       m_Property:
         rid: 8814677138683199754
@@ -79,6 +79,9 @@ MonoBehaviour:
         rid: 8814677138683199760
     m_TextureMode: 0
     m_TextureAlign: 0
+    m_PrefabDot:
+      m_Property:
+        rid: 9185873520708813622
   m_Crosshair:
     m_UseCrosshair:
       m_Property:
@@ -93,7 +96,7 @@ MonoBehaviour:
       m_IsEnabled: 1
       m_Value:
         serializedVersion: 2
-        m_Bits: 51
+        m_Bits: 4294967295
     m_MaxDistance:
       m_Property:
         rid: 8814677138683199763
@@ -113,8 +116,8 @@ MonoBehaviour:
     m_TextureAlign: 0
   m_ReloadingUsesFK: 0
   m_ReloadingUsesIK: 0
-  m_ShootingUsesFK: 0
-  m_ShootingUsesIK: 0
+  m_ShootingUsesFK: 1
+  m_ShootingUsesIK: 1
   m_FixingUsesFK: 0
   m_FixingUsesIK: 0
   references:
@@ -214,7 +217,7 @@ MonoBehaviour:
       type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 8814677141419720771
-      type: {class: BiomechanicsHumanFK, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
+      type: {class: BiomechanicsHumanDefault, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
@@ -271,12 +274,6 @@ MonoBehaviour:
             m_Property:
               rid: 8814677165360808444
         m_BonesPitch:
-          m_UseLeftSide:
-            m_Property:
-              rid: 8814677141419720786
-          m_UseRightSide:
-            m_Property:
-              rid: 8814677141419720787
           m_Spine:
             m_Property:
               rid: 8814677141419720788
@@ -289,12 +286,6 @@ MonoBehaviour:
           m_Shoulders:
             m_Property:
               rid: 8814677141419720791
-          m_Arms:
-            m_Property:
-              rid: 8814677141419720792
-          m_Hands:
-            m_Property:
-              rid: 8814677141419720793
           m_Neck:
             m_Property:
               rid: 8814677141419720794
@@ -302,12 +293,6 @@ MonoBehaviour:
             m_Property:
               rid: 8814677141419720795
         m_BonesYaw:
-          m_UseLeftSide:
-            m_Property:
-              rid: 8814677141419720796
-          m_UseRightSide:
-            m_Property:
-              rid: 8814677141419720797
           m_Spine:
             m_Property:
               rid: 8814677141419720798
@@ -320,12 +305,6 @@ MonoBehaviour:
           m_Shoulders:
             m_Property:
               rid: 8814677141419720801
-          m_Arms:
-            m_Property:
-              rid: 8814677141419720802
-          m_Hands:
-            m_Property:
-              rid: 8814677141419720803
           m_Neck:
             m_Property:
               rid: 8814677141419720804
@@ -379,12 +358,6 @@ MonoBehaviour:
       type: {class: GetRotationConstantEulerVector, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Angles: {x: -63.3, y: 175.5, z: 83.4}
-    - rid: 8814677141419720786
-      type: {class: GetBoolFalse, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 8814677141419720787
-      type: {class: GetBoolTrue, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
     - rid: 8814677141419720788
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
@@ -401,14 +374,6 @@ MonoBehaviour:
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 0.4000000059604645
-    - rid: 8814677141419720792
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 0.20000000298023224
-    - rid: 8814677141419720793
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 0.10000000149011612
     - rid: 8814677141419720794
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
@@ -417,12 +382,6 @@ MonoBehaviour:
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 0.20000000298023224
-    - rid: 8814677141419720796
-      type: {class: GetBoolFalse, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 8814677141419720797
-      type: {class: GetBoolTrue, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
     - rid: 8814677141419720798
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
@@ -439,14 +398,6 @@ MonoBehaviour:
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 0.10000000149011612
-    - rid: 8814677141419720802
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 0.10000000149011612
-    - rid: 8814677141419720803
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 0.05000000074505806
     - rid: 8814677141419720804
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
@@ -550,3 +501,7 @@ MonoBehaviour:
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 0
+    - rid: 9185873520708813622
+      type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_GameObject: {fileID: 0}

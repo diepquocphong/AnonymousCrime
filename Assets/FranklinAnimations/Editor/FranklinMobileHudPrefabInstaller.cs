@@ -106,7 +106,7 @@ namespace FranklinGame.UI.Editor
             new("Enter Vehicle", "vehicle-enter", 7, new Vector2(0.72f, 0.4f),
                 Vector2.zero, new Vector2(190f, 190f)),
             new("Bike Helmet On Foot", "vehicle-control-helmet", 16,
-                new Vector2(1f, 0f), new Vector2(-690f, 190f),
+                new Vector2(1f, 1f), new Vector2(-315f, -385f),
                 new Vector2(165f, 165f))
         };
 
@@ -129,7 +129,13 @@ namespace FranklinGame.UI.Editor
             new("Bike Headlight", "vehicle-control-headlight", 10, new Vector2(1f, 1f),
                 new Vector2(-115f, -575f), new Vector2(155f, 155f), true),
             new("Car Horn", "vehicle-control-horn", 18, new Vector2(1f, 1f),
-                new Vector2(-295f, -385f), new Vector2(155f, 155f)),
+                new Vector2(-265f, -575f), new Vector2(125f, 125f)),
+            new("Car Rear View", "vehicle-control-rear-view", 20,
+                new Vector2(1f, 1f), new Vector2(-295f, -385f),
+                new Vector2(125f, 125f)),
+            new("Car Camera Mode", "vehicle-control-camera-mode", 21,
+                new Vector2(1f, 1f), new Vector2(-435f, -385f),
+                new Vector2(125f, 125f), true),
             new("Bike Wheelie", "vehicle-control-wheelie", 11, new Vector2(1f, 1f),
                 new Vector2(-285f, -575f), new Vector2(155f, 155f)),
             new("Bike Burnout", "vehicle-control-burnout", 12, new Vector2(1f, 1f),
@@ -151,6 +157,8 @@ namespace FranklinGame.UI.Editor
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-slow.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-headlight.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-horn.png");
+            EnsureSpriteImporter(UI_ROOT + "vehicle-control-rear-view.png");
+            EnsureSpriteImporter(UI_ROOT + "vehicle-control-camera-mode.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-wheelie.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-burnout.png");
             EnsureSpriteImporter(UI_ROOT + "vehicle-control-helmet.png");
@@ -398,8 +406,21 @@ namespace FranklinGame.UI.Editor
                     quickRail,
                     solid,
                     LoadHudSprite("armor.png"),
-                    AssetDatabase.LoadAssetAtPath<Font>(HUD_FONT_PATH)
+                    AssetDatabase.LoadAssetAtPath<Font>(HUD_FONT_PATH),
+                    out Image armorFill,
+                    out Text armorText
                 );
+                FranklinPlayerStatusHud status =
+                    statusHud.GetComponent<FranklinPlayerStatusHud>();
+                if (status != null)
+                {
+                    SerializedObject serializedStatus = new(status);
+                    serializedStatus.FindProperty("m_ArmorFill").objectReferenceValue =
+                        armorFill;
+                    serializedStatus.FindProperty("m_ArmorText").objectReferenceValue =
+                        armorText;
+                    serializedStatus.ApplyModifiedPropertiesWithoutUndo();
+                }
                 RectTransform grenade =
                     FindDirectChild(quickRail, "Grenade Button") as RectTransform;
                 RectTransform molotov =
@@ -647,6 +668,8 @@ namespace FranklinGame.UI.Editor
                    HasButton(root.Find(VEHICLE_GROUP), "Slow Drive") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Bike Headlight") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Car Horn") &&
+                   HasButton(root.Find(VEHICLE_GROUP), "Car Rear View") &&
+                   HasButton(root.Find(VEHICLE_GROUP), "Car Camera Mode") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Bike Wheelie") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Bike Burnout") &&
                    HasButton(root.Find(VEHICLE_GROUP), "Bike Helmet") &&
@@ -1237,7 +1260,9 @@ namespace FranklinGame.UI.Editor
                 quickRail.rectTransform,
                 solid,
                 armor,
-                hudFont
+                hudFont,
+                out Image armorFill,
+                out Text armorText
             );
 
             Button grenadeButton = EnsureQuickItemButton(
@@ -1344,6 +1369,8 @@ namespace FranklinGame.UI.Editor
             SerializedObject serializedHud = new SerializedObject(controller);
             serializedHud.FindProperty("m_Money").intValue = 12480;
             serializedHud.FindProperty("m_NormalizedHealth").floatValue = 0.78f;
+            serializedHud.FindProperty("m_NormalizedArmor").floatValue = 1f;
+            serializedHud.FindProperty("m_ArmorValue").floatValue = 100f;
             serializedHud.FindProperty("m_WeaponName").stringValue = "PISTOL";
             serializedHud.FindProperty("m_AmmoInClip").intValue = 12;
             serializedHud.FindProperty("m_AmmoReserve").intValue = 48;
@@ -1352,6 +1379,8 @@ namespace FranklinGame.UI.Editor
             serializedHud.FindProperty("m_MoneyText").objectReferenceValue = moneyText;
             serializedHud.FindProperty("m_HealthFill").objectReferenceValue = healthFill;
             serializedHud.FindProperty("m_HealthText").objectReferenceValue = healthText;
+            serializedHud.FindProperty("m_ArmorFill").objectReferenceValue = armorFill;
+            serializedHud.FindProperty("m_ArmorText").objectReferenceValue = armorText;
             serializedHud.FindProperty("m_WeaponCard").objectReferenceValue = weaponCard;
             serializedHud.FindProperty("m_WeaponIcon").objectReferenceValue = weaponIcon;
             serializedHud.FindProperty("m_ArmedWeaponSprite").objectReferenceValue = weapon;
@@ -1465,7 +1494,9 @@ namespace FranklinGame.UI.Editor
             Transform parent,
             Sprite solidSprite,
             Sprite armorSprite,
-            Font font)
+            Font font,
+            out Image armorFill,
+            out Text armorText)
         {
             Image armorRoot = EnsureHudImage(
                 parent,
@@ -1483,7 +1514,7 @@ namespace FranklinGame.UI.Editor
                 new Vector2(130f, 72f)
             );
 
-            Image armorFill = EnsureHudImage(
+            armorFill = EnsureHudImage(
                 armorRoot.rectTransform,
                 "Armor Fill",
                 solidSprite,
@@ -1494,6 +1525,10 @@ namespace FranklinGame.UI.Editor
                 new Vector2(0f, -32f),
                 new Vector2(108f, 4f)
             );
+            armorFill.type = Image.Type.Filled;
+            armorFill.fillMethod = Image.FillMethod.Horizontal;
+            armorFill.fillOrigin = 0;
+            armorFill.fillAmount = 1f;
 
             Image icon = EnsureHudImage(
                 armorRoot.rectTransform,
@@ -1508,7 +1543,7 @@ namespace FranklinGame.UI.Editor
                 new Vector2(46f, 46f)
             );
 
-            Text value = EnsureHudText(
+            armorText = EnsureHudText(
                 armorRoot.rectTransform,
                 "Value",
                 font,
@@ -1518,7 +1553,7 @@ namespace FranklinGame.UI.Editor
                 PLAYER_HUD_TEXT
             );
             ConfigureCenteredRect(
-                value.rectTransform,
+                armorText.rectTransform,
                 new Vector2(36f, 0f),
                 new Vector2(48f, 42f)
             );
@@ -1725,8 +1760,16 @@ namespace FranklinGame.UI.Editor
         {
             Transform statusHud = FindDirectChild(root, PLAYER_STATUS_HUD);
             Transform quickRail = FindDirectChild(statusHud, "Quick Item Rail");
+            FranklinPlayerStatusHud status =
+                statusHud?.GetComponent<FranklinPlayerStatusHud>();
+            if (status == null) return false;
+
+            SerializedObject serializedStatus = new(status);
+            bool hasArmorReferences =
+                serializedStatus.FindProperty("m_ArmorFill")?.objectReferenceValue != null &&
+                serializedStatus.FindProperty("m_ArmorText")?.objectReferenceValue != null;
             return statusHud != null &&
-                   statusHud.GetComponent<FranklinPlayerStatusHud>() != null &&
+                   hasArmorReferences &&
                    FindDirectChild(statusHud, "Money Card")?.GetComponent<Image>() != null &&
                    FindDirectChild(statusHud, "Health Card")?.GetComponent<Image>() != null &&
                    FindDirectChild(statusHud, "Weapon Card")?.GetComponent<Image>() != null &&

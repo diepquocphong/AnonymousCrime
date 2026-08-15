@@ -133,6 +133,8 @@ namespace FranklinGame.Vehicles
 
         protected override void OnCollisionEnter(Collision collision)
         {
+            if (IsIgnoredImpact(collision)) return;
+
             m_CurrentCollisionSpeedKph = GetDebrisImpactSpeedKph(collision);
             m_EmittedDebrisForCurrentCollision = false;
 

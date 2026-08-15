@@ -190,6 +190,7 @@ namespace FranklinGame.Animations
         private bool m_AreIdleVariationsSuppressed;
         private readonly HashSet<object> m_IdleVariationSuppressionOwners = new();
         private bool m_IsFastLocomotionSuppressed;
+        private readonly HashSet<object> m_FastLocomotionSuppressionOwners = new();
         private int m_RunCameraFacingLayer = -1;
         private bool m_UseLeftRunStop;
         private bool m_UseLeftJump;
@@ -232,7 +233,8 @@ namespace FranklinGame.Animations
             this.m_AreIdleVariationsSuppressed ||
             this.m_IdleVariationSuppressionOwners.Count > 0;
         public bool IsFastLocomotionSuppressed =>
-            this.m_IsFastLocomotionSuppressed;
+            this.m_IsFastLocomotionSuppressed ||
+            this.m_FastLocomotionSuppressionOwners.Count > 0;
 
         /// <summary>
         /// Stops and pauses the cosmetic idle gestures while another system needs a stable
@@ -288,12 +290,40 @@ namespace FranklinGame.Animations
         {
             if (this.m_IsFastLocomotionSuppressed == suppressed) return;
             this.m_IsFastLocomotionSuppressed = suppressed;
-            if (!suppressed) return;
+            if (suppressed) this.ApplyFastLocomotionSuppression(true);
+        }
 
-            this.m_VirtualJogHeld = false;
-            this.m_VirtualSprintHeld = false;
-            this.StopVirtualAutoRun();
-            this.ResetSprintTapSequence();
+        /// <summary>
+        /// Adds an independent owner that temporarily closes Jog/Sprint and run-transition
+        /// states. Ordinary GC2 Walk remains available so gameplay movement is not frozen.
+        /// </summary>
+        public void AcquireFastLocomotionSuppression(object owner)
+        {
+            if (owner == null) return;
+
+            bool wasSuppressed = this.IsFastLocomotionSuppressed;
+            if (!this.m_FastLocomotionSuppressionOwners.Add(owner)) return;
+            if (!wasSuppressed) this.ApplyFastLocomotionSuppression(false);
+        }
+
+        /// <summary>Releases only the fast-locomotion suppression acquired by owner.</summary>
+        public void ReleaseFastLocomotionSuppression(object owner)
+        {
+            if (owner == null) return;
+
+            this.m_FastLocomotionSuppressionOwners.Remove(owner);
+        }
+
+        private void ApplyFastLocomotionSuppression(bool clearInputRequests)
+        {
+            if (clearInputRequests)
+            {
+                this.m_VirtualJogHeld = false;
+                this.m_VirtualSprintHeld = false;
+                this.StopVirtualAutoRun();
+                this.ResetSprintTapSequence();
+            }
+
             this.m_RunStartPending = false;
             this.m_RunStopPending = false;
             this.m_HasSprintMovement = false;
@@ -301,7 +331,15 @@ namespace FranklinGame.Animations
             this.FinishRunStopEaseOut(false);
 
             if (this.m_LocomotionMode != LocomotionMode.Walk)
-                this.EnterWalkMode(this.m_JogTransition);
+                this.EnterWalkMode(0f);
+            else
+                this.m_Character?.States?.Stop(this.m_SprintLayer, 0f, 0f);
+
+            // EnterWalkMode may arm a Run Stop when Sprint ended without movement input.
+            // Shooter suppression must not let that cosmetic Gesture start afterwards.
+            this.m_RunStartPending = false;
+            this.m_RunStopPending = false;
+            this.CancelActiveRunTransitionGesture();
         }
 
         /// <summary>
@@ -309,7 +347,7 @@ namespace FranklinGame.Animations
         /// </summary>
         public void SetVirtualJogInput(bool isHeld)
         {
-            this.m_VirtualJogHeld = !this.m_IsFastLocomotionSuppressed && isHeld;
+            this.m_VirtualJogHeld = !this.IsFastLocomotionSuppressed && isHeld;
         }
 
         /// <summary>
@@ -318,7 +356,7 @@ namespace FranklinGame.Animations
         /// </summary>
         public void SetVirtualSprintInput(bool isHeld)
         {
-            this.m_VirtualSprintHeld = !this.m_IsFastLocomotionSuppressed && isHeld;
+            this.m_VirtualSprintHeld = !this.IsFastLocomotionSuppressed && isHeld;
         }
 
         /// <summary>
@@ -327,7 +365,7 @@ namespace FranklinGame.Animations
         /// </summary>
         public void ToggleVirtualJogAutoRun()
         {
-            if (this.m_IsFastLocomotionSuppressed) return;
+            if (this.IsFastLocomotionSuppressed) return;
             this.m_VirtualAutoRunMode = this.m_VirtualAutoRunMode == VirtualAutoRunMode.Jog
                 ? VirtualAutoRunMode.None
                 : VirtualAutoRunMode.Jog;
@@ -338,7 +376,7 @@ namespace FranklinGame.Animations
         /// </summary>
         public void ToggleVirtualSprintAutoRun()
         {
-            if (this.m_IsFastLocomotionSuppressed) return;
+            if (this.IsFastLocomotionSuppressed) return;
             this.m_VirtualAutoRunMode = this.m_VirtualAutoRunMode == VirtualAutoRunMode.Sprint
                 ? VirtualAutoRunMode.None
                 : VirtualAutoRunMode.Sprint;
@@ -547,6 +585,17 @@ namespace FranklinGame.Animations
                 return;
             }
 
+            if (this.m_FastLocomotionSuppressionOwners.Count > 0)
+            {
+                // Shooter owns this interval. Keep only GC2's raw jump request available and
+                // do not let this bridge write a State, Gesture, facing layer or MoveToDirection.
+                // GC2's permanent Walk state and regular Player input continue underneath.
+                this.UpdateJumpInput();
+                this.UpdateHealthDanger();
+                this.StopTrackingIdle();
+                return;
+            }
+
             this.UpdateJumpInput();
             this.UpdateHealthDanger();
             this.UpdateIdleGestureInterruption();
@@ -668,7 +717,7 @@ namespace FranklinGame.Animations
 
         private bool ShouldUseJog(bool sprintRequested)
         {
-            if (this.m_IsFastLocomotionSuppressed) return false;
+            if (this.IsFastLocomotionSuppressed) return false;
             VirtualAutoRunMode autoRunMode = this.GetVirtualAutoRunMode();
             return this.m_IsHealthDanger ||
                    this.m_VirtualJogHeld ||
@@ -800,9 +849,8 @@ namespace FranklinGame.Animations
 
         private void UpdateSprintTapInput()
         {
-            if (this.m_IsFastLocomotionSuppressed)
+            if (this.IsFastLocomotionSuppressed)
             {
-                this.ResetSprintTapSequence();
                 return;
             }
             if (this.m_IsHealthDanger) return;
@@ -853,7 +901,7 @@ namespace FranklinGame.Animations
 
         private bool HasSprintRequest()
         {
-            if (this.m_IsFastLocomotionSuppressed) return false;
+            if (this.IsFastLocomotionSuppressed) return false;
             VirtualAutoRunMode autoRunMode = this.GetVirtualAutoRunMode();
 
             // Danger mode intentionally simplifies locomotion: Jog by default, Sprint on a
@@ -958,6 +1006,13 @@ namespace FranklinGame.Animations
         private void UpdateRunTransitions()
         {
             if (this.m_Character?.Driver == null || this.m_Character.Motion == null) return;
+            if (this.IsFastLocomotionSuppressed)
+            {
+                this.m_RunStartPending = false;
+                this.m_RunStopPending = false;
+                this.CancelActiveRunTransitionGesture();
+                return;
+            }
 
             // Alignment only gates the initial Sprint start. Once running, camera orbit must
             // not repeatedly fire Run Stop/Run Start while the body catches up with the camera.
@@ -1508,6 +1563,15 @@ namespace FranklinGame.Animations
         private void OnCharacterJump(float force)
         {
             if (this.m_IsExternalAnimationLocked) return;
+            if (this.m_FastLocomotionSuppressionOwners.Count > 0)
+            {
+                // The jump itself is already owned by GC2. Suppress only Franklin's custom
+                // full-body jump Gesture while Shooter is evaluating its aim pose.
+                this.m_RunStartPending = false;
+                this.m_RunStopPending = false;
+                this.m_HasSprintMovement = false;
+                return;
+            }
 
             bool wasSprinting = this.m_IsSprinting;
             bool wasMoving = this.m_Character?.Driver != null &&
@@ -1571,6 +1635,7 @@ namespace FranklinGame.Animations
             bool rootMotion = false)
         {
             if (this.m_IsExternalAnimationLocked) return false;
+            if (this.m_FastLocomotionSuppressionOwners.Count > 0) return false;
             if (clip == null || this.m_Character == null || speed <= float.Epsilon) return false;
 
             bool ownGestureActive = this.m_ActiveCustomGesture != null &&
