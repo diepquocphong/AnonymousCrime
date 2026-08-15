@@ -548,7 +548,12 @@ namespace FranklinGame.UI
         internal void SetButtonPointerState(FranklinHudAction action, bool pressed)
         {
             // Franklin Shooter Fire uses FranklinShooterTouchButton and therefore
-            // never enters this path. Every Franklin vehicle-control button does.
+            // never enters this path. Regular drive controls are filtered by the
+            // exact UI touch in FranklinFirstPersonCameraInput, so they must not
+            // suppress a second free finger that is orbiting. Rear View is the
+            // only exclusive camera action and deliberately reserves all orbit.
+            if (action != FranklinHudAction.CarRearView) return;
+
             if (this.m_ActiveDriver is FranklinArcadeBikeDriver bikeDriver &&
                 bikeDriver.IsFirstPersonViewActive)
             {

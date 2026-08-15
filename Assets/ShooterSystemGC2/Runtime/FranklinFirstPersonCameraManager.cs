@@ -52,6 +52,11 @@ namespace FranklinGame.Shooter
             typeof(ShotSystemThirdPerson).GetField("m_SmoothTime", PRIVATE_INSTANCE);
         private static readonly FieldInfo MAX_YAW_FIELD =
             typeof(ShotSystemThirdPerson).GetField("m_MaxYaw", PRIVATE_INSTANCE);
+        private static readonly FieldInfo CURRENT_ROTATION_FIELD =
+            typeof(ShotSystemThirdPerson).GetField(
+                "m_CurrentRotation",
+                PRIVATE_INSTANCE
+            );
         private static readonly FieldInfo CLIPPING_FIELD =
             typeof(ShotCamera).GetField("m_Clipping", PRIVATE_INSTANCE);
         private static readonly int FIELD_OF_VIEW_TWEEN_HASH =
@@ -128,6 +133,7 @@ namespace FranklinGame.Shooter
         private Snapshot m_Snapshot;
         private bool m_HasSnapshot;
         private bool m_OrbitHeld;
+        private bool m_AlignmentDampingResetPending;
         private bool m_AlignmentSuspended;
         private float m_AlignmentResumeAt;
         private int m_OrbitSuppressions;
@@ -358,6 +364,7 @@ namespace FranklinGame.Shooter
             this.CaptureAngularSpeed();
             this.AcquireIdleAnimationSuppression();
             this.m_OrbitHeld = FranklinFirstPersonCameraInput.IsOrbitGestureHeld();
+            this.m_AlignmentDampingResetPending = false;
             this.m_AlignmentResumeAt = Time.unscaledTime +
                                        this.m_AlignmentReleaseDelay;
             this.CancelFieldOfViewTween();
@@ -400,6 +407,7 @@ namespace FranklinGame.Shooter
             this.m_RefreshPreviewPose = null;
             this.m_HasSnapshot = false;
             this.m_OrbitHeld = false;
+            this.m_AlignmentDampingResetPending = false;
             this.m_AlignmentSuspended = false;
             this.m_AlignmentResumeAt = 0f;
             this.m_OrbitSuppressions = 0;
@@ -807,14 +815,32 @@ namespace FranklinGame.Shooter
         {
             if (this.m_ThirdPerson == null) return;
 
-            bool held = FranklinFirstPersonCameraInput.IsOrbitGestureHeld();
+            // A captured gameplay touch and a pressed HUD control both own the
+            // pointer until their real PointerUp. Zero input delta is not a
+            // release signal, so GC2 must not align during either hold.
+            bool orbitHeld = FranklinFirstPersonCameraInput.IsOrbitGestureHeld();
+            bool held = this.m_OrbitSuppressions > 0 || orbitHeld;
             if (held)
             {
-                this.m_OrbitHeld = true;
+                bool alignmentWasActive =
+                    this.m_ThirdPerson.Alignment.AutoAlign;
+                if (!this.m_OrbitHeld && alignmentWasActive)
+                    this.m_AlignmentDampingResetPending = true;
+
                 this.m_ThirdPerson.Alignment.AutoAlign = false;
+
+                if (this.m_AlignmentDampingResetPending && orbitHeld &&
+                    FranklinFirstPersonCameraInput.HasOrbitInputThisFrame())
+                {
+                    this.CancelAlignmentDampingAtCurrentRotation();
+                    this.m_AlignmentDampingResetPending = false;
+                }
+
+                this.m_OrbitHeld = true;
                 return;
             }
 
+            this.m_AlignmentDampingResetPending = false;
             if (this.m_OrbitHeld)
             {
                 this.m_OrbitHeld = false;
@@ -825,6 +851,23 @@ namespace FranklinGame.Shooter
             this.m_ThirdPerson.Alignment.AutoAlign =
                 !this.m_AlignmentSuspended &&
                 Time.unscaledTime >= this.m_AlignmentResumeAt;
+        }
+
+        private void CancelAlignmentDampingAtCurrentRotation()
+        {
+            if (this.m_ThirdPerson == null) return;
+
+            // GC2 exposes SetRotation as the native way to synchronize current
+            // and target rotation and clear its X/Y damping velocities. It does
+            // not expose the current (already rendered) base rotation, so read
+            // that value once instead of baking Shot/Aim offsets into the angle.
+            if (CURRENT_ROTATION_FIELD?.GetValue(this.m_ThirdPerson) is
+                not Vector2 currentRotation)
+            {
+                return;
+            }
+
+            this.m_ThirdPerson.SetRotation(currentRotation);
         }
 
         private void UpdateOrbitSensitivityGate()

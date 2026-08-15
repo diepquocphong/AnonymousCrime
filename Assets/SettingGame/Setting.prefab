@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 1168053311646914246}
   - component: {fileID: 6686146956670820127}
   - component: {fileID: 2221119899716177271}
+  - component: {fileID: 6767216425124933817}
   m_Layer: 0
   m_Name: Setting
   m_TagString: Untagged
@@ -100,3 +101,45 @@ MonoBehaviour:
   m_Font: {fileID: 12800000, guid: 2760c319ceaa84ce1b30ddd4a0edbf43, type: 3}
   m_GearSprite: {fileID: 21300000, guid: fd757fe0c8e3b480ea3f4ab8c11515a6, type: 3}
   m_SolidSprite: {fileID: 21300000, guid: 69657554e0c3540728a454a1cc7e4b99, type: 3}
+--- !u!114 &6767216425124933817
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7687588868069028494}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ecd922218e245e2b85d51f9f08338c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: GameCreator.Runtime.Core::GameCreator.Runtime.VisualScripting.Trigger
+  m_Instructions:
+    m_Instructions:
+    - rid: 9185873538857567076
+    - rid: 9185873538857567077
+  m_TriggerEvent:
+    rid: 9185873538857567075
+  references:
+    version: 2
+    RefIds:
+    - rid: 9185873538857567075
+      type: {class: EventOnEnable, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 9185873538857567076
+      type: {class: InstructionAppCursorLock, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_LockMode: 1
+    - rid: 9185873538857567077
+      type: {class: InstructionCursorVisibility, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_IsVisible:
+          m_Property:
+            rid: 9185873538857567078
+    - rid: 9185873538857567078
+      type: {class: GetBoolValue, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0

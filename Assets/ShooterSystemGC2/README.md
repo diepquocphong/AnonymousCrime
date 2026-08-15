@@ -69,13 +69,22 @@ Hệ thống shooter mobile tích hợp với **Game Creator 2 Shooter** và dù
 - FPS không tạo Camera/Shot mới và không tự cộng góc quay. Nó dùng chính
   `ShotTypeThirdPerson` đang active từ `Camera Shot.prefab`; input, pitch/yaw, smoothing,
   constraint và auto Alignment đều chạy bởi `ShotSystemThirdPerson` gốc của GC2. Input
-  mobile chỉ chọn ngón tay orbit rảnh ở nửa phải và loại touch trên UI, nên một ngón có
-  thể giữ Fire trong khi ngón thứ hai orbit.
-- Khi ngón orbit còn chạm màn hình, manager chỉ tạm tắt property `Alignment.AutoAlign`;
-  nó không tự xoay camera. Sau khi ngón tay thực sự được thả, manager đợi `0.1s` rồi bật
-  lại Alignment. Trên Car/Bike, pivot hướng chỉ lấy yaw ổn định của xe và dùng smooth time
+  mobile chọn ngón orbit rảnh ở nửa phải và loại touch trên UI tại thời điểm bắt đầu; sau
+  đó capture đúng pointer đến khi `press` thật sự kết thúc, nên dừng kéo hoặc đi qua ranh
+  giới/UI không làm mất ownership. Một ngón vẫn có thể giữ Fire khi ngón thứ hai orbit.
+  Trên Unity Device Simulator, khi đã có Touchscreen press thì binding Mouse của cùng cử
+  chỉ không được phép chạy fallback lần hai; GC2 input và Alignment gate vì vậy luôn thấy
+  cùng một owner. Panel HUD trong suốt không chặn orbit, chỉ UI có handler tương tác mới
+  giữ touch của chính nó. Các nút ga/lái/phanh không khóa ngón orbit thứ hai; riêng Rear
+  View tiếp tục giữ camera độc quyền trong thời gian button được hold.
+- Khi ngón orbit còn chạm màn hình (kể cả đứng yên với delta bằng `0`), manager chỉ tạm
+  tắt property `Alignment.AutoAlign`; nó không tự xoay camera. Sau khi ngón tay thực sự
+  được thả, manager đợi `0.1s` rồi bật lại Alignment. Trên Car/Bike, pivot hướng chỉ lấy
+  yaw ổn định của xe và dùng smooth time
   nhanh `0.18s`, nên Camera Shot trả nhanh về hướng xe mà không align giữa lúc người dùng
-  còn orbit.
+  còn orbit. Nếu người dùng bắt đầu orbit khi Alignment đang chạy, manager giữ rotation
+  hiện tại và gọi `ShotSystemThirdPerson.SetRotation` đúng một lần để xóa quán tính
+  SmoothDamp cũ trước khi GC2 nhận delta mới; vì vậy hai hướng không còn kéo ngược nhau.
 - Khi Bike FPS đang aim/bắn, zoom FOV do GC2 Sight vẫn được giữ trong lúc hold. Sau
   `ExitSight`, Bike hủy đúng tween FOV hard-code của Sight rồi áp lại profile
   `ManagerCameraFPS`; camera đồng thời dùng `Bike Shooter Position`. Khi nhả Fire, camera
