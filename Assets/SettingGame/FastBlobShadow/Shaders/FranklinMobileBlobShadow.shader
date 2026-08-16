@@ -7,6 +7,7 @@ Shader "Franklin Game/Mobile Blob Shadow"
         _BlobPower("Fullness", Range(0.25, 8)) = 1.7
         _BlobCore("Dark Core", Range(0, 0.9)) = 0.12
         _BlobShape("Shape (0 Ellipse, 1 Rectangle)", Range(0, 1)) = 0
+        _BlobReceiverBand("Receiver Band", Range(0.02, 0.5)) = 0.1
     }
 
     SubShader
@@ -43,6 +44,7 @@ Shader "Franklin Game/Mobile Blob Shadow"
                 half _BlobPower;
                 half _BlobCore;
                 half _BlobShape;
+                half _BlobReceiverBand;
             CBUFFER_END
 
             struct Attributes
@@ -83,6 +85,19 @@ Shader "Franklin Game/Mobile Blob Shadow"
                 float3 positionWS = ComputeWorldSpacePosition(screenUV, rawDepth, UNITY_MATRIX_I_VP);
                 float3 positionOS = TransformWorldToObject(positionWS);
 
+                // Project only onto a thin band around the sampled ground plane.
+                // The volume must remain tall enough to cover slopes and jumps, but
+                // letting its full height receive the blob also darkens the owner's
+                // wheels/body whenever those pixels fall inside the projection cube.
+                half receiverDistance = abs((half)positionOS.y);
+                half receiverBand = max(_BlobReceiverBand, 0.01h);
+                half verticalFade = 1.0h - smoothstep(
+                    receiverBand * 0.5h,
+                    receiverBand,
+                    receiverDistance
+                );
+                if (verticalFade <= 0.0001h) return 0;
+
                 half2 footprintPoint = abs((half2)positionOS.xz) * 2.0h;
                 half ellipseDistance = length(footprintPoint);
                 // An eighth-order superellipse keeps the Car footprint box-like
@@ -103,7 +118,6 @@ Shader "Franklin Game/Mobile Blob Shadow"
                 );
                 edgeFade = edgeFade * edgeFade * (3.0h - 2.0h * edgeFade);
                 half radialFade = pow(edgeFade, rcp(max(_BlobPower, 0.01h)));
-                half verticalFade = saturate(1.0h - abs((half)positionOS.y) * 2.0h);
                 half alpha = saturate(_BlobColor.a * _BlobIntensity * radialFade * verticalFade);
 
                 return half4(_BlobColor.rgb, alpha);

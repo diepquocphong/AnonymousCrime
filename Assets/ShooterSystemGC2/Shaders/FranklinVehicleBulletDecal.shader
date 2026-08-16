@@ -24,6 +24,10 @@ Shader "Franklin Game/Vehicle Bullet Decal Mobile"
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
             ZTest LEqual
+            // Pull the coplanar mark toward the camera in depth space. The runtime
+            // world offset remains for curved vehicle panels; this bias prevents
+            // grazing-angle z-fighting while the camera moves or orbits.
+            Offset -1, -1
             Cull Off
 
             HLSLPROGRAM

@@ -33,6 +33,9 @@ namespace FranklinGame.Shooter.Editor
             ANIMATION_ROOT + "/Franklin Shooter Upper Body Locomotion.asset";
         private const string BIKE_SIGHT_ROOT = RESOURCE_ROOT + "/Sights/Bike";
         private const string BIKE_DRIVER_AIM_ID = "bike-driver-aim";
+        private const string MATERIAL_SOUNDS_ROOT = RESOURCE_ROOT + "/MaterialSounds";
+        private const string IMPACT_AUDIO_ONLY_PATH =
+            MATERIAL_SOUNDS_ROOT + "/Franklin Shooter Impact Audio.asset";
         private const string MATERIAL_ROOT = RESOURCE_ROOT + "/Materials";
         private const string EFFECT_ROOT = RESOURCE_ROOT + "/Effects";
         private const string TEXTURE_ROOT = RESOURCE_ROOT + "/Textures";
@@ -84,6 +87,8 @@ namespace FranklinGame.Shooter.Editor
             SAMPLE_ROOT + "/Effects/Hits/Hit_Smoke.mat";
         private const string SOURCE_IMPACT_EFFECT =
             SAMPLE_ROOT + "/Effects/Hits/Hit_Gun.prefab";
+        private const string SOURCE_IMPACT_MATERIAL_SOUNDS =
+            SAMPLE_ROOT + "/MaterialSounds/Shooter_MaterialSounds.asset";
         private const string SOURCE_BLOOD_HIT_EFFECT =
             "Assets/PampelGames/BloodFactory/Content/Prefabs/Splash/BloodSplash01.prefab";
         private const string SOURCE_SNIPER_PROJECTILE =
@@ -245,6 +250,7 @@ namespace FranklinGame.Shooter.Editor
                 !NeedsShooterLocomotionRepair() &&
                 !NeedsShooterDamageRepair() &&
                 !NeedsShooterLayerMaskRepair() &&
+                !NeedsImpactAudioRepair() &&
                 !NeedsCharacterImpactFilterRepair() &&
                 !NeedsTracerVisualRepair() &&
                 !NeedsPlayerArmorRepair() &&
@@ -269,6 +275,8 @@ namespace FranklinGame.Shooter.Editor
                 EnsurePlayerArmor();
                 EnsurePlayerFirstPersonCameraManager();
                 RepairShooterSampleMaterialsForUrp();
+                MaterialSoundsAsset impactAudioOnly =
+                    CreateOrRepairImpactAudioOnly();
                 ConfigureUiSprites();
                 CreateOrRepairVehicleBulletDecalAssets();
                 AvatarMask upperBodyMask = CreateOrRepairUpperBodyMask();
@@ -302,7 +310,8 @@ namespace FranklinGame.Shooter.Editor
                         shooterLocomotion,
                         upperBodyMask,
                         bikeDriverShooterMask,
-                        renderingAssets
+                        renderingAssets,
+                        impactAudioOnly
                     );
                     GameObject prop = AssetDatabase.LoadAssetAtPath<GameObject>(
                         $"{LOW_PREFABS}/{definition.LowPrefab}.prefab"
@@ -379,7 +388,8 @@ namespace FranklinGame.Shooter.Editor
             StateBasicLocomotion shooterLocomotion,
             AvatarMask upperBodyMask,
             AvatarMask bikeDriverShooterMask,
-            UrpRenderingAssets renderingAssets)
+            UrpRenderingAssets renderingAssets,
+            MaterialSoundsAsset impactAudioOnly)
         {
             string sourcePath = $"{SAMPLE_ROOT}/Weapons/{definition.SourceWeapon}_Weapon.asset";
             string destinationPath = $"{RESOURCE_ROOT}/Weapons/{definition.Id}.asset";
@@ -433,6 +443,17 @@ namespace FranklinGame.Shooter.Editor
             SetDamageInstructions(weapon, definition, renderingAssets.BloodHitEffect);
             ConfigureAutomaticCameraShake(weapon, definition);
             RepairProjectileLayerMask(weapon);
+
+            // ShotRaycast invokes MaterialSounds independently from m_ImpactEffect. The
+            // GC2 sample MaterialSounds also spawns Hit_Gun, which duplicates Franklin's
+            // pooled impact/decal and leaves an old transparent quad on the surface. Keep
+            // the authored impact audio but route visual impacts exclusively through the
+            // Franklin effect. Grenade/RPG intentionally preserves its source null value.
+            SetField(
+                weapon.Projectile,
+                "m_ImpactSound",
+                definition.SourceWeapon == "Grenade" ? null : impactAudioOnly
+            );
 
             if (definition.UseMuzzleEffect && renderingAssets.MuzzleEffect != null)
             {
@@ -1536,6 +1557,132 @@ namespace FranklinGame.Shooter.Editor
             return false;
         }
 
+        private static bool NeedsImpactAudioRepair()
+        {
+            MaterialSoundsAsset source =
+                AssetDatabase.LoadAssetAtPath<MaterialSoundsAsset>(
+                    SOURCE_IMPACT_MATERIAL_SOUNDS
+                );
+            MaterialSoundsAsset audioOnly =
+                AssetDatabase.LoadAssetAtPath<MaterialSoundsAsset>(
+                    IMPACT_AUDIO_ONLY_PATH
+                );
+            if (source == null || audioOnly == null ||
+                !MaterialSoundsAudioMatches(source, audioOnly) ||
+                MaterialSoundsHasImpactVisual(audioOnly))
+            {
+                return true;
+            }
+
+            foreach (Definition definition in DEFINITIONS)
+            {
+                ShooterWeapon weapon = AssetDatabase.LoadAssetAtPath<ShooterWeapon>(
+                    $"{RESOURCE_ROOT}/Weapons/{definition.Id}.asset"
+                );
+                if (weapon == null) return true;
+
+                MaterialSoundsAsset actual =
+                    (MaterialSoundsAsset) GetField(
+                        weapon.Projectile,
+                        "m_ImpactSound"
+                    );
+                MaterialSoundsAsset expected = definition.SourceWeapon == "Grenade"
+                    ? null
+                    : audioOnly;
+                if (actual != expected) return true;
+            }
+
+            return false;
+        }
+
+        private static bool MaterialSoundsAudioMatches(
+            MaterialSoundsAsset source,
+            MaterialSoundsAsset target)
+        {
+            if ((string) GetField(source, "m_TextureName") !=
+                (string) GetField(target, "m_TextureName"))
+            {
+                return false;
+            }
+
+            MaterialSoundsData sourceData = source.MaterialSounds;
+            MaterialSoundsData targetData = target.MaterialSounds;
+            if (sourceData == null || targetData == null ||
+                sourceData.LayerMask.value != targetData.LayerMask.value ||
+                !MaterialSoundAudioMatches(
+                    sourceData.DefaultSounds,
+                    targetData.DefaultSounds
+                ) ||
+                sourceData.MaterialSounds.Length != targetData.MaterialSounds.Length)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < sourceData.MaterialSounds.Length; ++i)
+            {
+                MaterialSoundTexture sourceEntry = sourceData.MaterialSounds[i];
+                MaterialSoundTexture targetEntry = targetData.MaterialSounds[i];
+                if (!MaterialSoundAudioMatches(sourceEntry, targetEntry)) return false;
+                if (sourceEntry == null || targetEntry == null) continue;
+                if ((string) GetField(sourceEntry, "m_Name") !=
+                    (string) GetField(targetEntry, "m_Name") ||
+                    sourceEntry.Texture != targetEntry.Texture)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool MaterialSoundAudioMatches(
+            IMaterialSound source,
+            IMaterialSound target)
+        {
+            if (source == null || target == null) return source == target;
+            if (!Mathf.Approximately(source.Volume, target.Volume)) return false;
+
+            AudioClip[] sourceClips =
+                (AudioClip[]) GetField(source, "m_Variations");
+            AudioClip[] targetClips =
+                (AudioClip[]) GetField(target, "m_Variations");
+            if (sourceClips == null || targetClips == null)
+                return sourceClips == targetClips;
+            if (sourceClips.Length != targetClips.Length) return false;
+
+            for (int i = 0; i < sourceClips.Length; ++i)
+            {
+                if (sourceClips[i] != targetClips[i]) return false;
+            }
+
+            return true;
+        }
+
+        private static bool MaterialSoundsHasImpactVisual(
+            MaterialSoundsAsset materialSounds)
+        {
+            if (MaterialSoundHasImpactVisual(
+                    materialSounds.MaterialSounds.DefaultSounds
+                ))
+            {
+                return true;
+            }
+
+            foreach (MaterialSoundTexture materialSound in
+                     materialSounds.MaterialSounds.MaterialSounds)
+            {
+                if (MaterialSoundHasImpactVisual(materialSound)) return true;
+            }
+
+            return false;
+        }
+
+        private static bool MaterialSoundHasImpactVisual(IMaterialSound materialSound)
+        {
+            return materialSound?.Impact != null &&
+                   (GameObject) GetField(materialSound.Impact, "m_Prefab") != null;
+        }
+
         private static bool NeedsCharacterImpactFilterRepair()
         {
             GameObject expectedImpact = AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -1843,6 +1990,74 @@ namespace FranklinGame.Shooter.Editor
             }
 
             return false;
+        }
+
+        private static MaterialSoundsAsset CreateOrRepairImpactAudioOnly()
+        {
+            MaterialSoundsAsset source =
+                AssetDatabase.LoadAssetAtPath<MaterialSoundsAsset>(
+                    SOURCE_IMPACT_MATERIAL_SOUNDS
+                );
+            if (source == null)
+            {
+                throw new InvalidOperationException(
+                    $"Shooter impact MaterialSounds is missing: " +
+                    SOURCE_IMPACT_MATERIAL_SOUNDS
+                );
+            }
+
+            MaterialSoundsAsset audioOnly =
+                AssetDatabase.LoadAssetAtPath<MaterialSoundsAsset>(
+                    IMPACT_AUDIO_ONLY_PATH
+                );
+            if (audioOnly == null)
+            {
+                if (!AssetDatabase.CopyAsset(
+                        SOURCE_IMPACT_MATERIAL_SOUNDS,
+                        IMPACT_AUDIO_ONLY_PATH
+                    ))
+                {
+                    throw new InvalidOperationException(
+                        $"Could not create local impact audio: {IMPACT_AUDIO_ONLY_PATH}"
+                    );
+                }
+
+                AssetDatabase.ImportAsset(
+                    IMPACT_AUDIO_ONLY_PATH,
+                    ImportAssetOptions.ForceSynchronousImport
+                );
+                audioOnly = AssetDatabase.LoadAssetAtPath<MaterialSoundsAsset>(
+                    IMPACT_AUDIO_ONLY_PATH
+                );
+            }
+
+            if (audioOnly == null)
+            {
+                throw new InvalidOperationException(
+                    $"Could not load local impact audio: {IMPACT_AUDIO_ONLY_PATH}"
+                );
+            }
+
+            // Synchronize the sample's authored audio, volume and surface entries while
+            // preserving this asset's own GUID. Visual impact prefabs are then removed
+            // from both the default entry and any future material-specific entries.
+            EditorUtility.CopySerialized(source, audioOnly);
+            audioOnly.name = "Franklin Shooter Impact Audio";
+            ClearImpactVisual(audioOnly.MaterialSounds.DefaultSounds);
+            foreach (MaterialSoundTexture materialSound in
+                     audioOnly.MaterialSounds.MaterialSounds)
+            {
+                ClearImpactVisual(materialSound);
+            }
+
+            EditorUtility.SetDirty(audioOnly);
+            return audioOnly;
+        }
+
+        private static void ClearImpactVisual(IMaterialSound materialSound)
+        {
+            if (materialSound?.Impact == null) return;
+            SetField(materialSound.Impact, "m_Prefab", null);
         }
 
         private static void RepairShooterSampleMaterialsForUrp()
@@ -2344,6 +2559,7 @@ namespace FranklinGame.Shooter.Editor
             EnsureFolder(RESOURCE_ROOT, "Animations");
             EnsureFolder(RESOURCE_ROOT, "Sights");
             EnsureFolder(RESOURCE_ROOT + "/Sights", "Bike");
+            EnsureFolder(RESOURCE_ROOT, "MaterialSounds");
             EnsureFolder(RESOURCE_ROOT, "Materials");
             EnsureFolder(RESOURCE_ROOT, "Effects");
             EnsureFolder(RESOURCE_ROOT, "Textures");

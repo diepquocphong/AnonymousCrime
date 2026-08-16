@@ -2578,13 +2578,17 @@ MonoBehaviour:
   m_Player: {fileID: 2818276778289055273}
   m_CameraOverride: {fileID: 0}
   m_OnlyWhileCameraOrbiting: 1
-  m_MinOrbitSpeed: 1
+  m_MinOrbitSpeed: 3
   m_KeepLookingTime: 1.15
   m_LookDistance: 8
   m_FollowSmoothTime: 0.38
   m_MaxYaw: 55
   m_MaxUpPitch: 18
   m_MaxDownPitch: 12
+  m_MaxTrackYaw: 100
+  m_TrackYawHysteresis: 10
+  m_MaxFollowSpeed: 140
+  m_DisableWhileShooterWeaponEquipped: 1
   m_LookPriority: -10
 --- !u!114 &7778753513856544495
 MonoBehaviour:
