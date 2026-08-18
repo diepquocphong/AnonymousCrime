@@ -1,4 +1,5 @@
 using System;
+using FranklinGame.Menu;
 using FranklinGame.Rendering;
 using FranklinGame.UI;
 using UnityEngine;
@@ -23,6 +24,7 @@ namespace FranklinGame.Settings
         private static readonly Color HeaderColor = new(0.035f, 0.085f, 0.105f, 1f);
         private static readonly Color CardColor = new(0.055f, 0.105f, 0.125f, 1f);
         private static readonly Color CyanColor = new(0.12f, 0.82f, 0.84f, 1f);
+        private static readonly Color PurpleColor = new(0.62f, 0.2f, 1f, 1f);
         private static readonly Color GreenColor = new(0.28f, 0.82f, 0.52f, 1f);
         private static readonly Color AmberColor = new(0.96f, 0.67f, 0.18f, 1f);
         private static readonly Color TextColor = new(0.96f, 0.98f, 0.97f, 1f);
@@ -67,9 +69,13 @@ namespace FranklinGame.Settings
         private Text[] m_AntiAliasingLabels;
         private Image m_DepthOfFieldButtonImage;
         private Text m_DepthOfFieldButtonLabel;
+        private Button m_DepthOfFieldButton;
+        private Button m_FbsButton;
+        private Button m_SsaoButton;
         private bool m_IsOpen;
 
         public bool IsOpen => this.m_IsOpen;
+        public event Action PerformanceProfileApplied;
 
         private void Awake()
         {
@@ -209,8 +215,14 @@ namespace FranklinGame.Settings
             ConfigureButton(backdropButton, backdrop, BackdropColor);
             backdropButton.onClick.AddListener(this.Close);
 
+            GameObject safeObject = new("Settings Safe Area", typeof(RectTransform));
+            RectTransform safeRoot = safeObject.GetComponent<RectTransform>();
+            safeRoot.SetParent(root, false);
+            Stretch(safeRoot);
+            safeObject.AddComponent<FranklinSafeArea>();
+
             RectTransform panelShadow = this.CreateImage(
-                root,
+                safeRoot,
                 "Panel Shadow",
                 new Vector2(12f, -16f),
                 new Vector2(1138f, 738f),
@@ -220,7 +232,7 @@ namespace FranklinGame.Settings
             panelShadow.SetAsLastSibling();
 
             Image border = this.CreateImage(
-                root,
+                safeRoot,
                 "Settings Panel Border",
                 Vector2.zero,
                 new Vector2(1120f, 720f),
@@ -302,13 +314,14 @@ namespace FranklinGame.Settings
                 "Close Button",
                 "×",
                 new Vector2(497f, 290f),
-                new Vector2(68f, 68f),
+                new Vector2(82f, 82f),
                 OffColor,
                 AmberColor,
                 46,
                 this.Close
             );
             closeButton.image.raycastTarget = true;
+            this.ExpandButtonHitArea(closeButton, new Vector2(120f, 120f));
 
             this.BuildQualityRow(panel);
             this.BuildToggleRow(
@@ -319,6 +332,7 @@ namespace FranklinGame.Settings
                 new Vector2(-258f, -126f),
                 GreenColor,
                 this.OnFbsButton,
+                out this.m_FbsButton,
                 out this.m_FbsTrack,
                 out this.m_FbsStateText,
                 out this.m_FbsKnob
@@ -342,6 +356,7 @@ namespace FranklinGame.Settings
                 new Vector2(258f, -126f),
                 CyanColor,
                 this.OnSsaoButton,
+                out this.m_SsaoButton,
                 out this.m_SsaoTrack,
                 out this.m_SsaoStateText,
                 out this.m_SsaoKnob
@@ -370,25 +385,39 @@ namespace FranklinGame.Settings
             this.CreateLabel(
                 panel,
                 "Autosave Hint",
-                "✓  THAY ĐỔI ĐƯỢC LƯU TỰ ĐỘNG",
-                new Vector2(-322f, -299f),
-                new Vector2(380f, 40f),
-                17,
+                "THAY ĐỔI ĐƯỢC LƯU TỰ ĐỘNG",
+                new Vector2(72f, -299f),
+                new Vector2(300f, 40f),
+                14,
                 MutedTextColor,
                 TextAnchor.MiddleLeft,
                 FontStyle.Bold
             );
+            Button resetButton = this.CreateTextButton(
+                panel,
+                "Reset Mobile Defaults Button",
+                "KHÔI PHỤC MẶC ĐỊNH",
+                new Vector2(-322f, -299f),
+                new Vector2(330f, 84f),
+                OffColor,
+                PurpleColor,
+                18,
+                this.ResetMobileDefaults
+            );
+            resetButton.image.raycastTarget = true;
+            this.ExpandButtonHitArea(resetButton, new Vector2(350f, 120f));
             Button doneButton = this.CreateTextButton(
                 panel,
                 "Done Button",
                 "HOÀN TẤT",
                 new Vector2(382f, -299f),
-                new Vector2(270f, 72f),
+                new Vector2(270f, 84f),
                 CyanColor,
                 AmberColor,
                 25,
                 this.ApplyAndClose
             );
+            this.ExpandButtonHitArea(doneButton, new Vector2(290f, 120f));
             Text doneLabel = doneButton.GetComponentInChildren<Text>();
             if (doneLabel != null) doneLabel.color = DarkTextColor;
 
@@ -398,6 +427,11 @@ namespace FranklinGame.Settings
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             this.BindHud();
+            if (this.m_Root == null && this.m_IsOpen)
+            {
+                this.m_IsOpen = false;
+                FranklinMobileHud.ReleaseControlsSuppression(this);
+            }
             if (this.m_Root == null) this.BuildInterface();
         }
 
@@ -494,7 +528,7 @@ namespace FranklinGame.Settings
                 FontStyle.Normal
             );
 
-            string[] labels = { "AUTO", "THẤP", "VỪA", "CAO" };
+            string[] labels = { "AUTO", "30 FPS", "VỪA", "CAO" };
             this.m_QualityButtons = new Button[labels.Length];
             this.m_QualityLabels = new Text[labels.Length];
             for (int i = 0; i < labels.Length; i++)
@@ -505,12 +539,13 @@ namespace FranklinGame.Settings
                     $"Quality {labels[i]}",
                     labels[i],
                     new Vector2(-145f + i * 156f, 49f),
-                    new Vector2(144f, 66f),
+                    new Vector2(144f, 76f),
                     OffColor,
                     i == 0 ? AmberColor : CyanColor,
                     20,
-                    () => FranklinMobileGraphicsSettings.SetQualityLevel(level)
+                    () => this.SelectQualityLevel(level)
                 );
+                this.ExpandButtonHitArea(button, new Vector2(150f, 116f));
                 this.m_QualityButtons[i] = button;
                 this.m_QualityLabels[i] = button.GetComponentInChildren<Text>();
             }
@@ -519,7 +554,7 @@ namespace FranklinGame.Settings
                 row,
                 "Quality Status",
                 string.Empty,
-                new Vector2(120f, 2f),
+                new Vector2(120f, -12f),
                 new Vector2(650f, 32f),
                 15,
                 MutedTextColor,
@@ -550,39 +585,34 @@ namespace FranklinGame.Settings
                     $"Anti-Aliasing {antiAliasingLabels[i]}",
                     antiAliasingLabels[i],
                     new Vector2(-104f + i * 166f, -73f),
-                    new Vector2(154f, 50f),
+                    new Vector2(154f, 76f),
                     OffColor,
                     CyanColor,
                     16,
                     () => FranklinMobileGraphicsSettings.SetAntiAliasingMode(mode)
                 );
+                this.ExpandButtonHitArea(button, new Vector2(160f, 116f));
                 this.m_AntiAliasingButtons[i] = button;
                 this.m_AntiAliasingLabels[i] = button.GetComponentInChildren<Text>();
             }
 
-            this.CreateLabel(
-                row,
-                "Depth Of Field Label",
-                "LẤY NÉT DOF",
-                new Vector2(400f, -42f),
-                new Vector2(174f, 24f),
-                13,
-                MutedTextColor,
-                TextAnchor.MiddleCenter,
-                FontStyle.Bold
-            );
             Button depthOfFieldButton = this.CreateTextButton(
                 row,
                 "Depth Of Field Mode",
-                "TẮT",
-                new Vector2(400f, -82f),
-                new Vector2(174f, 48f),
+                "DOF • TẮT",
+                new Vector2(400f, -76f),
+                new Vector2(174f, 76f),
                 OffColor,
                 AmberColor,
                 16,
                 this.OnDepthOfFieldButton
             );
+            this.ExpandButtonHitArea(
+                depthOfFieldButton,
+                new Vector2(180f, 112f)
+            );
             this.m_DepthOfFieldButtonImage = depthOfFieldButton.image;
+            this.m_DepthOfFieldButton = depthOfFieldButton;
             this.m_DepthOfFieldButtonLabel =
                 depthOfFieldButton.GetComponentInChildren<Text>();
         }
@@ -595,6 +625,7 @@ namespace FranklinGame.Settings
             Vector2 position,
             Color accent,
             Action callback,
+            out Button button,
             out Image track,
             out Text stateText,
             out Text knob)
@@ -638,17 +669,18 @@ namespace FranklinGame.Settings
                 FontStyle.Normal
             );
 
-            Button button = this.CreateTextButton(
+            button = this.CreateTextButton(
                 row,
                 "Toggle",
                 string.Empty,
                 new Vector2(122f, -51f),
-                new Vector2(198f, 62f),
+                new Vector2(198f, 82f),
                 OffColor,
                 accent,
                 21,
                 callback
             );
+            this.ExpandButtonHitArea(button, new Vector2(210f, 120f));
             track = button.image;
             stateText = this.CreateLabel(
                 button.transform as RectTransform,
@@ -679,6 +711,13 @@ namespace FranklinGame.Settings
             FranklinMobileGraphicsSettings.ToggleFbs();
         }
 
+        private void SelectQualityLevel(int level)
+        {
+            if (FranklinMobileGraphicsSettings.QualityLevel == level) return;
+            FranklinMobileGraphicsSettings.SetQualityLevel(level);
+            this.PerformanceProfileApplied?.Invoke();
+        }
+
         private void OnSsaoButton()
         {
             if (!FranklinMobileGraphicsSettings.HasSsaoFeature) return;
@@ -696,6 +735,13 @@ namespace FranklinGame.Settings
             this.Close();
         }
 
+        private void ResetMobileDefaults()
+        {
+            FranklinMobileGraphicsSettings.ResetToMobileDefaults();
+            this.RefreshAll();
+            this.PerformanceProfileApplied?.Invoke();
+        }
+
         private void OnFbsChanged(bool enabled)
         {
             this.RefreshToggle(enabled, this.m_FbsTrack, this.m_FbsStateText,
@@ -704,8 +750,23 @@ namespace FranklinGame.Settings
 
         private void OnSsaoChanged(bool enabled)
         {
-            this.RefreshToggle(enabled, this.m_SsaoTrack, this.m_SsaoStateText,
+            bool available = FranklinMobileGraphicsSettings.HasSsaoFeature;
+            this.RefreshToggle(available && enabled, this.m_SsaoTrack, this.m_SsaoStateText,
                 this.m_SsaoKnob, CyanColor);
+            if (this.m_SsaoKnob != null)
+            {
+                this.m_SsaoKnob.gameObject.SetActive(available);
+            }
+            if (!available && this.m_SsaoStateText != null)
+            {
+                this.m_SsaoStateText.text = "KHÔNG HỖ TRỢ";
+                this.m_SsaoStateText.fontSize = 13;
+                this.m_SsaoStateText.rectTransform.anchoredPosition = Vector2.zero;
+            }
+            else if (this.m_SsaoStateText != null)
+            {
+                this.m_SsaoStateText.fontSize = 20;
+            }
         }
 
         private void OnQualityChanged(int qualityLevel)
@@ -726,7 +787,10 @@ namespace FranklinGame.Settings
         private void RefreshAll()
         {
             this.OnFbsChanged(FranklinMobileGraphicsSettings.FbsEnabled);
-            this.OnSsaoChanged(FranklinMobileGraphicsSettings.SsaoEnabled);
+            bool ssaoAvailable = FranklinMobileGraphicsSettings.HasSsaoFeature;
+            this.OnSsaoChanged(
+                ssaoAvailable && FranklinMobileGraphicsSettings.SsaoEnabled
+            );
             this.RefreshQuality(FranklinMobileGraphicsSettings.QualityLevel);
             this.RefreshAntiAliasing(
                 FranklinMobileGraphicsSettings.AntiAliasingMode
@@ -737,13 +801,22 @@ namespace FranklinGame.Settings
 
             if (this.m_SsaoAvailabilityText != null)
             {
-                bool available = FranklinMobileGraphicsSettings.HasSsaoFeature;
-                this.m_SsaoAvailabilityText.text = available
+                this.m_SsaoAvailabilityText.text = ssaoAvailable
                     ? "TỐI ƯU MOBILE • HALF RES"
                     : "SSAO chưa được cài vào Renderer";
-                this.m_SsaoAvailabilityText.color = available
+                this.m_SsaoAvailabilityText.color = ssaoAvailable
                     ? MutedTextColor
                     : AmberColor;
+                if (!ssaoAvailable && this.m_SsaoStateText != null)
+                {
+                    this.m_SsaoStateText.text = "KHÔNG HỖ TRỢ";
+                    this.m_SsaoStateText.fontSize = 13;
+                    this.m_SsaoStateText.rectTransform.anchoredPosition = Vector2.zero;
+                }
+                else if (this.m_SsaoStateText != null)
+                {
+                    this.m_SsaoStateText.fontSize = 20;
+                }
             }
         }
 
@@ -784,19 +857,19 @@ namespace FranklinGame.Settings
                 if (low)
                 {
                     this.m_QualityStatusText.text =
-                        "CHẾ ĐỘ THẤP: TẮT FBS • SSAO • AA • DOF • POST";
+                        "30 FPS: TIẾT KIỆM PIN • TẮT HIỆU ỨNG NẶNG";
                     this.m_QualityStatusText.color = GreenColor;
                 }
                 else if (balanced)
                 {
                     this.m_QualityStatusText.text =
-                        "CHẾ ĐỘ VỪA: CHỈ BẬT FBS";
+                        "VỪA: 60 FPS • FBS • PIN/NHIỆT CAO HƠN 30 FPS";
                     this.m_QualityStatusText.color = CyanColor;
                 }
                 else if (high)
                 {
                     this.m_QualityStatusText.text =
-                        "CHẾ ĐỘ CAO: FULL HIỆU ỨNG • DOF CÓ THỂ TẮT";
+                        "CAO: 60 FPS • TỐN PIN/NHIỆT HƠN • DOF CÓ THỂ ĐỔI";
                     this.m_QualityStatusText.color = AmberColor;
                 }
                 else if (automatic)
@@ -811,6 +884,31 @@ namespace FranklinGame.Settings
                         "DYNAMIC RESOLUTION VẪN GIỮ FPS ỔN ĐỊNH";
                     this.m_QualityStatusText.color = MutedTextColor;
                 }
+            }
+
+            bool automaticPreset = selectedLevel ==
+                FranklinMobileGraphicsSettings.QualityAuto;
+            bool highPreset = selectedLevel ==
+                FranklinMobileGraphicsSettings.QualityHigh;
+            if (this.m_FbsButton != null) this.m_FbsButton.interactable = automaticPreset;
+            if (this.m_SsaoButton != null)
+            {
+                this.m_SsaoButton.interactable = automaticPreset &&
+                    FranklinMobileGraphicsSettings.HasSsaoFeature;
+            }
+            if (this.m_AntiAliasingButtons != null)
+            {
+                for (int i = 0; i < this.m_AntiAliasingButtons.Length; ++i)
+                {
+                    if (this.m_AntiAliasingButtons[i] != null)
+                    {
+                        this.m_AntiAliasingButtons[i].interactable = automaticPreset;
+                    }
+                }
+            }
+            if (this.m_DepthOfFieldButton != null)
+            {
+                this.m_DepthOfFieldButton.interactable = automaticPreset || highPreset;
             }
         }
 
@@ -848,17 +946,17 @@ namespace FranklinGame.Settings
                 case FranklinMobileGraphicsSettings.DepthOfFieldNear:
                     this.m_DepthOfFieldButtonImage.color = CyanColor;
                     this.m_DepthOfFieldButtonLabel.color = DarkTextColor;
-                    this.m_DepthOfFieldButtonLabel.text = "GẦN";
+                    this.m_DepthOfFieldButtonLabel.text = "DOF • GẦN";
                     break;
                 case FranklinMobileGraphicsSettings.DepthOfFieldFar:
                     this.m_DepthOfFieldButtonImage.color = AmberColor;
                     this.m_DepthOfFieldButtonLabel.color = DarkTextColor;
-                    this.m_DepthOfFieldButtonLabel.text = "XA";
+                    this.m_DepthOfFieldButtonLabel.text = "DOF • XA";
                     break;
                 default:
                     this.m_DepthOfFieldButtonImage.color = OffColor;
                     this.m_DepthOfFieldButtonLabel.color = TextColor;
-                    this.m_DepthOfFieldButtonLabel.text = "TẮT";
+                    this.m_DepthOfFieldButtonLabel.text = "DOF • TẮT";
                     break;
             }
         }
@@ -946,6 +1044,28 @@ namespace FranklinGame.Settings
             label.verticalOverflow = VerticalWrapMode.Truncate;
             label.raycastTarget = false;
             return label;
+        }
+
+        private void ExpandButtonHitArea(Button button, Vector2 hitSize)
+        {
+            if (button == null) return;
+
+            GameObject hitObject = new(
+                "Touch Target",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image)
+            );
+            RectTransform hitRect = hitObject.GetComponent<RectTransform>();
+            hitRect.SetParent(button.transform, false);
+            Center(hitRect, Vector2.zero, hitSize);
+
+            Image hitImage = hitObject.GetComponent<Image>();
+            hitImage.sprite = this.m_SolidSprite;
+            hitImage.color = new Color(1f, 1f, 1f, 0.001f);
+            hitImage.raycastTarget = true;
+            hitImage.canvasRenderer.cullTransparentMesh = false;
+            hitObject.transform.SetAsFirstSibling();
         }
 
         private Button CreateTextButton(

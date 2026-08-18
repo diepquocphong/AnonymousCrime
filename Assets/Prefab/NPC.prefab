@@ -1320,6 +1320,7 @@ GameObject:
   - component: {fileID: 1698930968427756962}
   - component: {fileID: 720885883736077419}
   - component: {fileID: 6637307961692785570}
+  - component: {fileID: 923000000000000002}
   m_Layer: 11
   m_Name: NPC
   m_TagString: Untagged
@@ -1345,6 +1346,18 @@ Transform:
   - {fileID: 4291365493540119056}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &923000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5364405789980172438}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c51f02b5d8324b3f9c368a6a1c3e2873, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Shooter.FranklinExplosionRagdollImpulse
 --- !u!114 &2818276778289055273
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1418,8 +1431,13 @@ MonoBehaviour:
         m_Breakpoint: 0
         m_IsEnabled: 1
     - rid: 9185873306362052892
-      type: {class: RagdollNone, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
-      data: 
+      type: {class: RagdollDefault, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
+      data:
+        m_BoneRack:
+          m_Skeleton: {fileID: 11400000, guid: 5809449d43408435db32108bd69aa82c, type: 2}
+        m_TransitionDuration: 0.2
+        m_RecoverFaceDown: {fileID: 7400000, guid: 664df806eac1341b2a5f8ca0fbc4c2e5, type: 2}
+        m_RecoverFaceUp: {fileID: 7400000, guid: 484559c663e3a4e60b3015a3cd927c88, type: 2}
     - rid: 9185873306362052893
       type: {class: UnitPlayerDirectional, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
       data:
@@ -1638,12 +1656,16 @@ MonoBehaviour:
   m_FollowGround: 1
   m_GroundLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 1921
   m_ProbeStartHeight: 0.5
   m_MaxGroundDistance: 5
   m_ProbeInterval: 0.1
   m_GroundOffset: 0.025
   m_MinGroundNormalY: 0.35
+  m_GroundNormalSharpness: 18
+  m_ReceiverAbove: 0.22
+  m_ReceiverBelow: 0.4
+  m_SeamAllowance: 0.1
   m_HideWhenGroundMissing: 1
   m_IgnoreRigidbodyReceivers: 1
   m_SuppressInsideShadowOwner: 1

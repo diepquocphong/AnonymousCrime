@@ -99,14 +99,41 @@ namespace GameCreator.Runtime.Shooter
                     QueryTriggerInteraction.Ignore
                 );
 
-                Array.Sort(HITS, 0, numHits, this);
+                if (pierces == 0 && numHits > 1)
+                {
+                    int closestIndex = 0;
+                    float closestDistance = HITS[0].distance;
+                    for (int hitIndex = 1; hitIndex < numHits; ++hitIndex)
+                    {
+                        if (HITS[hitIndex].distance >= closestDistance) continue;
+                        closestIndex = hitIndex;
+                        closestDistance = HITS[hitIndex].distance;
+                    }
+
+                    if (closestIndex != 0)
+                    {
+                        RaycastHit closestHit = HITS[closestIndex];
+                        HITS[closestIndex] = HITS[0];
+                        HITS[0] = closestHit;
+                    }
+                }
+                else if (numHits > 1)
+                {
+                    Array.Sort(HITS, 0, numHits, this);
+                }
                 int numIterations = Math.Min(pierces + 1, numHits);
 
                 for (int iteration = 0; iteration < numIterations; ++iteration)
                 {
                     RaycastHit hit = HITS[iteration];
                     
-                    data.UpdateHit(hit.collider.gameObject, hit.point, hit.distance, numIterations);
+                    data.UpdateHit(
+                        hit.collider.gameObject,
+                        hit.point,
+                        hit.normal,
+                        hit.distance,
+                        numIterations
+                    );
                     weaponData.CombatArgs.ChangeTarget(hit.collider.gameObject);
                     
                     if (weapon.CanHit(data, weaponData.CombatArgs))

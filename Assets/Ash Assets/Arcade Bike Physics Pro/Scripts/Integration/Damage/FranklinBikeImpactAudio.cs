@@ -185,6 +185,7 @@ namespace FranklinGame.Vehicles
             ParticleSystem.MainModule main = m_MetalDebrisParticles.main;
             main.playOnAwake = false;
             main.loop = false;
+            main.stopAction = ParticleSystemStopAction.Disable;
             main.maxParticles = DebrisParticleCap;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             main.scalingMode = ParticleSystemScalingMode.Shape;
@@ -272,6 +273,9 @@ namespace FranklinGame.Vehicles
             if (m_MetalDebrisParticles == null) BuildMetalDebrisSystem();
             if (m_MetalDebrisParticles == null) return false;
 
+            GameObject debrisObject = m_MetalDebrisParticles.gameObject;
+            if (!debrisObject.activeSelf) debrisObject.SetActive(true);
+
             Vector3 position = transform.position;
             Vector3 normal = transform.up;
             if (collision.contactCount > 0)
@@ -332,6 +336,13 @@ namespace FranklinGame.Vehicles
                 );
                 m_MetalDebrisParticles.Emit(emit, 1);
             }
+            // Keep existing shards alive, but stop the system immediately after
+            // the manual burst. StopAction.Disable then removes this GameObject
+            // from native particle updates as soon as the last short-lived shard dies.
+            m_MetalDebrisParticles.Stop(
+                false,
+                ParticleSystemStopBehavior.StopEmitting
+            );
             return true;
         }
 

@@ -28,6 +28,8 @@ public enum BikeEntrySideMode
 [AddComponentMenu("Game Creator/Mechanics/BikeEntry")]
 public class BikeEntry : MonoBehaviour
 {
+    private const int REVERSE_LOOK_CONFIGURATION_VERSION = 2;
+
     [Header("Animation Settings")]
     [Tooltip("Animation clip to play when entering the bike.")]
     public AnimationClip entryAnimation;
@@ -133,6 +135,33 @@ public class BikeEntry : MonoBehaviour
     [Tooltip("Stops the gesture above this speed. Keep it slightly above reverse max speed.")]
     [Min(0.5f)] public float reverseFootPushMaxSpeedKph = 8f;
 
+    [Header("Reverse Look Back")]
+    [Tooltip("Turns the seated rider's upper chest, neck and head toward the rear while reversing.")]
+    public bool reverseLookEnabled = true;
+    [Tooltip("Look over the left shoulder by default. Disable to look over the right shoulder.")]
+    public bool reverseLookOverLeftShoulder = true;
+    [Tooltip("Total horizontal look angle distributed across UpperChest, Neck and Head.")]
+    [Range(45f, 145f)] public float reverseLookYaw = 85f;
+    [Tooltip("Small downward head pitch that keeps the eyes toward the reverse path.")]
+    [Range(-15f, 15f)] public float reverseLookHeadPitch = -5f;
+    [Range(0f, 1f)] public float reverseLookUpperChestWeight = 0.22f;
+    [Range(0f, 1f)] public float reverseLookNeckWeight = 0.35f;
+    [Range(0f, 1f)] public float reverseLookHeadWeight = 0.43f;
+    [Tooltip("Moves the left hand away from the handlebar while looking backward.")]
+    public bool reverseLookReleaseLeftHand = false;
+    [Tooltip("Optional authored hand target. When empty, a stable target is derived from the rider's left thigh.")]
+    public Transform reverseLookLeftHandTarget;
+    [Tooltip("Local fine adjustment relative to the resolved left-hand release target.")]
+    public Vector3 reverseLookLeftHandOffset = Vector3.zero;
+    [Tooltip("How strongly the left hand leaves the grip at the full reverse-look pose.")]
+    [Range(0f, 1f)] public float reverseLookLeftHandReleaseWeight = 1f;
+    [Tooltip("Seconds to blend from the normal riding pose into the reverse look.")]
+    [Min(0.02f)] public float reverseLookBlendIn = 0.18f;
+    [Tooltip("Seconds to return smoothly to the forward riding pose.")]
+    [Min(0.02f)] public float reverseLookBlendOut = 0.24f;
+    [SerializeField, HideInInspector]
+    private int reverseLookConfigurationVersion;
+
     [Header("Rider Fit - Seat / Grips / Footpegs")]
     [Tooltip("Ergonomic family used by the editor Rider Fit tool.")]
     public RiderFitStyle riderFitStyle = RiderFitStyle.Standard;
@@ -229,7 +258,7 @@ public class BikeEntry : MonoBehaviour
     private IRvrVehicleAirborneState airborneState;
     private FranklinArcadeBikeRagdoll arcadeBikeRagdoll;
     private FranklinBikeHealth bikeHealth;
-    private HoverVehicleController hoverController;
+    private FranklinBikePassengerSeat _passengerSeat;
     private Transform bikeBody;
     private Collider bikeCollider;
     private bool isEntering = false;
@@ -244,6 +273,8 @@ public class BikeEntry : MonoBehaviour
     private Coroutine _rightFootRoutine;
     private bool _reverseFootPushActive;
     private float _reverseFootPushTime;
+    private float _reverseLookWeight;
+    private FranklinBikeHelmetController _riderHelmetController;
     private Character _mountedCharacter = null;
     private bool _liveRiderPosePreview;
     private Animator _livePoseAnimator;
@@ -252,9 +283,11 @@ public class BikeEntry : MonoBehaviour
     private CharacterIKSetter _activeIkSetter;
     private bool _shooterPoseActive;
     private Character _approachCharacter;
+    private Character _transitionCharacter;
     private bool _approachFinished;
     private bool _approachSucceeded;
     private int _approachVersion;
+    private int _operationVersion;
     private Transform _activeEntryStandingPoint;
     private bool _activeEntryMirrored;
     private CharacterPhysicsSnapshot _seatedPhysics;
@@ -336,7 +369,9 @@ public class BikeEntry : MonoBehaviour
     /// </summary>
     public bool RequestEnter(Character character)
     {
-        if (character == null || IsTransitioning || _mountedCharacter != null ||
+        if (!isActiveAndEnabled || character == null ||
+            character.Ragdoll.IsRagdoll || IsTransitioning ||
+            _mountedCharacter != null ||
             character.Motion == null || entryParent == null || entryStandingPoint == null ||
             (bikeHealth != null && bikeHealth.IsDestroyed))
         {
@@ -357,7 +392,11 @@ public class BikeEntry : MonoBehaviour
     /// </summary>
     public bool RequestExit(Character character)
     {
-        if (character == null || character != _mountedCharacter || IsTransitioning) return false;
+        if (!isActiveAndEnabled || character == null ||
+            character != _mountedCharacter || IsTransitioning)
+        {
+            return false;
+        }
         ExitBike(character);
         return true;
     }
@@ -389,6 +428,7 @@ public class BikeEntry : MonoBehaviour
         }
 
         _activeIkSetter = null;
+        _riderHelmetController = null;
         _inBike = false;
         _footOnGround = false;
         ResetAirborneRiderLift();
@@ -409,6 +449,7 @@ public class BikeEntry : MonoBehaviour
 
     private void Awake()
     {
+        ApplyReverseLookDefaultsIfNeeded();
         ResolveHumanoidMuscles();
 
         foreach (MonoBehaviour behaviour in GetComponents<MonoBehaviour>())
@@ -419,9 +460,9 @@ public class BikeEntry : MonoBehaviour
             break;
         }
 
-        hoverController = GetComponent<HoverVehicleController>();
         arcadeBikeRagdoll = GetComponent<FranklinArcadeBikeRagdoll>();
         bikeHealth = GetComponent<FranklinBikeHealth>();
+        _passengerSeat = GetComponent<FranklinBikePassengerSeat>();
         bikeBody = bikeController?.VehicleBody;
         bikeCollider = ResolvePhysicsCollider();
 
@@ -444,8 +485,115 @@ public class BikeEntry : MonoBehaviour
         }
     }
 
+    private void OnDisable()
+    {
+        // Async/await transitions are not owned by Unity's coroutine lifecycle.
+        // A pooled or unloaded Bike can therefore leave an old entry/exit loop,
+        // collision-ignore pairs and a locked Character alive unless we cancel
+        // the operation explicitly here.
+        ++_operationVersion;
+        ++_approachVersion;
+        _approachFinished = true;
+
+        Character character = _mountedCharacter ??
+                              _seatedPhysics?.character ??
+                              _transitionCharacter ??
+                              _approachCharacter;
+        if (_approachCharacter != null)
+        {
+            _approachCharacter.Motion?.MoveToDirection(
+                Vector3.zero,
+                Space.World,
+                Mathf.Max(1, entryApproachMotionPriority)
+            );
+            _approachCharacter.Motion?.StopToDirection(
+                Mathf.Max(1, entryApproachMotionPriority)
+            );
+        }
+
+        StopFootRoutines();
+        ResetAirborneRiderLift();
+        ReleaseLivePoseHandler();
+        if (_activeIkSetter != null) _activeIkSetter.ResetVehiclePose();
+
+        if (character != null)
+        {
+            _ = FranklinShooterSystem.CancelBikeDriverEntry(character);
+            if (character.transform.parent == entryParent)
+                character.transform.SetParent(null, true);
+            RestoreCharacterPhysics(character);
+            character.States.Stop(drivingStateLayer, 0f, 0f);
+            if (character.Player != null) character.Player.IsControllable = true;
+        }
+
+        EndEntryCollisionIgnore();
+        _activeIkSetter = null;
+        _riderHelmetController = null;
+        _mountedCharacter = null;
+        _transitionCharacter = null;
+        _approachCharacter = null;
+        _inBike = false;
+        _footOnGround = false;
+        _reverseFootPushActive = false;
+        _reverseFootPushTime = 0f;
+        _reverseLookWeight = 0f;
+        _shooterPoseActive = false;
+        isEntering = false;
+        isExiting = false;
+        ClearActiveEntrySide();
+    }
+
+    private bool IsOperationCurrent(int version)
+    {
+        return this != null && isActiveAndEnabled && version == _operationVersion;
+    }
+
+    private async Task<bool> AbortEntryForCharacterRagdollAsync(
+        Character character,
+        int operationVersion,
+        Rigidbody vehicleRigidbody = null,
+        bool restoreVehicleKinematic = false,
+        bool previousVehicleKinematic = false,
+        CharacterIKSetter ikSetter = null)
+    {
+        if (!IsOperationCurrent(operationVersion) || character == null ||
+            !character.Ragdoll.IsRagdoll)
+        {
+            return false;
+        }
+
+        ++_operationVersion;
+        ++_approachVersion;
+        _approachFinished = true;
+        character.Motion?.MoveToDirection(
+            Vector3.zero,
+            Space.World,
+            Mathf.Max(1, entryApproachMotionPriority)
+        );
+        character.Motion?.StopToDirection(
+            Mathf.Max(1, entryApproachMotionPriority)
+        );
+        character.Gestures.Stop(0f, 0f);
+        character.States.Stop(drivingStateLayer, 0f, 0f);
+        ikSetter?.ResetVehiclePose();
+        EndEntryCollisionIgnore();
+        if (restoreVehicleKinematic && vehicleRigidbody != null)
+            vehicleRigidbody.isKinematic = previousVehicleKinematic;
+        if (character.Player != null)
+            character.Player.IsControllable = true;
+
+        _activeIkSetter = null;
+        _transitionCharacter = null;
+        _approachCharacter = null;
+        isEntering = false;
+        ClearActiveEntrySide();
+        await FranklinShooterSystem.CancelBikeDriverEntry(character);
+        return true;
+    }
+
     private void OnValidate()
     {
+        ApplyReverseLookDefaultsIfNeeded();
         riderForwardLean = Mathf.Clamp(riderForwardLean, 0f, 90f);
         riderLeanResponse = Mathf.Max(0.01f, riderLeanResponse);
         riderHipsLeanWeight = Mathf.Clamp(riderHipsLeanWeight, 0f, 2f);
@@ -488,6 +636,15 @@ public class BikeEntry : MonoBehaviour
         reverseFootPushLift = Mathf.Clamp(reverseFootPushLift, 0.01f, 0.2f);
         reverseFootPushResponse = Mathf.Max(0.1f, reverseFootPushResponse);
         reverseFootPushMaxSpeedKph = Mathf.Max(0.5f, reverseFootPushMaxSpeedKph);
+        reverseLookYaw = Mathf.Clamp(reverseLookYaw, 45f, 145f);
+        reverseLookHeadPitch = Mathf.Clamp(reverseLookHeadPitch, -15f, 15f);
+        reverseLookUpperChestWeight = Mathf.Clamp01(reverseLookUpperChestWeight);
+        reverseLookNeckWeight = Mathf.Clamp01(reverseLookNeckWeight);
+        reverseLookHeadWeight = Mathf.Clamp01(reverseLookHeadWeight);
+        reverseLookLeftHandReleaseWeight =
+            Mathf.Clamp01(reverseLookLeftHandReleaseWeight);
+        reverseLookBlendIn = Mathf.Max(0.02f, reverseLookBlendIn);
+        reverseLookBlendOut = Mathf.Max(0.02f, reverseLookBlendOut);
         stoppedExitSpeedKph = Mathf.Max(0f, stoppedExitSpeedKph);
         exitStopTimeout = Mathf.Max(0.1f, exitStopTimeout);
         enterAlignmentDuration = Mathf.Max(0.05f, enterAlignmentDuration);
@@ -507,6 +664,23 @@ public class BikeEntry : MonoBehaviour
         {
             ApplyRiderHandIK();
         }
+    }
+
+    private void ApplyReverseLookDefaultsIfNeeded()
+    {
+        if (reverseLookConfigurationVersion >= REVERSE_LOOK_CONFIGURATION_VERSION)
+            return;
+
+        // Version 1 used raw local-bone yaw and a one-hand cinematic pose. On
+        // Franklin's Humanoid axes this produced lateral spine bend and neck
+        // extension. Version 2 uses the controlled backing posture instead.
+        reverseLookYaw = 85f;
+        reverseLookHeadPitch = -5f;
+        reverseLookUpperChestWeight = 0.22f;
+        reverseLookNeckWeight = 0.35f;
+        reverseLookHeadWeight = 0.43f;
+        reverseLookReleaseLeftHand = false;
+        reverseLookConfigurationVersion = REVERSE_LOOK_CONFIGURATION_VERSION;
     }
 
     public void ApplyRiderHandIK()
@@ -561,6 +735,7 @@ public class BikeEntry : MonoBehaviour
         if (_shooterPoseActive == active) return;
 
         _shooterPoseActive = active;
+        if (active) ResetReverseLookPose();
         if (_activeIkSetter != null) ConfigureRiderIKSetter(_activeIkSetter);
         if (active) ReleaseLivePoseHandler();
     }
@@ -576,6 +751,25 @@ public class BikeEntry : MonoBehaviour
         bool reverseRequested = arcadeDriver?.IsReverseInputActive == true;
         bool isAtReverseSideOfStop = arcadeDriver != null &&
                                      arcadeDriver.SignedForwardSpeedMetersPerSecond <= 0.05f;
+        bool movingBackward = arcadeDriver != null &&
+                              arcadeDriver.SignedForwardSpeedMetersPerSecond < -0.1f;
+        bool reverseLookHardBlocked =
+            _shooterPoseActive ||
+            arcadeDriver?.IsFirstPersonViewActive == true ||
+            _riderHelmetController?.IsTransitioning == true;
+        bool shouldLookBack = reverseLookEnabled &&
+                              !reverseLookHardBlocked &&
+                              (reverseRequested || movingBackward) &&
+                              isAtReverseSideOfStop &&
+                              airborneState?.IsAirborne != true;
+        if (reverseLookHardBlocked)
+        {
+            if (_reverseLookWeight > 0f) ResetReverseLookPose();
+        }
+        else
+        {
+            UpdateReverseLookPose(shouldLookBack);
+        }
         bool shouldPushWithFeet = reverseFootPushEnabled &&
                                   reverseRequested &&
                                   isAtReverseSideOfStop &&
@@ -815,13 +1009,21 @@ public class BikeEntry : MonoBehaviour
         {
             return;
         }
+        int operationVersion = ++_operationVersion;
+        _transitionCharacter = character;
         _shooterPoseActive = false;
         isEntering = true;
         await FranklinShooterSystem.PrepareForBikeDriverEntry(character);
-        if (character == null || _mountedCharacter != null)
+        if (!IsOperationCurrent(operationVersion) ||
+            character == null || character.Ragdoll.IsRagdoll ||
+            _mountedCharacter != null)
         {
             await FranklinShooterSystem.CancelBikeDriverEntry(character);
-            isEntering = false;
+            if (IsOperationCurrent(operationVersion))
+            {
+                _transitionCharacter = null;
+                isEntering = false;
+            }
             return;
         }
         character.GetComponentInChildren<FranklinAnimationBridge>(true)
@@ -829,7 +1031,6 @@ public class BikeEntry : MonoBehaviour
         SelectEntrySide(character);
 
         if (bikeController != null) bikeController.SetVehicleEnabled(false);
-        else if (hoverController != null) hoverController.isVehicleEnabled = false;
 
         if (character.Player != null)
             character.Player.IsControllable = false;
@@ -844,6 +1045,8 @@ public class BikeEntry : MonoBehaviour
                 character.Player.IsControllable = true;
             ClearActiveEntrySide();
             await FranklinShooterSystem.CancelBikeDriverEntry(character);
+            if (!IsOperationCurrent(operationVersion)) return;
+            _transitionCharacter = null;
             isEntering = false;
             return;
         }
@@ -855,13 +1058,24 @@ public class BikeEntry : MonoBehaviour
             // parked mesh collider can otherwise block GC2 navigation before the
             // hands ever reach the recovery targets.
             BeginEntryCollisionIgnore(character);
-            if (!await RaiseFallenBikeBeforeEntry(character))
+            bool raised = await RaiseFallenBikeBeforeEntry(
+                character,
+                operationVersion
+            );
+            if (!IsOperationCurrent(operationVersion)) return;
+            if (!raised)
             {
+                if (await AbortEntryForCharacterRagdollAsync(
+                        character,
+                        operationVersion
+                    )) return;
                 if (character != null && character.Player != null)
                     character.Player.IsControllable = true;
                 EndEntryCollisionIgnore();
                 ClearActiveEntrySide();
                 await FranklinShooterSystem.CancelBikeDriverEntry(character);
+                if (!IsOperationCurrent(operationVersion)) return;
+                _transitionCharacter = null;
                 isEntering = false;
                 return;
             }
@@ -872,12 +1086,23 @@ public class BikeEntry : MonoBehaviour
             SelectEntrySide(character);
         }
 
-        if (!await MoveCharacterToEntryStandingPointAsync(character))
+        bool reachedEntry = await MoveCharacterToEntryStandingPointAsync(
+            character,
+            operationVersion
+        );
+        if (!IsOperationCurrent(operationVersion)) return;
+        if (!reachedEntry)
         {
+            if (await AbortEntryForCharacterRagdollAsync(
+                    character,
+                    operationVersion
+                )) return;
             if (character != null && character.Player != null)
                 character.Player.IsControllable = true;
             ClearActiveEntrySide();
             await FranklinShooterSystem.CancelBikeDriverEntry(character);
+            if (!IsOperationCurrent(operationVersion)) return;
+            _transitionCharacter = null;
             isEntering = false;
             return;
         }
@@ -896,30 +1121,20 @@ public class BikeEntry : MonoBehaviour
             SetEntryHandIK(ikSetter, 0f);
         }
 
-        if (hoverController != null)
-        {
-            hoverController.FXActive = true;
-
-            Vector3 startPos = hoverController.transform.position;
-            Vector3 endPos = startPos + Vector3.up * 0.3f;
-            float duration = 0.5f;
-            float elapsed = 0f;
-
-            while (elapsed < duration)
-            {
-                float t = elapsed / duration;
-                hoverController.transform.position = Vector3.Lerp(startPos, endPos, t);
-                elapsed += Time.deltaTime;
-                await Task.Yield();
-            }
-            hoverController.transform.position = endPos;
-
-            await Task.Delay(100);
-        }
-
         Rigidbody vehicleRigidbody = GetComponent<Rigidbody>();
+        bool previousVehicleKinematic = vehicleRigidbody != null &&
+                                        vehicleRigidbody.isKinematic;
 
         await Task.Yield();
+        if (!IsOperationCurrent(operationVersion)) return;
+        if (await AbortEntryForCharacterRagdollAsync(
+                character,
+                operationVersion,
+                vehicleRigidbody,
+                false,
+                previousVehicleKinematic,
+                ikSetter
+            )) return;
         if (vehicleRigidbody != null) vehicleRigidbody.isKinematic = true;
         BeginEntryCollisionIgnore(character);
 
@@ -950,10 +1165,29 @@ public class BikeEntry : MonoBehaviour
             activeEntryAnimation,
             entryAnimationTransitionIn,
             entryAnimationTransitionOut,
-            ikSetter
+            ikSetter,
+            operationVersion
         );
+        if (!IsOperationCurrent(operationVersion)) return;
+        if (await AbortEntryForCharacterRagdollAsync(
+                character,
+                operationVersion,
+                vehicleRigidbody,
+                true,
+                previousVehicleKinematic,
+                ikSetter
+            )) return;
 
         await Task.Delay(10);
+        if (!IsOperationCurrent(operationVersion)) return;
+        if (await AbortEntryForCharacterRagdollAsync(
+                character,
+                operationVersion,
+                vehicleRigidbody,
+                true,
+                previousVehicleKinematic,
+                ikSetter
+            )) return;
         AttachCharacterToSeat(character);
 
         // The entry gesture temporarily suppresses the driving layer. Re-assert the
@@ -990,23 +1224,28 @@ public class BikeEntry : MonoBehaviour
         _footOnGround = false;
         _reverseFootPushActive = false;
         _reverseFootPushTime = 0f;
+        _reverseLookWeight = 0f;
 
-        if (hoverController != null)
-        {
-            hoverController.isVehicleEnabled = true;
-        }
-        else if (bikeController != null)
+        if (bikeController != null)
         {
             bikeController.SetVehicleEnabled(true);
         }
 
         _ = this.onEnter.Run(new Args(this.gameObject));
+        _transitionCharacter = null;
         isEntering = false;
     }
 
-    private async Task<bool> RaiseFallenBikeBeforeEntry(Character character)
+    private async Task<bool> RaiseFallenBikeBeforeEntry(
+        Character character,
+        int operationVersion)
     {
-        if (character == null || arcadeBikeRagdoll == null) return false;
+        if (!IsOperationCurrent(operationVersion) ||
+            character == null || character.Ragdoll.IsRagdoll ||
+            arcadeBikeRagdoll == null)
+        {
+            return false;
+        }
         if (!arcadeBikeRagdoll.RequiresManualRecovery &&
             !arcadeBikeRagdoll.TryPrepareManualRecoveryForInteraction())
         {
@@ -1052,9 +1291,11 @@ public class BikeEntry : MonoBehaviour
         bool reachedRecoveryPoint = await MoveCharacterToRecoveryPoint(
             character,
             standingGround,
-            standingRotation
+            standingRotation,
+            operationVersion
         );
-        if (character == null) return false;
+        if (!IsOperationCurrent(operationVersion) || character == null ||
+            character.Ragdoll.IsRagdoll) return false;
 
         bool mirroredRecovery = groundedSide > 0;
         Transform handleTarget = mirroredRecovery
@@ -1071,7 +1312,8 @@ public class BikeEntry : MonoBehaviour
                     character,
                     handleTarget,
                     bodyTarget,
-                    groundNormal
+                    groundNormal,
+                    operationVersion
                 ))
             {
                 return false;
@@ -1096,9 +1338,12 @@ public class BikeEntry : MonoBehaviour
             await SmoothAlignCharacterToPose(
                 character,
                 character.transform.position,
-                standingRotation
+                standingRotation,
+                operationVersion
             );
-            if (character == null) return false;
+            if (!IsOperationCurrent(operationVersion) || character == null ||
+                character.Ragdoll.IsRagdoll)
+                return false;
         }
 
         Animator animator = character.GetComponentInChildren<Animator>();
@@ -1148,7 +1393,9 @@ public class BikeEntry : MonoBehaviour
 
         Quaternion characterStartRotation = character.transform.rotation;
         float elapsed = 0f;
-        while (elapsed < reachDuration && character != null)
+        while (elapsed < reachDuration && character != null &&
+               !character.Ragdoll.IsRagdoll &&
+               IsOperationCurrent(operationVersion))
         {
             float blend = Mathf.SmoothStep(
                 0f,
@@ -1185,7 +1432,9 @@ public class BikeEntry : MonoBehaviour
         Vector3 raiseStartBikePosition = assistedFallenPosition;
         Quaternion raiseStartBikeRotation = fallenStartBikeRotation;
         elapsed = 0f;
-        while (elapsed < raiseDuration && character != null)
+        while (elapsed < raiseDuration && character != null &&
+               !character.Ragdoll.IsRagdoll &&
+               IsOperationCurrent(operationVersion))
         {
             float progress = Mathf.Clamp01(elapsed / raiseDuration);
             float smooth = progress * progress * (3f - 2f * progress);
@@ -1217,7 +1466,8 @@ public class BikeEntry : MonoBehaviour
             await Task.Yield();
         }
 
-        if (character == null)
+        if (!IsOperationCurrent(operationVersion) || character == null ||
+            character.Ragdoll.IsRagdoll)
         {
             if (ikSetter != null)
             {
@@ -1240,7 +1490,7 @@ public class BikeEntry : MonoBehaviour
         _activeIkSetter = null;
         character.Gestures.Stop(0.1f, 0.2f);
         await Task.Yield();
-        return true;
+        return IsOperationCurrent(operationVersion);
     }
 
     private Vector3 CalculateFallenBikeAssistTranslation(
@@ -1292,9 +1542,12 @@ public class BikeEntry : MonoBehaviour
         Character character,
         Transform handleTarget,
         Transform bodyTarget,
-        Vector3 groundNormal)
+        Vector3 groundNormal,
+        int operationVersion)
     {
-        if (character == null || arcadeBikeRagdoll == null ||
+        if (!IsOperationCurrent(operationVersion) ||
+            character == null || character.Ragdoll.IsRagdoll ||
+            arcadeBikeRagdoll == null ||
             !arcadeBikeRagdoll.RequiresManualRecovery)
         {
             return false;
@@ -1349,6 +1602,8 @@ public class BikeEntry : MonoBehaviour
         float duration = Mathf.Max(0.05f, fallenBikeRelocationDuration);
         float elapsed = 0f;
         while (elapsed < duration && character != null &&
+               !character.Ragdoll.IsRagdoll &&
+               IsOperationCurrent(operationVersion) &&
                arcadeBikeRagdoll.RequiresManualRecovery)
         {
             elapsed += Time.unscaledDeltaTime;
@@ -1366,7 +1621,9 @@ public class BikeEntry : MonoBehaviour
             await Task.Yield();
         }
 
-        if (character == null || !arcadeBikeRagdoll.RequiresManualRecovery)
+        if (!IsOperationCurrent(operationVersion) || character == null ||
+            character.Ragdoll.IsRagdoll ||
+            !arcadeBikeRagdoll.RequiresManualRecovery)
             return false;
 
         arcadeBikeRagdoll.SetManualRecoveryPose(targetPosition, parkedRotation);
@@ -1680,15 +1937,22 @@ public class BikeEntry : MonoBehaviour
         }
         _reverseFootPushActive = false;
         _reverseFootPushTime = 0f;
+        ResetReverseLookPose();
         _footOnGround = false;
     }
 
     private async Task<bool> MoveCharacterToRecoveryPoint(
         Character character,
         Vector3 groundPoint,
-        Quaternion targetRotation)
+        Quaternion targetRotation,
+        int operationVersion)
     {
-        if (character == null || character.Motion == null) return false;
+        if (!IsOperationCurrent(operationVersion) ||
+            character == null || character.Ragdoll.IsRagdoll ||
+            character.Motion == null)
+        {
+            return false;
+        }
 
         Vector3 targetRootPosition = groundPoint +
                                      Vector3.up * (character.Motion.Height * 0.5f);
@@ -1713,12 +1977,15 @@ public class BikeEntry : MonoBehaviour
             Mathf.Max(0.1f, fallenBikeBlockedApproachTimeout)
         );
         while (!_approachFinished && character != null &&
+               !character.Ragdoll.IsRagdoll &&
+               IsOperationCurrent(operationVersion) &&
                Time.unscaledTime < deadline)
         {
             await Task.Yield();
         }
 
-        if (character == null)
+        if (!IsOperationCurrent(operationVersion) || character == null ||
+            character.Ragdoll.IsRagdoll)
         {
             _approachCharacter = null;
             return false;
@@ -1751,8 +2018,11 @@ public class BikeEntry : MonoBehaviour
         await SmoothAlignCharacterToPose(
             character,
             targetRootPosition,
-            targetRotation
+            targetRotation,
+            operationVersion
         );
+        if (!IsOperationCurrent(operationVersion) ||
+            character.Ragdoll.IsRagdoll) return false;
         _approachCharacter = null;
         return true;
     }
@@ -1760,15 +2030,19 @@ public class BikeEntry : MonoBehaviour
     private async Task SmoothAlignCharacterToPose(
         Character character,
         Vector3 targetPosition,
-        Quaternion targetRotation)
+        Quaternion targetRotation,
+        int operationVersion)
     {
-        if (character == null) return;
+        if (!IsOperationCurrent(operationVersion) || character == null ||
+            character.Ragdoll.IsRagdoll) return;
 
         float duration = Mathf.Max(0f, entryApproachAlignmentDuration);
         Vector3 startPosition = character.transform.position;
         Quaternion startRotation = character.transform.rotation;
         float elapsed = 0f;
-        while (elapsed < duration && character != null)
+        while (elapsed < duration && character != null &&
+               !character.Ragdoll.IsRagdoll &&
+               IsOperationCurrent(operationVersion))
         {
             elapsed += Time.unscaledDeltaTime;
             float progress = duration > 0f
@@ -1782,7 +2056,8 @@ public class BikeEntry : MonoBehaviour
             await Task.Yield();
         }
 
-        if (character != null)
+        if (character != null && !character.Ragdoll.IsRagdoll &&
+            IsOperationCurrent(operationVersion))
         {
             character.transform.SetPositionAndRotation(
                 targetPosition,
@@ -1827,6 +2102,8 @@ public class BikeEntry : MonoBehaviour
     public async void ExitBike(Character character)
     {
         if (IsTransitioning || character == null || character != _mountedCharacter) return;
+        int operationVersion = ++_operationVersion;
+        _transitionCharacter = character;
         SetShooterPoseActive(false);
         isExiting = true;
 
@@ -1842,6 +2119,7 @@ public class BikeEntry : MonoBehaviour
             bikeController.BeginExitStop();
             float deadline = Time.unscaledTime + Mathf.Max(0.1f, exitStopTimeout);
             while (character != null && character == _mountedCharacter &&
+                   IsOperationCurrent(operationVersion) &&
                    bikeController.IsVehicleEnabled &&
                    bikeController.SpeedMetersPerSecond > stoppedSpeed &&
                    Time.unscaledTime < deadline)
@@ -1849,9 +2127,11 @@ public class BikeEntry : MonoBehaviour
                 await Task.Yield();
             }
 
+            if (!IsOperationCurrent(operationVersion)) return;
             if (character == null || character != _mountedCharacter)
             {
                 bikeController.CancelExitStop();
+                _transitionCharacter = null;
                 isExiting = false;
                 return;
             }
@@ -1885,8 +2165,7 @@ public class BikeEntry : MonoBehaviour
 
         // Stop Arcade physics before the rider regains collision. A parked bike
         // remains kinematic so GC2's character collision cannot impart velocity.
-        if (hoverController != null) hoverController.isVehicleEnabled = false;
-        else if (bikeController != null) bikeController.SetVehicleEnabled(false);
+        if (bikeController != null) bikeController.SetVehicleEnabled(false);
 
         if (bikeRigidbody != null)
         {
@@ -1900,6 +2179,7 @@ public class BikeEntry : MonoBehaviour
 
         _inBike = false;
         ResetAirborneRiderLift();
+        _riderHelmetController = null;
         _mountedCharacter = null;
         character.transform.SetParent(null, true);
 
@@ -1920,8 +2200,10 @@ public class BikeEntry : MonoBehaviour
             exitAnimationTransitionIn,
             exitAnimationTransitionOut,
             exitPosition,
-            exitRotation
+            exitRotation,
+            operationVersion
         );
+        if (!IsOperationCurrent(operationVersion)) return;
 
         MoveCharacterToLeftExitPosition(character);
         RestoreCharacterPhysics(character);
@@ -1931,6 +2213,7 @@ public class BikeEntry : MonoBehaviour
         // Heavy Shooter weapons stay hidden through the complete exit gesture.
         // Restore the exact cached weapon only after the rider is back on foot.
         await FranklinShooterSystem.CompleteBikeDriverExit(character);
+        if (!IsOperationCurrent(operationVersion)) return;
 
         if (character.Player != null)
         {
@@ -1956,13 +2239,25 @@ public class BikeEntry : MonoBehaviour
         _ = this.onExit.Run(new Args(this.gameObject));
 
         ClearActiveEntrySide();
+        _transitionCharacter = null;
         isExiting = false;
     }
 
-    public async Task<bool> MoveCharacterToEntryStandingPointAsync(Character character)
+    public Task<bool> MoveCharacterToEntryStandingPointAsync(Character character)
     {
-        if (character == null || character.Motion == null || entryStandingPoint == null)
+        return MoveCharacterToEntryStandingPointAsync(character, _operationVersion);
+    }
+
+    private async Task<bool> MoveCharacterToEntryStandingPointAsync(
+        Character character,
+        int operationVersion)
+    {
+        if (!IsOperationCurrent(operationVersion) ||
+            character == null || character.Motion == null ||
+            entryStandingPoint == null)
+        {
             return false;
+        }
 
         if (_activeEntryStandingPoint == null) SelectEntrySide(character);
         Transform standingPoint = GetActiveEntryStandingPoint();
@@ -1988,12 +2283,16 @@ public class BikeEntry : MonoBehaviour
         );
 
         float deadline = Time.unscaledTime + Mathf.Max(0.1f, entryApproachTimeout);
-        while (!_approachFinished && character != null && Time.unscaledTime < deadline)
+        while (!_approachFinished && character != null &&
+               !character.Ragdoll.IsRagdoll &&
+               IsOperationCurrent(operationVersion) &&
+               Time.unscaledTime < deadline)
         {
             await Task.Yield();
         }
 
-        if (character == null) return false;
+        if (!IsOperationCurrent(operationVersion) || character == null ||
+            character.Ragdoll.IsRagdoll) return false;
         Vector3 horizontalToStanding = Vector3.ProjectOnPlane(
             character.transform.position - standingPoint.position,
             Vector3.up
@@ -2014,10 +2313,16 @@ public class BikeEntry : MonoBehaviour
         }
 
         if (alignCharacterToStandingPoint)
-            await SmoothAlignCharacterToStandingPoint(character, standingPoint);
+            await SmoothAlignCharacterToStandingPoint(
+                character,
+                standingPoint,
+                operationVersion
+            );
 
+        if (!IsOperationCurrent(operationVersion) ||
+            character.Ragdoll.IsRagdoll) return false;
         _approachCharacter = null;
-        return character != null;
+        return character != null && !character.Ragdoll.IsRagdoll;
     }
 
     private void OnEntryApproachFinished(
@@ -2036,15 +2341,22 @@ public class BikeEntry : MonoBehaviour
 
     private async Task SmoothAlignCharacterToStandingPoint(
         Character character,
-        Transform standingPoint)
+        Transform standingPoint,
+        int operationVersion)
     {
-        if (character == null || standingPoint == null) return;
+        if (!IsOperationCurrent(operationVersion) ||
+            character == null || standingPoint == null)
+        {
+            return;
+        }
 
         float duration = Mathf.Max(0f, entryApproachAlignmentDuration);
         Vector3 startPosition = character.transform.position;
         Quaternion startRotation = character.transform.rotation;
         float elapsed = 0f;
-        while (elapsed < duration && character != null && standingPoint != null)
+        while (elapsed < duration && character != null && standingPoint != null &&
+               !character.Ragdoll.IsRagdoll &&
+               IsOperationCurrent(operationVersion))
         {
             elapsed += Time.unscaledDeltaTime;
             float progress = duration > 0f
@@ -2058,7 +2370,9 @@ public class BikeEntry : MonoBehaviour
             await Task.Yield();
         }
 
-        if (character != null && standingPoint != null)
+        if (character != null && standingPoint != null &&
+            !character.Ragdoll.IsRagdoll &&
+            IsOperationCurrent(operationVersion))
         {
             character.transform.SetPositionAndRotation(
                 standingPoint.position,
@@ -2077,6 +2391,9 @@ public class BikeEntry : MonoBehaviour
         character.transform.localPosition = riderSeatOffset;
         character.transform.localRotation = Quaternion.identity;
         _mountedCharacter = character;
+        _riderHelmetController =
+            character.GetComponent<FranklinBikeHelmetController>() ??
+            character.GetComponentInChildren<FranklinBikeHelmetController>(true);
     }
 
     private void LockCharacterPhysics(Character character)
@@ -2243,9 +2560,10 @@ public class BikeEntry : MonoBehaviour
         float transitionIn,
         float transitionOut,
         Vector3 targetPosition,
-        Quaternion targetRotation)
+        Quaternion targetRotation,
+        int operationVersion)
     {
-        if (character == null) return;
+        if (!IsOperationCurrent(operationVersion) || character == null) return;
 
         // Character_Exit_Bike is authored around the standing root, not the
         // seated Character transform. Its first Humanoid RootT is offset back
@@ -2280,7 +2598,8 @@ public class BikeEntry : MonoBehaviour
         }
 
         float elapsed = 0f;
-        while (elapsed < duration && character != null)
+        while (elapsed < duration && character != null &&
+               IsOperationCurrent(operationVersion))
         {
             character.transform.SetPositionAndRotation(
                 targetPosition,
@@ -2291,7 +2610,7 @@ public class BikeEntry : MonoBehaviour
             await Task.Yield();
         }
 
-        if (character != null)
+        if (character != null && IsOperationCurrent(operationVersion))
         {
             character.transform.SetPositionAndRotation(
                 targetPosition,
@@ -2306,9 +2625,10 @@ public class BikeEntry : MonoBehaviour
         AnimationClip clip,
         float transitionIn,
         float transitionOut,
-        CharacterIKSetter ikSetter)
+        CharacterIKSetter ikSetter,
+        int operationVersion)
     {
-        if (character == null) return;
+        if (!IsOperationCurrent(operationVersion) || character == null) return;
 
         float animationDuration = 0f;
         if (clip != null)
@@ -2338,7 +2658,9 @@ public class BikeEntry : MonoBehaviour
         float totalDuration = Mathf.Max(blendDuration, animationDuration);
         float elapsed = 0f;
 
-        while (elapsed < totalDuration && character != null)
+        while (elapsed < totalDuration && character != null &&
+               !character.Ragdoll.IsRagdoll &&
+               IsOperationCurrent(operationVersion))
         {
             float blend = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / blendDuration));
             character.transform.rotation = Quaternion.Slerp(
@@ -2370,7 +2692,8 @@ public class BikeEntry : MonoBehaviour
             await Task.Yield();
         }
 
-        if (character == null) return;
+        if (!IsOperationCurrent(operationVersion) || character == null ||
+            character.Ragdoll.IsRagdoll) return;
         if (entryParent != null)
             character.transform.position = entryParent.TransformPoint(riderSeatOffset);
         character.transform.rotation = parallelRotation;
@@ -2524,6 +2847,81 @@ public class BikeEntry : MonoBehaviour
             _liveRiderPosePreview && !_shooterPoseActive
                 ? ApplyLiveRiderPosePreview
                 : null
+        );
+        ApplyReverseLookPoseToSetter(
+            ikSetter,
+            _shooterPoseActive ? 0f : _reverseLookWeight
+        );
+    }
+
+    private void UpdateReverseLookPose(bool active)
+    {
+        float target = active ? 1f : 0f;
+        float duration = active ? reverseLookBlendIn : reverseLookBlendOut;
+        _reverseLookWeight = Mathf.MoveTowards(
+            _reverseLookWeight,
+            target,
+            Time.deltaTime / Mathf.Max(0.02f, duration)
+        );
+        ApplyReverseLookPoseToSetter(_activeIkSetter, _reverseLookWeight);
+    }
+
+    private void ResetReverseLookPose()
+    {
+        _reverseLookWeight = 0f;
+        ApplyReverseLookPoseToSetter(_activeIkSetter, 0f);
+    }
+
+    private void ApplyReverseLookPoseToSetter(
+        CharacterIKSetter ikSetter,
+        float weight)
+    {
+        if (ikSetter == null) return;
+
+        CharacterIKSetter.HandIKState handState = ikSetter.CaptureHandIKState();
+        bool rightHandKeepsBike =
+            handState.RightTarget == steeringWheelRightHandTarget &&
+            handState.RightWeight > 0.001f &&
+            _passengerSeat?.IsOccupied != true;
+        float releaseWeight = reverseLookReleaseLeftHand && rightHandKeepsBike
+            ? Mathf.Clamp01(weight) * reverseLookLeftHandReleaseWeight
+            : 0f;
+        ikSetter.SetReverseLeftHandRelease(
+            releaseWeight,
+            reverseLookLeftHandTarget,
+            reverseLookLeftHandOffset
+        );
+
+        float side = reverseLookOverLeftShoulder ? -1f : 1f;
+        float yaw = reverseLookYaw * side;
+        float upperWeight = Mathf.Max(0f, reverseLookUpperChestWeight);
+        float neckWeight = Mathf.Max(0f, reverseLookNeckWeight);
+        float headWeight = Mathf.Max(0f, reverseLookHeadWeight);
+        float weightSum = upperWeight + neckWeight + headWeight;
+        if (weightSum <= 0.0001f)
+        {
+            ikSetter.SetReverseLookPose(
+                0f,
+                Vector3.zero,
+                Vector3.zero,
+                Vector3.zero
+            );
+            return;
+        }
+
+        float inverseWeightSum = 1f / weightSum;
+        upperWeight *= inverseWeightSum;
+        neckWeight *= inverseWeightSum;
+        headWeight *= inverseWeightSum;
+        ikSetter.SetReverseLookPose(
+            weight,
+            new Vector3(0f, yaw * upperWeight, 0f),
+            new Vector3(0f, yaw * neckWeight, 0f),
+            new Vector3(
+                reverseLookHeadPitch,
+                yaw * headWeight,
+                0f
+            )
         );
     }
 

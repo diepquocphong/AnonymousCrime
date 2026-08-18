@@ -58,7 +58,12 @@ namespace FranklinGame.Vehicles
             m_SinkDistance = Mathf.Max(0.05f, sinkDistance);
             m_ReleasedAt = Time.unscaledTime;
             m_NextGroundProbeAt = m_ReleasedAt + m_MaximumFlightTime;
-            m_IsConfigured = m_Body != null && m_Colliders.Length > 0;
+            // A future mesh variant may have no collider. It still needs the
+            // raycast/hard-timeout lifecycle instead of becoming an immortal
+            // world-root Rigidbody, so collider presence is not a prerequisite.
+            m_IsConfigured = m_Body != null;
+            if (m_Body == null)
+                Destroy(gameObject, m_MaximumFlightTime + 8f);
         }
 
         private void OnCollisionEnter(Collision collision)

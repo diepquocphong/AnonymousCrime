@@ -1,4 +1,5 @@
 using System;
+using FranklinGame.AirSystem;
 using FranklinGame.Vehicles;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
@@ -9,7 +10,7 @@ namespace FranklinGame.Shooter
     [Title("Franklin Surface Impact")]
     [Category("Shooter/Franklin Surface Impact")]
     [Image(typeof(IconBullsEye), ColorTheme.Type.Yellow)]
-    [Description("Returns ground/wall impact VFX only when target is not a Character, Car or Bike")]
+    [Description("Returns ground/wall impact VFX only when target is not a Character, Car, Bike or Drone")]
     [Serializable]
     public sealed class GetGameObjectFranklinSurfaceImpact : PropertyTypeGetGameObject
     {
@@ -46,7 +47,8 @@ namespace FranklinGame.Shooter
             return target != null &&
                    (target.GetComponentInParent<Character>() != null ||
                     target.GetComponentInParent<FranklinBikeHealth>() != null ||
-                    target.GetComponentInParent<SimcadeCarHealth>() != null);
+                    target.GetComponentInParent<SimcadeCarHealth>() != null ||
+                    target.GetComponentInParent<DroneHealth>() != null);
         }
     }
 }

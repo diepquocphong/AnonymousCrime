@@ -294,12 +294,20 @@ namespace FranklinGame.Rendering.Editor
                 SetFloat(serialized, "m_AirborneHideHeight", profile.HideHeight);
                 SetFloat(serialized, "m_MinAirborneScale", profile.MinimumScale);
                 SetBool(serialized, "m_FollowGround", true);
-                SetLayerMask(serialized, "m_GroundLayers", ~0);
+                SetLayerMask(
+                    serialized,
+                    "m_GroundLayers",
+                    FranklinBlobShadow.DefaultGroundReceiverLayerMask
+                );
                 SetFloat(serialized, "m_ProbeStartHeight", 0.5f);
                 SetFloat(serialized, "m_MaxGroundDistance", profile.MaximumGroundDistance);
                 SetFloat(serialized, "m_ProbeInterval", profile.ProbeInterval);
                 SetFloat(serialized, "m_GroundOffset", 0.025f);
                 SetFloat(serialized, "m_MinGroundNormalY", 0.35f);
+                SetFloat(serialized, "m_GroundNormalSharpness", 18f);
+                SetFloat(serialized, "m_ReceiverAbove", 0.22f);
+                SetFloat(serialized, "m_ReceiverBelow", 0.40f);
+                SetFloat(serialized, "m_SeamAllowance", 0.10f);
                 SetBool(serialized, "m_HideWhenGroundMissing", true);
                 SetBool(serialized, "m_IgnoreRigidbodyReceivers", true);
                 SetBool(serialized, "m_SuppressInsideShadowOwner", true);

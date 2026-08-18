@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using UnityEngine;
 
 namespace GameCreator.Runtime.Common
@@ -8,19 +7,17 @@ namespace GameCreator.Runtime.Common
     internal class PoolInstance : MonoBehaviour
     {
         [NonSerialized] private int m_PrefabId;
-        [NonSerialized] private IEnumerator m_Coroutine;
+        [NonSerialized] private bool m_HasDuration;
+        [NonSerialized] private float m_DisableAt;
 
         // INITIALIZERS: --------------------------------------------------------------------------
         
         private void OnDisable()
         {
-            this.CancelInvoke();
+            this.m_HasDuration = false;
             
             if (ApplicationManager.IsExiting) return;
             PoolManager.Instance.OnDisableInstance(this.m_PrefabId, this);
-
-            if (this.m_Coroutine == null) return;
-            this.StopCoroutine(this.m_Coroutine);
         }
 
         private void OnDestroy()
@@ -38,17 +35,17 @@ namespace GameCreator.Runtime.Common
         
         public void SetDuration(float duration)
         {
-            this.m_Coroutine = this.TimeoutDisable(duration);
-            this.StartCoroutine(this.m_Coroutine);
+            this.m_HasDuration = true;
+            this.m_DisableAt = Time.time + duration;
         }
 
-        // PRIVATE METHODS: -----------------------------------------------------------------------
+        // UPDATE METHOD: -------------------------------------------------------------------------
 
-        private IEnumerator TimeoutDisable(float duration)
+        private void Update()
         {
-            WaitForSeconds wait = new WaitForSeconds(duration);
-            yield return wait;
+            if (!this.m_HasDuration || Time.time < this.m_DisableAt) return;
 
+            this.m_HasDuration = false;
             this.gameObject.SetActive(false);
         }
     }

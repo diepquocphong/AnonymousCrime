@@ -36,7 +36,7 @@ namespace FranklinGame.Vehicles
         [SerializeField] private AudioClip m_HornClip;
         [SerializeField] private AudioSource m_HornSource;
         [SerializeField, Range(0f, 1f)] private float m_HornMaxVolume = 0.72f;
-        [SerializeField, Range(0.5f, 2f)] private float m_HornPitch = 1.18f;
+        [SerializeField, Range(0.5f, 2f)] private float m_HornPitch = 1f;
         [SerializeField, Min(0.01f)] private float m_HornFadeInSpeed = 18f;
         [SerializeField, Min(0.01f)] private float m_HornFadeOutSpeed = 14f;
 
@@ -48,6 +48,15 @@ namespace FranklinGame.Vehicles
         [SerializeField, Min(0.1f)]
         [Tooltip("Smooth deceleration in m/s² when Slow Drive is pressed above its speed limit.")]
         private float m_SlowSpeedDeceleration = 7.5f;
+
+        [Header("Spawn Grounding")]
+        [SerializeField]
+        [Tooltip("Places every newly spawned or pool-reactivated Bike upright on the nearest drivable ground surface.")]
+        private bool m_SnapToGroundOnSpawn = true;
+        [SerializeField, Min(0.1f)] private float m_SpawnGroundProbeHeight = 1f;
+        [SerializeField, Min(1f)] private float m_SpawnGroundProbeDistance = 30f;
+        [SerializeField, Min(0f)] private float m_SpawnGroundClearance = 0.015f;
+        [SerializeField, Range(0f, 1f)] private float m_MinSpawnGroundNormal = 0.45f;
 
         [SerializeField] private bool m_ReadKeyboardInput = true;
 
@@ -113,6 +122,12 @@ namespace FranklinGame.Vehicles
         private FranklinBikeBrakeReverseFlare[] m_BrakeReverseFlares;
         private bool m_HasAppliedMobileFrameRateCap;
         private int m_PreviousMobileTargetFrameRate;
+        private bool m_HasStarted;
+        private readonly RaycastHit[] m_SpawnGroundHits = new RaycastHit[16];
+        private bool m_HasSpawnVisualPose;
+        private Quaternion m_SpawnRotatorLocalRotation;
+        private Quaternion m_SpawnWheelieLocalRotation;
+        private Quaternion m_SpawnLeanLocalRotation;
 
         public bool IsVehicleEnabled => this.m_IsVehicleEnabled;
         public bool IsDamageLocked => this.m_IsDamageLocked;
@@ -174,6 +189,7 @@ namespace FranklinGame.Vehicles
         private void Awake()
         {
             this.ResolveReferences();
+            this.CaptureSpawnVisualPose();
             this.CacheRuntimeEffects();
             if (this.m_Rigidbody != null)
             {
@@ -190,6 +206,17 @@ namespace FranklinGame.Vehicles
 
         private void Start()
         {
+            this.SnapSpawnToGround();
+            this.m_HasStarted = true;
+            this.ApplyVehicleState();
+        }
+
+        private void OnEnable()
+        {
+            // Start handles the first scene/Instantiate activation. A later
+            // OnEnable represents a pooled Bike being spawned again.
+            if (!this.m_HasStarted) return;
+            this.SnapSpawnToGround();
             this.ApplyVehicleState();
         }
 
@@ -291,6 +318,15 @@ namespace FranklinGame.Vehicles
             if (!this.m_HasFuel)
             {
                 accelerate = 0f;
+                wheelie = 0f;
+            }
+
+            // Keep the mobile/keyboard stunt state consistent with the Core.
+            // Below the configured forward-speed threshold the Bike must not lift
+            // its front wheel or suppress the equipped weapon as if a stunt began.
+            if (wheelie > 0.01f &&
+                (this.m_Controller == null || !this.m_Controller.CanPerformWheelie))
+            {
                 wheelie = 0f;
             }
 
@@ -783,6 +819,251 @@ namespace FranklinGame.Vehicles
                 this.m_Controller.bikeReferences.LeanTransform.localRotation = Quaternion.identity;
         }
 
+        /// <summary>
+        /// Performs a bounded, allocation-free placement pass. The Bike keeps its
+        /// authored heading, aligns to the supporting slope and moves only once;
+        /// no runtime ground polling remains after this call.
+        /// </summary>
+        public bool SnapSpawnToGround()
+        {
+            if (!this.m_SnapToGroundOnSpawn || !this.ResolveReferences()) return false;
+
+            FranklinArcadeBikeRagdoll ragdoll =
+                this.GetComponent<FranklinArcadeBikeRagdoll>();
+            if (ragdoll != null && ragdoll.IsRagdoll) return false;
+
+            ArcadeBikeControllerPro.BikeReferences references =
+                this.m_Controller.bikeReferences;
+            ArcadeBikeControllerPro.BikeGeometry geometry =
+                this.m_Controller.bikeGeometry;
+            if (references == null || geometry == null) return false;
+            this.RestoreSpawnVisualPose(references);
+            Physics.SyncTransforms();
+
+            Transform frontWheel = references.FrontWheel != null
+                ? references.FrontWheel
+                : references.FrontWheelParent;
+            Transform rearWheel = references.RearWheel != null
+                ? references.RearWheel
+                : references.RearWheelParent;
+
+            RaycastHit frontGround = default;
+            RaycastHit rearGround = default;
+            bool hasFrontGround = frontWheel != null &&
+                                  this.TryFindSpawnGround(
+                                      frontWheel.position,
+                                      out frontGround
+                                  );
+            bool hasRearGround = rearWheel != null &&
+                                 this.TryFindSpawnGround(
+                                     rearWheel.position,
+                                     out rearGround
+                                 );
+            bool hasCenterGround = this.TryFindSpawnGround(
+                transform.position,
+                out RaycastHit centerGround
+            );
+            if (!hasFrontGround && !hasRearGround && !hasCenterGround) return false;
+
+            Vector3 normalSum = Vector3.zero;
+            if (hasFrontGround) normalSum += frontGround.normal;
+            if (hasRearGround) normalSum += rearGround.normal;
+            if (!hasFrontGround && !hasRearGround && hasCenterGround)
+                normalSum = centerGround.normal;
+            Vector3 groundNormal = normalSum.sqrMagnitude > 0.001f
+                ? normalSum.normalized
+                : Vector3.up;
+
+            Vector3 forward = Vector3.ProjectOnPlane(transform.forward, groundNormal);
+            if (forward.sqrMagnitude < 0.001f)
+                forward = Vector3.ProjectOnPlane(transform.up, groundNormal);
+            if (forward.sqrMagnitude < 0.001f) forward = Vector3.forward;
+            Quaternion groundedRotation = Quaternion.LookRotation(
+                forward.normalized,
+                groundNormal
+            );
+            transform.rotation = groundedRotation;
+            this.m_Rigidbody.rotation = groundedRotation;
+            Physics.SyncTransforms();
+
+            // Re-sample after slope alignment because both wheel centers moved.
+            hasFrontGround = frontWheel != null &&
+                             this.TryFindSpawnGround(
+                                 frontWheel.position,
+                                 out frontGround
+                             );
+            hasRearGround = rearWheel != null &&
+                            this.TryFindSpawnGround(
+                                rearWheel.position,
+                                out rearGround
+                            );
+
+            float correctionSum = 0f;
+            int correctionCount = 0;
+            if (hasFrontGround)
+            {
+                correctionSum += this.GetWheelGroundCorrection(
+                    frontWheel,
+                    geometry.FrontWheelRadius,
+                    frontGround.point,
+                    groundNormal
+                );
+                ++correctionCount;
+            }
+            if (hasRearGround)
+            {
+                correctionSum += this.GetWheelGroundCorrection(
+                    rearWheel,
+                    geometry.RearWheelRadius,
+                    rearGround.point,
+                    groundNormal
+                );
+                ++correctionCount;
+            }
+
+            float correction;
+            if (correctionCount > 0)
+            {
+                correction = correctionSum / correctionCount;
+            }
+            else
+            {
+                // A narrow ledge may only be present below the Bike center. Place
+                // the lowest available tyre on that supporting plane.
+                Vector3 groundPoint = centerGround.point;
+                float lowestTyre = float.PositiveInfinity;
+                if (frontWheel != null)
+                {
+                    lowestTyre = Mathf.Min(
+                        lowestTyre,
+                        Vector3.Dot(
+                            frontWheel.position - groundNormal *
+                            this.GetWorldWheelRadius(frontWheel, geometry.FrontWheelRadius),
+                            groundNormal
+                        )
+                    );
+                }
+                if (rearWheel != null)
+                {
+                    lowestTyre = Mathf.Min(
+                        lowestTyre,
+                        Vector3.Dot(
+                            rearWheel.position - groundNormal *
+                            this.GetWorldWheelRadius(rearWheel, geometry.RearWheelRadius),
+                            groundNormal
+                        )
+                    );
+                }
+                if (float.IsPositiveInfinity(lowestTyre)) return false;
+                correction = Vector3.Dot(groundPoint, groundNormal) - lowestTyre;
+            }
+
+            Vector3 groundedPosition = transform.position + groundNormal *
+                (correction + this.m_SpawnGroundClearance);
+            transform.position = groundedPosition;
+            this.m_Rigidbody.position = groundedPosition;
+            this.m_Rigidbody.linearVelocity = Vector3.zero;
+            this.m_Rigidbody.angularVelocity = Vector3.zero;
+            Physics.SyncTransforms();
+            return true;
+        }
+
+        private void CaptureSpawnVisualPose()
+        {
+            ArcadeBikeControllerPro.BikeReferences references =
+                this.m_Controller?.bikeReferences;
+            if (references == null) return;
+
+            this.m_SpawnRotatorLocalRotation = references.Rotator != null
+                ? references.Rotator.localRotation
+                : Quaternion.identity;
+            this.m_SpawnWheelieLocalRotation = references.WheelieTransform != null
+                ? references.WheelieTransform.localRotation
+                : Quaternion.identity;
+            this.m_SpawnLeanLocalRotation = references.LeanTransform != null
+                ? references.LeanTransform.localRotation
+                : Quaternion.identity;
+            this.m_HasSpawnVisualPose = true;
+        }
+
+        private void RestoreSpawnVisualPose(
+            ArcadeBikeControllerPro.BikeReferences references)
+        {
+            if (!this.m_HasSpawnVisualPose) this.CaptureSpawnVisualPose();
+            if (!this.m_HasSpawnVisualPose) return;
+
+            if (references.Rotator != null)
+                references.Rotator.localRotation = this.m_SpawnRotatorLocalRotation;
+            if (references.WheelieTransform != null)
+                references.WheelieTransform.localRotation =
+                    this.m_SpawnWheelieLocalRotation;
+            if (references.LeanTransform != null)
+                references.LeanTransform.localRotation = this.m_SpawnLeanLocalRotation;
+        }
+
+        private bool TryFindSpawnGround(Vector3 samplePoint, out RaycastHit result)
+        {
+            result = default;
+            float probeHeight = Mathf.Max(0.1f, this.m_SpawnGroundProbeHeight);
+            float probeDistance = probeHeight +
+                                  Mathf.Max(1f, this.m_SpawnGroundProbeDistance);
+            int layerMask = this.m_Controller?.bikeSettings != null
+                ? this.m_Controller.bikeSettings.drivableLayerMask.value
+                : Physics.DefaultRaycastLayers;
+            int hitCount = Physics.RaycastNonAlloc(
+                samplePoint + Vector3.up * probeHeight,
+                Vector3.down,
+                this.m_SpawnGroundHits,
+                probeDistance,
+                layerMask,
+                QueryTriggerInteraction.Ignore
+            );
+
+            float closestDistance = float.PositiveInfinity;
+            bool found = false;
+            for (int index = 0; index < hitCount; ++index)
+            {
+                RaycastHit candidate = this.m_SpawnGroundHits[index];
+                Collider candidateCollider = candidate.collider;
+                if (candidateCollider == null ||
+                    candidateCollider.transform.IsChildOf(transform) ||
+                    candidateCollider.attachedRigidbody == this.m_Rigidbody ||
+                    Vector3.Dot(candidate.normal, Vector3.up) <
+                    this.m_MinSpawnGroundNormal ||
+                    candidate.distance >= closestDistance)
+                {
+                    continue;
+                }
+
+                closestDistance = candidate.distance;
+                result = candidate;
+                found = true;
+            }
+            return found;
+        }
+
+        private float GetWheelGroundCorrection(
+            Transform wheel,
+            float authoredRadius,
+            Vector3 groundPoint,
+            Vector3 groundNormal)
+        {
+            float radius = this.GetWorldWheelRadius(wheel, authoredRadius);
+            Vector3 tyreBottom = wheel.position - groundNormal * radius;
+            return Vector3.Dot(groundPoint - tyreBottom, groundNormal);
+        }
+
+        private float GetWorldWheelRadius(Transform wheel, float authoredRadius)
+        {
+            Vector3 scale = wheel.lossyScale;
+            float radiusScale = Mathf.Max(
+                Mathf.Abs(scale.x),
+                Mathf.Abs(scale.y),
+                Mathf.Abs(scale.z)
+            );
+            return Mathf.Max(0.01f, authoredRadius * radiusScale);
+        }
+
         private bool ResolveReferences()
         {
             if (this.m_Controller == null) this.m_Controller = this.GetComponent<ArcadeBikeControllerPro>();
@@ -969,7 +1250,9 @@ namespace FranklinGame.Vehicles
                     engine.mute = false;
                     if (!engine.isPlaying && engine.clip != null) engine.Play();
                 }
-                if (skid != null && !skid.isPlaying && skid.clip != null) skid.Play();
+                // Core starts skid audio only while real wheel slip is audible.
+                // Pre-playing a muted loop here keeps mobile audio decoding active
+                // for the entire ride and contributes to sustained thermal load.
             }
             else
             {
@@ -1037,6 +1320,21 @@ namespace FranklinGame.Vehicles
             this.m_SlowSpeedDeceleration = Mathf.Max(
                 0.1f,
                 this.m_SlowSpeedDeceleration
+            );
+            this.m_SpawnGroundProbeHeight = Mathf.Max(
+                0.1f,
+                this.m_SpawnGroundProbeHeight
+            );
+            this.m_SpawnGroundProbeDistance = Mathf.Max(
+                1f,
+                this.m_SpawnGroundProbeDistance
+            );
+            this.m_SpawnGroundClearance = Mathf.Max(
+                0f,
+                this.m_SpawnGroundClearance
+            );
+            this.m_MinSpawnGroundNormal = Mathf.Clamp01(
+                this.m_MinSpawnGroundNormal
             );
             this.m_ExitStopDeceleration = Mathf.Max(0.1f, this.m_ExitStopDeceleration);
             this.m_ExitStopAngularDeceleration = Mathf.Max(

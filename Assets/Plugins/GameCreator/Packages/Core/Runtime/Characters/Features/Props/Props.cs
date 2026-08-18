@@ -160,13 +160,18 @@ namespace GameCreator.Runtime.Characters
             int instanceID = prefab.GetInstanceID();
             
             if (!this.m_Props.TryGetValue(instanceID, out List<IProp> props)) return;
-            if (props.Count <= 0) return;
+            if (props.Count <= 0)
+            {
+                this.m_Props.Remove(instanceID);
+                return;
+            }
 
             int removeIndex = props.Count - 1;
             Transform bone = props[removeIndex].Bone;
             
             props[removeIndex].Destroy();
             props.RemoveAt(removeIndex);
+            if (props.Count == 0) this.m_Props.Remove(instanceID);
 
             LastPropDetachedInstance = null;
             LastPropDetachedPrefab = prefab;
@@ -185,7 +190,11 @@ namespace GameCreator.Runtime.Characters
             int prefabInstanceID = prefab.GetInstanceID();
 
             if (!this.m_Props.TryGetValue(prefabInstanceID, out List<IProp> props)) return;
-            if (props.Count <= 0) return;
+            if (props.Count <= 0)
+            {
+                this.m_Props.Remove(prefabInstanceID);
+                return;
+            }
 
             for (int i = 0; i < props.Count; i++)
             {
@@ -198,6 +207,7 @@ namespace GameCreator.Runtime.Characters
 
                 prop.Destroy();
                 props.RemoveAt(i);
+                if (props.Count == 0) this.m_Props.Remove(prefabInstanceID);
                 
                 LastPropDetachedInstance = null;
                 LastPropDetachedPrefab = prefab;
@@ -217,13 +227,18 @@ namespace GameCreator.Runtime.Characters
             int instanceID = instance.GetInstanceID();
             
             if (!this.m_Props.TryGetValue(instanceID, out List<IProp> props)) return;
-            if (props.Count <= 0) return;
+            if (props.Count <= 0)
+            {
+                this.m_Props.Remove(instanceID);
+                return;
+            }
 
             int removeIndex = props.Count - 1;
             Transform bone = props[removeIndex].Bone;
             
             props[removeIndex].Destroy();
             props.RemoveAt(removeIndex);
+            if (props.Count == 0) this.m_Props.Remove(instanceID);
             
             LastPropDetachedInstance = null;
             LastPropDetachedPrefab = null;

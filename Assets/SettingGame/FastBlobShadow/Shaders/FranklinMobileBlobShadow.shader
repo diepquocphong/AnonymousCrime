@@ -7,7 +7,9 @@ Shader "Franklin Game/Mobile Blob Shadow"
         _BlobPower("Fullness", Range(0.25, 8)) = 1.7
         _BlobCore("Dark Core", Range(0, 0.9)) = 0.12
         _BlobShape("Shape (0 Ellipse, 1 Rectangle)", Range(0, 1)) = 0
-        _BlobReceiverBand("Receiver Band", Range(0.02, 0.5)) = 0.1
+        _BlobReceiverAbove("Receiver Above", Range(0.02, 0.5)) = 0.22
+        _BlobReceiverBelow("Receiver Below", Range(0.02, 0.75)) = 0.40
+        _BlobSeamAllowance("Seam Allowance", Range(0, 0.3)) = 0.10
     }
 
     SubShader
@@ -44,7 +46,9 @@ Shader "Franklin Game/Mobile Blob Shadow"
                 half _BlobPower;
                 half _BlobCore;
                 half _BlobShape;
-                half _BlobReceiverBand;
+                half _BlobReceiverAbove;
+                half _BlobReceiverBelow;
+                half _BlobSeamAllowance;
             CBUFFER_END
 
             struct Attributes
@@ -85,34 +89,53 @@ Shader "Franklin Game/Mobile Blob Shadow"
                 float3 positionWS = ComputeWorldSpacePosition(screenUV, rawDepth, UNITY_MATRIX_I_VP);
                 float3 positionOS = TransformWorldToObject(positionWS);
 
-                // Project only onto a thin band around the sampled ground plane.
-                // The volume must remain tall enough to cover slopes and jumps, but
-                // letting its full height receive the blob also darkens the owner's
-                // wheels/body whenever those pixels fall inside the projection cube.
-                half receiverDistance = abs((half)positionOS.y);
-                half receiverBand = max(_BlobReceiverBand, 0.01h);
+                half2 footprintPoint = abs((half2)positionOS.xz) * 2.0h;
+                if (max(footprintPoint.x, footprintPoint.y) >= 1.0h) return 0;
+
+                // Neighboring ground objects can differ slightly in height or
+                // normal. Allow more depth below the sampled plane and grow the
+                // tolerance toward the footprint edge, while keeping the upper
+                // limit small enough to reject vehicle bodies and roofs.
+                half signedReceiverHeight = (half)positionOS.y;
+                half edgeFactor = saturate(max(footprintPoint.x, footprintPoint.y));
+                half aboveLimit = max(
+                    _BlobReceiverAbove + _BlobSeamAllowance * edgeFactor,
+                    0.01h
+                );
+                half belowLimit = max(
+                    _BlobReceiverBelow + _BlobSeamAllowance * edgeFactor,
+                    0.01h
+                );
+                half receiverLimit = lerp(
+                    belowLimit,
+                    aboveLimit,
+                    step(0.0h, signedReceiverHeight)
+                );
+                half normalizedReceiverDistance =
+                    abs(signedReceiverHeight) / receiverLimit;
                 half verticalFade = 1.0h - smoothstep(
-                    receiverBand * 0.5h,
-                    receiverBand,
-                    receiverDistance
+                    0.65h,
+                    1.0h,
+                    normalizedReceiverDistance
                 );
                 if (verticalFade <= 0.0001h) return 0;
 
-                half2 footprintPoint = abs((half2)positionOS.xz) * 2.0h;
-                half ellipseDistance = length(footprintPoint);
-                // An eighth-order superellipse keeps the Car footprint box-like
-                // while avoiding max(X,Z)'s derivative break along both diagonals.
-                half2 boxPoint = min(footprintPoint, 2.0h);
-                half2 boxSquared = boxPoint * boxPoint;
-                half2 boxFourth = boxSquared * boxSquared;
-                half2 boxEighth = boxFourth * boxFourth;
-                half rectangleDistance = pow(
-                    boxEighth.x + boxEighth.y,
-                    0.125h
-                );
-                half radialDistance = saturate(
-                    lerp(ellipseDistance, rectangleDistance, saturate(_BlobShape))
-                );
+                half radialDistance;
+                if (_BlobShape > 0.5h)
+                {
+                    // An eighth-order superellipse keeps Car box-like. Three
+                    // square roots are cheaper than a generic eighth-root pow.
+                    half2 boxSquared = footprintPoint * footprintPoint;
+                    half2 boxFourth = boxSquared * boxSquared;
+                    half2 boxEighth = boxFourth * boxFourth;
+                    half boxSum = boxEighth.x + boxEighth.y;
+                    radialDistance = sqrt(sqrt(sqrt(boxSum)));
+                }
+                else
+                {
+                    radialDistance = length(footprintPoint);
+                }
+                radialDistance = saturate(radialDistance);
                 half edgeFade = saturate(
                     (1.0h - radialDistance) / max(1.0h - _BlobCore, 0.01h)
                 );

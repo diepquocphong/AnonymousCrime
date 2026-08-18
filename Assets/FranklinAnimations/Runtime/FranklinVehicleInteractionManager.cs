@@ -1,4 +1,5 @@
 using System.Reflection;
+using FranklinGame.AirSystem;
 using FranklinGame.Vehicles;
 using FranklinGame.Rendering;
 using GameCreator.Runtime.Cameras;
@@ -19,7 +20,8 @@ namespace FranklinGame.Animations
     public sealed class FranklinVehicleInteractionManager : MonoBehaviour
     {
         private const float ENTRY_BEGIN_TIMEOUT = 5f;
-        private const int FALLEN_BIKE_HIT_CAPACITY = 32;
+        private const int FALLEN_BIKE_HIT_CAPACITY = 128;
+        private const float CANDIDATE_DISTANCE_EPSILON = 0.0001f;
 
         private static readonly FieldInfo THIRD_PERSON_SHOULDER_FIELD =
             typeof(ShotSystemThirdPerson).GetField(
@@ -73,6 +75,11 @@ namespace FranklinGame.Animations
         [Tooltip("Distance around the Player used to find a grounded fallen bike when its rotated GC2 Hotspot is no longer selected.")]
         private float m_FallenBikeInteractionRadius = 2.25f;
 
+        [Header("Vehicle selection")]
+        [SerializeField, Range(0f, 1f)]
+        [Tooltip("A nearby vehicle must become this many metres closer before replacing the currently highlighted vehicle.")]
+        private float m_VehicleSelectionHysteresis = 0.25f;
+
         [Header("Vehicle entry animation")]
         [SerializeField]
         [Tooltip("Prevents the vehicle's seated Driving State from appearing before its door/entry animation finishes.")]
@@ -125,6 +132,7 @@ namespace FranklinGame.Animations
         private float m_DelayedDrivingStateTransitionOut;
         private MainCamera m_MainCamera;
         private ShotCamera m_RuntimeVehicleShot;
+        private ShotCamera m_ActiveVehicleShot;
         private ShotCamera m_PreVehicleShot;
         private PropertyGetGameObject m_DefaultVehiclePivot;
         private GameObject m_ActiveVehiclePivot;
@@ -132,10 +140,22 @@ namespace FranklinGame.Animations
         private BikeEntry m_ActiveBikeEntry;
         private SimcadeCarDriver m_ActiveSimcadeDriver;
         private FranklinArcadeBikeDriver m_ActiveBikeDriver;
+        private HelicopterFlightController m_ActiveHelicopterDriver;
+        private Component m_SelectedVehicleEntry;
         private bool m_IsVehicleCameraActive;
         private SimcadeCarjacking m_ActiveCarjacking;
         private readonly Collider[] m_FallenBikeHits =
             new Collider[FALLEN_BIKE_HIT_CAPACITY];
+
+        private struct VehicleCandidate
+        {
+            public Component entry;
+            public CarEntrySideMode carSide;
+            public float distanceSqr;
+            public int tieBreaker;
+
+            public bool IsValid => this.entry != null;
+        }
 
         private void Awake()
         {
@@ -144,6 +164,18 @@ namespace FranklinGame.Animations
 
         private void OnDisable()
         {
+            if (this.m_ActiveHelicopterDriver != null &&
+                this.m_ActiveCarEntry != null && this.m_Player != null)
+            {
+                // The manager owns the helicopter input/camera lease. If the
+                // manager disappears independently, leave the Character safely
+                // detached instead of preserving an occupied seat with no exit
+                // route after this component is enabled again.
+                this.m_ActiveCarEntry.ReleaseDriverForUnavailableVehicle(
+                    this.m_Player
+                );
+            }
+
             if (this.m_IsVehicleAnimationLocked)
             {
                 this.m_IsVehicleAnimationLocked = false;
@@ -151,7 +183,18 @@ namespace FranklinGame.Animations
             }
 
             this.SetPlayerBlobShadowSuspended(false);
+            this.ClearDelayedDrivingState();
             this.RestorePlayerCamera();
+            this.m_HasEnteredVehicle = false;
+            this.m_ActiveVehiclePivot = null;
+            this.m_ActiveCarEntry = null;
+            this.m_ActiveBikeEntry = null;
+            this.m_ActiveSimcadeDriver = null;
+            this.m_ActiveBikeDriver = null;
+            this.m_ActiveHelicopterDriver = null;
+            this.m_ActiveCarjacking = null;
+            this.ClearSelectedVehicleCandidate();
+            this.m_BikeMainShotAim?.Deactivate();
         }
 
         private void OnDestroy()
@@ -184,7 +227,9 @@ namespace FranklinGame.Animations
         public IRvrVehicleInputController ActiveVehicleDriver =>
             this.m_ActiveSimcadeDriver != null
                 ? this.m_ActiveSimcadeDriver
-                : this.m_ActiveBikeDriver;
+                : this.m_ActiveBikeDriver != null
+                    ? this.m_ActiveBikeDriver
+                    : this.m_ActiveHelicopterDriver;
 
         /// <summary>
         /// True only while RVR has selected the entry spot on an available car or bike.
@@ -195,12 +240,13 @@ namespace FranklinGame.Animations
             get
             {
                 if (!this.ResolvePlayer() || this.m_IsVehicleAnimationLocked ||
-                    this.m_Player.Player?.IsControllable != true)
+                    this.m_Player.Player?.IsControllable != true ||
+                    this.m_Player.Ragdoll.IsRagdoll)
                 {
                     return false;
                 }
 
-                return this.TryGetSelectedDriverDoor(out _, out _);
+                return this.TryUpdateSelectedVehicleCandidate(out _);
             }
         }
 
@@ -211,12 +257,52 @@ namespace FranklinGame.Animations
         public bool RequestVehicleInteraction()
         {
             if (!this.ResolvePlayer() || this.m_IsVehicleAnimationLocked ||
-                this.m_Player.Player?.IsControllable != true)
+                this.m_Player.Player?.IsControllable != true ||
+                this.m_Player.Ragdoll.IsRagdoll)
             {
                 return false;
             }
 
-            return this.TryStartVehicleInteraction();
+            VehicleCandidate candidate;
+            if (this.m_SelectedVehicleEntry != null)
+            {
+                // The HUD displayed its button for this exact vehicle. Revalidate
+                // it, but never jump to another overlapping vehicle on the tap.
+                if (!this.TryGetPinnedVehicleCandidate(out candidate))
+                {
+                    this.ClearSelectedVehicleCandidate();
+                    return false;
+                }
+            }
+            else if (!this.TryUpdateSelectedVehicleCandidate(out candidate))
+            {
+                return false;
+            }
+
+            return this.TryStartVehicleInteraction(candidate);
+        }
+
+        /// <summary>
+        /// Routes legacy GC2 vehicle instructions through the same Player lock as
+        /// the mobile HUD. NPC instructions continue using their entry directly.
+        /// </summary>
+        public bool RequestSpecificVehicleInteraction(Component vehicleEntry)
+        {
+            if (!this.ResolvePlayer() || vehicleEntry == null ||
+                this.m_IsVehicleAnimationLocked ||
+                this.m_Player.Player?.IsControllable != true ||
+                this.m_Player.Ragdoll.IsRagdoll ||
+                !this.TryCreateCandidate(
+                    vehicleEntry,
+                    this.m_Player.transform.position,
+                    out VehicleCandidate candidate
+                ))
+            {
+                return false;
+            }
+
+            this.m_SelectedVehicleEntry = candidate.entry;
+            return this.TryStartVehicleInteraction(candidate);
         }
 
         /// <summary>
@@ -244,18 +330,46 @@ namespace FranklinGame.Animations
             this.m_ActiveBikeEntry = null;
             this.m_ActiveSimcadeDriver = null;
             this.m_ActiveBikeDriver = null;
+            this.m_ActiveHelicopterDriver = null;
             this.m_ActiveCarjacking = null;
             return true;
         }
 
-        private bool TryStartVehicleInteraction()
+        /// <summary>
+        /// Releases a seated helicopter pilot before GC2 captures the death
+        /// ragdoll. CarEntry owns the Character physics and seated-state restore;
+        /// the manager releases only its animation/camera leases afterwards.
+        /// </summary>
+        public bool ReleaseActiveHelicopterForDeath()
         {
-            if (!this.TryGetSelectedDriverDoor(
-                    out IInteractive target,
-                    out Component vehicleEntry))
+            if (!this.ResolvePlayer() || this.m_ActiveHelicopterDriver == null ||
+                this.m_ActiveCarEntry == null ||
+                !this.m_ActiveCarEntry.ReleaseDriverForDeath(this.m_Player))
             {
                 return false;
             }
+
+            this.m_IsVehicleAnimationLocked = false;
+            this.m_HasEnteredVehicle = false;
+            this.m_MovementBridge?.SetExternalAnimationLock(false);
+            this.SetPlayerBlobShadowSuspended(false);
+            this.ClearDelayedDrivingState();
+            this.RestorePlayerCamera();
+            this.m_ActiveVehiclePivot = null;
+            this.m_ActiveCarEntry = null;
+            this.m_ActiveBikeEntry = null;
+            this.m_ActiveSimcadeDriver = null;
+            this.m_ActiveBikeDriver = null;
+            this.m_ActiveHelicopterDriver = null;
+            this.m_ActiveCarjacking = null;
+            return true;
+        }
+
+        private bool TryStartVehicleInteraction(VehicleCandidate candidate)
+        {
+            Component vehicleEntry = candidate.entry;
+            if (vehicleEntry == null || !this.IsAvailableVehicleEntry(vehicleEntry))
+                return false;
 
             // Object Direction continuously writes the Character root rotation from
             // the camera. Release it before GC2 starts walking toward either a Car
@@ -271,6 +385,10 @@ namespace FranklinGame.Animations
             this.m_ActiveBikeDriver = this.m_ActiveBikeEntry != null
                 ? this.m_ActiveBikeEntry.GetComponent<FranklinArcadeBikeDriver>()
                 : null;
+            this.m_ActiveHelicopterDriver = this.m_ActiveCarEntry != null
+                ? this.m_ActiveCarEntry.GetComponent<HelicopterFlightController>()
+                : null;
+            this.ClearSelectedVehicleCandidate();
             this.DelayVehicleDrivingIdle(vehicleEntry);
 
             if (vehicleEntry is CarEntry carEntry)
@@ -279,10 +397,14 @@ namespace FranklinGame.Animations
                 // authoritative and compares every configured free door in
                 // world space so overlapping Hotspots cannot choose the wrong
                 // side of a four-door car.
-                CarEntrySideMode requestedSide = carEntry.ResolveEntrySide(
-                    this.m_Player,
-                    CarEntrySideMode.Automatic
-                );
+                CarEntrySideMode requestedSide = candidate.carSide;
+                if (requestedSide == CarEntrySideMode.Automatic)
+                {
+                    requestedSide = carEntry.ResolveEntrySide(
+                        this.m_Player,
+                        CarEntrySideMode.Automatic
+                    );
+                }
                 bool startsCarjacking = carEntry.SeatedCharacter != null &&
                     (requestedSide == CarEntrySideMode.DriverDoor ||
                      requestedSide == CarEntrySideMode.PassengerDoor);
@@ -313,49 +435,209 @@ namespace FranklinGame.Animations
             return false;
         }
 
-        private bool TryGetSelectedDriverDoor(
-            out IInteractive target,
-            out Component vehicleEntry)
+        private bool TryUpdateSelectedVehicleCandidate(
+            out VehicleCandidate selected)
         {
-            target = this.m_Player.Interaction.Target;
-            vehicleEntry = target?.Instance != null
-                ? FindVehicleEntry(target.Instance)
-                : null;
-            Hotspot hotspot = target?.Instance != null
-                ? target.Instance.GetComponent<Hotspot>()
-                : null;
-            if (hotspot != null && hotspot.IsActive && vehicleEntry != null &&
-                this.IsAvailableVehicleEntry(vehicleEntry) &&
-                IsDriverDoorTarget(target.Instance, vehicleEntry.transform))
+            this.FindVehicleCandidates(
+                out VehicleCandidate best,
+                out VehicleCandidate pinned
+            );
+
+            if (pinned.IsValid)
             {
-                if (vehicleEntry is CarEntry carEntry)
+                if (!best.IsValid || best.entry == pinned.entry ||
+                    Mathf.Sqrt(pinned.distanceSqr) <=
+                    Mathf.Sqrt(best.distanceSqr) +
+                    Mathf.Max(0f, this.m_VehicleSelectionHysteresis))
                 {
-                    if (!carEntry.CanRequestEnter(
-                            this.m_Player,
-                            CarEntrySideMode.Automatic
+                    selected = pinned;
+                }
+                else
+                {
+                    selected = best;
+                }
+            }
+            else
+            {
+                selected = best;
+            }
+
+            if (!selected.IsValid)
+            {
+                this.ClearSelectedVehicleCandidate();
+                return false;
+            }
+
+            this.m_SelectedVehicleEntry = selected.entry;
+            return true;
+        }
+
+        private bool TryGetPinnedVehicleCandidate(out VehicleCandidate pinned)
+        {
+            this.FindVehicleCandidates(out _, out pinned);
+            if (!pinned.IsValid) return false;
+            return true;
+        }
+
+        private void FindVehicleCandidates(
+            out VehicleCandidate best,
+            out VehicleCandidate pinned)
+        {
+            best = default;
+            pinned = default;
+            if (this.m_Player == null) return;
+
+            Vector3 playerPosition = this.m_Player.transform.position;
+            System.Collections.Generic.List<ISpatialHash> interactions =
+                this.m_Player.Interaction?.Interactions;
+            if (interactions != null)
+            {
+                for (int index = 0; index < interactions.Count; ++index)
+                {
+                    if (interactions[index] is not IInteractive interactive ||
+                        interactive.Instance == null)
+                    {
+                        continue;
+                    }
+
+                    GameObject instance = interactive.Instance;
+                    Hotspot hotspot = instance.GetComponent<Hotspot>();
+                    if (hotspot == null || !hotspot.isActiveAndEnabled ||
+                        !hotspot.IsActive)
+                    {
+                        continue;
+                    }
+
+                    Component vehicleEntry = FindVehicleEntry(instance);
+                    if (vehicleEntry == null ||
+                        !IsDriverDoorTarget(instance, vehicleEntry.transform) ||
+                        !this.TryCreateCandidate(
+                            vehicleEntry,
+                            interactive.Position,
+                            out VehicleCandidate candidate
                         ))
                     {
-                        vehicleEntry = null;
-                        return false;
+                        continue;
                     }
+
+                    ConsiderCandidate(ref best, candidate);
+                    if (vehicleEntry == this.m_SelectedVehicleEntry)
+                        ConsiderCandidate(ref pinned, candidate);
                 }
-                return true;
             }
 
-            // A fallen bike rotates its authored Hotspot with the Rigidbody. GC2
-            // may therefore select no target (or a different nearby target) even
-            // while the Player is touching the bike. Use the physical rendered
-            // body as a fallback, but only after the ragdoll is grounded and slow
-            // enough to begin the manual lift sequence.
-            target = null;
-            if (this.TryGetNearbyFallenBike(out BikeEntry fallenBike))
+            // A fallen bike can rotate its Hotspot out of range. Score its actual
+            // physical surface in the same candidate set instead of letting this
+            // fallback silently override a nearby upright Bike or Car.
+            this.CollectFallenBikeCandidates(
+                playerPosition,
+                ref best,
+                ref pinned
+            );
+            this.CollectHelicopterCandidates(
+                playerPosition,
+                ref best,
+                ref pinned
+            );
+        }
+
+        private void CollectHelicopterCandidates(
+            Vector3 playerPosition,
+            ref VehicleCandidate best,
+            ref VehicleCandidate pinned)
+        {
+            var helicopters = HelicopterFlightController.Instances;
+            for (int index = 0; index < helicopters.Count; ++index)
             {
-                vehicleEntry = fallenBike;
-                return true;
+                HelicopterFlightController controller = helicopters[index];
+                if (controller == null || controller.IsVehicleEnabled) continue;
+
+                CarEntry entry = controller.Entry;
+                if (entry == null || entry.IsTransitioning) continue;
+                Vector3 position = entry.entryStandingPoint != null
+                    ? entry.entryStandingPoint.position
+                    : controller.transform.position;
+                float maximumDistance = controller.InteractionDistance;
+                if ((position - playerPosition).sqrMagnitude >
+                    maximumDistance * maximumDistance)
+                {
+                    continue;
+                }
+
+                if (!this.TryCreateCandidate(
+                        entry,
+                        position,
+                        out VehicleCandidate candidate
+                    ))
+                {
+                    continue;
+                }
+
+                ConsiderCandidate(ref best, candidate);
+                if (entry == this.m_SelectedVehicleEntry)
+                    ConsiderCandidate(ref pinned, candidate);
+            }
+        }
+
+        private bool TryCreateCandidate(
+            Component vehicleEntry,
+            Vector3 candidatePosition,
+            out VehicleCandidate candidate)
+        {
+            candidate = default;
+            if (!this.IsAvailableVehicleEntry(vehicleEntry)) return false;
+
+            CarEntrySideMode carSide = CarEntrySideMode.Automatic;
+            if (vehicleEntry is CarEntry carEntry)
+            {
+                // Pin only the Car, never a door. The nearest available seat is
+                // resolved again at the exact tap position so approaching from
+                // the rear cannot permanently lock a rear-seat door.
+                if (!carEntry.CanRequestEnter(
+                        this.m_Player,
+                        CarEntrySideMode.Automatic
+                    ))
+                {
+                    return false;
+                }
+            }
+            else if (vehicleEntry is BikeEntry bikeEntry)
+            {
+                FranklinArcadeBikeRagdoll ragdoll =
+                    bikeEntry.GetComponent<FranklinArcadeBikeRagdoll>();
+                if (ragdoll != null && ragdoll.IsRagdoll &&
+                    !ragdoll.CanInteractWhileFallen)
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                return false;
             }
 
-            vehicleEntry = null;
-            return false;
+            candidate.entry = vehicleEntry;
+            candidate.carSide = carSide;
+            candidate.distanceSqr =
+                (candidatePosition - this.m_Player.transform.position).sqrMagnitude;
+            candidate.tieBreaker = vehicleEntry.GetInstanceID();
+            return true;
+        }
+
+        private static void ConsiderCandidate(
+            ref VehicleCandidate current,
+            VehicleCandidate candidate)
+        {
+            if (!candidate.IsValid) return;
+            if (!current.IsValid ||
+                candidate.distanceSqr <
+                current.distanceSqr - CANDIDATE_DISTANCE_EPSILON ||
+                Mathf.Abs(candidate.distanceSqr - current.distanceSqr) <=
+                CANDIDATE_DISTANCE_EPSILON &&
+                candidate.tieBreaker < current.tieBreaker)
+            {
+                current = candidate;
+            }
         }
 
         private bool IsAvailableVehicleEntry(Component vehicleEntry)
@@ -365,6 +647,9 @@ namespace FranklinGame.Animations
                 if (carEntry.IsTransitioning) return false;
                 SimcadeCarDriver driver = carEntry.GetComponent<SimcadeCarDriver>();
                 if (driver != null && driver.IsVehicleEnabled) return false;
+                HelicopterFlightController helicopter =
+                    carEntry.GetComponent<HelicopterFlightController>();
+                if (helicopter != null && helicopter.IsVehicleEnabled) return false;
             }
             else if (vehicleEntry is BikeEntry bikeEntry)
             {
@@ -406,20 +691,19 @@ namespace FranklinGame.Animations
             return false;
         }
 
-        private bool TryGetNearbyFallenBike(out BikeEntry closestBike)
+        private void CollectFallenBikeCandidates(
+            Vector3 playerPosition,
+            ref VehicleCandidate best,
+            ref VehicleCandidate pinned)
         {
-            closestBike = null;
-            if (this.m_Player == null) return false;
-
-            Vector3 playerPosition = this.m_Player.transform.position;
+            if (this.m_Player == null) return;
             int hitCount = Physics.OverlapSphereNonAlloc(
                 playerPosition,
                 Mathf.Max(0.5f, this.m_FallenBikeInteractionRadius),
                 this.m_FallenBikeHits,
                 ~0,
-                QueryTriggerInteraction.Collide
+                QueryTriggerInteraction.Ignore
             );
-            float closestDistance = float.PositiveInfinity;
 
             for (int index = 0; index < hitCount; index++)
             {
@@ -427,25 +711,34 @@ namespace FranklinGame.Animations
                 if (hit == null) continue;
 
                 BikeEntry bikeEntry = hit.GetComponentInParent<BikeEntry>();
-                if (bikeEntry == null || bikeEntry == closestBike ||
-                    !this.IsAvailableVehicleEntry(bikeEntry))
-                {
-                    continue;
-                }
+                if (bikeEntry == null) continue;
 
                 FranklinArcadeBikeRagdoll ragdoll =
                     bikeEntry.GetComponent<FranklinArcadeBikeRagdoll>();
                 if (ragdoll == null || !ragdoll.CanInteractWhileFallen) continue;
 
                 Vector3 closestPoint = hit.ClosestPoint(playerPosition);
-                float distance = (closestPoint - playerPosition).sqrMagnitude;
-                if (distance >= closestDistance) continue;
+                if (!this.TryCreateCandidate(
+                        bikeEntry,
+                        closestPoint,
+                        out VehicleCandidate candidate
+                    ))
+                {
+                    continue;
+                }
 
-                closestDistance = distance;
-                closestBike = bikeEntry;
+                // Process every collider. This deliberately avoids the old
+                // order-dependent bug where the first collider seen for a Bike
+                // prevented a closer collider on that same Bike from scoring.
+                ConsiderCandidate(ref best, candidate);
+                if (bikeEntry == this.m_SelectedVehicleEntry)
+                    ConsiderCandidate(ref pinned, candidate);
             }
+        }
 
-            return closestBike != null;
+        private void ClearSelectedVehicleCandidate()
+        {
+            this.m_SelectedVehicleEntry = null;
         }
 
         private void CancelVehicleInteractionRequest()
@@ -459,7 +752,9 @@ namespace FranklinGame.Animations
             this.m_ActiveBikeEntry = null;
             this.m_ActiveSimcadeDriver = null;
             this.m_ActiveBikeDriver = null;
+            this.m_ActiveHelicopterDriver = null;
             this.m_ActiveCarjacking = null;
+            this.ClearSelectedVehicleCandidate();
             this.m_BikeMainShotAim?.Deactivate();
         }
 
@@ -572,6 +867,19 @@ namespace FranklinGame.Animations
         {
             if (!this.m_IsVehicleAnimationLocked) return;
 
+            // A collision/explosion can ragdoll the Player while an entry request
+            // is still walking or animating toward the seat. This is a cancelled
+            // entry, never a successful uncontrollable-driver handoff. Release
+            // the GC2 animation/shadow lock immediately instead of waiting for
+            // the generic five-second request timeout or activating a Car camera.
+            if (!this.m_HasEnteredVehicle &&
+                this.m_Player?.Ragdoll.IsRagdoll == true)
+            {
+                this.CancelVehicleInteractionRequest();
+                this.RestorePlayerCamera();
+                return;
+            }
+
             bool isControllable = this.m_Player.Player?.IsControllable == true;
             if (!this.m_HasEnteredVehicle)
             {
@@ -627,6 +935,7 @@ namespace FranklinGame.Animations
             this.m_ActiveBikeEntry = null;
             this.m_ActiveSimcadeDriver = null;
             this.m_ActiveBikeDriver = null;
+            this.m_ActiveHelicopterDriver = null;
             this.m_ActiveCarjacking = null;
         }
 
@@ -712,6 +1021,24 @@ namespace FranklinGame.Animations
                 return;
             }
             if (!this.m_UseVehicleCamera || this.m_IsVehicleCameraActive) return;
+            if (this.m_ActiveHelicopterDriver != null)
+            {
+                ShotCamera helicopterShot =
+                    this.m_ActiveHelicopterDriver.CameraShot;
+                if (helicopterShot == null || !this.ResolveMainCamera()) return;
+
+                helicopterShot.enabled = true;
+                this.m_PreVehicleShot =
+                    this.m_MainCamera.Transition.CurrentShotCamera;
+                this.m_ActiveVehicleShot = helicopterShot;
+                this.m_MainCamera.Transition.ChangeToShot(
+                    helicopterShot,
+                    this.m_VehicleCameraEnterBlend,
+                    this.m_VehicleCameraEasing
+                );
+                this.m_IsVehicleCameraActive = true;
+                return;
+            }
             if (this.m_ActiveSimcadeDriver != null)
             {
                 return;
@@ -720,6 +1047,7 @@ namespace FranklinGame.Animations
 
             this.ApplyVehicleCameraSettings();
             this.m_PreVehicleShot = this.m_MainCamera.Transition.CurrentShotCamera;
+            this.m_ActiveVehicleShot = this.m_RuntimeVehicleShot;
             this.m_MainCamera.Transition.ChangeToShot(
                 this.m_RuntimeVehicleShot,
                 this.m_VehicleCameraEnterBlend,
@@ -740,17 +1068,52 @@ namespace FranklinGame.Animations
 
             if (!this.m_IsVehicleCameraActive) return;
 
-            if (this.ResolveMainCamera() && this.m_PreVehicleShot != null &&
-                this.m_MainCamera.Transition.CurrentShotCamera == this.m_RuntimeVehicleShot)
+            ShotCamera outgoingShot = this.m_ActiveVehicleShot;
+            if (this.ResolveMainCamera())
             {
-                this.m_MainCamera.Transition.ChangeToShot(
-                    this.m_PreVehicleShot,
-                    this.m_VehicleCameraExitBlend,
-                    this.m_VehicleCameraEasing
-                );
+                ShotCamera currentShot =
+                    this.m_MainCamera.Transition.CurrentShotCamera;
+                bool stillOwnsShot = ReferenceEquals(currentShot, outgoingShot) ||
+                    (currentShot != null && outgoingShot != null &&
+                     currentShot == outgoingShot);
+                if (stillOwnsShot)
+                {
+                    ShotCamera restoreShot = this.m_PreVehicleShot;
+                    if (restoreShot == null)
+                        restoreShot = ShortcutMainShot.Get<ShotCamera>();
+
+                    bool canRestore = restoreShot != null &&
+                        !ReferenceEquals(restoreShot, outgoingShot) &&
+                        restoreShot != outgoingShot;
+                    if (canRestore)
+                    {
+                        this.m_MainCamera.Transition.ChangeToShot(
+                            restoreShot,
+                            this.m_VehicleCameraExitBlend,
+                            this.m_VehicleCameraEasing
+                        );
+                    }
+                    else
+                    {
+                        // A streamed/destroyed aircraft can take its ShotCamera
+                        // with it. Never leave GC2 pointing at that fake-null
+                        // component when there is no valid main-shot fallback.
+                        if (currentShot != null)
+                            currentShot.OnDisableShot(this.m_MainCamera);
+                        this.m_MainCamera.Transition.CurrentShotCamera = null;
+                    }
+                }
+            }
+
+            if (outgoingShot != null &&
+                this.m_ActiveHelicopterDriver != null &&
+                outgoingShot == this.m_ActiveHelicopterDriver.CameraShot)
+            {
+                outgoingShot.enabled = false;
             }
 
             this.m_PreVehicleShot = null;
+            this.m_ActiveVehicleShot = null;
             this.m_IsVehicleCameraActive = false;
         }
 

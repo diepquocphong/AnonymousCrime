@@ -17,6 +17,8 @@ namespace FranklinGame.Vehicles
     [RequireComponent(typeof(SimcadeCarHealth), typeof(SimcadeCarDriver))]
     public sealed class SimcadeCarDestruction : MonoBehaviour
     {
+        private static readonly WaitForFixedUpdate WAIT_FOR_FIXED_UPDATE = new();
+
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private static readonly int ColorId = Shader.PropertyToID("_Color");
         private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
@@ -25,6 +27,7 @@ namespace FranklinGame.Vehicles
         [Header("Vehicle")]
         [SerializeField] private SimcadeCarDriver m_Driver;
         [SerializeField] private CarEntry m_CarEntry;
+        [SerializeField] private SimcadeCarDoorDamage m_DoorDamage;
         [SerializeField] private SimcadeVehicleController m_Controller;
         [SerializeField] private Rigidbody m_CarBody;
 
@@ -33,6 +36,14 @@ namespace FranklinGame.Vehicles
             new Color(0.018f, 0.015f, 0.012f, 1f);
         [SerializeField] private Color m_CharredPlayerColor =
             new Color(0.028f, 0.022f, 0.018f, 1f);
+
+        [Header("Wreck Body Kick")]
+        [Tooltip("One-shot upward velocity added to the Car body after every occupant is safely detached.")]
+        [SerializeField, Min(0f)] private float m_BodyUpwardVelocityChange = 1.4f;
+        [Tooltip("Pitch velocity that raises the engine/front end slightly.")]
+        [SerializeField, Min(0f)] private float m_BodyPitchVelocityChange = 0.16f;
+        [Tooltip("Random left/right roll velocity; yaw is intentionally omitted.")]
+        [SerializeField, Min(0f)] private float m_BodyRollVelocityChange = 0.22f;
 
         [Header("Detached Wheels")]
         [SerializeField, Min(0f)] private float m_WheelRadialSpeed = 5.5f;
@@ -47,7 +58,7 @@ namespace FranklinGame.Vehicles
         [Header("Wreck Cleanup")]
         [SerializeField, Min(1f)] private float m_WreckMinimumVisibleDuration = 15f;
         [SerializeField, Min(1f)] private float m_WreckHideDistance = 35f;
-        [SerializeField, Range(0.25f, 2f)] private float m_WreckVisibilityCheckInterval = 0.5f;
+        [SerializeField, Range(0.25f, 2f)] private float m_WreckVisibilityCheckInterval = 1f;
 
         [Header("Occupant Ejection")]
         [SerializeField, Min(0.25f)] private float m_OccupantSideClearance = 1.35f;
@@ -68,6 +79,16 @@ namespace FranklinGame.Vehicles
         private Renderer[] m_WreckRenderers;
         private Plane[] m_FrustumPlanes;
         private float m_NextPlayerSearchAt;
+        private Transform m_OccupantBurnOriginalParent;
+        private Vector3 m_OccupantBurnOriginalLocalPosition;
+        private Quaternion m_OccupantBurnOriginalLocalRotation;
+        private Vector3 m_OccupantBurnOriginalLocalScale;
+        private ParticleSystem[] m_OccupantBurnParticles =
+            Array.Empty<ParticleSystem>();
+        private Coroutine m_OccupantBurnRoutine;
+        private bool m_HasOccupantBurnOriginalPose;
+        private Coroutine m_DirectShooterImpulseRoutine;
+        private bool m_DirectShooterImpulseApplied;
 
         public bool IsDestroyed => m_IsDestroyed;
         public float WheelRestDuration => m_WheelRestDuration;
@@ -85,8 +106,21 @@ namespace FranklinGame.Vehicles
         {
             if (m_Driver == null) m_Driver = GetComponent<SimcadeCarDriver>();
             if (m_CarEntry == null) m_CarEntry = GetComponent<CarEntry>();
+            if (m_DoorDamage == null) m_DoorDamage = GetComponent<SimcadeCarDoorDamage>();
             if (m_Controller == null) m_Controller = GetComponent<SimcadeVehicleController>();
             if (m_CarBody == null) m_CarBody = GetComponent<Rigidbody>();
+            CacheOccupantBurnOriginalPose();
+        }
+
+        private void OnDisable()
+        {
+            CancelDirectShooterImpulse();
+            StopAndRestoreOccupantFire(true);
+        }
+
+        private void OnDestroy()
+        {
+            StopAndRestoreOccupantFire(true);
         }
 
         public void Configure(
@@ -132,6 +166,7 @@ namespace FranklinGame.Vehicles
             EjectOccupant(driver, 0);
             if (rearLeft != driver) EjectOccupant(rearLeft, 1);
             if (rearRight != driver && rearRight != rearLeft) EjectOccupant(rearRight, 2);
+            ApplyWreckBodyKick();
 
             if (cameraHeld)
             {
@@ -143,6 +178,112 @@ namespace FranklinGame.Vehicles
             }
 
             BeginWreckCleanup(driver, rearLeft, rearRight);
+        }
+
+        private void ApplyWreckBodyKick()
+        {
+            if (m_CarBody == null) return;
+
+            // Destruction is terminal. The Driver has already released the
+            // parked FreezeAll state and disabled suspension before this point;
+            // occupants and wheels are already detached, so their launch does
+            // not inherit this presentation-only body kick.
+            if (m_CarBody.isKinematic) m_CarBody.isKinematic = false;
+            // Terminal wrecks must never retain the parked FreezeAll state.
+            // A frozen body silently discards both this kick and Shooter impulses.
+            m_CarBody.constraints = RigidbodyConstraints.None;
+            m_CarBody.useGravity = true;
+            m_CarBody.detectCollisions = true;
+            BoxCollider bodyCollider = GetComponent<BoxCollider>();
+            if (bodyCollider != null) bodyCollider.isTrigger = false;
+            m_CarBody.WakeUp();
+
+            if (m_BodyUpwardVelocityChange > 0f)
+            {
+                m_CarBody.AddForce(
+                    Vector3.up * m_BodyUpwardVelocityChange,
+                    ForceMode.VelocityChange
+                );
+            }
+
+            if (m_BodyPitchVelocityChange <= 0f &&
+                m_BodyRollVelocityChange <= 0f)
+            {
+                return;
+            }
+
+            float rollSign = UnityEngine.Random.value < 0.5f ? -1f : 1f;
+            Vector3 angularVelocityChange =
+                -transform.right * m_BodyPitchVelocityChange +
+                transform.forward * (rollSign * m_BodyRollVelocityChange);
+            m_CarBody.AddTorque(
+                angularVelocityChange,
+                ForceMode.VelocityChange
+            );
+        }
+
+        /// <summary>
+        /// Applies the direct RPG hit after the destruction frame has released
+        /// the parked/controller state. The force uses the same Impulse mode as
+        /// GC2 Shooter, but is mass-scaled so its authored values are delta velocity.
+        /// </summary>
+        public void QueueDirectShooterImpulse(
+            Vector3 shotDirection,
+            Vector3 hitNormal,
+            float forwardVelocity,
+            float upwardVelocity)
+        {
+            if (!m_IsDestroyed || m_DirectShooterImpulseApplied ||
+                m_DirectShooterImpulseRoutine != null || m_CarBody == null)
+            {
+                return;
+            }
+
+            Vector3 direction = Vector3.ProjectOnPlane(shotDirection, Vector3.up);
+            if (direction.sqrMagnitude <= 0.000001f)
+                direction = Vector3.ProjectOnPlane(-hitNormal, Vector3.up);
+            if (direction.sqrMagnitude <= 0.000001f)
+                direction = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+            if (direction.sqrMagnitude <= 0.000001f) return;
+
+            Vector3 velocityChange =
+                direction.normalized * Mathf.Max(0f, forwardVelocity) +
+                Vector3.up * Mathf.Max(0f, upwardVelocity);
+            if (velocityChange.sqrMagnitude <= 0.000001f) return;
+
+            m_DirectShooterImpulseRoutine = StartCoroutine(
+                ApplyDirectShooterImpulseAfterPhysicsHandoff(velocityChange)
+            );
+        }
+
+        private IEnumerator ApplyDirectShooterImpulseAfterPhysicsHandoff(
+            Vector3 velocityChange)
+        {
+            yield return WAIT_FOR_FIXED_UPDATE;
+            m_DirectShooterImpulseRoutine = null;
+            if (!m_IsDestroyed || m_DirectShooterImpulseApplied ||
+                m_CarBody == null)
+            {
+                yield break;
+            }
+
+            m_DirectShooterImpulseApplied = true;
+            m_CarBody.isKinematic = false;
+            m_CarBody.constraints = RigidbodyConstraints.None;
+            m_CarBody.useGravity = true;
+            m_CarBody.detectCollisions = true;
+            m_CarBody.WakeUp();
+            m_CarBody.AddForce(
+                velocityChange * Mathf.Max(0.01f, m_CarBody.mass),
+                ForceMode.Impulse
+            );
+        }
+
+        private void CancelDirectShooterImpulse()
+        {
+            if (m_DirectShooterImpulseRoutine == null) return;
+            StopCoroutine(m_DirectShooterImpulseRoutine);
+            m_DirectShooterImpulseRoutine = null;
         }
 
         private void DetachAndThrowWheels()
@@ -249,7 +390,12 @@ namespace FranklinGame.Vehicles
                         hideDistanceSquared;
                     if (playerIsFar && !IsVisibleFrom(gameplayCamera))
                     {
-                        gameObject.SetActive(false);
+                        // A destroyed Car is terminal and cannot be repaired or
+                        // driven again. Releasing it here prevents inactive wrecks,
+                        // unparented physical doors and their runtime resources from
+                        // accumulating over a long mobile session.
+                        m_DoorDamage?.CleanupRuntimeDoorsForTerminalWreck();
+                        Destroy(gameObject);
                         yield break;
                     }
                 }
@@ -397,6 +543,12 @@ namespace FranklinGame.Vehicles
         private void AttachBurnFire(Character character)
         {
             if (m_OccupantBurnFire == null) return;
+            CacheOccupantBurnOriginalPose();
+            if (m_OccupantBurnRoutine != null)
+            {
+                StopCoroutine(m_OccupantBurnRoutine);
+                m_OccupantBurnRoutine = null;
+            }
             Animator animator = character.Animim?.Animator;
             Transform anchor = animator != null && animator.isHuman
                 ? animator.GetBoneTransform(HumanBodyBones.Hips)
@@ -407,26 +559,71 @@ namespace FranklinGame.Vehicles
             m_OccupantBurnFire.transform.localPosition = Vector3.zero;
             m_OccupantBurnFire.transform.localRotation = Quaternion.identity;
             m_OccupantBurnFire.SetActive(true);
-            ParticleSystem[] particles =
-                m_OccupantBurnFire.GetComponentsInChildren<ParticleSystem>(true);
-            for (int i = 0; i < particles.Length; ++i)
+            for (int i = 0; i < m_OccupantBurnParticles.Length; ++i)
             {
-                particles[i].Clear(true);
-                particles[i].Play(true);
+                ParticleSystem particles = m_OccupantBurnParticles[i];
+                if (particles == null) continue;
+                particles.Clear(true);
+                particles.Play(true);
             }
-            StartCoroutine(StopOccupantFireAfterDelay(particles));
+            m_OccupantBurnRoutine = StartCoroutine(StopOccupantFireAfterDelay());
         }
 
-        private IEnumerator StopOccupantFireAfterDelay(ParticleSystem[] particles)
+        private IEnumerator StopOccupantFireAfterDelay()
         {
             yield return new WaitForSecondsRealtime(m_OccupantBurnDuration);
-            for (int i = 0; i < particles.Length; ++i)
+            for (int i = 0; i < m_OccupantBurnParticles.Length; ++i)
             {
-                if (particles[i] != null)
-                    particles[i].Stop(true, ParticleSystemStopBehavior.StopEmitting);
+                ParticleSystem particles = m_OccupantBurnParticles[i];
+                if (particles != null)
+                    particles.Stop(true, ParticleSystemStopBehavior.StopEmitting);
             }
             yield return new WaitForSecondsRealtime(1f);
-            if (m_OccupantBurnFire != null) m_OccupantBurnFire.SetActive(false);
+            m_OccupantBurnRoutine = null;
+            StopAndRestoreOccupantFire(false);
+        }
+
+        private void CacheOccupantBurnOriginalPose()
+        {
+            if (m_HasOccupantBurnOriginalPose || m_OccupantBurnFire == null) return;
+
+            Transform burnTransform = m_OccupantBurnFire.transform;
+            m_OccupantBurnOriginalParent = burnTransform.parent;
+            m_OccupantBurnOriginalLocalPosition = burnTransform.localPosition;
+            m_OccupantBurnOriginalLocalRotation = burnTransform.localRotation;
+            m_OccupantBurnOriginalLocalScale = burnTransform.localScale;
+            m_OccupantBurnParticles =
+                m_OccupantBurnFire.GetComponentsInChildren<ParticleSystem>(true);
+            m_HasOccupantBurnOriginalPose = true;
+        }
+
+        private void StopAndRestoreOccupantFire(bool cancelRoutine)
+        {
+            if (cancelRoutine && m_OccupantBurnRoutine != null)
+            {
+                StopCoroutine(m_OccupantBurnRoutine);
+                m_OccupantBurnRoutine = null;
+            }
+
+            for (int i = 0; i < m_OccupantBurnParticles.Length; ++i)
+            {
+                ParticleSystem particles = m_OccupantBurnParticles[i];
+                if (particles == null) continue;
+                particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            }
+
+            if (m_OccupantBurnFire == null) return;
+            m_OccupantBurnFire.SetActive(false);
+            if (!m_HasOccupantBurnOriginalPose) return;
+
+            Transform burnTransform = m_OccupantBurnFire.transform;
+            Transform restoreParent = m_OccupantBurnOriginalParent != null
+                ? m_OccupantBurnOriginalParent
+                : transform;
+            burnTransform.SetParent(restoreParent, false);
+            burnTransform.localPosition = m_OccupantBurnOriginalLocalPosition;
+            burnTransform.localRotation = m_OccupantBurnOriginalLocalRotation;
+            burnTransform.localScale = m_OccupantBurnOriginalLocalScale;
         }
 
         private void ApplyCharredAppearance(GameObject root, Color color)
@@ -464,6 +661,18 @@ namespace FranklinGame.Vehicles
 
         private void OnValidate()
         {
+            m_BodyUpwardVelocityChange = Mathf.Max(
+                0f,
+                m_BodyUpwardVelocityChange
+            );
+            m_BodyPitchVelocityChange = Mathf.Max(
+                0f,
+                m_BodyPitchVelocityChange
+            );
+            m_BodyRollVelocityChange = Mathf.Max(
+                0f,
+                m_BodyRollVelocityChange
+            );
             m_WheelRadialSpeed = Mathf.Max(0f, m_WheelRadialSpeed);
             m_WheelUpwardSpeed = Mathf.Max(0f, m_WheelUpwardSpeed);
             m_WheelSpinSpeed = Mathf.Max(0f, m_WheelSpinSpeed);

@@ -1,5 +1,86 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &996000000000000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 996000000000000002}
+  - component: {fileID: 996000000000000003}
+  - component: {fileID: 996000000000000004}
+  m_Layer: 0
+  m_Name: ManagerAirSystem
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &996000000000000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 996000000000000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 7862008611753459182}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &996000000000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 996000000000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbbb2a5286c2441b9d77b8b98625fea1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.AirSystem.DronePlayerController
+  m_Player: {fileID: 2818276778289055273}
+  m_MovementBridge: {fileID: 7093607615885551950}
+  m_InteractionDistance: 3.5
+  m_CameraEnterBlend: 0.35
+  m_CameraExitBlend: 0.35
+  m_CameraEasing: 3
+  m_HudPrefab: {fileID: 880000000000000006, guid: 8513c759c08d4f71bb3f60a3f3e3390e, type: 3}
+  m_HandPresentation: {fileID: 996000000000000004}
+  m_ShowTouchHudInEditor: 1
+--- !u!114 &996000000000000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 996000000000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d83c3a554cb9485fa41c1ae8b99d2e1a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.AirSystem.DroneControllerHandPresentation
+  m_Player: {fileID: 2818276778289055273}
+  m_ControllerPrefab: {fileID: 930000000000000001, guid: e9da37fa17cb4ad1b72e5eae1dc28bc4, type: 3}
+  m_ControllerChestOffset: {x: 0, y: -0.24, z: 0.29}
+  m_ControllerScale: {x: 0.075, y: 0.075, z: 0.075}
+  m_ScreenTiltTowardPlayer: 18
+  m_LeftGripOffset: {x: -0.135, y: -0.035, z: 0}
+  m_RightGripOffset: {x: 0.135, y: -0.035, z: 0}
+  m_LeftHandEuler: {x: 8, y: 18, z: 80}
+  m_RightHandEuler: {x: 8, y: -18, z: -80}
+  m_LeftElbowChestOffset: {x: -0.38, y: -0.23, z: 0.12}
+  m_RightElbowChestOffset: {x: 0.38, y: -0.23, z: 0.12}
+  m_HandIKWeight: 0.95
+  m_HandRotationWeight: 0.7
+  m_BlendInTime: 0.22
+  m_BlendOutTime: 0.18
 --- !u!1 &889900000000010
 GameObject:
   m_ObjectHideFlags: 0
@@ -42,7 +123,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6ffc38297f7c47beaadc2ad928ef7bfe, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Animations.FranklinCameraPointing
   m_Player: {fileID: 2818276778289055273}
   m_CameraOverride: {fileID: 0}
@@ -430,7 +511,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 84ef3e3c59934a04b71af98900f907cf, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Shooter.FranklinFirstPersonCameraManager
   m_Player: {fileID: 2818276778289055273}
   m_Position: {x: 0, y: -0.12, z: 0.14}
@@ -1689,6 +1770,7 @@ GameObject:
   - component: {fileID: 6123456789012345678}
   - component: {fileID: 2055311452716152205}
   - component: {fileID: 4165990135694563098}
+  - component: {fileID: 923000000000000001}
   m_Layer: 3
   m_Name: Player
   m_TagString: Untagged
@@ -1716,8 +1798,21 @@ Transform:
   - {fileID: 7264718403703062738}
   - {fileID: 777000000000000002}
   - {fileID: 995000000000000002}
+  - {fileID: 996000000000000002}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &923000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5364405789980172438}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c51f02b5d8324b3f9c368a6a1c3e2873, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Shooter.FranklinExplosionRagdollImpulse
 --- !u!114 &2818276778289055273
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2114,12 +2209,16 @@ MonoBehaviour:
   m_FollowGround: 1
   m_GroundLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 1921
   m_ProbeStartHeight: 0.5
   m_MaxGroundDistance: 5
   m_ProbeInterval: 0.08
   m_GroundOffset: 0.025
   m_MinGroundNormalY: 0.35
+  m_GroundNormalSharpness: 18
+  m_ReceiverAbove: 0.22
+  m_ReceiverBelow: 0.4
+  m_SeamAllowance: 0.1
   m_HideWhenGroundMissing: 1
   m_IgnoreRigidbodyReceivers: 1
   m_SuppressInsideShadowOwner: 1

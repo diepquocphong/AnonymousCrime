@@ -37,6 +37,8 @@ namespace FranklinGame.Vehicles
         private const float HEALTH_GAUGE_HEIGHT = 184f;
         private const float HEALTH_GAUGE_BAR_OFFSET_X = 18f;
         private const float HEALTH_GAUGE_BAR_OFFSET_Y = -23f;
+        private const float MOBILE_RADIO_DISC_UPDATE_INTERVAL = 1f / 15f;
+        private const float TELEMETRY_VALUE_LERP_SPEED = 10f;
 
         [Header("Telemetry")]
         [SerializeField] private SimcadeCarDriver m_Driver;
@@ -122,11 +124,18 @@ namespace FranklinGame.Vehicles
         private Vector2 m_HealthVelocity;
         private int m_CurrentTrackIndex;
         private int m_LastDisplayedSpeed = int.MinValue;
+        private float m_SpeedValueTarget;
+        private float m_DisplayedSpeedValue;
+        private bool m_HasSpeedValue;
         private float m_NextTelemetryUpdate;
         private float m_NextWorldFollowUpdate;
+        private float m_NextRadioDiscUpdate;
+        private float m_LastRadioDiscUpdate;
         private float m_NextSafeAreaUpdate;
+        private float m_HealthFillTarget;
+        private bool m_HasHealthFillValue;
+        private bool m_HasHealthFillTarget;
         private float m_FuelFillTarget;
-        private float m_FuelFillVelocity;
         private bool m_HasFuelFillValue;
         private Rect m_LastSafeArea;
         private Vector2Int m_LastScreenSize;
@@ -241,12 +250,41 @@ namespace FranklinGame.Vehicles
             }
             if (showTelemetry)
             {
-                SmoothWorldFollow();
-                UpdateFuelFill();
+                float deltaTime = Time.unscaledDeltaTime;
+                SmoothWorldFollow(deltaTime);
+                UpdateSpeedDisplay(deltaTime);
+                UpdateHealthFill(deltaTime);
+                UpdateFuelFill(deltaTime);
             }
 
             if (m_IsRadioPlaying && s_RadioDiscRect != null)
-                s_RadioDiscRect.Rotate(0f, 0f, -38f * Time.unscaledDeltaTime);
+            {
+                bool updateDisc = !Application.isMobilePlatform ||
+                    now >= m_NextRadioDiscUpdate;
+                if (updateDisc)
+                {
+                    float discDeltaTime = Application.isMobilePlatform &&
+                        m_LastRadioDiscUpdate > 0f
+                            ? Mathf.Max(
+                                Time.unscaledDeltaTime,
+                                now - m_LastRadioDiscUpdate
+                            )
+                            : Time.unscaledDeltaTime;
+                    m_LastRadioDiscUpdate = now;
+                    if (Application.isMobilePlatform)
+                    {
+                        m_NextRadioDiscUpdate = now +
+                            MOBILE_RADIO_DISC_UPDATE_INTERVAL;
+                    }
+                    s_RadioDiscRect.Rotate(0f, 0f, -38f * discDeltaTime);
+                }
+            }
+            else
+            {
+                // Do not apply the paused duration as one large rotation when the
+                // radio starts again.
+                m_LastRadioDiscUpdate = now;
+            }
 
             if (now >= m_NextSafeAreaUpdate)
             {
@@ -273,8 +311,15 @@ namespace FranklinGame.Vehicles
                 m_HasHealthPosition = false;
                 m_SpeedVelocity = Vector2.zero;
                 m_HealthVelocity = Vector2.zero;
+                m_HasSpeedValue = false;
+                m_HasHealthFillValue = false;
+                m_HasHealthFillTarget = false;
+                m_HasFuelFillValue = false;
+                m_HasFuelFillTarget = false;
                 m_NextTelemetryUpdate = 0f;
                 m_NextWorldFollowUpdate = 0f;
+                m_NextRadioDiscUpdate = 0f;
+                m_LastRadioDiscUpdate = Time.unscaledTime;
                 m_NextSafeAreaUpdate = 0f;
                 m_WasRearViewPressed = m_Driver != null &&
                     m_Driver.IsRearViewPressed;
@@ -345,7 +390,7 @@ namespace FranklinGame.Vehicles
             {
                 UpdateSpeedWorldFollow();
                 UpdateHealthWorldFollow();
-                SmoothWorldFollow();
+                SmoothWorldFollow(Time.unscaledDeltaTime);
             }
         }
 
@@ -361,7 +406,7 @@ namespace FranklinGame.Vehicles
             if (IsVisible)
             {
                 UpdateHealthWorldFollow();
-                SmoothWorldFollow();
+                SmoothWorldFollow(Time.unscaledDeltaTime);
             }
         }
 
@@ -404,7 +449,7 @@ namespace FranklinGame.Vehicles
             RefreshFuel();
             UpdateSpeedWorldFollow();
             UpdateHealthWorldFollow();
-            SmoothWorldFollow();
+            SmoothWorldFollow(Time.unscaledDeltaTime);
         }
 
         public void Configure(
@@ -644,7 +689,37 @@ namespace FranklinGame.Vehicles
 
         private void RefreshSpeed(bool force)
         {
-            int speed = m_Driver != null ? Mathf.RoundToInt(m_Driver.SpeedKph) : 0;
+            m_SpeedValueTarget = m_Driver != null
+                ? Mathf.Max(0f, m_Driver.SpeedKph)
+                : 0f;
+            if (force || !m_HasSpeedValue)
+            {
+                m_DisplayedSpeedValue = m_SpeedValueTarget;
+                m_HasSpeedValue = true;
+                ApplyDisplayedSpeed(true);
+            }
+        }
+
+        private void UpdateSpeedDisplay(float deltaTime)
+        {
+            if (!m_HasSpeedValue) return;
+
+            m_DisplayedSpeedValue = Mathf.Lerp(
+                m_DisplayedSpeedValue,
+                m_SpeedValueTarget,
+                GetFrameIndependentLerp(
+                    TELEMETRY_VALUE_LERP_SPEED,
+                    deltaTime
+                )
+            );
+            if (Mathf.Abs(m_DisplayedSpeedValue - m_SpeedValueTarget) < 0.02f)
+                m_DisplayedSpeedValue = m_SpeedValueTarget;
+            ApplyDisplayedSpeed(false);
+        }
+
+        private void ApplyDisplayedSpeed(bool force)
+        {
+            int speed = Mathf.RoundToInt(m_DisplayedSpeedValue);
             if (!force && speed == m_LastDisplayedSpeed) return;
             m_LastDisplayedSpeed = speed;
             if (s_SpeedText != null)
@@ -785,7 +860,7 @@ namespace FranklinGame.Vehicles
             }
         }
 
-        private void SmoothWorldFollow()
+        private void SmoothWorldFollow(float deltaTime)
         {
             if (m_HasSpeedPosition && s_SpeedRect != null)
             {
@@ -795,7 +870,7 @@ namespace FranklinGame.Vehicles
                     ref m_SpeedVelocity,
                     m_SpeedFollowSmooth,
                     Mathf.Infinity,
-                    Time.unscaledDeltaTime
+                    deltaTime
                 );
                 if ((s_SpeedRect.anchoredPosition - m_SpeedPosition).sqrMagnitude >
                     0.0625f)
@@ -822,7 +897,7 @@ namespace FranklinGame.Vehicles
                 ref m_HealthVelocity,
                 m_SpeedFollowSmooth,
                 Mathf.Infinity,
-                Time.unscaledDeltaTime
+                deltaTime
             );
             if ((s_HealthRect.anchoredPosition - m_HealthPosition).sqrMagnitude >
                 0.0625f)
@@ -842,15 +917,48 @@ namespace FranklinGame.Vehicles
         {
             if (s_ActiveDashboard != this) return;
             float ratio = maximum > 0.001f ? Mathf.Clamp01(current / maximum) : 0f;
+            m_HealthFillTarget = ratio;
+            if (!m_HasHealthFillValue)
+            {
+                m_HasHealthFillValue = true;
+                m_HasHealthFillTarget = false;
+                if (s_HealthFillImage != null)
+                    s_HealthFillImage.fillAmount = ratio;
+            }
+            else
+            {
+                m_HasHealthFillTarget = true;
+            }
             if (s_HealthFillImage != null)
             {
-                s_HealthFillImage.fillAmount = ratio;
                 s_HealthFillImage.color = HEALTH_SKY_BLUE;
                 if (s_HealthIconVertical != null)
                     s_HealthIconVertical.color = HEALTH_SKY_BLUE;
                 if (s_HealthIconHorizontal != null)
                     s_HealthIconHorizontal.color = HEALTH_SKY_BLUE;
             }
+        }
+
+        private void UpdateHealthFill(float deltaTime)
+        {
+            if (!m_HasHealthFillTarget || s_HealthFillImage == null) return;
+
+            float current = s_HealthFillImage.fillAmount;
+            float next = Mathf.Lerp(
+                current,
+                m_HealthFillTarget,
+                GetFrameIndependentLerp(
+                    TELEMETRY_VALUE_LERP_SPEED,
+                    deltaTime
+                )
+            );
+            if (Mathf.Abs(next - m_HealthFillTarget) < 0.0005f)
+            {
+                next = m_HealthFillTarget;
+                m_HasHealthFillTarget = false;
+            }
+            if (!Mathf.Approximately(current, next))
+                s_HealthFillImage.fillAmount = next;
         }
 
         private void RefreshFuel()
@@ -869,31 +977,38 @@ namespace FranklinGame.Vehicles
             {
                 m_HasFuelFillValue = true;
                 m_HasFuelFillTarget = false;
-                m_FuelFillVelocity = 0f;
                 if (s_FuelFillImage != null) s_FuelFillImage.fillAmount = ratio;
                 return;
             }
             m_HasFuelFillTarget = true;
         }
 
-        private void UpdateFuelFill()
+        private void UpdateFuelFill(float deltaTime)
         {
             if (!m_HasFuelFillTarget || s_FuelFillImage == null) return;
 
-            s_FuelFillImage.fillAmount = Mathf.SmoothDamp(
-                s_FuelFillImage.fillAmount,
+            float current = s_FuelFillImage.fillAmount;
+            float next = Mathf.Lerp(
+                current,
                 m_FuelFillTarget,
-                ref m_FuelFillVelocity,
-                0.22f,
-                Mathf.Infinity,
-                Time.unscaledDeltaTime
+                GetFrameIndependentLerp(
+                    TELEMETRY_VALUE_LERP_SPEED,
+                    deltaTime
+                )
             );
-            if (Mathf.Abs(s_FuelFillImage.fillAmount - m_FuelFillTarget) < 0.0005f)
+            if (Mathf.Abs(next - m_FuelFillTarget) < 0.0005f)
             {
-                s_FuelFillImage.fillAmount = m_FuelFillTarget;
-                m_FuelFillVelocity = 0f;
+                next = m_FuelFillTarget;
                 m_HasFuelFillTarget = false;
             }
+            if (!Mathf.Approximately(current, next))
+                s_FuelFillImage.fillAmount = next;
+        }
+
+        private static float GetFrameIndependentLerp(float speed, float deltaTime)
+        {
+            return 1f - Mathf.Exp(-Mathf.Max(0f, speed) *
+                                  Mathf.Max(0f, deltaTime));
         }
 
         private void RefreshRadioStatus()

@@ -1,12 +1,14 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace FranklinGame.Shooter
 {
     [DisallowMultipleComponent]
     public sealed class FranklinShooterTouchButton : MonoBehaviour,
-        IPointerDownHandler, IPointerUpHandler, IPointerExitHandler
+        IPointerDownHandler, IPointerUpHandler, IPointerExitHandler,
+        IBeginDragHandler, IDragHandler
     {
         public enum Action
         {
@@ -23,6 +25,7 @@ namespace FranklinGame.Shooter
         private bool m_Pressed;
         private bool m_Toggled;
         private int m_PointerId = int.MinValue;
+        private int m_TouchId = int.MinValue;
         private Vector3 m_RestScale = Vector3.one;
         private Color m_RestColor = Color.white;
 
@@ -47,6 +50,12 @@ namespace FranklinGame.Shooter
             if (this.m_Pressed) return;
             this.m_Pressed = true;
             this.m_PointerId = eventData?.pointerId ?? int.MinValue;
+            this.m_TouchId = eventData is ExtendedPointerEventData extended &&
+                             extended.pointerType == UIPointerType.Touch
+                ? extended.touchId
+                : int.MinValue;
+            if (this.m_Action == Action.Fire)
+                FranklinFirstPersonCameraInput.SetFireTouchReserved(this.m_TouchId, true);
             this.SetVisual(true);
             if (this.m_Action != Action.Fire)
             {
@@ -71,6 +80,24 @@ namespace FranklinGame.Shooter
             this.Release();
         }
 
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (this.m_Action != Action.Fire || !this.IsActivePointer(eventData)) return;
+
+            int touchId = eventData is ExtendedPointerEventData extended &&
+                          extended.pointerType == UIPointerType.Touch
+                ? extended.touchId
+                : int.MinValue;
+            if (touchId != this.m_TouchId) return;
+
+            // EventSystem only invokes this after its configured pixel drag threshold.
+            // At that point the same Fire finger intentionally becomes the orbit owner.
+            FranklinFirstPersonCameraInput.SetFireTouchOrbitEnabled(touchId);
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        { }
+
         private void OnDisable() => this.Release();
 
         private bool IsActivePointer(PointerEventData eventData)
@@ -81,8 +108,11 @@ namespace FranklinGame.Shooter
         private void Release()
         {
             if (!this.m_Pressed) return;
+            if (this.m_Action == Action.Fire)
+                FranklinFirstPersonCameraInput.SetFireTouchReserved(this.m_TouchId, false);
             this.m_Pressed = false;
             this.m_PointerId = int.MinValue;
+            this.m_TouchId = int.MinValue;
             this.SetVisual(false);
             FranklinShooterSystem.Instance?.SetTouchAction(this.m_Action, false);
             if (this.m_Action != Action.Fire)

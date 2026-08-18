@@ -10,20 +10,20 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7635ada77d9fe448ea6057df7e0d1972, type: 3}
-  m_Name: RPG-7_Weapon
+  m_Name: rpg7
   m_EditorClassIdentifier: 
   m_Id:
     m_SerializedID:
       m_String: a53ac16e-d59c-4fff-9a60-9c8d2cd97b49
   m_Title:
     m_Property:
-      rid: 9185873557907571691
+      rid: 9185873604902125914
   m_Description:
     m_Property:
-      rid: 9185873557907571692
+      rid: 9185873604902125915
   m_Icon:
     m_Property:
-      rid: 9185873557907571693
+      rid: 9185873604902125916
   m_Color:
     m_Property:
       rid: 8814677138683199529
@@ -42,27 +42,27 @@ MonoBehaviour:
     m_StateType: 2
     m_AnimationClip:
       m_Property:
-        rid: 9185873557907571694
+        rid: 9185873604902125917
     m_RuntimeController: {fileID: 0}
-    m_State: {fileID: 11400000, guid: 98bc4c82f55a416dbf66b7959a7a67cb, type: 2}
+    m_State: {fileID: 0}
     m_AvatarMask: {fileID: 0}
   m_Layer:
     m_Property:
-      rid: 9185873557907571695
+      rid: 9185873604902125918
   m_Magazine:
-    m_Ammo: {fileID: 11400000, guid: d97051028e56943849966592ebf0ef90, type: 2}
+    m_Ammo: {fileID: 11400000, guid: 6c564dc6f705848fda1f4d01d670b1c7, type: 2}
     m_HasMagazine:
       m_Property:
-        rid: 3428531543345201806
+        rid: 9185873604902125919
     m_MagazineSize:
       m_Property:
-        rid: 3428531543345202106
+        rid: 9185873604902125920
     m_AutoReload:
       m_Property:
-        rid: 8814677138683199534
+        rid: 9185873604902125921
   m_Muzzle:
-    m_Position: {x: 0, y: 0, z: 0}
-    m_Rotation: {x: 0, y: 0, z: 0}
+    m_Position: {x: 0, y: 0.0029536244, z: -0.42480347}
+    m_Rotation: {x: 0, y: 180, z: 0}
   m_Fire:
     m_ProjectilesPerShot:
       m_Property:
@@ -77,32 +77,32 @@ MonoBehaviour:
         rid: 3428531543345201226
     m_FireRate:
       m_Property:
-        rid: 8814677138683199536
+        rid: 9185873604902125922
     m_Burst:
       m_Property:
         rid: 8814677138683199537
     m_MinChargeTime:
       m_Property:
-        rid: 3428531543345202152
+        rid: 9185873604902125923
     m_MaxChargeTime:
       m_Property:
-        rid: 3428531543345202153
+        rid: 9185873604902125924
     m_AutoRelease:
       m_Property:
-        rid: 8814677138683199540
+        rid: 9185873604902125925
     m_Duration:
       m_Property:
         rid: 8814677138683199541
     m_FireAnimation:
       m_Property:
-        rid: 3428531884584337416
+        rid: 9185873604902125926
     m_FireAvatarMask: {fileID: 31900000, guid: 2a8cb37e09784b409c16ee39c544f0be, type: 2}
-    m_TransitionIn: 0.1
-    m_TransitionOut: 0.25
+    m_TransitionIn: 0.08
+    m_TransitionOut: 0.2
     m_RootMotion: 0
     m_FireAudio:
       m_Property:
-        rid: 8814677336433098911
+        rid: 9185873604902125927
     m_EmptyAudio:
       m_Property:
         rid: 8814677336433098912
@@ -144,18 +144,18 @@ MonoBehaviour:
     m_ImpactSound: {fileID: 0}
     m_ImpactEffect:
       m_Property:
-        rid: 7510531252367130685
-      usePooling: 0
-      size: 5
-      hasDuration: 0
-      duration: 10
+        rid: 9185873604902125928
+      usePooling: 1
+      size: 2
+      hasDuration: 1
+      duration: 5
   m_Accuracy:
     m_MaxSpreadX:
       m_Property:
-        rid: 8814677138683199544
+        rid: 9185873604902125929
     m_MaxSpreadY:
       m_Property:
-        rid: 8814677138683199545
+        rid: 9185873604902125930
     m_SpreadBias:
       m_Property:
         rid: 8814677138683199546
@@ -164,13 +164,13 @@ MonoBehaviour:
         rid: 8814677138683199547
     m_MotionAccuracy:
       m_Property:
-        rid: 8814677138683199548
+        rid: 9185873604902125931
     m_AirborneAccuracy:
       m_Property:
-        rid: 8814677138683199549
+        rid: 9185873604902125932
     m_AccuracyKick:
       m_Property:
-        rid: 8814677138683199550
+        rid: 9185873604902125933
   m_Recoil:
     m_UseRecoil:
       m_Property:
@@ -180,10 +180,10 @@ MonoBehaviour:
         rid: 8814677138683199552
     m_RecoilX:
       m_Property:
-        rid: 9185873558615097368
+        rid: 9185873604902125934
     m_RecoilY:
       m_Property:
-        rid: 9185873558615097369
+        rid: 9185873604902125935
     m_RecoilDuration:
       m_Property:
         rid: 8814677138683199555
@@ -221,7 +221,8 @@ MonoBehaviour:
         rid: 8814677336433098927
   m_Sights:
     m_Sights:
-    - rid: 8814677138683199562
+    - rid: 9185873604902125936
+    - rid: 9185873604902125937
   m_Reloads:
     m_State:
       m_StateType: 2
@@ -259,10 +260,7 @@ MonoBehaviour:
   m_OnHit:
     m_Instructions:
       m_Instructions:
-      - rid: 3428531884584337566
-      - rid: 3428531884584337615
-      - rid: 9185873557907571696
-      - rid: 9185873557907571697
+      - rid: 9185873604902125938
   m_Animations:
     m_Idle: {fileID: 0}
     m_Empty: {fileID: 0}
@@ -300,115 +298,48 @@ MonoBehaviour:
     - rid: 3428531543345201252
       type: {class: GetDecimalConstantOnePointFive, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 3428531543345201806
-      type: {class: GetBoolFalse, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
     - rid: 3428531543345202030
       type: {class: GetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 3428531543345202106
-      type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 3428531543345202126
       type: {class: ShotRigidbody, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
       data:
         m_Prefab:
           m_Property:
-            rid: 3428531543345202127
+            rid: 9185873604902125939
         m_Delay:
           m_Property:
             rid: 1903938894052458661
+        m_AimAtSightPoint: 1
         m_Impulse: 2
         m_ImpulseForce:
           m_Property:
-            rid: 3428531543345202154
+            rid: 9185873604902125940
         m_Mass:
           m_Property:
-            rid: 3428531543345202129
+            rid: 9185873604902125941
         m_AirResistance:
           m_Property:
-            rid: 3428531543345202130
+            rid: 9185873604902125942
         m_WindInfluence:
           m_Property:
-            rid: 3428531543345202131
+            rid: 9185873604902125943
         m_Attraction: 5
         m_AttractionForce:
           m_Property:
-            rid: 3428531543345202132
+            rid: 9185873604902125944
         m_AttractionTarget:
           m_Property:
             rid: 3428531543345202133
         m_MaxDistance:
           m_Property:
-            rid: 3428531543345202134
-        m_Hit: 1
+            rid: 9185873604902125945
+        m_Hit: 0
         m_Timeout:
           m_Property:
-            rid: 3428531884584337492
-    - rid: 3428531543345202127
-      type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_GameObject: {fileID: 6232580452864397694, guid: eb90ce68e1f7a4ce398d5be3fe3b2d23, type: 3}
-    - rid: 3428531543345202129
-      type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 3428531543345202130
-      type: {class: GetDecimalConstantZero, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 3428531543345202131
-      type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 3428531543345202132
-      type: {class: GetDecimalConstantZero, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
+            rid: 9185873604902125946
     - rid: 3428531543345202133
       type: {class: GetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 3428531543345202134
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 9999
-    - rid: 3428531543345202152
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 0.25
-    - rid: 3428531543345202153
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 2
-    - rid: 3428531543345202154
-      type: {class: GetDecimalMathMultiply, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Number1:
-          m_Property:
-            rid: 3428531543345202155
-        m_Number2:
-          m_Property:
-            rid: 3428531543345202164
-    - rid: 3428531543345202155
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 20
-    - rid: 3428531543345202164
-      type: {class: GetDecimalChargeRatio, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
-      data:
-        m_Character:
-          m_Property:
-            rid: 3428531543345202165
-        m_Weapon:
-          m_Property:
-            rid: 3428531543345202166
-    - rid: 3428531543345202165
-      type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 3428531543345202166
-      type: {class: GetWeaponShooterCharacter, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
-      data:
-        m_Character:
-          m_Property:
-            rid: 3428531543345202167
-    - rid: 3428531543345202167
-      type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 3428531799317020694
       type: {class: GetAudioNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
@@ -416,119 +347,29 @@ MonoBehaviour:
     - rid: 3428531799317020695
       type: {class: GetAudioNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 3428531884584337416
-      type: {class: GetAnimationInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: {fileID: 7400000, guid: 7ae5f57e930e94dfabdcb1b5c7e103b9, type: 2}
-    - rid: 3428531884584337492
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 3
-    - rid: 3428531884584337566
-      type: {class: InstructionGameObjectInstantiate, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
-      data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
-        m_GameObject:
-          m_Property:
-            rid: 3428531884584337567
-          usePooling: 1
-          size: 2
-          hasDuration: 1
-          duration: 2.5
-        m_Position:
-          m_Property:
-            rid: 3428531884584337572
-        m_Rotation:
-          m_Property:
-            rid: 3428531884584337573
-        m_Parent:
-          m_Property:
-            rid: 3428531884584337570
-        m_Save:
-          m_Property:
-            rid: 3428531884584337571
-    - rid: 3428531884584337567
-      type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_GameObject: {fileID: 8894929110622384770, guid: af62aa6ee3b894e9b872217674ed96e7, type: 3}
-    - rid: 3428531884584337570
-      type: {class: GetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 3428531884584337571
-      type: {class: SetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 3428531884584337572
-      type: {class: GetPositionTarget, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 3428531884584337573
-      type: {class: GetRotationTarget, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Space: 1
-    - rid: 3428531884584337615
-      type: {class: InstructionLogicRunActions, ns: GameCreator.Runtime.VisualScripting, asm: GameCreator.Runtime.Core}
-      data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
-        m_Actions:
-          m_Property:
-            rid: 3428531884584337617
-        m_WaitToFinish: 1
-    - rid: 3428531884584337617
-      type: {class: GetGameObjectTarget, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
     - rid: 7510531252367130684
       type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 7510531252367130685
-      type: {class: GetGameObjectNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 8814677138683199529
       type: {class: GetColorColorsWhite, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 8814677138683199534
-      type: {class: GetBoolTrue, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
     - rid: 8814677138683199535
       type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 8814677138683199536
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 10
     - rid: 8814677138683199537
       type: {class: GetDecimalInteger, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 3
-    - rid: 8814677138683199540
-      type: {class: GetBoolFalse, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
     - rid: 8814677138683199541
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 4
-    - rid: 8814677138683199544
-      type: {class: GetDecimalConstantTwo, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 8814677138683199545
-      type: {class: GetDecimalConstantTwo, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
     - rid: 8814677138683199546
       type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
     - rid: 8814677138683199547
       type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 8814677138683199548
-      type: {class: GetDecimalConstantPointFive, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 8814677138683199549
-      type: {class: GetDecimalConstantPointFive, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data: 
-    - rid: 8814677138683199550
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: 0.25
     - rid: 8814677138683199551
       type: {class: GetBoolCharacterIsPlayer, ns: GameCreator.Runtime.Characters, asm: GameCreator.Runtime.Core}
       data:
@@ -559,18 +400,6 @@ MonoBehaviour:
     - rid: 8814677138683199561
       type: {class: GetDecimalConstantOne, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 8814677138683199562
-      type: {class: SightItem, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
-      data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
-        m_Id:
-          m_String: idle
-        m_Sight: {fileID: 11400000, guid: c3d808f09255a432fbdf22b4f89d2cdb, type: 2}
-        m_ScopeThrough: 0
-        m_ScopePosition: {x: 0, y: 0.25, z: 0}
-        m_ScopeRotation: {x: 0, y: 0, z: 0}
-        m_ScopeDistance: 0.25
     - rid: 8814677138683199563
       type: {class: GetAnimationInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
@@ -582,10 +411,6 @@ MonoBehaviour:
     - rid: 8814677138683199568
       type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 8814677336433098911
-      type: {class: GetAudioClip, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: {fileID: 8300000, guid: d560c7bb1651044409f19ca0b3449ad5, type: 3}
     - rid: 8814677336433098912
       type: {class: GetAudioClip, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
@@ -598,77 +423,193 @@ MonoBehaviour:
       type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_GameObject: {fileID: 0}
-    - rid: 9185873557907571691
+    - rid: 9185873604902125914
       type: {class: GetStringString, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: RPG-7
-    - rid: 9185873557907571692
+    - rid: 9185873604902125915
       type: {class: GetStringString, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: Heavy Weapon using the Weapons Low RPG-7 model.
-    - rid: 9185873557907571693
+    - rid: 9185873604902125916
       type: {class: GetSpriteInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Sprite: {fileID: 21300000, guid: 409d92fe0bb6047a6a863ba34da93e17, type: 3}
-    - rid: 9185873557907571694
+    - rid: 9185873604902125917
       type: {class: GetAnimationInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: {fileID: 0}
-    - rid: 9185873557907571695
+    - rid: 9185873604902125918
       type: {class: GetDecimalInteger, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 7
-    - rid: 9185873557907571696
-      type: {class: InstructionFranklinCharacterDamage, ns: FranklinGame.Shooter, asm: Assembly-CSharp}
+    - rid: 9185873604902125919
+      type: {class: GetBoolValue, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
-        m_HealthAttributeId: hp
-        m_BodyDamage: 100
-        m_HeadMultiplier: 2
-        m_HelmetMultiplier: 0.25
-        m_HelmetImpulse: 20
-        m_ArmorAbsorption: 0.1
-        m_BloodHitEffect: {fileID: 537938013214301188, guid: 14b5d9d7436a5cb4c833fcc9f0155242, type: 3}
-        m_BloodEffectLifetime: 2
-    - rid: 9185873557907571697
-      type: {class: InstructionFranklinVehicleDamage, ns: FranklinGame.Shooter, asm: Assembly-CSharp}
+        m_Value: 0
+    - rid: 9185873604902125920
+      type: {class: GetDecimalInteger, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
-        m_Breakpoint: 0
-        m_IsEnabled: 1
-        m_Damage: 20
-        m_IgnoreVehicleOccupiedByShooter: 1
-    - rid: 9185873558615097368
-      type: {class: GetDecimalRandomRange, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+        m_Value: 1
+    - rid: 9185873604902125921
+      type: {class: GetBoolValue, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
-        m_MinValue:
-          m_Property:
-            rid: 9185873558615097370
-        m_MaxValue:
-          m_Property:
-            rid: 9185873558615097371
-    - rid: 9185873558615097369
-      type: {class: GetDecimalRandomRange, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_MinValue:
-          m_Property:
-            rid: 9185873558615097372
-        m_MaxValue:
-          m_Property:
-            rid: 9185873558615097373
-    - rid: 9185873558615097370
-      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
-      data:
-        m_Value: -0.5
-    - rid: 9185873558615097371
+        m_Value: 0
+    - rid: 9185873604902125922
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 0.5
-    - rid: 9185873558615097372
+    - rid: 9185873604902125923
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0
+    - rid: 9185873604902125924
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 1
-    - rid: 9185873558615097373
+    - rid: 9185873604902125925
+      type: {class: GetBoolValue, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0
+    - rid: 9185873604902125926
+      type: {class: GetAnimationInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: {fileID: 7281070281482435553, guid: 2f02abd89cca74644abb09230ee91b82, type: 3}
+    - rid: 9185873604902125927
+      type: {class: GetAudioNone, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data: 
+    - rid: 9185873604902125928
+      type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_GameObject: {fileID: 8894929110622384770, guid: af62aa6ee3b894e9b872217674ed96e7, type: 3}
+    - rid: 9185873604902125929
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0
+    - rid: 9185873604902125930
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0
+    - rid: 9185873604902125931
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0
+    - rid: 9185873604902125932
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0
+    - rid: 9185873604902125933
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0
+    - rid: 9185873604902125934
+      type: {class: GetDecimalRandomRange, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_MinValue:
+          m_Property:
+            rid: 9185873604902125947
+        m_MaxValue:
+          m_Property:
+            rid: 9185873604902125948
+    - rid: 9185873604902125935
+      type: {class: GetDecimalRandomRange, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_MinValue:
+          m_Property:
+            rid: 9185873604902125949
+        m_MaxValue:
+          m_Property:
+            rid: 9185873604902125950
+    - rid: 9185873604902125936
+      type: {class: SightItem, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Id:
+          m_String: idle
+        m_Sight: {fileID: 11400000, guid: 349afaadf2a8344fd92294178a0ea313, type: 2}
+        m_ScopeThrough: 0
+        m_ScopePosition: {x: 0, y: 0.25, z: 0}
+        m_ScopeRotation: {x: 0, y: 0, z: 0}
+        m_ScopeDistance: 0.25
+    - rid: 9185873604902125937
+      type: {class: SightItem, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Id:
+          m_String: aim-ads
+        m_Sight: {fileID: 11400000, guid: b6bee6049beee4e98b47d0e33d258dff, type: 2}
+        m_ScopeThrough: 0
+        m_ScopePosition: {x: 0, y: 0.25, z: 0}
+        m_ScopeRotation: {x: 0, y: 0, z: 0}
+        m_ScopeDistance: 0.25
+    - rid: 9185873604902125938
+      type: {class: InstructionFranklinExplosionDamage, ns: FranklinGame.Shooter, asm: Assembly-CSharp}
+      data:
+        m_Breakpoint: 0
+        m_IsEnabled: 1
+        m_Radius: 5
+        m_CharacterDamage: 250
+        m_VehicleDamage: 60
+        m_DestroyGroundVehiclesOnDirectHit: 1
+        m_DirectVehicleForwardVelocity: 2.8
+        m_DirectVehicleUpwardVelocity: 0.35
+        m_EdgeMultiplier: 0.3
+        m_ArmorAbsorption: 0.1
+        m_RagdollVelocity: 3.8
+        m_UpwardModifier: 0.35
+        m_RagdollDuration: 1.5
+        m_ExplosionClip: {fileID: 8300000, guid: f0476364ae0184d50b96e818d71e6b56, type: 3}
+        m_DistantExplosionClip: {fileID: 8300000, guid: 7aa7c208a323c4a8ab6471b370ab6c86, type: 3}
+        m_NearAudioDistance: 110
+        m_DistantAudioDistance: 320
+        m_HealthAttributeId: hp
+    - rid: 9185873604902125939
+      type: {class: GetGameObjectInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_GameObject: {fileID: 8262293939754543419, guid: 38902a03a48bb4213bb2266a87efb633, type: 3}
+    - rid: 9185873604902125940
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 42
+    - rid: 9185873604902125941
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 1
+    - rid: 9185873604902125942
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0
+    - rid: 9185873604902125943
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0
+    - rid: 9185873604902125944
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0
+    - rid: 9185873604902125945
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 150
+    - rid: 9185873604902125946
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 4
+    - rid: 9185873604902125947
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: -0.5
+    - rid: 9185873604902125948
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 0.5
+    - rid: 9185873604902125949
+      type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
+      data:
+        m_Value: 1
+    - rid: 9185873604902125950
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 2

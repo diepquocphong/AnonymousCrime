@@ -1,16 +1,19 @@
 using System;
 using System.Collections.Generic;
+using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
 using GameCreator.Runtime.Stats;
 using PampelGames.BloodFactory;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace FranklinGame.Combat
 {
     /// <summary>
     /// Converts changes to a GC2 health Attribute into Blood Factory particles and
-    /// ground marks. Damage creates a short downward splash plus an immediate mark;
-    /// reaching the Attribute minimum creates one large pool. GC2 remains untouched.
+    /// ground marks. Damage creates a short downward splash plus a mark on an approved
+    /// ground surface; reaching the Attribute minimum creates one large pool there.
+    /// GC2 remains untouched.
     /// </summary>
     [DefaultExecutionOrder(150)]
     [DisallowMultipleComponent]
@@ -27,6 +30,9 @@ namespace FranklinGame.Combat
 
         private const float VALUE_EPSILON = 0.0001f;
         private const int MAX_GROUND_HITS = 12;
+        private const float DEATH_POOL_RETRY_INTERVAL = 0.2f;
+        private const float DEATH_POOL_RETRY_DURATION = 6f;
+        private const float SURFACE_ABOVE_SAMPLE_TOLERANCE = 0.05f;
 
         [Header("Game Creator 2")]
         [SerializeField] private Traits m_Traits;
@@ -38,7 +44,9 @@ namespace FranklinGame.Combat
         [SerializeField] private GameObject m_BloodBurstPrefab;
         [SerializeField] private GameObject m_BloodDropPrefab;
         [SerializeField] private GameObject m_DeathPoolPrefab;
-        [SerializeField] private LayerMask m_GroundLayers = ~0;
+        [SerializeField]
+        [Tooltip("Candidate physics layers for blood placement. Final placement only accepts the Ground/Terrain layers or an actual TerrainCollider.")]
+        private LayerMask m_GroundLayers = ~0;
         [SerializeField, Min(0f)] private float m_BurstOriginHeight = 1.1f;
         [SerializeField, Range(0.5f, 1f)] private float m_BurstDownwardBias = 0.82f;
         [SerializeField, Min(0.1f)] private float m_BurstLifetime = 4f;
@@ -47,6 +55,12 @@ namespace FranklinGame.Combat
         [SerializeField, Min(0.1f)] private float m_GroundRayDistance = 4f;
         [SerializeField, Min(0f)] private float m_SurfaceOffset = 0.025f;
         [SerializeField, Min(0f)] private float m_DropScatterRadius = 0.16f;
+        [SerializeField, Range(0f, 1f)]
+        [Tooltip("Minimum upward-facing normal for a surface to receive a blood pool.")]
+        private float m_MinGroundUpDot = 0.35f;
+        [SerializeField, Min(0.05f)]
+        [Tooltip("Maximum vertical gap from the ragdoll hips to an approved surface before the death pool can appear.")]
+        private float m_DeathPoolGroundRange = 0.75f;
 
         [Header("Health severity")]
         [SerializeField, Range(0f, 1f)] private float m_LightBleedBelow = 0.75f;
@@ -68,8 +82,16 @@ namespace FranklinGame.Combat
         private readonly Queue<GameObject> m_ActiveBursts = new Queue<GameObject>();
 
         private RuntimeAttributeData m_Health;
+        private Character m_Character;
+        private Animator m_Animator;
+        private Transform m_Hips;
+        private TerrainCollider[] m_TerrainColliders = Array.Empty<TerrainCollider>();
+        private int m_GroundLayer = -1;
+        private int m_TerrainLayer = -1;
         private BleedSeverity m_Severity;
         private float m_NextDamageDropTime;
+        private float m_NextDeathPoolRetryTime = float.NegativeInfinity;
+        private float m_DeathPoolRetryUntil = float.NegativeInfinity;
         private bool m_IsBound;
         private bool m_DeathPoolSpawned;
         private bool m_HasWarnedMissingHealth;
@@ -101,10 +123,24 @@ namespace FranklinGame.Combat
             {
                 this.m_Traits = this.GetComponentInParent<Traits>();
             }
+
+            this.m_Character = this.m_Traits != null
+                ? this.m_Traits.GetComponent<Character>()
+                : this.GetComponentInParent<Character>();
+            if (this.m_Character == null)
+            {
+                this.m_Character = this.GetComponentInParent<Character>();
+            }
+
+            this.m_GroundLayer = LayerMask.NameToLayer("Ground");
+            this.m_TerrainLayer = LayerMask.NameToLayer("Terrain");
+            this.CacheRagdollSampleBones();
         }
 
         private void OnEnable()
         {
+            SceneManager.sceneLoaded += this.OnSceneLoaded;
+            this.CacheActiveTerrainColliders();
             this.BindHealth();
         }
 
@@ -115,7 +151,13 @@ namespace FranklinGame.Combat
 
         private void OnDisable()
         {
+            SceneManager.sceneLoaded -= this.OnSceneLoaded;
             this.UnbindHealth();
+            if (!this.m_DeathPoolSpawned)
+            {
+                this.m_NextDeathPoolRetryTime = float.NegativeInfinity;
+                this.m_DeathPoolRetryUntil = float.NegativeInfinity;
+            }
         }
 
         private void Update()
@@ -214,15 +256,39 @@ namespace FranklinGame.Combat
             if (this.m_Health == null) return;
 
             BleedSeverity nextSeverity = this.CalculateSeverity();
-            if (nextSeverity != BleedSeverity.Dead && this.m_DeathPoolSpawned)
+            bool enteredDead = nextSeverity == BleedSeverity.Dead &&
+                               this.m_Severity != BleedSeverity.Dead;
+            if (nextSeverity != BleedSeverity.Dead)
             {
                 this.m_DeathPoolSpawned = false;
+                this.m_NextDeathPoolRetryTime = float.NegativeInfinity;
+                this.m_DeathPoolRetryUntil = float.NegativeInfinity;
             }
 
-            if (nextSeverity == BleedSeverity.Dead && !this.m_DeathPoolSpawned)
+            bool needsDeathPoolRetry = nextSeverity == BleedSeverity.Dead &&
+                                       !this.m_DeathPoolSpawned &&
+                                       (enteredDead ||
+                                        float.IsNegativeInfinity(
+                                            this.m_DeathPoolRetryUntil
+                                        ));
+            if (needsDeathPoolRetry)
             {
-                this.m_DeathPoolSpawned = true;
-                this.SpawnDeathPool();
+                float now = Time.unscaledTime;
+                this.m_NextDeathPoolRetryTime = now;
+                this.m_DeathPoolRetryUntil = now + DEATH_POOL_RETRY_DURATION;
+            }
+
+            if (nextSeverity == BleedSeverity.Dead &&
+                !this.m_DeathPoolSpawned &&
+                this.CanPlaceDeathPool())
+            {
+                float now = Time.unscaledTime;
+                if (now >= this.m_NextDeathPoolRetryTime &&
+                    now <= this.m_DeathPoolRetryUntil)
+                {
+                    this.m_DeathPoolSpawned = this.SpawnDeathPool();
+                    this.m_NextDeathPoolRetryTime = now + DEATH_POOL_RETRY_INTERVAL;
+                }
             }
 
             if (!forceEvent && nextSeverity == this.m_Severity) return;
@@ -313,7 +379,7 @@ namespace FranklinGame.Combat
 
         private LayerMask GetParticleCollisionLayers(Transform playerTransform)
         {
-            int mask = this.m_GroundLayers.value;
+            int mask = this.GetApprovedSurfaceMask();
             if (playerTransform != null)
             {
                 mask &= ~(1 << playerTransform.gameObject.layer);
@@ -335,25 +401,28 @@ namespace FranklinGame.Combat
                 this.m_BloodDropPrefab,
                 scale,
                 this.m_DropLifetime,
-                scatterRadius
+                scatterRadius,
+                false
             );
         }
 
-        private void SpawnDeathPool()
+        private bool SpawnDeathPool()
         {
-            this.SpawnDecal(
+            return this.SpawnDecal(
                 this.m_DeathPoolPrefab,
                 this.m_DeathPoolScale,
                 this.m_DeathPoolLifetime,
-                this.m_DropScatterRadius * 0.25f
+                this.m_DropScatterRadius * 0.25f,
+                true
             );
         }
 
-        private void SpawnDecal(
+        private bool SpawnDecal(
             GameObject prefab,
             float scale,
             float lifetime,
-            float scatterRadius)
+            float scatterRadius,
+            bool useRagdollSample)
         {
             if (prefab == null)
             {
@@ -365,13 +434,15 @@ namespace FranklinGame.Combat
                         this
                     );
                 }
-                return;
+                return false;
             }
 
             Transform playerTransform = this.m_Traits != null
                 ? this.m_Traits.transform
                 : this.transform;
-            Vector3 samplePosition = playerTransform.position;
+            Vector3 samplePosition = useRagdollSample
+                ? this.GetRagdollSamplePosition(playerTransform)
+                : playerTransform.position;
             if (scatterRadius > 0f)
             {
                 Vector2 scatter = UnityEngine.Random.insideUnitCircle * scatterRadius;
@@ -382,7 +453,17 @@ namespace FranklinGame.Combat
                 samplePosition += right * scatter.x + forward * scatter.y;
             }
 
-            this.FindGround(samplePosition, out Vector3 position, out Vector3 normal);
+            float groundRange = useRagdollSample
+                ? this.m_DeathPoolGroundRange
+                : this.m_GroundRayDistance;
+            if (!this.TryFindGround(
+                    samplePosition,
+                    groundRange,
+                    out Vector3 position,
+                    out Vector3 normal))
+            {
+                return false;
+            }
             Vector3 decalUp = Vector3.ProjectOnPlane(playerTransform.forward, normal);
             if (decalUp.sqrMagnitude <= VALUE_EPSILON)
             {
@@ -417,20 +498,53 @@ namespace FranklinGame.Combat
             }
 
             Destroy(instance, Mathf.Max(0.1f, lifetime) + 0.25f);
+            return true;
         }
 
-        private void FindGround(
+        private Vector3 GetRagdollSamplePosition(Transform playerTransform)
+        {
+            if (this.m_Hips == null) this.CacheRagdollSampleBones();
+            if (this.m_Hips != null) return this.m_Hips.position;
+
+            return playerTransform.position;
+        }
+
+        private void CacheRagdollSampleBones()
+        {
+            Transform playerTransform = this.m_Traits != null
+                ? this.m_Traits.transform
+                : this.transform;
+
+            if (this.m_Animator == null)
+            {
+                this.m_Animator = playerTransform.GetComponentInChildren<Animator>(true);
+            }
+
+            this.m_Hips = this.m_Animator != null && this.m_Animator.isHuman
+                ? this.m_Animator.GetBoneTransform(HumanBodyBones.Hips)
+                : null;
+        }
+
+        private bool CanPlaceDeathPool()
+        {
+            return this.m_Character != null &&
+                   this.m_Character.Ragdoll?.IsRagdoll == true;
+        }
+
+        private bool TryFindGround(
             Vector3 samplePosition,
+            float groundRange,
             out Vector3 position,
             out Vector3 normal)
         {
             Vector3 origin = samplePosition + Vector3.up * this.m_GroundRayOriginHeight;
+            float maxDistance = this.m_GroundRayOriginHeight + Mathf.Max(0.05f, groundRange);
             int hitCount = Physics.RaycastNonAlloc(
                 origin,
                 Vector3.down,
                 this.m_GroundHits,
-                this.m_GroundRayOriginHeight + this.m_GroundRayDistance,
-                this.m_GroundLayers,
+                maxDistance,
+                this.GetApprovedSurfaceMask(),
                 QueryTriggerInteraction.Ignore
             );
 
@@ -451,23 +565,119 @@ namespace FranklinGame.Combat
                 {
                     continue;
                 }
+                if (!this.IsGroundOrTerrain(hit.collider)) continue;
+                if (!this.IsWithinGroundRange(hit.distance, groundRange)) continue;
+
+                Vector3 hitNormal = hit.normal.sqrMagnitude > VALUE_EPSILON
+                    ? hit.normal.normalized
+                    : Vector3.up;
+                if (Vector3.Dot(hitNormal, Vector3.up) < this.m_MinGroundUpDot) continue;
                 if (hit.distance >= nearestDistance) continue;
 
                 nearestDistance = hit.distance;
                 nearestHit = hit;
             }
 
-            if (nearestDistance < float.PositiveInfinity)
+            this.TryFindActiveTerrain(
+                new Ray(origin, Vector3.down),
+                maxDistance,
+                groundRange,
+                ref nearestDistance,
+                ref nearestHit
+            );
+
+            if (!float.IsPositiveInfinity(nearestDistance))
             {
                 normal = nearestHit.normal.sqrMagnitude > VALUE_EPSILON
                     ? nearestHit.normal.normalized
                     : Vector3.up;
                 position = nearestHit.point + normal * this.m_SurfaceOffset;
-                return;
+                return true;
             }
 
             normal = Vector3.up;
-            position = samplePosition + normal * this.m_SurfaceOffset;
+            position = default;
+            return false;
+        }
+
+        private bool IsGroundOrTerrain(Collider collider)
+        {
+            if (collider == null) return false;
+            if (collider is TerrainCollider) return true;
+
+            int layer = collider.gameObject.layer;
+            return layer == this.m_GroundLayer || layer == this.m_TerrainLayer;
+        }
+
+        private int GetApprovedSurfaceMask()
+        {
+            int mask = this.m_GroundLayers.value;
+            if (this.m_GroundLayer >= 0) mask |= 1 << this.m_GroundLayer;
+            if (this.m_TerrainLayer >= 0) mask |= 1 << this.m_TerrainLayer;
+            return mask;
+        }
+
+        private bool IsWithinGroundRange(float hitDistance, float groundRange)
+        {
+            float signedGap = hitDistance - this.m_GroundRayOriginHeight;
+            return signedGap >= -SURFACE_ABOVE_SAMPLE_TOLERANCE &&
+                   signedGap <= groundRange + VALUE_EPSILON;
+        }
+
+        private void OnSceneLoaded(
+            Scene scene,
+            UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            this.CacheActiveTerrainColliders();
+        }
+
+        private void CacheActiveTerrainColliders()
+        {
+            Terrain[] terrains = Terrain.activeTerrains;
+            if (terrains == null || terrains.Length == 0)
+            {
+                this.m_TerrainColliders = Array.Empty<TerrainCollider>();
+                return;
+            }
+
+            this.m_TerrainColliders = new TerrainCollider[terrains.Length];
+            for (int i = 0; i < terrains.Length; ++i)
+            {
+                Terrain terrain = terrains[i];
+                this.m_TerrainColliders[i] = terrain != null
+                    ? terrain.GetComponent<TerrainCollider>()
+                    : null;
+            }
+        }
+
+        private void TryFindActiveTerrain(
+            Ray ray,
+            float maxDistance,
+            float groundRange,
+            ref float nearestDistance,
+            ref RaycastHit nearestHit)
+        {
+            for (int i = 0; i < this.m_TerrainColliders.Length; ++i)
+            {
+                TerrainCollider collider = this.m_TerrainColliders[i];
+                if (collider == null ||
+                    !collider.enabled ||
+                    !collider.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+                if (!collider.Raycast(ray, out RaycastHit hit, maxDistance)) continue;
+                if (!this.IsWithinGroundRange(hit.distance, groundRange)) continue;
+
+                Vector3 hitNormal = hit.normal.sqrMagnitude > VALUE_EPSILON
+                    ? hit.normal.normalized
+                    : Vector3.up;
+                if (Vector3.Dot(hitNormal, Vector3.up) < this.m_MinGroundUpDot) continue;
+                if (hit.distance >= nearestDistance) continue;
+
+                nearestDistance = hit.distance;
+                nearestHit = hit;
+            }
         }
 
         private void OnValidate()
@@ -492,6 +702,8 @@ namespace FranklinGame.Combat
                 this.m_MinDamageDropScale,
                 this.m_MaxDamageDropScale
             );
+            this.m_MinGroundUpDot = Mathf.Clamp01(this.m_MinGroundUpDot);
+            this.m_DeathPoolGroundRange = Mathf.Max(0.05f, this.m_DeathPoolGroundRange);
             this.m_DeathPoolLifetime = Mathf.Max(0.1f, this.m_DeathPoolLifetime);
         }
     }

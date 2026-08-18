@@ -1,0 +1,65 @@
+{
+    "passed": true,
+    "sourcePrefab": "Assets/Model/franklin-villa-estate-unity/franklin-villa-estate-unity.prefab",
+    "optimizedPrefab": "Assets/Model/franklin-villa-estate-mobile-optimized/franklin-villa-estate-mobile-optimized.prefab",
+    "source": {
+        "gameObjectCount": 517,
+        "rendererCount": 461,
+        "materialSlotCount": 498,
+        "uniqueMeshCount": 440,
+        "materialCount": 26,
+        "referencedTextureCount": 5,
+        "colliderCount": 461,
+        "boxColliderCount": 455,
+        "meshColliderCount": 6,
+        "instanceVertexCount": 17891,
+        "instanceTriangleCount": 16520,
+        "boundsCenter": {
+            "x": -1.5,
+            "y": 3.3639090061187746,
+            "z": -7.133180618286133
+        },
+        "boundsSize": {
+            "x": 70.0,
+            "y": 10.62781810760498,
+            "z": 48.11363983154297
+        }
+    },
+    "optimized": {
+        "gameObjectCount": 579,
+        "rendererCount": 181,
+        "materialSlotCount": 192,
+        "uniqueMeshCount": 179,
+        "materialCount": 26,
+        "referencedTextureCount": 5,
+        "colliderCount": 461,
+        "boxColliderCount": 455,
+        "meshColliderCount": 6,
+        "instanceVertexCount": 17891,
+        "instanceTriangleCount": 16520,
+        "boundsCenter": {
+            "x": -1.5,
+            "y": 3.3639090061187746,
+            "z": -7.133180618286133
+        },
+        "boundsSize": {
+            "x": 70.0,
+            "y": 10.62781810760498,
+            "z": 48.11363983154297
+        }
+    },
+    "protectedNodeCount": 88,
+    "rendererReductionPercent": 60.737525939941409,
+    "materialSlotReductionPercent": 61.44578170776367,
+    "sourceLocalAssetBytes": 6618891,
+    "optimizedLocalAssetBytes": 4022438,
+    "notes": [
+        "Original source prefab and folder were not modified.",
+        "All interactive and vehicle-ramp subtrees retain their hierarchy, transforms, renderers and colliders.",
+        "Only static visual MeshRenderer/MeshFilter components were replaced with regional material-signature batches.",
+        "All original triangles and all 461 colliders are retained; no polygon decimation was used.",
+        "Only the 26 referenced materials and 5 referenced textures are copied.",
+        "Textures are RGB, Max Size 256, mipmapped, non-readable, BC1 on Standalone and ASTC 4x4 on mobile.",
+        "Glass and pool water retain the original zwrite + transparent two-material pass order."
+    ]
+}

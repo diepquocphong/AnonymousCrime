@@ -97,9 +97,8 @@ public class VehicleLights : MonoBehaviour
         this.SetGlow(this.frontLight1, color);
         this.SetGlow(this.frontLight2, color);
 
-        float intensity = active ? this.spotLightIntensity : 0f;
-        if (this.spotLight1 != null) this.spotLight1.intensity = intensity;
-        if (this.spotLight2 != null) this.spotLight2.intensity = intensity;
+        this.ApplySpotLight(this.spotLight1, active);
+        this.ApplySpotLight(this.spotLight2, active);
     }
 
     private void ApplyRearLights()
@@ -122,5 +121,19 @@ public class VehicleLights : MonoBehaviour
         block.SetColor(GlowColorId, color);
         target.SetPropertyBlock(block);
         block.Clear();
+    }
+
+    private void ApplySpotLight(Light target, bool active)
+    {
+        if (target == null) return;
+
+        float intensity = active ? this.spotLightIntensity : 0f;
+        if (!Mathf.Approximately(target.intensity, intensity))
+            target.intensity = intensity;
+
+        // An enabled zero-intensity Light is still registered with the render
+        // pipeline. Fully disabling parked/off headlights prevents every Bike
+        // and Car from contributing an otherwise invisible per-camera light.
+        if (target.enabled != active) target.enabled = active;
     }
 }

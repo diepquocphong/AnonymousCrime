@@ -1046,6 +1046,11 @@ namespace FranklinGame.Vehicles.Editor
                 -entry.doorOpenRotation.y,
                 -entry.doorOpenRotation.z
             );
+            entry.passengerDoorOpenLocalOffset = new Vector3(
+                -entry.doorOpenLocalOffset.x,
+                entry.doorOpenLocalOffset.y,
+                entry.doorOpenLocalOffset.z
+            );
 
             Transform handle = FindTransform(passengerHook.gameObject, "Passenger Door Handle Target");
             if (handle == null)
@@ -1136,10 +1141,16 @@ namespace FranklinGame.Vehicles.Editor
             entry.rearLeftDoorTransform = rearLeftHook;
             entry.rearRightDoorTransform = rearRightHook;
             entry.rearLeftDoorOpenRotation = entry.doorOpenRotation;
+            entry.rearLeftDoorOpenLocalOffset = entry.doorOpenLocalOffset;
             entry.rearRightDoorOpenRotation = new Vector3(
                 entry.doorOpenRotation.x,
                 -entry.doorOpenRotation.y,
                 -entry.doorOpenRotation.z
+            );
+            entry.rearRightDoorOpenLocalOffset = new Vector3(
+                -entry.doorOpenLocalOffset.x,
+                entry.doorOpenLocalOffset.y,
+                entry.doorOpenLocalOffset.z
             );
 
             Transform leftHandle = EnsureRearDoorHandle(

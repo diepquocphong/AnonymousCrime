@@ -9,8 +9,8 @@ namespace GameCreator.Runtime.VisualScripting
     [Title("Reset Vehicle")]
     [Description("Resets the Vehicle's orientation and velocity, making it upright.")]
     [Category("Vehicles/Reset")]
-    [Parameter("Target", "The GameObject with a PhysicsCarController, PhysicsBikeController, or HoverVehicleController component")]
-    [Keywords("Car", "Bike", "Hover", "Reset", "Upright", "Physics", "Controller")]
+    [Parameter("Target", "The GameObject with a supported vehicle controller component")]
+    [Keywords("Car", "Bike", "Vehicle", "Reset", "Upright", "Physics", "Controller")]
     [Image(typeof(IconInstructions), ColorTheme.Type.Blue, typeof(OverlayArrowUp))]
     [Serializable]
     public class InstructionResetVehicle : Instruction

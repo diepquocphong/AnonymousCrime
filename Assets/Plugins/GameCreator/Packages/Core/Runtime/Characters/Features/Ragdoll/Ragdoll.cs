@@ -106,6 +106,26 @@ namespace GameCreator.Runtime.Characters
             
             this.EventAfterFinishRecover?.Invoke();
         }
+
+        /// <summary>
+        /// Stops ragdoll physics and restores the Character hierarchy without
+        /// playing the stand-up gesture. Pooling/despawn systems use this while
+        /// the hierarchy is being disabled, where an animation-driven recovery
+        /// could otherwise wait indefinitely for an inactive graph.
+        /// </summary>
+        public async Task StopRagdollImmediate()
+        {
+            if (this.m_Ragdoll == null) return;
+            if (this.m_Character.Animim.Animator == null) return;
+            if (!this.IsRagdoll) return;
+
+            this.EventBeforeStartRecover?.Invoke();
+            await this.m_Ragdoll.StopRagdoll(this.m_Character);
+            this.EventAfterStartRecover?.Invoke();
+
+            this.IsRagdoll = false;
+            this.EventAfterFinishRecover?.Invoke();
+        }
         
         // GIZMOS: --------------------------------------------------------------------------------
         

@@ -14,6 +14,8 @@ namespace GameCreator.Runtime.Common.Audio
 
         [NonSerialized] private Args m_Args;
 
+        [NonSerialized] private int m_PlaybackVersion;
+
         [NonSerialized] private readonly AnimFloat m_Volume = new AnimFloat(1f);
         
         // PROPERTIES: ----------------------------------------------------------------------------
@@ -81,6 +83,7 @@ namespace GameCreator.Runtime.Common.Audio
 
         internal async Task Play(AudioClip audioClip, IAudioConfig audioConfig, Args args)
         {
+            int playbackVersion = ++this.m_PlaybackVersion;
             this.AudioSource.clip = audioClip;
             
             this.m_AudioConfig = audioConfig;
@@ -91,7 +94,10 @@ namespace GameCreator.Runtime.Common.Audio
             this.AudioSource.Stop();
             this.AudioSource.Play();
 
-            while (!ApplicationManager.IsExiting && this.AudioSource.isPlaying)
+            while (
+                !ApplicationManager.IsExiting &&
+                playbackVersion == this.m_PlaybackVersion &&
+                this.AudioSource.isPlaying)
             {
                 await Task.Yield();
             }
@@ -99,11 +105,15 @@ namespace GameCreator.Runtime.Common.Audio
 
         internal async Task Stop(float transition)
         {
+            int playbackVersion = this.m_PlaybackVersion;
             this.m_Volume.Target = 0f;
             this.m_Volume.Smooth = transition;
             
             this.AudioSource.SetScheduledEndTime(AudioSettings.dspTime + transition);
-            while (!ApplicationManager.IsExiting && this.AudioSource.isPlaying)
+            while (
+                !ApplicationManager.IsExiting &&
+                playbackVersion == this.m_PlaybackVersion &&
+                this.AudioSource.isPlaying)
             {
                 await Task.Yield();
             }

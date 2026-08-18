@@ -309,7 +309,13 @@ namespace FranklinGame.Animations
             Quaternion yaw = forward.sqrMagnitude > 0.0001f
                 ? Quaternion.LookRotation(forward.normalized, Vector3.up)
                 : Quaternion.identity;
-            this.m_CameraPivot.SetPositionAndRotation(this.m_Player.transform.position, yaw);
+            Vector3 position = this.m_Player.transform.position;
+            bool positionChanged =
+                (this.m_CameraPivot.position - position).sqrMagnitude > 0.000001f;
+            bool rotationChanged =
+                Quaternion.Angle(this.m_CameraPivot.rotation, yaw) > 0.01f;
+            if (positionChanged || rotationChanged)
+                this.m_CameraPivot.SetPositionAndRotation(position, yaw);
         }
 
         private void SnapBehindActiveBike()

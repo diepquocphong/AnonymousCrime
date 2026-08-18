@@ -83,6 +83,17 @@ namespace FranklinGame.Shooter
             this.m_Manager?.SetOrbitSuppressed(this, suppressed);
         }
 
+        /// <summary>
+        /// Restores the owned FPS viewport after a GC2 Sight has finished authoring its
+        /// exit FOV. This is event-driven so passive presentation refreshes can remain a
+        /// true no-op instead of rebuilding the whole GC2 profile on a timer.
+        /// </summary>
+        public void ReapplyActiveProfile()
+        {
+            if (!this.IsActive) return;
+            this.m_Manager.ReapplyOwnedProfile(this);
+        }
+
         public void Refresh(bool canPresent)
         {
             if (!this.ResolveMainCamera() || this.m_Manager == null) return;

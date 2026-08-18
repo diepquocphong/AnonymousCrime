@@ -277,13 +277,15 @@ namespace FranklinGame.Settings
             bool changed = s_QualityLevel != nextLevel;
             s_QualityLevel = nextLevel;
 
+            // A preset changes several dependent switches. Apply them without
+            // flushing each preference separately, then commit the coherent
+            // profile once to avoid repeated synchronous mobile-storage stalls.
+            ApplyQualityEffects(nextLevel, false, changed);
+
             if (persist)
             {
-                PlayerPrefs.SetInt(QualityLevelPreferenceKey, nextLevel);
-                PlayerPrefs.Save();
+                PersistCurrentSettings();
             }
-
-            ApplyQualityEffects(nextLevel, persist, changed);
 
             bool applied = ApplyQualityToScaler(nextLevel);
             if (changed) QualityLevelChanged?.Invoke(nextLevel);
@@ -374,6 +376,34 @@ namespace FranklinGame.Settings
 
             SetDepthOfFieldMode(nextMode, persist);
             return s_DepthOfFieldMode;
+        }
+
+        /// <summary>
+        /// Flushes one coherent graphics snapshot. Web controls use this after a
+        /// short debounce so several quick taps do not synchronously stall mobile
+        /// storage once per field.
+        /// </summary>
+        public static void PersistCurrentSettings()
+        {
+            EnsureStateLoaded();
+            PlayerPrefs.SetInt(QualityLevelPreferenceKey, s_QualityLevel);
+            PlayerPrefs.SetInt(
+                FranklinBlobShadow.GlobalEnabledPreferenceKey,
+                FbsEnabled ? 1 : 0
+            );
+            PlayerPrefs.SetInt(
+                SsaoEnabledPreferenceKey,
+                s_SsaoEnabled ? 1 : 0
+            );
+            PlayerPrefs.SetInt(
+                AntiAliasingModePreferenceKey,
+                s_AntiAliasingMode
+            );
+            PlayerPrefs.SetInt(
+                DepthOfFieldModePreferenceKey,
+                s_DepthOfFieldMode
+            );
+            PlayerPrefs.Save();
         }
 
         /// <summary>Reapplies all saved settings without changing preferences.</summary>

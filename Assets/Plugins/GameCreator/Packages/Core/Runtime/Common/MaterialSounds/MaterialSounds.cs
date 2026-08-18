@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using GameCreator.Runtime.Common.Audio;
 using UnityEngine;
+using UnityEngine.Pool;
 
 namespace GameCreator.Runtime.Common
 {
@@ -33,6 +34,12 @@ namespace GameCreator.Runtime.Common
         {
             if (materialSounds == null) return;
             if (hit == null) return;
+
+            if (materialSounds.MaterialSounds.Length == 0)
+            {
+                PlayDefault(args, point, normal, materialSounds, yaw);
+                return;
+            }
             
             switch (hit.Get<Collider>() is TerrainCollider)
             {
@@ -74,11 +81,11 @@ namespace GameCreator.Runtime.Common
                     maxWeight = weight;
                 }
                 
-                PlaySound(args, texture, materialSounds);
             }
 
             if (maxTexture != null)
             {
+                PlaySound(args, maxTexture, materialSounds);
                 PlayImpact(point, normal, maxTexture, materialSounds, yaw);
             }
         }
@@ -101,7 +108,7 @@ namespace GameCreator.Runtime.Common
                 {
                     Renderer[] renderers = lodGroup.GetLODs()[0].renderers;
                     renderersCount = Mathf.Min(RENDERERS.Length, renderers.Length);
-                    for (int i = 0; i < renderers.Length; ++i)
+                    for (int i = 0; i < renderersCount; ++i)
                     {
                         RENDERERS[i] = renderers[i];
                     }
@@ -113,15 +120,26 @@ namespace GameCreator.Runtime.Common
                 Renderer renderer = RENDERERS[i];
                 if (renderer == null) continue;
 
-                foreach (Material material in renderer.sharedMaterials)
+                List<Material> materials = ListPool<Material>.Get();
+                try
                 {
-                    if (material.HasTexture(materialSounds.TextureID) == false) continue;
-                    
-                    Texture texture = material.GetTexture(materialSounds.TextureID);
-                    if (texture == null) continue;
-                    
-                    PlaySound(args, texture, materialSounds);
-                    PlayImpact(point, normal, texture, materialSounds, yaw);
+                    renderer.GetSharedMaterials(materials);
+                    for (int materialIndex = 0; materialIndex < materials.Count; ++materialIndex)
+                    {
+                        Material material = materials[materialIndex];
+                        if (material == null) continue;
+                        if (material.HasTexture(materialSounds.TextureID) == false) continue;
+
+                        Texture texture = material.GetTexture(materialSounds.TextureID);
+                        if (texture == null) continue;
+
+                        PlaySound(args, texture, materialSounds);
+                        PlayImpact(point, normal, texture, materialSounds, yaw);
+                    }
+                }
+                finally
+                {
+                    ListPool<Material>.Release(materials);
                 }
             }
         }
@@ -211,7 +229,7 @@ namespace GameCreator.Runtime.Common
                 {
                     Renderer[] renderers = lodGroup.GetLODs()[0].renderers;
                     renderersCount = Mathf.Min(RENDERERS.Length, renderers.Length);
-                    for (int i = 0; i < renderers.Length; ++i)
+                    for (int i = 0; i < renderersCount; ++i)
                     {
                         RENDERERS[i] = renderers[i];
                     }
@@ -223,15 +241,26 @@ namespace GameCreator.Runtime.Common
                 Renderer renderer = RENDERERS[i];
                 if (renderer == null) continue;
 
-                foreach (Material material in renderer.sharedMaterials)
+                List<Material> materials = ListPool<Material>.Get();
+                try
                 {
-                    if (material.HasTexture(materialSounds.TextureID) == false) continue;
-                    
-                    Texture texture = material.GetTexture(materialSounds.TextureID);
-                    if (texture == null) continue;
-                    
-                    this.PlaySound(texture, 1f, speed, transform, args);
-                    this.PlayImpact(texture, transform, hit, yaw);
+                    renderer.GetSharedMaterials(materials);
+                    for (int materialIndex = 0; materialIndex < materials.Count; ++materialIndex)
+                    {
+                        Material material = materials[materialIndex];
+                        if (material == null) continue;
+                        if (material.HasTexture(materialSounds.TextureID) == false) continue;
+
+                        Texture texture = material.GetTexture(materialSounds.TextureID);
+                        if (texture == null) continue;
+
+                        this.PlaySound(texture, 1f, speed, transform, args);
+                        this.PlayImpact(texture, transform, hit, yaw);
+                    }
+                }
+                finally
+                {
+                    ListPool<Material>.Release(materials);
                 }
             }
         }
@@ -375,6 +404,38 @@ namespace GameCreator.Runtime.Common
                 configDefault, 
                 args
             );
+        }
+
+        private static void PlayDefault(
+            Args args,
+            Vector3 point,
+            Vector3 normal,
+            MaterialSoundsAsset materialSounds,
+            float yaw)
+        {
+            MaterialSoundDefault defaults = materialSounds.MaterialSounds.DefaultSounds;
+            if (defaults == null) return;
+
+            AudioClip audioClip = defaults.Audio;
+            if (audioClip != null && defaults.Volume >= float.Epsilon)
+            {
+                AudioConfigSoundEffect config = AudioConfigSoundEffect.Create(
+                    defaults.Volume,
+                    new Vector2(1f + PITCH_VARIATION.x, 1f + PITCH_VARIATION.y),
+                    0f, TimeMode.UpdateMode.GameTime, SpatialBlending.Spatial,
+                    args.Self
+                );
+
+                _ = AudioManager.Instance.SoundEffect.Play(audioClip, config, args);
+            }
+
+            GameObject impact = defaults.Impact?.Create(
+                point,
+                Quaternion.FromToRotation(Vector3.up, normal),
+                null
+            );
+
+            if (impact != null) impact.transform.localRotation *= Quaternion.Euler(0f, yaw, 0f);
         }
         
         private static void PlayImpact(Vector3 point, Vector3 normal, Texture texture, MaterialSoundsAsset materialSounds, float yaw)

@@ -10,6 +10,8 @@ namespace RobotAstro
     public sealed class DynamicResolutionScaler : MonoBehaviour
     {
         private static DynamicResolutionScaler s_Instance;
+        private static bool s_MenuSuspended;
+        private static bool s_WasEnabledBeforeMenu;
 
         public enum DeviceProfile
         {
@@ -91,6 +93,33 @@ namespace RobotAstro
             s_Instance != null && s_Instance.isActiveAndEnabled
                 ? s_Instance.m_ActiveProfile.ToString().ToLowerInvariant()
                 : "auto";
+        public static string RecommendedAutoProfileName =>
+            ResolveAutoProfile().ToString().ToLowerInvariant();
+
+        /// <summary>
+        /// Stops dynamic-resolution sampling while the static web menu is open.
+        /// Re-enabling recalculates the gameplay profile and restores its target
+        /// frame rate, preventing a persistent scaler from fighting the 30 FPS
+        /// menu cap after a GamePlay -> Menu -> GamePlay round trip.
+        /// </summary>
+        public static bool SetMenuSuspended(bool suspended)
+        {
+            if (s_Instance == null) return false;
+            if (suspended)
+            {
+                if (s_MenuSuspended) return true;
+                s_MenuSuspended = true;
+                s_WasEnabledBeforeMenu = s_Instance.enabled;
+                if (s_WasEnabledBeforeMenu) s_Instance.enabled = false;
+                return true;
+            }
+
+            if (!s_MenuSuspended) return true;
+            s_MenuSuspended = false;
+            if (s_WasEnabledBeforeMenu) s_Instance.enabled = true;
+            s_WasEnabledBeforeMenu = false;
+            return true;
+        }
 
         /// <summary>
         /// Restores hardware-based profile selection and keeps adapting render
@@ -128,6 +157,8 @@ namespace RobotAstro
         private static void ResetStaticState()
         {
             s_Instance = null;
+            s_MenuSuspended = false;
+            s_WasEnabledBeforeMenu = false;
         }
 
         private void Awake()
@@ -148,7 +179,10 @@ namespace RobotAstro
 
         private void OnDestroy()
         {
-            if (s_Instance == this) s_Instance = null;
+            if (s_Instance != this) return;
+            s_Instance = null;
+            s_MenuSuspended = false;
+            s_WasEnabledBeforeMenu = false;
         }
 
         private void OnEnable()

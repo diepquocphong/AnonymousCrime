@@ -99,6 +99,16 @@ namespace Ashsvp
 
         private float[] offset_Prev = new float[4];
 
+        // Wheel transforms are presentation objects and are mutated by the
+        // suspension/steering code. Keep their authored pose so a pooled Car can
+        // be measured and placed on the road before simulation resumes.
+        private readonly Vector3[] authoredWheelLocalPositions = new Vector3[4];
+        private readonly Quaternion[] authoredWheelLocalRotations = new Quaternion[4];
+        private readonly Vector3[] authoredWheelVisualLocalPositions = new Vector3[4];
+        private readonly Quaternion[] authoredWheelVisualLocalRotations = new Quaternion[4];
+        private readonly bool[] hasAuthoredWheelVisual = new bool[4];
+        private int authoredWheelCount;
+
         [HideInInspector]
         public bool CanDrive, CanAccelerate;
 
@@ -109,6 +119,8 @@ namespace Ashsvp
         [HideInInspector]
         public float[] forwardSlip = new float[4], slipCoeff = new float[4], skidTotal = new float[4];
         private WheelSkid[] wheelSkids = new WheelSkid[4];
+        private GameObject runtimeSkidMarkController;
+        private Skidmarks runtimeSkidmarks;
 
         [HideInInspector] public float vehicleScale = 1f;
 
@@ -136,8 +148,17 @@ namespace Ashsvp
 
         void Awake()
         {
-            GameObject SkidMarkController_Self = Instantiate(SkidMarkController);
-            SkidMarkController_Self.GetComponent<Skidmarks>().SkidmarkWidth = skidmarkWidth;
+            if (SkidMarkController != null)
+            {
+                runtimeSkidMarkController = Instantiate(SkidMarkController);
+                runtimeSkidMarkController.name = $"{name} Skidmarks (Runtime)";
+                runtimeSkidmarks = runtimeSkidMarkController.GetComponent<Skidmarks>();
+
+                if (runtimeSkidmarks != null)
+                {
+                    runtimeSkidmarks.SkidmarkWidth = skidmarkWidth;
+                }
+            }
 
             CanDrive = true;
             CanAccelerate = true;
@@ -145,13 +166,15 @@ namespace Ashsvp
             rb = GetComponent<Rigidbody>();
             lastVelocity = Vector3.zero;
 
+            CacheAuthoredWheelPose();
+
 
             for (int i = 0; i < Wheels.Length; i++)
             {
                 HardPoints[i].localPosition = new Vector3(Wheels[i].localPosition.x, 0, Wheels[i].localPosition.z);
 
                 wheelSkids[i] = Instantiate(WheelSkid, Wheels[i].GetChild(0)).GetComponent<WheelSkid>();
-                setWheelSkidvalues_Start(i, SkidMarkController_Self.GetComponent<Skidmarks>(), wheelRadius);
+                setWheelSkidvalues_Start(i, runtimeSkidmarks, wheelRadius);
             }
             MaxSpringDistance = Mathf.Abs(Wheels[0].localPosition.y - HardPoints[0].localPosition.y) + (0.1f * vehicleScale) + wheelRadius;
 
@@ -163,12 +186,122 @@ namespace Ashsvp
             compressions = new float[4];
         }
 
+        private void OnEnable()
+        {
+            if (runtimeSkidMarkController != null && !runtimeSkidMarkController.activeSelf)
+            {
+                runtimeSkidMarkController.SetActive(true);
+            }
+        }
+
+        private void OnDisable()
+        {
+            // Parking disables this component while the Car remains active. Keep the
+            // already drawn marks in that case, but stop the independent root when
+            // the whole Car is pooled/hidden.
+            if (!gameObject.activeInHierarchy && runtimeSkidMarkController != null)
+            {
+                runtimeSkidmarks?.ClearForOwnerDeactivation();
+                runtimeSkidMarkController.SetActive(false);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (runtimeSkidMarkController != null)
+            {
+                Destroy(runtimeSkidMarkController);
+                runtimeSkidMarkController = null;
+                runtimeSkidmarks = null;
+            }
+        }
+
         private void Start()
         {
             CentreOfMass_ground = (HardPoints[0].localPosition + HardPoints[1].localPosition + HardPoints[2].localPosition + HardPoints[3].localPosition) / 4;
 
             rb.centerOfMass = CentreOfMass_ground;
         }
+
+        private void CacheAuthoredWheelPose()
+        {
+            authoredWheelCount = Mathf.Min(4, Wheels != null ? Wheels.Length : 0);
+            for (int i = 0; i < authoredWheelCount; ++i)
+            {
+                Transform wheel = Wheels[i];
+                if (wheel == null) continue;
+
+                authoredWheelLocalPositions[i] = wheel.localPosition;
+                authoredWheelLocalRotations[i] = wheel.localRotation;
+                if (wheel.childCount <= 0) continue;
+
+                Transform visual = wheel.GetChild(0);
+                authoredWheelVisualLocalPositions[i] = visual.localPosition;
+                authoredWheelVisualLocalRotations[i] = visual.localRotation;
+                hasAuthoredWheelVisual[i] = true;
+            }
+        }
+
+        /// <summary>
+        /// Restores the non-physical wheel wrappers before a spawn-ground probe.
+        /// This is event-free and does not enable driving or allocate memory.
+        /// </summary>
+        public void ResetForGroundSettlement()
+        {
+            for (int i = 0; i < authoredWheelCount; ++i)
+            {
+                Transform wheel = Wheels[i];
+                if (wheel == null) continue;
+
+                wheel.localPosition = authoredWheelLocalPositions[i];
+                wheel.localRotation = authoredWheelLocalRotations[i];
+                if (hasAuthoredWheelVisual[i] && wheel.childCount > 0)
+                {
+                    Transform visual = wheel.GetChild(0);
+                    visual.localPosition = authoredWheelVisualLocalPositions[i];
+                    visual.localRotation = authoredWheelVisualLocalRotations[i];
+                }
+
+                offset_Prev[i] = 0f;
+                compressions[i] = 0f;
+                forwardSlip[i] = 0f;
+                slipCoeff[i] = 0f;
+                skidTotal[i] = 0f;
+            }
+
+            NumberOfGroundedWheels = 0;
+            vehicleIsGrounded = false;
+            tempGroundedProperty = false;
+            accelerationInput = 0f;
+            steerInput = 0f;
+            handbrakeInput = 1f;
+            ackermennLeftAngle = 0f;
+            ackermennRightAngle = 0f;
+            carVelocity = Vector3.zero;
+            localVehicleVelocity = Vector3.zero;
+            lastVelocity = Vector3.zero;
+            if (rb != null)
+            {
+                rb.centerOfMass = CentreOfMass_ground;
+            }
+        }
+
+        public bool TryGetAuthoredWheelWorldPosition(int index, out Vector3 position)
+        {
+            position = default;
+            if (index < 0 || index >= authoredWheelCount || Wheels[index] == null)
+            {
+                return false;
+            }
+
+            Transform parent = Wheels[index].parent;
+            position = parent != null
+                ? parent.TransformPoint(authoredWheelLocalPositions[index])
+                : authoredWheelLocalPositions[index];
+            return true;
+        }
+
+        public int AuthoredWheelCount => authoredWheelCount;
 
 
         void FixedUpdate()
@@ -765,12 +898,10 @@ namespace Ashsvp
                     tempGroundedProperty = value;
                     if (tempGroundedProperty)
                     {
-                        Debug.Log("Grounded");
                         VehicleEvents.OnGrounded.Invoke();
                     }
                     else
                     {
-                        Debug.Log("Take off");
                         VehicleEvents.OnTakeOff.Invoke();
                     }
                 }

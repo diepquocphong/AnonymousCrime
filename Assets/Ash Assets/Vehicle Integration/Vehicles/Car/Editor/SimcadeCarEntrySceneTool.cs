@@ -51,6 +51,7 @@ namespace FranklinGame.Vehicles.Editor
 
         private bool m_OwnsAnimationMode;
         private Quaternion m_DoorClosedRotation;
+        private Vector3 m_DoorClosedPosition;
         private AnimationClip m_DoorPreviewClip;
         private GameObject m_PlayerPreviewInstance;
         private Animator m_PlayerPreviewAnimator;
@@ -410,9 +411,23 @@ namespace FranklinGame.Vehicles.Editor
                 if (this.m_DoorPreview) this.RefreshDoorPreview();
             }
 
-            if (GUILayout.Button("Reset góc mở cửa về Prefab"))
+            EditorGUI.BeginChangeCheck();
+            Vector3 openOffset = EditorGUILayout.Vector3Field(
+                "Door Open Local Offset",
+                this.m_Target.doorOpenLocalOffset
+            );
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(this.m_Target, "Edit Door Open Offset");
+                this.m_Target.doorOpenLocalOffset = openOffset;
+                RecordComponentChange(this.m_Target);
+                if (this.m_DoorPreview) this.RefreshDoorPreview();
+            }
+
+            if (GUILayout.Button("Reset pose mở cửa về Prefab"))
             {
                 this.ResetCarEntryPropertyToPrefab("doorOpenRotation");
+                this.ResetCarEntryPropertyToPrefab("doorOpenLocalOffset");
                 if (this.m_DoorPreview) this.RefreshDoorPreview();
             }
 
@@ -941,6 +956,7 @@ namespace FranklinGame.Vehicles.Editor
                     "entryParent",
                     "doorHandleTarget",
                     "doorOpenRotation",
+                    "doorOpenLocalOffset",
                     "doorHandleHand",
                     "doorHandleIKWeight",
                     "entryStepNormalizedTime",
@@ -1113,6 +1129,10 @@ namespace FranklinGame.Vehicles.Editor
                     case "doorOpenRotation":
                         this.m_Target.doorOpenRotation = prefabEntry.doorOpenRotation;
                         break;
+                    case "doorOpenLocalOffset":
+                        this.m_Target.doorOpenLocalOffset =
+                            prefabEntry.doorOpenLocalOffset;
+                        break;
                     case "doorHandleHand":
                         this.m_Target.doorHandleHand = prefabEntry.doorHandleHand;
                         break;
@@ -1161,6 +1181,7 @@ namespace FranklinGame.Vehicles.Editor
             if (carjacking != null)
                 this.ResetAnchorToPrefab(carjacking.VictimLandingPoint);
             this.ResetCarEntryPropertyToPrefab("doorOpenRotation");
+            this.ResetCarEntryPropertyToPrefab("doorOpenLocalOffset");
             this.ResetCarEntryPropertyToPrefab("doorHandleHand");
             this.ResetCarEntryPropertyToPrefab("doorHandleIKWeight");
             this.ResetCarEntryPropertyToPrefab("entrySeatAlignmentStart");
@@ -1192,6 +1213,7 @@ namespace FranklinGame.Vehicles.Editor
 
             this.m_DoorPreview = true;
             this.m_DoorClosedRotation = this.m_Target.doorTransform.localRotation;
+            this.m_DoorClosedPosition = this.m_Target.doorTransform.localPosition;
             if (!AnimationMode.InAnimationMode())
             {
                 AnimationMode.StartAnimationMode();
@@ -1248,6 +1270,29 @@ namespace FranklinGame.Vehicles.Editor
             SetQuaternionCurve(clip, path, "y", this.m_DoorClosedRotation.y, opened.y);
             SetQuaternionCurve(clip, path, "z", this.m_DoorClosedRotation.z, opened.z);
             SetQuaternionCurve(clip, path, "w", this.m_DoorClosedRotation.w, opened.w);
+            Vector3 openedPosition = this.m_DoorClosedPosition +
+                this.m_Target.doorOpenLocalOffset;
+            SetVectorCurve(
+                clip,
+                path,
+                "x",
+                this.m_DoorClosedPosition.x,
+                openedPosition.x
+            );
+            SetVectorCurve(
+                clip,
+                path,
+                "y",
+                this.m_DoorClosedPosition.y,
+                openedPosition.y
+            );
+            SetVectorCurve(
+                clip,
+                path,
+                "z",
+                this.m_DoorClosedPosition.z,
+                openedPosition.z
+            );
             clip.EnsureQuaternionContinuity();
             return clip;
         }
@@ -1261,6 +1306,17 @@ namespace FranklinGame.Vehicles.Editor
         {
             AnimationCurve curve = AnimationCurve.Linear(0f, closed, 1f, opened);
             clip.SetCurve(path, typeof(Transform), "m_LocalRotation." + component, curve);
+        }
+
+        private static void SetVectorCurve(
+            AnimationClip clip,
+            string path,
+            string component,
+            float closed,
+            float opened)
+        {
+            AnimationCurve curve = AnimationCurve.Linear(0f, closed, 1f, opened);
+            clip.SetCurve(path, typeof(Transform), "m_LocalPosition." + component, curve);
         }
 
         private void StopDoorPreview()

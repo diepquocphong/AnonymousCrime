@@ -1,3 +1,4 @@
+using FranklinGame.Menu;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -47,6 +48,7 @@ namespace FranklinGame.Settings
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
+            if (!Debug.isDebugBuild) return;
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
             EnsureSpawned();
@@ -59,13 +61,29 @@ namespace FranklinGame.Settings
 
         private static void EnsureSpawned()
         {
-            if (s_Instance != null) return;
+            if (FranklinMenuRuntimeGate.IsMenuSceneActive)
+            {
+                if (s_Instance != null)
+                {
+                    GameObject instance = s_Instance.gameObject;
+                    instance.SetActive(false);
+                    Destroy(instance);
+                }
+                return;
+            }
+
+            if (s_Instance != null)
+            {
+                if (!s_Instance.gameObject.activeSelf) s_Instance.gameObject.SetActive(true);
+                return;
+            }
 
             FranklinFpsCounter existing =
                 FindFirstObjectByType<FranklinFpsCounter>(FindObjectsInactive.Include);
             if (existing != null)
             {
                 s_Instance = existing;
+                existing.gameObject.SetActive(true);
                 existing.enabled = true;
                 return;
             }
@@ -82,6 +100,11 @@ namespace FranklinGame.Settings
 
         private void Awake()
         {
+            if (!Debug.isDebugBuild)
+            {
+                Destroy(this.gameObject);
+                return;
+            }
             if (s_Instance != null && s_Instance != this)
             {
                 Destroy(this.gameObject);

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Metro Police Station — GLB Preview</title>
+    <style>
+      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+      * { box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #8fc1df; }
+      canvas { display: block; width: 100%; height: 100%; }
+      .hud {
+        position: fixed; inset: 18px auto auto 18px; width: min(350px, calc(100vw - 36px));
+        padding: 16px 18px; border: 1px solid rgba(255,255,255,.2); border-left: 4px solid #efb928;
+        background: linear-gradient(135deg, rgba(8,15,21,.92), rgba(14,30,41,.78));
+        box-shadow: 0 14px 36px rgba(0,0,0,.28); backdrop-filter: blur(12px);
+      }
+      h1 { margin: 0 0 4px; font-size: 19px; letter-spacing: .08em; text-transform: uppercase; }
+      .sub { color: #efb928; font-size: 12px; font-weight: 750; letter-spacing: .12em; }
+      .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 0; }
+      .stat { padding: 8px 9px; background: rgba(255,255,255,.06); }
+      .stat span { display: block; color: #9bb0bd; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+      .stat strong { font-size: 14px; }
+      .views { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+      button { color: #f6f2e7; border: 1px solid rgba(255,255,255,.2); background: rgba(9,21,29,.88); padding: 7px 10px; cursor: pointer; }
+      button:hover { border-color: #efb928; color: #efb928; }
+      .status { position: fixed; right: 18px; bottom: 18px; padding: 9px 12px; background: rgba(8,15,21,.82); font-size: 12px; }
+      @media (max-width: 640px) { .hud { inset: 10px auto auto 10px; } .stats { display: none; } .status { right: 10px; bottom: 10px; } }
+    </style>
+  </head>
+  <body>
+    <aside class="hud">
+      <div class="sub">MOBILE ENVIRONMENT ASSET</div>
+      <h1>Metro Police — Precinct 07</h1>
+      <div class="stats">
+        <div class="stat"><span>Triangles</span><strong>5,549</strong></div>
+        <div class="stat"><span>Draw batches</span><strong>3 opaque</strong></div>
+        <div class="stat"><span>Materials</span><strong>3 shared</strong></div>
+        <div class="stat"><span>Web GLB</span><strong>~49 KB</strong></div>
+      </div>
+      <div class="views">
+        <button data-view="hero">Hero</button>
+        <button data-view="front">Front</button>
+        <button data-view="rear">Rear</button>
+        <button data-view="aerial">Aerial</button>
+        <button data-view="top">Top</button>
+      </div>
+    </aside>
+    <div class="status" id="status">Đang nạp GLB…</div>
+    <script type="module" src="/src/viewer.js"></script>
+  </body>
+</html>

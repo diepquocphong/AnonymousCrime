@@ -1,0 +1,19 @@
+{
+  "name": "franklin-police-station-3d",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Plane-heavy Three.js generator for the Franklin Game mobile police station GLB.",
+  "scripts": {
+    "generate": "node src/generate-police-station.mjs",
+    "audit": "node src/audit-glb.mjs dist/PoliceStation_Mobile_Unity.glb",
+    "viewer": "vite --host 127.0.0.1",
+    "build": "node src/build.mjs"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "4.4.2",
+    "three": "0.185.1",
+    "three-font-assets": "npm:three@0.170.0",
+    "vite": "7.1.2"
+  }
+}

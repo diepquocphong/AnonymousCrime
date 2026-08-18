@@ -13,6 +13,7 @@ namespace GameCreator.Runtime.Shooter
         public static Vector3 LastShooterDirection { get; private set; }
         public static GameObject LastHitObject { get; private set; }
         public static Vector3 LastHitPosition { get; private set; }
+        public static Vector3 LastHitNormal { get; private set; }
         public static float LastChargeRatio { get; private set; }
         public static float LastDistance { get; private set; }
         public static int LastNumPierces { get; private set; }
@@ -31,6 +32,7 @@ namespace GameCreator.Runtime.Shooter
         [field: NonSerialized] public Vector3 ShootPosition { get; }
         [field: NonSerialized] public Vector3 ShootDirection { get; }
         [field: NonSerialized] public Vector3 HitPoint { get; private set; }
+        [field: NonSerialized] public Vector3 HitNormal { get; private set; }
         [field: NonSerialized] public MaterialSoundsAsset ImpactSound { get; private set; }
         [field: NonSerialized] public PropertyGetInstantiate ImpactEffect { get; private set; }
         
@@ -68,6 +70,7 @@ namespace GameCreator.Runtime.Shooter
             this.ShootPosition = shootPosition;
             this.ShootDirection = shootDirection;
             this.HitPoint = default;
+            this.HitNormal = default;
             this.ImpactSound = impactSound;
             this.ImpactEffect = impactEffect;
 
@@ -92,18 +95,40 @@ namespace GameCreator.Runtime.Shooter
             this.Projectile = projectile;
         }
         
-        public void UpdateHit(GameObject target, Vector3 hitPoint, float distance, int pierces)
+        public void UpdateHit(
+            GameObject target,
+            Vector3 hitPoint,
+            Vector3 hitNormal,
+            float distance,
+            int pierces)
         {
             this.Target = target;
             this.HitPoint = hitPoint;
+            this.HitNormal = hitNormal.sqrMagnitude > 0.000001f
+                ? hitNormal.normalized
+                : this.ShootDirection.sqrMagnitude > 0.000001f
+                    ? -this.ShootDirection.normalized
+                    : Vector3.up;
             
             this.Distance = distance;
             this.Pierces = pierces;
 
             LastHitObject = target;
             LastHitPosition = hitPoint;
+            LastHitNormal = this.HitNormal;
             LastDistance = distance;
             LastNumPierces = pierces;
+        }
+
+        public void UpdateHit(GameObject target, Vector3 hitPoint, float distance, int pierces)
+        {
+            this.UpdateHit(
+                target,
+                hitPoint,
+                -this.ShootDirection,
+                distance,
+                pierces
+            );
         }
     }
 }

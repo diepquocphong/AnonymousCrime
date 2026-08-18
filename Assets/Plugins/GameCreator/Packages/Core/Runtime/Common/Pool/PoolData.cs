@@ -61,8 +61,9 @@ namespace GameCreator.Runtime.Common
         {
             if (this.m_ReadyInstances.Count == 0) this.Prewarm(1);
 
-            PoolInstance instance = this.m_ReadyInstances[0];
-            this.m_ReadyInstances.RemoveAt(0);
+            int readyIndex = this.m_ReadyInstances.Count - 1;
+            PoolInstance instance = this.m_ReadyInstances[readyIndex];
+            this.m_ReadyInstances.RemoveAt(readyIndex);
             
             int instanceId = instance.GetInstanceID();
             this.m_RunningInstances[instanceId] = instance;

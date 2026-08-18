@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "renderer": "Unity 6000.3.21f1 URP 17.3, matched camera and original Piglet materials",
+  "normalizedRmse": {
+    "hero": 0.00000490196,
+    "front": 0.000338921,
+    "top": 0.00255329
+  },
+  "notes": [
+    "Hero and front views are effectively pixel-identical.",
+    "The top-view difference is visually indistinguishable and remains below 0.003 normalized RMSE.",
+    "The source and optimized RGB texture pixels are identical before platform compression."
+  ]
+}

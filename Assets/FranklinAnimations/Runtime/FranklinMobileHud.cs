@@ -22,8 +22,11 @@ namespace FranklinGame.UI
     {
         private const float REFERENCE_REFRESH_SECONDS = 0.5f;
         private const float ENTER_VEHICLE_REFRESH_SECONDS = 0.1f;
+        private const float TACTILE_CANVAS_SEARCH_WINDOW_SECONDS = 8f;
+        private const float TACTILE_CANVAS_LATE_SEARCH_SECONDS = 5f;
         private const string RESOURCE_ROOT = "FranklinMobileUI/";
-        private const float BIKE_SPEED_UPDATE_SECONDS = 0.1f;
+        private const float MOBILE_BIKE_LAYOUT_UPDATE_SECONDS = 1f / 30f;
+        private const float BIKE_TELEMETRY_LERP_SPEED = 10f;
         private const float BIKE_FUEL_GAUGE_WIDTH = 74f;
         private const float BIKE_FUEL_GAUGE_HEIGHT = 152f;
         private const float BIKE_HEALTH_LAYOUT_WIDTH = 104f;
@@ -66,8 +69,11 @@ namespace FranklinGame.UI
             new();
         private static readonly HashSet<object> FAST_MOVEMENT_BYPASS_OWNERS =
             new();
+        private static readonly Predicate<object> DESTROYED_UNITY_OWNER =
+            IsDestroyedUnityOwner;
         private static FranklinMobileHud s_Instance;
         private static bool s_ControlsSuppressed;
+        private static float s_NextSuppressionOwnerPrune;
 
         [Header("Bike Curved Health + Fuel UI")]
         [SerializeField] private Sprite m_BikeGaugeSprite;
@@ -145,17 +151,28 @@ namespace FranklinGame.UI
         private Camera m_BikeSpeedCamera;
         private GameObject m_TactileCanvas;
         private GameObject m_TactileMoveStick;
+        private float m_TactileCanvasSearchDeadline;
+        private float m_NextTactileCanvasLateSearch;
+        private bool m_TactileCanvasSearchCompleted;
+        private bool m_TactileCanvasWasFound;
         private float m_NextReferenceRefresh;
         private float m_NextEnterVehicleRefresh;
         private bool m_CanRequestVehicleInteraction;
-        private float m_NextBikeSpeedUpdate;
+        private float m_NextBikeLayoutUpdate;
         private int m_LastDisplayedBikeSpeed = int.MinValue;
+        private float m_BikeSpeedTargetKph;
+        private float m_BikeDisplayedSpeedKph;
+        private bool m_HasBikeSpeedValue;
         private Vector2 m_BikeSpeedPosition;
+        private Vector2 m_BikeSpeedTargetPosition;
         private Vector2 m_BikeSpeedVelocity;
         private Vector2 m_BikeHealthPosition;
+        private Vector2 m_BikeHealthTargetPosition;
         private Vector2 m_BikeHealthVelocity;
+        private float m_BikeHealthTarget;
+        private bool m_HasBikeHealthValue;
+        private bool m_HasBikeHealthTarget;
         private float m_BikeFuelTarget;
-        private float m_BikeFuelVelocity;
         private bool m_HasBikeFuelValue;
         private bool m_HasBikeFuelTarget;
         private bool m_BikeTelemetrySuppressed;
@@ -176,10 +193,22 @@ namespace FranklinGame.UI
 
         public static bool IsActive => s_Instance != null &&
                                        s_Instance.isActiveAndEnabled;
-        public static bool ControlsSuppressed => s_ControlsSuppressed ||
-                                                 CONTROL_SUPPRESSION_OWNERS.Count > 0;
-        public static bool FastMovementSuppressed =>
-            FAST_MOVEMENT_SUPPRESSION_OWNERS.Count > 0;
+        public static bool ControlsSuppressed
+        {
+            get
+            {
+                PruneDestroyedSuppressionOwners();
+                return s_ControlsSuppressed || CONTROL_SUPPRESSION_OWNERS.Count > 0;
+            }
+        }
+        public static bool FastMovementSuppressed
+        {
+            get
+            {
+                PruneDestroyedSuppressionOwners();
+                return FAST_MOVEMENT_SUPPRESSION_OWNERS.Count > 0;
+            }
+        }
         private static bool FastMovementBypassed =>
             FastMovementSuppressed &&
             FAST_MOVEMENT_SUPPRESSION_OWNERS.IsSubsetOf(
@@ -271,6 +300,30 @@ namespace FranklinGame.UI
             FAST_MOVEMENT_SUPPRESSION_OWNERS.Clear();
             FAST_MOVEMENT_BYPASS_OWNERS.Clear();
             SPRITES.Clear();
+            s_NextSuppressionOwnerPrune = 0f;
+        }
+
+        private static void PruneDestroyedSuppressionOwners()
+        {
+            if (CONTROL_SUPPRESSION_OWNERS.Count == 0 &&
+                FAST_MOVEMENT_SUPPRESSION_OWNERS.Count == 0 &&
+                FAST_MOVEMENT_BYPASS_OWNERS.Count == 0)
+            {
+                return;
+            }
+
+            float now = Time.unscaledTime;
+            if (now < s_NextSuppressionOwnerPrune) return;
+            s_NextSuppressionOwnerPrune = now + 1f;
+
+            CONTROL_SUPPRESSION_OWNERS.RemoveWhere(DESTROYED_UNITY_OWNER);
+            FAST_MOVEMENT_SUPPRESSION_OWNERS.RemoveWhere(DESTROYED_UNITY_OWNER);
+            FAST_MOVEMENT_BYPASS_OWNERS.RemoveWhere(DESTROYED_UNITY_OWNER);
+        }
+
+        private static bool IsDestroyedUnityOwner(object owner)
+        {
+            return owner is UnityEngine.Object unityOwner && unityOwner == null;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -299,6 +352,7 @@ namespace FranklinGame.UI
             }
 
             s_Instance = this;
+            this.BeginTactileCanvasSearch();
             if (!this.TryBindPrefabControls())
             {
                 if (this.GetComponent<Canvas>() == null)
@@ -338,7 +392,6 @@ namespace FranklinGame.UI
             if (this.m_HasAppliedSuppression) this.ReleaseControlsSuppression();
 
             this.RefreshReferences(false);
-            this.UpdateBikeFuelFill();
 
             if (FastMovementSuppressed) this.ApplyFastMovementSuppressed();
             else this.ReleaseFastMovementSuppression();
@@ -1023,6 +1076,8 @@ namespace FranklinGame.UI
             this.m_TactileCanvas = this.gameObject;
             this.m_TactileMoveStick = this.transform.Find("MoveStick")?.gameObject;
             this.m_UsesCanvasPlayerControl = true;
+            this.m_TactileCanvasWasFound = true;
+            this.m_TactileCanvasSearchCompleted = true;
             return true;
         }
 
@@ -1125,6 +1180,15 @@ namespace FranklinGame.UI
             return sprite;
         }
 
+        private void BeginTactileCanvasSearch()
+        {
+            this.m_TactileCanvasSearchDeadline = Time.unscaledTime +
+                TACTILE_CANVAS_SEARCH_WINDOW_SECONDS;
+            this.m_TactileCanvasSearchCompleted = false;
+            this.m_TactileCanvasWasFound = false;
+            this.m_NextTactileCanvasLateSearch = 0f;
+        }
+
         private void RefreshReferences(bool force)
         {
             if (!force && Time.unscaledTime < this.m_NextReferenceRefresh) return;
@@ -1159,7 +1223,18 @@ namespace FranklinGame.UI
                 this.m_VehicleInteraction =
                     FindFirstObjectByType<FranklinVehicleInteractionManager>();
             }
-            if (this.m_TactileCanvas == null)
+            if (this.m_TactileCanvasWasFound && this.m_TactileCanvas == null)
+            {
+                // A persistent HUD can outlive the scene that owned the original
+                // Tactile canvas. Allow the next scene the same bounded late-spawn
+                // window without returning to an unbounded scene scan.
+                this.BeginTactileCanvasSearch();
+            }
+            bool shouldSearchTactileCanvas =
+                !this.m_TactileCanvasSearchCompleted ||
+                (!this.m_TactileCanvasWasFound &&
+                 Time.unscaledTime >= this.m_NextTactileCanvasLateSearch);
+            if (this.m_TactileCanvas == null && shouldSearchTactileCanvas)
             {
                 Canvas[] canvases = FindObjectsByType<Canvas>(FindObjectsSortMode.None);
                 foreach (Canvas candidate in canvases)
@@ -1167,8 +1242,21 @@ namespace FranklinGame.UI
                     if (candidate != null && candidate.gameObject.name == "CanvasPlayerControl")
                     {
                         this.m_TactileCanvas = candidate.gameObject;
+                        this.m_TactileCanvasWasFound = true;
+                        this.m_TactileCanvasSearchCompleted = true;
                         break;
                     }
+                }
+
+                if (this.m_TactileCanvas == null &&
+                    Time.unscaledTime >= this.m_TactileCanvasSearchDeadline)
+                {
+                    this.m_TactileCanvasSearchCompleted = true;
+                    // Addressables/additive gameplay UI can arrive long after
+                    // bootstrap. Retain a very slow recovery lookup instead of
+                    // either giving up forever or scanning the scene every 0.5s.
+                    this.m_NextTactileCanvasLateSearch = Time.unscaledTime +
+                        TACTILE_CANVAS_LATE_SEARCH_SECONDS;
                 }
             }
 
@@ -1328,8 +1416,25 @@ namespace FranklinGame.UI
             SetButtonActive(this.m_BikeBurnoutButton, showBikeControls);
             this.BindBikeHealth(bikeDriver);
             this.BindBikeFuel(bikeDriver);
-            this.UpdateBikeSpeed(bikeDriver);
-            this.UpdateBikeGaugePositions(bikeDriver);
+
+            bool bikeChanged = this.m_BikeSpeedDriver != bikeDriver;
+            float now = Time.unscaledTime;
+            bool updateLayout = !Application.isMobilePlatform ||
+                                bikeChanged ||
+                                now >= this.m_NextBikeLayoutUpdate;
+            if (updateLayout)
+            {
+                this.m_NextBikeLayoutUpdate =
+                    now + MOBILE_BIKE_LAYOUT_UPDATE_SECONDS;
+            }
+
+            // Keep expensive world-to-screen samples at 30 Hz on phones, then
+            // interpolate the visible RectTransforms every rendered frame.
+            this.UpdateBikeSpeed(bikeDriver, updateLayout);
+            if (bikeDriver == null || this.m_BikeTelemetrySuppressed || updateLayout)
+                this.UpdateBikeGaugePositions(bikeDriver);
+            this.SmoothBikeHudPositions(Time.unscaledDeltaTime);
+            this.UpdateBikeTelemetryValues(Time.unscaledDeltaTime);
         }
 
         private void UpdateHelmetControls(bool isDriving)
@@ -1720,6 +1825,8 @@ namespace FranklinGame.UI
             this.m_ActiveBikeHealth = bikeDriver != null
                 ? bikeDriver.GetComponent<FranklinBikeHealth>()
                 : null;
+            this.m_HasBikeHealthValue = false;
+            this.m_HasBikeHealthTarget = false;
 
             this.SetBikeHealthVisible(this.m_ActiveBikeHealth != null);
 
@@ -1734,11 +1841,20 @@ namespace FranklinGame.UI
         private void OnBikeHealthChanged(float current, float maximum)
         {
             float ratio = maximum > 0.001f ? Mathf.Clamp01(current / maximum) : 0f;
-            if (this.m_BikeHealthFillImage != null)
+            this.m_BikeHealthTarget = ratio;
+            if (!this.m_HasBikeHealthValue)
             {
-                this.m_BikeHealthFillImage.fillAmount = ratio;
-                this.m_BikeHealthFillImage.color = VEHICLE_HEALTH_SKY_BLUE;
+                this.m_HasBikeHealthValue = true;
+                this.m_HasBikeHealthTarget = false;
+                if (this.m_BikeHealthFillImage != null)
+                    this.m_BikeHealthFillImage.fillAmount = ratio;
             }
+            else
+            {
+                this.m_HasBikeHealthTarget = true;
+            }
+            if (this.m_BikeHealthFillImage != null)
+                this.m_BikeHealthFillImage.color = VEHICLE_HEALTH_SKY_BLUE;
         }
 
         private void SetBikeHealthVisible(bool visible)
@@ -1770,7 +1886,6 @@ namespace FranklinGame.UI
                 : null;
             this.m_HasBikeFuelValue = false;
             this.m_HasBikeFuelTarget = false;
-            this.m_BikeFuelVelocity = 0f;
 
             this.SetBikeFuelVisible(this.m_ActiveBikeFuel != null);
 
@@ -1790,7 +1905,6 @@ namespace FranklinGame.UI
             {
                 this.m_HasBikeFuelValue = true;
                 this.m_HasBikeFuelTarget = false;
-                this.m_BikeFuelVelocity = 0f;
                 if (this.m_BikeFuelFillImage != null)
                     this.m_BikeFuelFillImage.fillAmount = ratio;
                 return;
@@ -1798,41 +1912,41 @@ namespace FranklinGame.UI
             this.m_HasBikeFuelTarget = true;
         }
 
-        private void UpdateBikeFuelFill()
+        private void UpdateBikeTelemetryValues(float deltaTime)
         {
-            if (this.m_BikeTelemetrySuppressed ||
-                !this.m_HasBikeFuelTarget ||
-                this.m_BikeFuelFillImage == null)
-            {
-                return;
-            }
+            if (this.m_BikeTelemetrySuppressed) return;
 
-            float current = this.m_BikeFuelFillImage.fillAmount;
-            if (Mathf.Abs(current - this.m_BikeFuelTarget) < 0.0005f)
-            {
-                if (!Mathf.Approximately(current, this.m_BikeFuelTarget))
-                    this.m_BikeFuelFillImage.fillAmount = this.m_BikeFuelTarget;
-                this.m_BikeFuelVelocity = 0f;
-                this.m_HasBikeFuelTarget = false;
-                return;
-            }
-
-            float next = Mathf.SmoothDamp(
-                current,
-                this.m_BikeFuelTarget,
-                ref this.m_BikeFuelVelocity,
-                0.22f,
-                Mathf.Infinity,
-                Time.unscaledDeltaTime
+            float lerp = GetFrameIndependentLerp(
+                BIKE_TELEMETRY_LERP_SPEED,
+                deltaTime
             );
-            if (Mathf.Abs(next - this.m_BikeFuelTarget) < 0.0005f)
+
+            if (this.m_HasBikeHealthTarget &&
+                this.m_BikeHealthFillImage != null)
             {
-                next = this.m_BikeFuelTarget;
-                this.m_BikeFuelVelocity = 0f;
+                float current = this.m_BikeHealthFillImage.fillAmount;
+                float next = Mathf.Lerp(current, this.m_BikeHealthTarget, lerp);
+                if (Mathf.Abs(next - this.m_BikeHealthTarget) < 0.0005f)
+                {
+                    next = this.m_BikeHealthTarget;
+                    this.m_HasBikeHealthTarget = false;
+                }
+                if (!Mathf.Approximately(current, next))
+                    this.m_BikeHealthFillImage.fillAmount = next;
+            }
+
+            if (!this.m_HasBikeFuelTarget || this.m_BikeFuelFillImage == null)
+                return;
+
+            float fuelCurrent = this.m_BikeFuelFillImage.fillAmount;
+            float fuelNext = Mathf.Lerp(fuelCurrent, this.m_BikeFuelTarget, lerp);
+            if (Mathf.Abs(fuelNext - this.m_BikeFuelTarget) < 0.0005f)
+            {
+                fuelNext = this.m_BikeFuelTarget;
                 this.m_HasBikeFuelTarget = false;
             }
-            if (!Mathf.Approximately(current, next))
-                this.m_BikeFuelFillImage.fillAmount = next;
+            if (!Mathf.Approximately(fuelCurrent, fuelNext))
+                this.m_BikeFuelFillImage.fillAmount = fuelNext;
         }
 
         private void SetBikeFuelVisible(bool visible)
@@ -1959,8 +2073,19 @@ namespace FranklinGame.UI
                 this.m_BikeSpeedBackground.localScale = this.m_BikeSpeedRoot.localScale;
         }
 
-        private void UpdateBikeSpeed(FranklinArcadeBikeDriver bikeDriver)
+        private void UpdateBikeSpeed(
+            FranklinArcadeBikeDriver bikeDriver,
+            bool updateLayout = true)
         {
+            if (this.m_BikeSpeedDriver != bikeDriver)
+            {
+                this.m_BikeSpeedDriver = bikeDriver;
+                this.m_HasBikeSpeedPosition = false;
+                this.m_BikeSpeedVelocity = Vector2.zero;
+                this.m_LastDisplayedBikeSpeed = int.MinValue;
+                this.m_HasBikeSpeedValue = false;
+            }
+
             bool visible = bikeDriver != null &&
                            !this.m_BikeTelemetrySuppressed &&
                            !SimcadeCarDashboard.IsSharedHudActive;
@@ -1977,33 +2102,46 @@ namespace FranklinGame.UI
 
             if (!visible)
             {
-                this.m_BikeSpeedDriver = null;
                 this.m_HasBikeSpeedPosition = false;
                 this.m_LastDisplayedBikeSpeed = int.MinValue;
+                this.m_HasBikeSpeedValue = false;
                 return;
             }
 
-            if (this.m_BikeSpeedDriver != bikeDriver)
+            this.m_BikeSpeedTargetKph = Mathf.Max(
+                0f,
+                bikeDriver.SpeedMetersPerSecond * 3.6f
+            );
+            if (!this.m_HasBikeSpeedValue)
             {
-                this.m_BikeSpeedDriver = bikeDriver;
-                this.m_HasBikeSpeedPosition = false;
-                this.m_BikeSpeedVelocity = Vector2.zero;
-                this.m_LastDisplayedBikeSpeed = int.MinValue;
-                this.m_NextBikeSpeedUpdate = 0f;
+                this.m_BikeDisplayedSpeedKph = this.m_BikeSpeedTargetKph;
+                this.m_HasBikeSpeedValue = true;
+            }
+            else
+            {
+                this.m_BikeDisplayedSpeedKph = Mathf.Lerp(
+                    this.m_BikeDisplayedSpeedKph,
+                    this.m_BikeSpeedTargetKph,
+                    GetFrameIndependentLerp(
+                        BIKE_TELEMETRY_LERP_SPEED,
+                        Time.unscaledDeltaTime
+                    )
+                );
+            }
+            if (Mathf.Abs(this.m_BikeDisplayedSpeedKph -
+                          this.m_BikeSpeedTargetKph) < 0.02f)
+            {
+                this.m_BikeDisplayedSpeedKph = this.m_BikeSpeedTargetKph;
+            }
+            int speed = Mathf.RoundToInt(this.m_BikeDisplayedSpeedKph);
+            if (speed != this.m_LastDisplayedBikeSpeed)
+            {
+                this.m_LastDisplayedBikeSpeed = speed;
+                if (this.m_BikeSpeedText != null)
+                    this.m_BikeSpeedText.text = this.FormatBikeSpeed(speed);
             }
 
-            float now = Time.unscaledTime;
-            if (now >= this.m_NextBikeSpeedUpdate)
-            {
-                this.m_NextBikeSpeedUpdate = now + BIKE_SPEED_UPDATE_SECONDS;
-                int speed = Mathf.RoundToInt(bikeDriver.SpeedMetersPerSecond * 3.6f);
-                if (speed != this.m_LastDisplayedBikeSpeed)
-                {
-                    this.m_LastDisplayedBikeSpeed = speed;
-                    if (this.m_BikeSpeedText != null)
-                        this.m_BikeSpeedText.text = this.FormatBikeSpeed(speed);
-                }
-            }
+            if (!updateLayout) return;
 
             if (this.m_BikeSpeedFollowBike)
             {
@@ -2019,7 +2157,8 @@ namespace FranklinGame.UI
                 );
             }
 
-            this.SyncBikeSpeedBackgroundTransform();
+            if (!this.m_BikeSpeedFollowBike)
+                this.SyncBikeSpeedBackgroundTransform();
         }
 
         private void UpdateBikeGaugePositions(FranklinArcadeBikeDriver bikeDriver)
@@ -2029,14 +2168,6 @@ namespace FranklinGame.UI
                 this.m_HasBikeHealthPosition = false;
                 this.m_BikeHealthVelocity = Vector2.zero;
                 return;
-            }
-
-            if (this.m_BikeFuelRoot != null && this.m_BikeSpeedRoot != null)
-            {
-                SetAnchoredPositionIfChanged(
-                    this.m_BikeFuelRoot,
-                    this.m_BikeSpeedRoot.anchoredPosition + this.m_BikeFuelGaugeOffset
-                );
             }
 
             if (this.m_BikeHealthRoot == null || this.m_VehicleGroup == null) return;
@@ -2086,24 +2217,13 @@ namespace FranklinGame.UI
             if (!this.m_HasBikeHealthPosition)
             {
                 this.m_BikeHealthPosition = localPoint;
+                this.m_BikeHealthTargetPosition = localPoint;
                 this.m_HasBikeHealthPosition = true;
             }
             else
             {
-                this.m_BikeHealthPosition = Vector2.SmoothDamp(
-                    this.m_BikeHealthPosition,
-                    localPoint,
-                    ref this.m_BikeHealthVelocity,
-                    this.m_BikeSpeedFollowSmooth,
-                    Mathf.Infinity,
-                    Time.unscaledDeltaTime
-                );
+                this.m_BikeHealthTargetPosition = localPoint;
             }
-
-            SetAnchoredPositionIfChanged(
-                this.m_BikeHealthRoot,
-                this.m_BikeHealthPosition
-            );
         }
 
         private void ApplyBikeSpeedStyle()
@@ -2196,23 +2316,64 @@ namespace FranklinGame.UI
             if (!this.m_HasBikeSpeedPosition)
             {
                 this.m_BikeSpeedPosition = localPoint;
+                this.m_BikeSpeedTargetPosition = localPoint;
                 this.m_HasBikeSpeedPosition = true;
             }
             else
             {
+                this.m_BikeSpeedTargetPosition = localPoint;
+            }
+        }
+
+        private void SmoothBikeHudPositions(float deltaTime)
+        {
+            if (this.m_HasBikeSpeedPosition && this.m_BikeSpeedRoot != null)
+            {
                 this.m_BikeSpeedPosition = Vector2.SmoothDamp(
                     this.m_BikeSpeedPosition,
-                    localPoint,
+                    this.m_BikeSpeedTargetPosition,
                     ref this.m_BikeSpeedVelocity,
                     this.m_BikeSpeedFollowSmooth,
                     Mathf.Infinity,
-                    Time.unscaledDeltaTime
+                    deltaTime
+                );
+                SetAnchoredPositionIfChanged(
+                    this.m_BikeSpeedRoot,
+                    this.m_BikeSpeedPosition
+                );
+                this.SyncBikeSpeedBackgroundTransform();
+            }
+
+            if (this.m_BikeFuelRoot != null && this.m_BikeSpeedRoot != null)
+            {
+                SetAnchoredPositionIfChanged(
+                    this.m_BikeFuelRoot,
+                    this.m_BikeSpeedRoot.anchoredPosition +
+                    this.m_BikeFuelGaugeOffset
                 );
             }
-            SetAnchoredPositionIfChanged(
-                this.m_BikeSpeedRoot,
-                this.m_BikeSpeedPosition
+
+            if (!this.m_HasBikeHealthPosition || this.m_BikeHealthRoot == null)
+                return;
+
+            this.m_BikeHealthPosition = Vector2.SmoothDamp(
+                this.m_BikeHealthPosition,
+                this.m_BikeHealthTargetPosition,
+                ref this.m_BikeHealthVelocity,
+                this.m_BikeSpeedFollowSmooth,
+                Mathf.Infinity,
+                deltaTime
             );
+            SetAnchoredPositionIfChanged(
+                this.m_BikeHealthRoot,
+                this.m_BikeHealthPosition
+            );
+        }
+
+        private static float GetFrameIndependentLerp(float speed, float deltaTime)
+        {
+            return 1f - Mathf.Exp(-Mathf.Max(0f, speed) *
+                                  Mathf.Max(0f, deltaTime));
         }
 
         private Rect GetBikeHudSafeRect()

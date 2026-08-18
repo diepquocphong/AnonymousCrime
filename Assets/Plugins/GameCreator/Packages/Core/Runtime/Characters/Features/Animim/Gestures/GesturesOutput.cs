@@ -74,6 +74,16 @@ namespace GameCreator.Runtime.Characters.Animim
             
             while (!behavior.IsComplete && !ApplicationManager.IsExiting)
             {
+                Character character = this.m_AnimimGraph?.Character;
+                if (character == null || !character.gameObject.activeInHierarchy)
+                {
+                    // Pooling/despawn can stop PlayableGraph evaluation while an
+                    // awaited gesture is still active. Release the async caller
+                    // immediately and mark the playable for removal on the next
+                    // enabled graph frame instead of yielding forever.
+                    behavior.Stop(0f, 0f);
+                    break;
+                }
                 await Task.Yield();
             }
         }

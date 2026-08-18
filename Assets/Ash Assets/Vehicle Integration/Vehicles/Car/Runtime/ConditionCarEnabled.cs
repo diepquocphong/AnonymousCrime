@@ -41,13 +41,6 @@ public class ConditionCarEnabled : Condition
             return bikeController.isVehicleEnabled;
         }
 
-        HoverVehicleController hoverController = target.GetComponent<HoverVehicleController>();
-        if (hoverController != null)
-        {
-            return hoverController.isVehicleEnabled;
-        }
-
-
         return false;
     }
 }

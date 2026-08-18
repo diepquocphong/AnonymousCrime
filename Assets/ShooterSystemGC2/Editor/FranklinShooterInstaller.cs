@@ -8,6 +8,7 @@ using GameCreator.Runtime.Shooter;
 using GameCreator.Runtime.VisualScripting;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace FranklinGame.Shooter.Editor
 {
@@ -32,12 +33,48 @@ namespace FranklinGame.Shooter.Editor
         private const string SHOOTER_LOCOMOTION_PATH =
             ANIMATION_ROOT + "/Franklin Shooter Upper Body Locomotion.asset";
         private const string BIKE_SIGHT_ROOT = RESOURCE_ROOT + "/Sights/Bike";
+        private const string THROWABLE_SIGHT_ROOT = RESOURCE_ROOT + "/Sights/Throwable";
+        private const string THROWABLE_IDLE_SIGHT_PATH =
+            THROWABLE_SIGHT_ROOT + "/Franklin Throwable Idle.asset";
+        private const string THROWABLE_THROW_SIGHT_PATH =
+            THROWABLE_SIGHT_ROOT + "/Franklin Throwable Throw.asset";
+        private const string RPG_SIGHT_ROOT = RESOURCE_ROOT + "/Sights/RPG7";
+        private const string RPG_IDLE_SIGHT_PATH =
+            RPG_SIGHT_ROOT + "/Franklin RPG7 Idle.asset";
+        private const string RPG_AIM_SIGHT_PATH =
+            RPG_SIGHT_ROOT + "/Franklin RPG7 Aim.asset";
+        private const string RPG_HOLD_ANIMATION_PATH =
+            ROOT + "/Animations/RPG7/HumanM@WeaponHold_Bazooka01.fbx";
+        private const string RPG_AIM_ANIMATION_PATH =
+            ROOT + "/Animations/RPG7/HumanM@Bazooka_Aim01.fbx";
+        private const string RPG_SHOOT_ANIMATION_PATH =
+            ROOT + "/Animations/RPG7/HumanM@Bazooka_Aim01_Shoot01.fbx";
+        private const string RPG_PROJECTILE_PATH =
+            PROJECTILE_ROOT + "/rpg7-rocket-projectile.prefab";
+        private const string RPG_AUDIO_ROOT = ROOT + "/Audio/RPG7";
+        private const string RPG_LAUNCH_AUDIO_PATH =
+            RPG_AUDIO_ROOT + "/RPG7_Launch_CC0.wav";
+        private const string RPG_FLIGHT_AUDIO_PATH =
+            RPG_AUDIO_ROOT + "/RPG7_Flight_Loop_CC0.wav";
+        private const string RPG_EXPLOSION_CLOSE_AUDIO_PATH =
+            RPG_AUDIO_ROOT + "/RPG7_Explosion_Close_CC0.mp3";
+        private const string RPG_EXPLOSION_DISTANT_AUDIO_PATH =
+            RPG_AUDIO_ROOT + "/RPG7_Explosion_Distant_CC0.mp3";
+        private static readonly string[] RPG_AUDIO_PATHS =
+        {
+            RPG_LAUNCH_AUDIO_PATH,
+            RPG_FLIGHT_AUDIO_PATH,
+            RPG_EXPLOSION_CLOSE_AUDIO_PATH,
+            RPG_EXPLOSION_DISTANT_AUDIO_PATH
+        };
         private const string BIKE_DRIVER_AIM_ID = "bike-driver-aim";
         private const string MATERIAL_SOUNDS_ROOT = RESOURCE_ROOT + "/MaterialSounds";
         private const string IMPACT_AUDIO_ONLY_PATH =
             MATERIAL_SOUNDS_ROOT + "/Franklin Shooter Impact Audio.asset";
         private const string MATERIAL_ROOT = RESOURCE_ROOT + "/Materials";
         private const string EFFECT_ROOT = RESOURCE_ROOT + "/Effects";
+        private const string AMMO_ROOT = RESOURCE_ROOT + "/Ammo";
+        private const string PROJECTILE_ROOT = RESOURCE_ROOT + "/Projectiles";
         private const string TEXTURE_ROOT = RESOURCE_ROOT + "/Textures";
         private const string VEHICLE_BULLET_TEXTURE_PATH =
             TEXTURE_ROOT + "/vehicle-bullet-hole.png";
@@ -47,6 +84,14 @@ namespace FranklinGame.Shooter.Editor
             TEXTURE_ROOT + "/wall-bullet-hole.png";
         private const string WALL_BULLET_MATERIAL_PATH =
             MATERIAL_ROOT + "/Wall Bullet Hole URP.mat";
+        private const string RPG_EXPLOSION_DECAL_TEXTURE_PATH =
+            TEXTURE_ROOT + "/rpg-explosion-scorch.png";
+        private const string RPG_EXPLOSION_DECAL_MATERIAL_PATH =
+            MATERIAL_ROOT + "/RPG Explosion Scorch URP.mat";
+        private const string RPG_EXPLOSION_VEHICLE_DECAL_TEXTURE_PATH =
+            TEXTURE_ROOT + "/rpg-explosion-vehicle-scorch.png";
+        private const string RPG_EXPLOSION_VEHICLE_DECAL_MATERIAL_PATH =
+            MATERIAL_ROOT + "/RPG Explosion Vehicle Scorch URP.mat";
         private const string VEHICLE_BULLET_SHADER_PATH =
             ROOT + "/Shaders/FranklinVehicleBulletDecal.shader";
         private const string VEHICLE_BULLET_SHADER =
@@ -59,6 +104,15 @@ namespace FranklinGame.Shooter.Editor
         private const string IMPACT_EFFECT_PATH = EFFECT_ROOT + "/Bullet Impact URP.prefab";
         private const string EXPLOSION_EFFECT_PATH = EFFECT_ROOT + "/Grenade Impact URP.prefab";
         private const string SAMPLE_ROOT = "Assets/Plugins/GameCreator/Installs/Shooter.Weapons@1.1.4";
+        private const string CHARGE_GRENADE_FADE_MATERIAL =
+            "Assets/Plugins/GameCreator/Installs/GameCreator.Blockout@1.6.12/Materials/Prototype_Fade_Green.mat";
+        private const string CHARGE_GRENADE_GUIDE_MATERIAL =
+            "Assets/Plugins/GameCreator/Installs/GameCreator.Blockout@1.6.12/Materials/Prototype_Guide_Red.mat";
+        private const string CHARGE_GRENADE_JOINTS_MATERIAL =
+            "Assets/Plugins/GameCreator/Packages/Core/Runtime/Characters/Assets/3D/Materials/Joints.mat";
+        private const string CHARGE_GRENADE_SURFACE_MATERIAL =
+            "Assets/Plugins/GameCreator/Packages/Core/Runtime/Characters/Assets/3D/Materials/Surface.mat";
+        private const string LOW_WEAPON_MATERIAL = ROOT + "/WeaponsLow/Gun_MAT.mat";
         private const string SAMPLE_SHOOTER_LOCOMOTION_PATH =
             SAMPLE_ROOT + "/States/Shooter_Locomotion.asset";
         private const string LOW_PREFABS = ROOT + "/WeaponsLow/Prefabs";
@@ -93,6 +147,12 @@ namespace FranklinGame.Shooter.Editor
             "Assets/PampelGames/BloodFactory/Content/Prefabs/Splash/BloodSplash01.prefab";
         private const string SOURCE_SNIPER_PROJECTILE =
             SAMPLE_ROOT + "/Prefabs/Sniper_Projectile.prefab";
+        private const string SOURCE_GRENADE_SIGHT =
+            SAMPLE_ROOT + "/Sights/Grenade_Sight.asset";
+        private const string SOURCE_GRENADE_EXPLOSION_AUDIO =
+            SAMPLE_ROOT + "/Audio/Grenade_Explode.wav";
+        private const string SOURCE_SMOKE_HISS_AUDIO =
+            SAMPLE_ROOT + "/Audio/Flamethrower_Gas.wav";
         private const float BLOOD_HIT_EFFECT_LIFETIME = 2f;
         private const int MUZZLE_POOL_SIZE = 4;
         private const float MUZZLE_POOL_DURATION = 0.2f;
@@ -101,7 +161,7 @@ namespace FranklinGame.Shooter.Editor
         private const int SURFACE_IMPACT_POOL_SIZE = 8;
         private const float SURFACE_IMPACT_POOL_DURATION = 0.75f;
         private const int EXPLOSION_IMPACT_POOL_SIZE = 2;
-        private const float EXPLOSION_IMPACT_POOL_DURATION = 2.5f;
+        private const float EXPLOSION_IMPACT_POOL_DURATION = 5f;
         private const float RAYCAST_TRACER_DURATION = 0.1f;
         private const float AUTOMATIC_CAMERA_SHAKE_DURATION = 0.1f;
         private const int IMPACT_PARTICLE_BUDGET = 32;
@@ -139,6 +199,7 @@ namespace FranklinGame.Shooter.Editor
             public readonly float HelmetImpulse;
             public readonly float ArmorAbsorption;
             public readonly bool UseMuzzleEffect;
+            public readonly FranklinShooterCatalog.WeaponKind Kind;
 
             public Definition(
                 string id, string displayName, string category,
@@ -152,7 +213,9 @@ namespace FranklinGame.Shooter.Editor
                 float helmetMultiplier = 0.25f,
                 float helmetImpulse = 8f,
                 float armorAbsorption = 0.65f,
-                bool useMuzzleEffect = true)
+                bool useMuzzleEffect = true,
+                FranklinShooterCatalog.WeaponKind kind =
+                    FranklinShooterCatalog.WeaponKind.Firearm)
             {
                 this.Id = id;
                 this.DisplayName = displayName;
@@ -173,6 +236,7 @@ namespace FranklinGame.Shooter.Editor
                 this.HelmetImpulse = Mathf.Max(0f, helmetImpulse);
                 this.ArmorAbsorption = Mathf.Clamp01(armorAbsorption);
                 this.UseMuzzleEffect = useMuzzleEffect;
+                this.Kind = kind;
             }
         }
 
@@ -211,11 +275,32 @@ namespace FranklinGame.Shooter.Editor
                 recoilX: new Vector2(-2.5f, 2.5f), recoilY: new Vector2(-2.5f, 2.5f),
                 vehicleDamage: 14f, characterDamage: 100f,
                 headshotMultiplier: 2f, helmetImpulse: 18f, armorAbsorption: 0.2f),
-            new("rpg7", "RPG-7", "Heavy Weapon", "Grenade", "RPG7", "rpg7", 1,
+            new("rpg7", "RPG-7", "Heavy Weapon", "Grenade", "RPG7", "rpg7", 5,
                 new Vector3(-0.06f, 0.12f, 0.16f), new Vector3(-90f, 0f, 90f),
-                recoilY: new Vector2(1f, 2f), vehicleDamage: 20f,
-                characterDamage: 100f, headshotMultiplier: 2f, helmetImpulse: 20f,
-                armorAbsorption: 0.1f, useMuzzleEffect: false)
+                recoilY: new Vector2(1f, 2f), vehicleDamage: 60f,
+                characterDamage: 250f, headshotMultiplier: 2f, helmetImpulse: 20f,
+                armorAbsorption: 0.1f, useMuzzleEffect: false),
+            new("rgd5", "RGD-5", "Explosive", "Grenade", "RGD-5", "rgd5", 3,
+                new Vector3(-0.025f, 0.075f, 0.025f), new Vector3(-90f, 0f, 90f),
+                recoilX: Vector2.zero, recoilY: Vector2.zero,
+                vehicleDamage: 18f, characterDamage: 100f,
+                headshotMultiplier: 1f, helmetImpulse: 0f, armorAbsorption: 0.25f,
+                useMuzzleEffect: false,
+                kind: FranklinShooterCatalog.WeaponKind.ExplosiveGrenade),
+            new("smoke", "Smoke Grenade", "Tactical", "Grenade", "Smoke", "smoke", 2,
+                new Vector3(-0.025f, 0.075f, 0.025f), new Vector3(-90f, 0f, 90f),
+                recoilX: Vector2.zero, recoilY: Vector2.zero,
+                vehicleDamage: 0f, characterDamage: 0f,
+                headshotMultiplier: 1f, helmetImpulse: 0f, armorAbsorption: 0f,
+                useMuzzleEffect: false,
+                kind: FranklinShooterCatalog.WeaponKind.SmokeGrenade),
+            new("flash", "Flash Grenade", "Tactical", "Grenade", "Flash", "flash", 2,
+                new Vector3(-0.025f, 0.075f, 0.025f), new Vector3(-90f, 0f, 90f),
+                recoilX: Vector2.zero, recoilY: Vector2.zero,
+                vehicleDamage: 0f, characterDamage: 0f,
+                headshotMultiplier: 1f, helmetImpulse: 0f, armorAbsorption: 0f,
+                useMuzzleEffect: false,
+                kind: FranklinShooterCatalog.WeaponKind.FlashGrenade)
         };
 
         static FranklinShooterInstaller()
@@ -244,7 +329,8 @@ namespace FranklinGame.Shooter.Editor
                 return;
             }
             if (EditorApplication.isPlayingOrWillChangePlaymode) return;
-            if (AssetDatabase.LoadAssetAtPath<FranklinShooterCatalog>(CATALOG_PATH) != null &&
+            if (!NeedsLocalMainAssetNameRepair() &&
+                !NeedsCatalogRepair() &&
                 !NeedsUiSpriteRepair() &&
                 !NeedsRenderingRepair() &&
                 !NeedsShooterLocomotionRepair() &&
@@ -257,7 +343,9 @@ namespace FranklinGame.Shooter.Editor
                 !NeedsPlayerFirstPersonCameraRepair() &&
                 !NeedsVehicleBulletDecalRepair() &&
                 !NeedsVehicleImpactForceRepair() &&
-                !NeedsAimSightRepair()) return;
+                !NeedsAimSightRepair() &&
+                !NeedsRpgRepair() &&
+                !NeedsThrowableRepair()) return;
             InstallOrRepair(false);
         }
 
@@ -272,6 +360,8 @@ namespace FranklinGame.Shooter.Editor
             try
             {
                 EnsureFolders();
+                ConfigureRpgAudioImporters();
+                RepairLocalMainAssetNames();
                 EnsurePlayerArmor();
                 EnsurePlayerFirstPersonCameraManager();
                 RepairShooterSampleMaterialsForUrp();
@@ -336,6 +426,7 @@ namespace FranklinGame.Shooter.Editor
                     SetField(entry, "m_PropPrefab", prop);
                     SetField(entry, "m_Icon", icon);
                     SetField(entry, "m_StartingMagazine", definition.StartingMagazine);
+                    SetField(entry, "m_Kind", definition.Kind);
                     if (existingEntries.TryGetValue(definition.Id, out FranklinShooterCatalog.Entry saved))
                     {
                         SetField(entry, "m_LocalPosition", saved.LocalPosition);
@@ -360,6 +451,7 @@ namespace FranklinGame.Shooter.Editor
                 if (catalog == null)
                 {
                     catalog = ScriptableObject.CreateInstance<FranklinShooterCatalog>();
+                    catalog.name = GetAssetMainName(CATALOG_PATH);
                     AssetDatabase.CreateAsset(catalog, CATALOG_PATH);
                 }
 
@@ -372,7 +464,7 @@ namespace FranklinGame.Shooter.Editor
                 if (logSuccess)
                 {
                     Debug.Log(
-                        "Franklin Shooter GC2 installed: 8 Weapons Low props, GC2 weapon assets, " +
+                        "Franklin Shooter GC2 installed: 11 Weapons Low props, GC2 weapon assets, " +
                         "ImageGen weapon menu and mobile shooter controls."
                     );
                 }
@@ -400,7 +492,6 @@ namespace FranklinGame.Shooter.Editor
             {
                 if (!AssetDatabase.CopyAsset(sourcePath, destinationPath))
                     throw new InvalidOperationException($"Could not copy GC2 weapon template: {sourcePath}");
-                AssetDatabase.ImportAsset(destinationPath, ImportAssetOptions.ForceSynchronousImport);
                 weapon = AssetDatabase.LoadAssetAtPath<ShooterWeapon>(destinationPath);
                 created = true;
             }
@@ -424,23 +515,59 @@ namespace FranklinGame.Shooter.Editor
                 SetBaseField(weapon, "m_Id", new UniqueID());
             }
 
-            // Keep the exact GC2 Shooter_Locomotion linked on every generated weapon. The
-            // runtime still controls when layer 7 is visible, but the weapon can no longer
-            // silently lose its locomotion dependency after an installer/asset refresh.
-            SetField(weapon, "m_State", new StateData(shooterLocomotion));
+            bool isRpg = string.Equals(
+                definition.Id,
+                "rpg7",
+                StringComparison.OrdinalIgnoreCase
+            );
+
+            // Regular firearms keep the exact GC2 Shooter_Locomotion dependency.
+            // RPG-7 and throwables stay on the normal Character locomotion when merely
+            // equipped; their layer-7/8 pose and biomechanics begin on Fire hold only.
+            SetField(
+                weapon,
+                "m_State",
+                definition.Kind == FranklinShooterCatalog.WeaponKind.Firearm && !isRpg
+                    ? new StateData(shooterLocomotion)
+                    : new StateData(StateData.StateType.State)
+            );
             SetField(
                 weapon,
                 "m_Layer",
                 new PropertyGetInteger(SHOOTER_LOCOMOTION_LAYER)
             );
-            RepairAimAdsSightReference(weapon, definition.SourceWeapon, upperBodyMask);
+            if (isRpg)
+                ConfigureRpgSightsAndFire(weapon, upperBodyMask);
+            else
+                RepairAimAdsSightReference(weapon, definition.SourceWeapon, upperBodyMask);
             RepairBikeDriverAimSight(weapon, definition, bikeDriverShooterMask);
             RepairWeaponSightLayerMasks(weapon);
-            SetField(weapon.Fire, "m_FireAvatarMask", upperBodyMask);
+            SetField(
+                weapon.Fire,
+                "m_FireAvatarMask",
+                definition.Kind == FranklinShooterCatalog.WeaponKind.Firearm
+                    ? upperBodyMask
+                    : bikeDriverShooterMask
+            );
             // GC2's Fire Force applies a Rigidbody impulse before on-hit instructions.
             // Vehicle damage is health-only, so disable that impulse on generated weapons.
             SetField(weapon.Fire, "m_Force", new EnablerFloat(false, 0f));
-            SetDamageInstructions(weapon, definition, renderingAssets.BloodHitEffect);
+            if (isRpg)
+            {
+                ConfigureRpgProjectileAndDamage(
+                    weapon,
+                    definition,
+                    renderingAssets
+                );
+            }
+            else if (definition.Kind == FranklinShooterCatalog.WeaponKind.Firearm)
+            {
+                SetDamageInstructions(weapon, definition, renderingAssets.BloodHitEffect);
+            }
+            else
+            {
+                ConfigureThrowableWeapon(weapon, definition, renderingAssets);
+            }
             ConfigureAutomaticCameraShake(weapon, definition);
             RepairProjectileLayerMask(weapon);
 
@@ -528,21 +655,6 @@ namespace FranklinGame.Shooter.Editor
                 }
             }
 
-            if (definition.Id == "rpg7" &&
-                renderingAssets.SourceExplosionEffect != null &&
-                renderingAssets.ExplosionEffect != null)
-            {
-                ReplaceObjectReferences(
-                    weapon,
-                    renderingAssets.SourceExplosionEffect,
-                    renderingAssets.ExplosionEffect
-                );
-                ConfigureExplosionInstructionPool(
-                    weapon,
-                    renderingAssets.ExplosionEffect
-                );
-            }
-
             SetField(
                 weapon.Recoil,
                 "m_RecoilX",
@@ -559,11 +671,734 @@ namespace FranklinGame.Shooter.Editor
                     new PropertyGetDecimal(definition.RecoilY.y)
                 )
             );
-
             weapon.EditorModelPath = $"{LOW_PREFABS}/{definition.LowPrefab}.prefab";
-            weapon.name = definition.DisplayName.Replace(" ", "_") + "_Weapon";
+            weapon.name = GetAssetMainName(destinationPath);
             EditorUtility.SetDirty(weapon);
             return weapon;
+        }
+
+        private static void ConfigureThrowableWeapon(
+            ShooterWeapon weapon,
+            Definition definition,
+            UrpRenderingAssets renderingAssets)
+        {
+            ConfigureThrowableSights(weapon);
+
+            Ammo ammo = CreateOrRepairThrowableAmmo(weapon, definition);
+            SetField(weapon.Magazine, "m_Ammo", ammo);
+
+            GameObject projectile = CreateOrRepairThrowableProjectile(definition);
+            Shot shot = (Shot) GetField(weapon.Projectile, "m_Shot");
+            if (shot?.Value is not ShotRigidbody rigidbodyShot)
+            {
+                throw new InvalidOperationException(
+                    $"Throwable {definition.DisplayName} does not use GC2 ShotRigidbody"
+                );
+            }
+
+            SetBaseField(
+                rigidbodyShot,
+                "m_Prefab",
+                GetGameObjectInstance.Create(projectile)
+            );
+            SetField(rigidbodyShot, "m_Timeout", new PropertyGetDecimal(3f));
+
+            AudioClip explosionClip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                SOURCE_GRENADE_EXPLOSION_AUDIO
+            );
+            AudioClip smokeHissClip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                SOURCE_SMOKE_HISS_AUDIO
+            );
+
+            if (definition.Kind == FranklinShooterCatalog.WeaponKind.ExplosiveGrenade)
+            {
+                SetField(
+                    weapon,
+                    "m_OnHit",
+                    new RunInstructionsList(
+                        new InstructionFranklinExplosionDamage(
+                            4f,
+                            definition.CharacterDamage,
+                            definition.VehicleDamage,
+                            0.35f,
+                            definition.ArmorAbsorption,
+                            3.2f,
+                            0.35f,
+                            1.45f,
+                            explosionClip
+                        )
+                    )
+                );
+                SetField(
+                    weapon.Projectile,
+                    "m_ImpactEffect",
+                    CreateInstantiateReference(
+                        renderingAssets.ExplosionEffect,
+                        true,
+                        EXPLOSION_IMPACT_POOL_SIZE,
+                        true,
+                        EXPLOSION_IMPACT_POOL_DURATION
+                    )
+                );
+            }
+            else if (definition.Kind == FranklinShooterCatalog.WeaponKind.SmokeGrenade)
+            {
+                SetField(
+                    weapon,
+                    "m_OnHit",
+                    new RunInstructionsList(
+                        new InstructionFranklinSmokeGrenade(
+                            18f,
+                            7.5f,
+                            smokeHissClip
+                        )
+                    )
+                );
+                SetField(
+                    weapon.Projectile,
+                    "m_ImpactEffect",
+                    CreateInstantiateReference(null, false, 0, false, 0f)
+                );
+            }
+            else
+            {
+                SetField(
+                    weapon,
+                    "m_OnHit",
+                    new RunInstructionsList(
+                        new InstructionFranklinFlashGrenade(
+                            0.9f,
+                            12f,
+                            explosionClip
+                        )
+                    )
+                );
+                SetField(
+                    weapon.Projectile,
+                    "m_ImpactEffect",
+                    CreateInstantiateReference(null, false, 0, false, 0f)
+                );
+            }
+        }
+
+        private static void ConfigureRpgSightsAndFire(
+            ShooterWeapon weapon,
+            AvatarMask upperBodyMask)
+        {
+            Sight source = AssetDatabase.LoadAssetAtPath<Sight>(SOURCE_GRENADE_SIGHT);
+            AnimationClip holdClip = LoadAnimationClip(RPG_HOLD_ANIMATION_PATH);
+            AnimationClip aimClip = LoadAnimationClip(RPG_AIM_ANIMATION_PATH);
+            AnimationClip shootClip = LoadAnimationClip(RPG_SHOOT_ANIMATION_PATH);
+            if (source == null || holdClip == null || aimClip == null || shootClip == null)
+            {
+                throw new InvalidOperationException(
+                    "RPG-7 requires the local Grenade Sight and Bazooka Hold/Aim/Shoot clips"
+                );
+            }
+
+            Sight idleSight = CreateOrRepairRpgSight(
+                source,
+                RPG_IDLE_SIGHT_PATH,
+                holdClip,
+                upperBodyMask,
+                false
+            );
+            Sight aimSight = CreateOrRepairRpgSight(
+                source,
+                RPG_AIM_SIGHT_PATH,
+                aimClip,
+                upperBodyMask,
+                true
+            );
+
+            SightItem idleItem = new();
+            SetField(idleItem, "m_Id", new IdString("idle"));
+            SetField(idleItem, "m_Sight", idleSight);
+            SetField(idleItem, "m_ScopeThrough", false);
+            SetBaseField(idleItem, "m_IsEnabled", true);
+
+            SightItem aimItem = new();
+            SetField(aimItem, "m_Id", new IdString("aim-ads"));
+            SetField(aimItem, "m_Sight", aimSight);
+            SetField(aimItem, "m_ScopeThrough", false);
+            SetBaseField(aimItem, "m_IsEnabled", true);
+            SetField(weapon.Sights, "m_Sights", new[] { idleItem, aimItem });
+
+            // RPG is a single, camera-centred projectile. Do not inherit the random
+            // grenade/firearm spread that can move a rocket metres away from the reticle
+            // at long range or while the Character is moving.
+            SetField(weapon.Accuracy, "m_MaxSpreadX", new PropertyGetDecimal(0f));
+            SetField(weapon.Accuracy, "m_MaxSpreadY", new PropertyGetDecimal(0f));
+            SetField(weapon.Accuracy, "m_MotionAccuracy", new PropertyGetDecimal(0f));
+            SetField(weapon.Accuracy, "m_AirborneAccuracy", new PropertyGetDecimal(0f));
+            SetField(weapon.Accuracy, "m_AccuracyKick", new PropertyGetDecimal(0f));
+
+            SetField(
+                weapon.Fire,
+                "m_FireAnimation",
+                new PropertyGetAnimation(new GetAnimationInstance(shootClip))
+            );
+            SetField(weapon.Fire, "m_FireAvatarMask", upperBodyMask);
+            SetField(weapon.Fire, "m_Mode", ShootMode.Charge);
+            // A launcher is deliberately slow even if a future ammo pickup grants more
+            // than the authored single rocket. This also bounds the GC2 projectile pool.
+            SetField(weapon.Fire, "m_FireRate", new PropertyGetDecimal(0.5f));
+            SetField(weapon.Fire, "m_MinChargeTime", new PropertyGetDecimal(0f));
+            SetField(weapon.Fire, "m_MaxChargeTime", new PropertyGetDecimal(1f));
+            SetField(weapon.Fire, "m_AutoRelease", new PropertyGetBool(false));
+            // The pooled projectile component plays the launch transient at the exact
+            // muzzle position with an authored long-distance 3D falloff.
+            SetField(weapon.Fire, "m_FireAudio", GetAudioNone.Create);
+            SetField(weapon.Fire, "m_TransitionIn", 0.08f);
+            SetField(weapon.Fire, "m_TransitionOut", 0.2f);
+            SetField(weapon.Fire, "m_RootMotion", false);
+            EditorUtility.SetDirty(weapon);
+        }
+
+        private static Sight CreateOrRepairRpgSight(
+            Sight source,
+            string path,
+            AnimationClip pose,
+            AvatarMask upperBodyMask,
+            bool aiming)
+        {
+            Sight sight = AssetDatabase.LoadAssetAtPath<Sight>(path);
+            if (sight == null)
+            {
+                if (!AssetDatabase.CopyAsset(SOURCE_GRENADE_SIGHT, path))
+                    throw new InvalidOperationException($"Could not create RPG Sight: {path}");
+                sight = AssetDatabase.LoadAssetAtPath<Sight>(path);
+            }
+            if (sight == null)
+                throw new InvalidOperationException($"Could not load RPG Sight: {path}");
+
+            // The asset is already cloned from SOURCE_GRENADE_SIGHT when it is created.
+            // CopySerialized is unsafe here because Sight contains several SerializeReference
+            // graphs; Unity 6 can crash in ManagedReferencesTransferState.PerformFixups when
+            // copying those graphs between persistent ScriptableObjects. Repair only the
+            // fields Franklin owns below so the local asset keeps its GUID and remains valid.
+            sight.name = GetAssetMainName(path);
+            SetField(
+                sight,
+                "m_State",
+                pose != null
+                    ? new StateData(pose, upperBodyMask)
+                    : new StateData(StateData.StateType.State)
+            );
+            SetField(sight, "m_Layer", new PropertyGetInteger(8));
+            SetField(sight, "m_SmoothTime", new EnablerFloat(false, 0f));
+            SetField(sight.Trajectory, "m_UseTrajectory", new PropertyGetBool(false));
+            SetField(sight, "m_ShootingUsesFK", aiming);
+            SetField(sight, "m_ShootingUsesIK", aiming);
+
+            if (aiming)
+            {
+                // Use the same native GC2 camera-centre raycast used by the firearm ADS
+                // sights. The all-layer mask is normalized by RepairWeaponSightLayerMasks.
+                Aim aim = new();
+                SetField(aim, "m_Aim", new AimCameraRaycast());
+                SetField(sight, "m_Aim", aim);
+            }
+            else
+            {
+                Biomechanics biomechanics = new();
+                SetField(biomechanics, "m_Value", new BiomechanicsNone());
+                SetField(sight, "m_Biomechanics", biomechanics);
+            }
+
+            EditorUtility.SetDirty(sight);
+            return sight;
+        }
+
+        private static void ConfigureRpgProjectileAndDamage(
+            ShooterWeapon weapon,
+            Definition definition,
+            UrpRenderingAssets renderingAssets)
+        {
+            // The GC2 Grenade template uses infinite ammo. RPG-7 owns a finite local
+            // reserve instead. The launcher still fires one rocket at a time, while the
+            // starting reserve provides enough shots for normal gameplay.
+            Ammo ammo = CreateOrRepairThrowableAmmo(weapon, definition);
+            SetField(weapon.Magazine, "m_Ammo", ammo);
+            SetField(weapon.Magazine, "m_HasMagazine", new PropertyGetBool(false));
+            SetField(weapon.Magazine, "m_MagazineSize", new PropertyGetInteger(1));
+            SetField(weapon.Magazine, "m_AutoReload", new PropertyGetBool(false));
+
+            AudioClip launchClip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                RPG_LAUNCH_AUDIO_PATH
+            );
+            AudioClip flightLoop = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                RPG_FLIGHT_AUDIO_PATH
+            );
+            AudioClip explosionClip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                RPG_EXPLOSION_CLOSE_AUDIO_PATH
+            );
+            AudioClip distantExplosionClip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                RPG_EXPLOSION_DISTANT_AUDIO_PATH
+            );
+            if (launchClip == null || flightLoop == null || explosionClip == null ||
+                distantExplosionClip == null)
+            {
+                throw new InvalidOperationException(
+                    "RPG-7 CC0 launch, flight and explosion audio assets are required"
+                );
+            }
+
+            GameObject projectile = CreateOrRepairRpgProjectile(
+                renderingAssets.Tracer,
+                launchClip,
+                flightLoop
+            );
+            Shot shot = (Shot) GetField(weapon.Projectile, "m_Shot");
+            if (shot?.Value is not ShotRigidbody rigidbodyShot)
+                throw new InvalidOperationException("RPG-7 must use GC2 ShotRigidbody");
+
+            SetBaseField(
+                rigidbodyShot,
+                "m_Prefab",
+                GetGameObjectInstance.Create(projectile)
+            );
+            // Ignore projectile mass so every pooled rocket leaves the tube at
+            // the same authored speed regardless of future Rigidbody tuning.
+            SetEnumField(rigidbodyShot, "m_Impulse", 2);
+            SetField(rigidbodyShot, "m_ImpulseForce", new PropertyGetDecimal(42f));
+            SetField(rigidbodyShot, "m_Mass", new PropertyGetDecimal(1f));
+            SetField(rigidbodyShot, "m_AirResistance", new PropertyGetDecimal(0f));
+            SetField(rigidbodyShot, "m_WindInfluence", new PropertyGetDecimal(0f));
+            SetField(rigidbodyShot, "m_AttractionForce", new PropertyGetDecimal(0f));
+            SetField(rigidbodyShot, "m_MaxDistance", new PropertyGetDecimal(150f));
+            SetEnumField(rigidbodyShot, "m_Hit", 0); // ShotRigidbody.HitMode.OnImpact
+            SetField(rigidbodyShot, "m_Timeout", new PropertyGetDecimal(4f));
+            SetBaseField(rigidbodyShot, "m_AimAtSightPoint", true);
+
+            GameObject prop = AssetDatabase.LoadAssetAtPath<GameObject>(
+                $"{LOW_PREFABS}/{definition.LowPrefab}.prefab"
+            );
+            Vector3 muzzlePosition = GetRpgMuzzlePosition(prop);
+            SetField(weapon.Muzzle, "m_Position", muzzlePosition);
+            // Weapons Low authors the rocket nose along local -Z.
+            SetField(weapon.Muzzle, "m_Rotation", new Vector3(0f, 180f, 0f));
+
+            SetField(
+                weapon,
+                "m_OnHit",
+                new RunInstructionsList(
+                    new InstructionFranklinExplosionDamage(
+                        5f,
+                        definition.CharacterDamage,
+                        definition.VehicleDamage,
+                        0.3f,
+                        definition.ArmorAbsorption,
+                        3.8f,
+                        0.35f,
+                        1.5f,
+                        explosionClip,
+                        distantExplosionClip,
+                        110f,
+                        320f,
+                        true
+                    )
+                )
+            );
+            SetField(
+                weapon.Projectile,
+                "m_ImpactEffect",
+                CreateInstantiateReference(
+                    renderingAssets.ExplosionEffect,
+                    true,
+                    EXPLOSION_IMPACT_POOL_SIZE,
+                    true,
+                    EXPLOSION_IMPACT_POOL_DURATION
+                )
+            );
+            SetField(weapon.Projectile, "m_ImpactSound", null);
+            EditorUtility.SetDirty(weapon);
+        }
+
+        private static GameObject CreateOrRepairRpgProjectile(
+            Material trailMaterial,
+            AudioClip launchClip,
+            AudioClip flightLoop)
+        {
+            GameObject source = AssetDatabase.LoadAssetAtPath<GameObject>(
+                LOW_PREFABS + "/RPG7.prefab"
+            );
+            Transform sourceRocket = source != null ? source.transform.Find("Rocket") : null;
+            MeshFilter sourceFilter = sourceRocket != null
+                ? sourceRocket.GetComponent<MeshFilter>()
+                : null;
+            MeshRenderer sourceRenderer = sourceRocket != null
+                ? sourceRocket.GetComponent<MeshRenderer>()
+                : null;
+            if (sourceFilter == null || sourceFilter.sharedMesh == null ||
+                sourceRenderer == null)
+                throw new InvalidOperationException("Weapons Low RPG7/Rocket mesh is missing");
+
+            bool exists = AssetDatabase.LoadAssetAtPath<GameObject>(RPG_PROJECTILE_PATH) != null;
+            GameObject root = exists
+                ? PrefabUtility.LoadPrefabContents(RPG_PROJECTILE_PATH)
+                : new GameObject("RPG-7 Rocket Projectile");
+            try
+            {
+                root.name = "RPG-7 Rocket Projectile";
+                for (int i = root.transform.childCount - 1; i >= 0; --i)
+                    UnityEngine.Object.DestroyImmediate(root.transform.GetChild(i).gameObject);
+
+                foreach (Component component in root.GetComponents<Component>())
+                {
+                    if (component is Transform or Rigidbody or CapsuleCollider or Bullet or
+                        AudioSource or FranklinRpgFlightAudio)
+                        continue;
+                    UnityEngine.Object.DestroyImmediate(component);
+                }
+
+                // Do not use ?? with UnityEngine.Object. GetComponent can return Unity's
+                // destroyed/missing-object sentinel, which is only null through its overloaded
+                // equality operator; ?? would keep that invalid wrapper and throw below.
+                Rigidbody body = root.GetComponent<Rigidbody>();
+                if (body == null) body = root.AddComponent<Rigidbody>();
+                if (body == null)
+                    throw new InvalidOperationException("Could not create RPG Rigidbody");
+                body.mass = 1f;
+                body.useGravity = false;
+                body.linearDamping = 0f;
+                body.angularDamping = 0f;
+                body.interpolation = RigidbodyInterpolation.Interpolate;
+                body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+                body.constraints = RigidbodyConstraints.FreezeRotation;
+
+                Bullet bullet = root.GetComponent<Bullet>();
+                if (bullet == null) bullet = root.AddComponent<Bullet>();
+                if (bullet == null)
+                    throw new InvalidOperationException("Could not create RPG Bullet");
+
+                AudioSource flightSource = root.GetComponent<AudioSource>();
+                if (flightSource == null) flightSource = root.AddComponent<AudioSource>();
+                if (flightSource == null)
+                    throw new InvalidOperationException("Could not create RPG flight AudioSource");
+                FranklinRpgFlightAudio flightAudio =
+                    root.GetComponent<FranklinRpgFlightAudio>();
+                if (flightAudio == null)
+                    flightAudio = root.AddComponent<FranklinRpgFlightAudio>();
+                if (flightAudio == null)
+                    throw new InvalidOperationException("Could not create RPG flight audio");
+                flightAudio.Configure(launchClip, flightLoop);
+
+                GameObject visual = new("Rocket");
+                visual.transform.SetParent(root.transform, false);
+                visual.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+                visual.transform.localScale = sourceRocket.localScale;
+                visual.AddComponent<MeshFilter>().sharedMesh = sourceFilter.sharedMesh;
+                MeshRenderer renderer = visual.AddComponent<MeshRenderer>();
+                renderer.sharedMaterials = sourceRenderer.sharedMaterials;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+                renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+                renderer.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
+
+                Bounds bounds = sourceFilter.sharedMesh.bounds;
+                Vector3 scaledSize = Vector3.Scale(bounds.size, sourceRocket.localScale);
+                Vector3 scaledCenter = Vector3.Scale(bounds.center, sourceRocket.localScale);
+                Quaternion visualRotation = visual.transform.localRotation;
+                Vector3 scaledTail = Vector3.Scale(
+                    new Vector3(bounds.center.x, bounds.center.y, bounds.max.z),
+                    sourceRocket.localScale
+                );
+                // The source mesh points its nose down -Z. After the 180 degree turn,
+                // normalize its tail to the projectile origin so the entire rocket begins
+                // outside the launch tube instead of intersecting the Player/launcher.
+                visual.transform.localPosition = -(visualRotation * scaledTail);
+
+                CapsuleCollider collider = root.GetComponent<CapsuleCollider>();
+                if (collider == null) collider = root.AddComponent<CapsuleCollider>();
+                if (collider == null)
+                    throw new InvalidOperationException("Could not create RPG Collider");
+                collider.direction = 2;
+                collider.center = visual.transform.localPosition + visualRotation * scaledCenter;
+                collider.radius = Mathf.Clamp(
+                    Mathf.Max(Mathf.Abs(scaledSize.x), Mathf.Abs(scaledSize.y)) * 0.42f,
+                    0.035f,
+                    0.09f
+                );
+                collider.height = Mathf.Max(
+                    Mathf.Abs(scaledSize.z),
+                    collider.radius * 2.1f
+                );
+                collider.isTrigger = false;
+
+                GameObject exhaust = new("Exhaust Trail");
+                exhaust.transform.SetParent(root.transform, false);
+                exhaust.transform.localPosition = Vector3.zero;
+                TrailRenderer trail = exhaust.AddComponent<TrailRenderer>();
+                trail.sharedMaterial = trailMaterial;
+                // Keep a readable exhaust plume without a ParticleSystem. The increased
+                // vertex distance offsets the longer/larger trail on mobile GPUs.
+                trail.time = 0.55f;
+                trail.minVertexDistance = 0.12f;
+                trail.widthMultiplier = 0.085f;
+                trail.widthCurve = new AnimationCurve(
+                    new Keyframe(0f, 0.15f),
+                    new Keyframe(1f, 1f)
+                );
+                trail.startColor = new Color(1f, 0.68f, 0.24f, 0.9f);
+                trail.endColor = new Color(0.9f, 0.94f, 1f, 0f);
+                trail.numCornerVertices = 0;
+                trail.numCapVertices = 0;
+                trail.textureMode = LineTextureMode.Stretch;
+                trail.alignment = LineAlignment.View;
+                trail.generateLightingData = false;
+                trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                trail.receiveShadows = false;
+                trail.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+                trail.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+                trail.motionVectorGenerationMode = MotionVectorGenerationMode.ForceNoMotion;
+                trail.autodestruct = false;
+                trail.emitting = true;
+
+                PrefabUtility.SaveAsPrefabAsset(root, RPG_PROJECTILE_PATH);
+            }
+            finally
+            {
+                if (exists) PrefabUtility.UnloadPrefabContents(root);
+                else UnityEngine.Object.DestroyImmediate(root);
+            }
+
+            return AssetDatabase.LoadAssetAtPath<GameObject>(RPG_PROJECTILE_PATH);
+        }
+
+        private static Vector3 GetRpgMuzzlePosition(GameObject prop)
+        {
+            Transform rocket = prop != null ? prop.transform.Find("Rocket") : null;
+            MeshFilter filter = rocket != null ? rocket.GetComponent<MeshFilter>() : null;
+            MeshFilter launcher = prop != null ? prop.GetComponent<MeshFilter>() : null;
+            if (filter?.sharedMesh == null || launcher?.sharedMesh == null)
+                return new Vector3(0f, 0f, -0.75f);
+
+            Bounds rocketBounds = filter.sharedMesh.bounds;
+            Vector3 rocketAxis = prop.transform.InverseTransformPoint(
+                rocket.TransformPoint(
+                    new Vector3(rocketBounds.center.x, rocketBounds.center.y, 0f)
+                )
+            );
+            Bounds launcherBounds = launcher.sharedMesh.bounds;
+            // Place the normalized rocket tail just beyond the front tube mouth.
+            return new Vector3(
+                rocketAxis.x,
+                rocketAxis.y,
+                launcherBounds.min.z - 0.06f
+            );
+        }
+
+        private static AnimationClip LoadAnimationClip(string path)
+        {
+            foreach (UnityEngine.Object asset in AssetDatabase.LoadAllAssetsAtPath(path))
+            {
+                if (asset is AnimationClip clip && !clip.name.StartsWith("__preview__"))
+                    return clip;
+            }
+            return null;
+        }
+
+        private static void ConfigureThrowableSights(ShooterWeapon weapon)
+        {
+            Sight source = AssetDatabase.LoadAssetAtPath<Sight>(SOURCE_GRENADE_SIGHT);
+            if (source == null)
+            {
+                throw new InvalidOperationException(
+                    $"GC2 Grenade Sight is missing: {SOURCE_GRENADE_SIGHT}"
+                );
+            }
+
+            Sight idleSight = CreateOrRepairThrowableSight(
+                source,
+                THROWABLE_IDLE_SIGHT_PATH,
+                false
+            );
+            Sight throwSight = CreateOrRepairThrowableSight(
+                source,
+                THROWABLE_THROW_SIGHT_PATH,
+                true
+            );
+
+            SightItem[] current =
+                (SightItem[]) GetField(weapon.Sights, "m_Sights") ??
+                Array.Empty<SightItem>();
+            SightItem idleItem = null;
+            SightItem throwItem = null;
+            List<SightItem> preserved = new(current.Length + 1);
+
+            foreach (SightItem item in current)
+            {
+                if (item == null) continue;
+                if (string.Equals(item.Id.String, "idle", StringComparison.Ordinal))
+                {
+                    idleItem ??= item;
+                    continue;
+                }
+                if (string.Equals(item.Id.String, "throw", StringComparison.Ordinal))
+                {
+                    throwItem ??= item;
+                    continue;
+                }
+                preserved.Add(item);
+            }
+
+            idleItem ??= new SightItem();
+            throwItem ??= new SightItem();
+            SetField(idleItem, "m_Id", new IdString("idle"));
+            SetField(idleItem, "m_Sight", idleSight);
+            SetField(throwItem, "m_Id", new IdString("throw"));
+            SetField(throwItem, "m_Sight", throwSight);
+
+            List<SightItem> repaired = new(current.Length + 1) { idleItem };
+            repaired.AddRange(preserved);
+            repaired.Add(throwItem);
+            SetField(weapon.Sights, "m_Sights", repaired.ToArray());
+        }
+
+        private static Sight CreateOrRepairThrowableSight(
+            Sight source,
+            string path,
+            bool useThrowBiomechanics)
+        {
+            Sight sight = AssetDatabase.LoadAssetAtPath<Sight>(path);
+            if (sight == null)
+            {
+                if (!AssetDatabase.CopyAsset(SOURCE_GRENADE_SIGHT, path))
+                {
+                    throw new InvalidOperationException(
+                        $"Could not create local throwable Sight: {path}"
+                    );
+                }
+
+                sight = AssetDatabase.LoadAssetAtPath<Sight>(path);
+            }
+
+            if (sight == null)
+                throw new InvalidOperationException($"Could not load throwable Sight: {path}");
+
+            // Do not CopySerialized between Sight assets. Sight owns SerializeReference
+            // graphs and Unity 6 may crash natively while fixing their managed-reference IDs.
+            // New assets are already cloned above; existing assets only need the explicit
+            // Franklin-owned fields repaired below.
+            sight.name = GetAssetMainName(path);
+            SetField(
+                sight,
+                "m_SmoothTime",
+                new EnablerFloat(useThrowBiomechanics, 0.14f)
+            );
+            if (!useThrowBiomechanics)
+            {
+                Biomechanics biomechanics = new();
+                SetField(biomechanics, "m_Value", new BiomechanicsNone());
+                SetField(sight, "m_Biomechanics", biomechanics);
+            }
+            EditorUtility.SetDirty(sight);
+            return sight;
+        }
+
+        private static Ammo CreateOrRepairThrowableAmmo(
+            ShooterWeapon weapon,
+            Definition definition)
+        {
+            string path = $"{AMMO_ROOT}/{definition.Id}-ammo.asset";
+            Ammo ammo = AssetDatabase.LoadAssetAtPath<Ammo>(path);
+            if (ammo == null)
+            {
+                ammo = ScriptableObject.CreateInstance<Ammo>();
+                ammo.name = GetAssetMainName(path);
+                SetField(ammo, "m_Id", new UniqueID());
+                AssetDatabase.CreateAsset(ammo, path);
+            }
+
+            Sprite icon = AssetDatabase.LoadAssetAtPath<Sprite>(
+                $"{RESOURCE_ROOT}/UI/Weapons/{definition.Icon}.png"
+            );
+            SetField(ammo, "m_Title", new PropertyGetString(definition.DisplayName));
+            SetField(
+                ammo,
+                "m_Description",
+                new PropertyGetString($"{definition.DisplayName} reserve")
+            );
+            SetField(ammo, "m_Icon", new PropertyGetSprite(icon));
+            SetField(ammo, "m_Infinite", false);
+
+            SetNumberMunition value = new();
+            SetField(
+                value,
+                "m_Weapon",
+                GetWeaponShooterInstance.Create(weapon)
+            );
+            SetField(ammo, "m_Value", new PropertySetNumber(value));
+            ammo.name = GetAssetMainName(path);
+            EditorUtility.SetDirty(ammo);
+            return ammo;
+        }
+
+        private static GameObject CreateOrRepairThrowableProjectile(Definition definition)
+        {
+            string path = $"{PROJECTILE_ROOT}/{definition.Id}-projectile.prefab";
+            GameObject lowPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                $"{LOW_PREFABS}/{definition.LowPrefab}.prefab"
+            );
+            if (lowPrefab == null)
+                throw new InvalidOperationException($"Missing throwable model: {definition.LowPrefab}");
+
+            bool exists = AssetDatabase.LoadAssetAtPath<GameObject>(path) != null;
+            GameObject root = exists
+                ? PrefabUtility.LoadPrefabContents(path)
+                : new GameObject(definition.DisplayName + " Projectile");
+            try
+            {
+                root.name = definition.DisplayName + " Projectile";
+                for (int i = root.transform.childCount - 1; i >= 0; --i)
+                    UnityEngine.Object.DestroyImmediate(root.transform.GetChild(i).gameObject);
+
+                Rigidbody body = root.GetComponent<Rigidbody>();
+                if (body == null) body = root.AddComponent<Rigidbody>();
+                body.mass = 1f;
+                body.useGravity = true;
+                body.interpolation = RigidbodyInterpolation.Interpolate;
+                body.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+
+                SphereCollider collider = root.GetComponent<SphereCollider>();
+                if (collider == null) collider = root.AddComponent<SphereCollider>();
+                collider.radius = definition.Kind !=
+                                  FranklinShooterCatalog.WeaponKind.ExplosiveGrenade
+                    ? 0.055f
+                    : 0.07f;
+
+                if (root.GetComponent<Bullet>() == null) root.AddComponent<Bullet>();
+
+                GameObject visual = new("Visual");
+                visual.transform.SetParent(root.transform, false);
+                visual.AddComponent<FranklinThrowableVisualSpin>();
+                GameObject model = (GameObject) PrefabUtility.InstantiatePrefab(
+                    lowPrefab,
+                    visual.transform
+                );
+                model.name = lowPrefab.name;
+                model.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                model.transform.localScale = Vector3.one;
+
+                foreach (Renderer renderer in model.GetComponentsInChildren<Renderer>(true))
+                {
+                    renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    renderer.receiveShadows = false;
+                    renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+                    renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+                }
+
+                PrefabUtility.SaveAsPrefabAsset(root, path);
+            }
+            finally
+            {
+                if (exists) PrefabUtility.UnloadPrefabContents(root);
+                else UnityEngine.Object.DestroyImmediate(root);
+            }
+
+            return AssetDatabase.LoadAssetAtPath<GameObject>(path);
         }
 
         private static void RepairProjectileLayerMask(ShooterWeapon weapon)
@@ -682,15 +1517,6 @@ namespace FranklinGame.Shooter.Editor
 
             CopyAssetIfMissing(sourceStatePath, localStatePath);
             CopyAssetIfMissing(sourceSightPath, localSightPath);
-            AssetDatabase.ImportAsset(
-                localStatePath,
-                ImportAssetOptions.ForceSynchronousImport
-            );
-            AssetDatabase.ImportAsset(
-                localSightPath,
-                ImportAssetOptions.ForceSynchronousImport
-            );
-
             StateOverrideAnimator driverState =
                 AssetDatabase.LoadAssetAtPath<StateOverrideAnimator>(localStatePath);
             Sight driverSight = AssetDatabase.LoadAssetAtPath<Sight>(localSightPath);
@@ -701,10 +1527,10 @@ namespace FranklinGame.Shooter.Editor
                 );
             }
 
-            driverState.name = $"{definition.DisplayName} Bike Driver Aim";
+            driverState.name = GetAssetMainName(localStatePath);
             SetBaseField(driverState, "m_StateMask", bikeDriverShooterMask);
 
-            driverSight.name = $"{definition.DisplayName} Bike Driver ADS";
+            driverSight.name = GetAssetMainName(localSightPath);
             SetField(driverSight, "m_State", new StateData(driverState));
             SetField(driverSight, "m_ShootingUsesFK", true);
             SetField(driverSight, "m_ShootingUsesIK", true);
@@ -764,6 +1590,67 @@ namespace FranklinGame.Shooter.Editor
                     $"Could not copy Shooter asset: {sourcePath} -> {destinationPath}"
                 );
             }
+        }
+
+        private static string GetAssetMainName(string assetPath)
+        {
+            return System.IO.Path.GetFileNameWithoutExtension(assetPath);
+        }
+
+        private static void RepairLocalMainAssetNames()
+        {
+            string[] guids = AssetDatabase.FindAssets(string.Empty, new[] { RESOURCE_ROOT });
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!string.Equals(
+                        System.IO.Path.GetExtension(path),
+                        ".asset",
+                        StringComparison.OrdinalIgnoreCase
+                    ))
+                {
+                    continue;
+                }
+
+                UnityEngine.Object mainAsset = AssetDatabase.LoadMainAssetAtPath(path);
+                if (mainAsset == null) continue;
+
+                string expectedName = GetAssetMainName(path);
+                if (string.Equals(mainAsset.name, expectedName, StringComparison.Ordinal))
+                    continue;
+
+                mainAsset.name = expectedName;
+                EditorUtility.SetDirty(mainAsset);
+            }
+        }
+
+        private static bool NeedsLocalMainAssetNameRepair()
+        {
+            string[] guids = AssetDatabase.FindAssets(string.Empty, new[] { RESOURCE_ROOT });
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!string.Equals(
+                        System.IO.Path.GetExtension(path),
+                        ".asset",
+                        StringComparison.OrdinalIgnoreCase
+                    ))
+                {
+                    continue;
+                }
+
+                UnityEngine.Object mainAsset = AssetDatabase.LoadMainAssetAtPath(path);
+                if (mainAsset != null && !string.Equals(
+                        mainAsset.name,
+                        GetAssetMainName(path),
+                        StringComparison.Ordinal
+                    ))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void RepairWeaponSightLayerMasks(ShooterWeapon weapon)
@@ -929,8 +1816,8 @@ namespace FranklinGame.Shooter.Editor
             GameObject root = PrefabUtility.LoadPrefabContents(PLAYER_PREFAB_PATH);
             try
             {
-                FranklinArmor armor = root.GetComponent<FranklinArmor>() ??
-                                      root.AddComponent<FranklinArmor>();
+                FranklinArmor armor = root.GetComponent<FranklinArmor>();
+                if (armor == null) armor = root.AddComponent<FranklinArmor>();
                 SerializedObject serializedArmor = new(armor);
                 serializedArmor.FindProperty("m_MaxArmor").floatValue = 100f;
                 serializedArmor.FindProperty("m_StartingArmor").floatValue = 100f;
@@ -973,8 +1860,12 @@ namespace FranklinGame.Shooter.Editor
                 }
 
                 FranklinFirstPersonCameraManager manager =
-                    managerTransform.GetComponent<FranklinFirstPersonCameraManager>() ??
-                    managerTransform.gameObject.AddComponent<FranklinFirstPersonCameraManager>();
+                    managerTransform.GetComponent<FranklinFirstPersonCameraManager>();
+                if (manager == null)
+                {
+                    manager = managerTransform.gameObject
+                        .AddComponent<FranklinFirstPersonCameraManager>();
+                }
                 SerializedObject serializedManager = new(manager);
                 serializedManager.FindProperty("m_Player").objectReferenceValue =
                     root.GetComponent<Character>();
@@ -1184,10 +2075,6 @@ namespace FranklinGame.Shooter.Editor
                     );
                 }
 
-                AssetDatabase.ImportAsset(
-                    SHOOTER_LOCOMOTION_PATH,
-                    ImportAssetOptions.ForceSynchronousImport
-                );
                 locomotion = AssetDatabase.LoadAssetAtPath<StateBasicLocomotion>(
                     SHOOTER_LOCOMOTION_PATH
                 );
@@ -1206,7 +2093,7 @@ namespace FranklinGame.Shooter.Editor
             serializedLocomotion.FindProperty("m_Properties.m_Speed.m_IsEnabled")
                 .boolValue = true;
             serializedLocomotion.ApplyModifiedPropertiesWithoutUndo();
-            locomotion.name = "Shooter_Locomotion";
+            locomotion.name = GetAssetMainName(SHOOTER_LOCOMOTION_PATH);
             EditorUtility.SetDirty(locomotion);
             return locomotion;
         }
@@ -1269,11 +2156,365 @@ namespace FranklinGame.Shooter.Editor
             return mask;
         }
 
+        private static bool NeedsCatalogRepair()
+        {
+            FranklinShooterCatalog catalog =
+                AssetDatabase.LoadAssetAtPath<FranklinShooterCatalog>(CATALOG_PATH);
+            if (catalog == null || catalog.Count != DEFINITIONS.Length) return true;
+
+            for (int i = 0; i < DEFINITIONS.Length; ++i)
+            {
+                Definition definition = DEFINITIONS[i];
+                FranklinShooterCatalog.Entry entry = catalog.Get(i);
+                if (entry == null || entry.Id != definition.Id ||
+                    entry.Kind != definition.Kind || entry.Weapon == null ||
+                    entry.PropPrefab == null || entry.Icon == null ||
+                    entry.StartingMagazine != definition.StartingMagazine)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool NeedsRpgRepair()
+        {
+            if (NeedsRpgAudioImporterRepair()) return true;
+
+            AnimationClip holdClip = LoadAnimationClip(RPG_HOLD_ANIMATION_PATH);
+            AnimationClip aimClip = LoadAnimationClip(RPG_AIM_ANIMATION_PATH);
+            AnimationClip shootClip = LoadAnimationClip(RPG_SHOOT_ANIMATION_PATH);
+            AudioClip launchClip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                RPG_LAUNCH_AUDIO_PATH
+            );
+            AudioClip flightLoop = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                RPG_FLIGHT_AUDIO_PATH
+            );
+            AudioClip explosionClip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                RPG_EXPLOSION_CLOSE_AUDIO_PATH
+            );
+            AudioClip distantExplosionClip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                RPG_EXPLOSION_DISTANT_AUDIO_PATH
+            );
+            AvatarMask upperBodyMask = AssetDatabase.LoadAssetAtPath<AvatarMask>(
+                UPPER_BODY_MASK_PATH
+            );
+            Ammo ammo = AssetDatabase.LoadAssetAtPath<Ammo>(
+                AMMO_ROOT + "/rpg7-ammo.asset"
+            );
+            Sight idleSight = AssetDatabase.LoadAssetAtPath<Sight>(RPG_IDLE_SIGHT_PATH);
+            Sight aimSight = AssetDatabase.LoadAssetAtPath<Sight>(RPG_AIM_SIGHT_PATH);
+            GameObject projectile = AssetDatabase.LoadAssetAtPath<GameObject>(
+                RPG_PROJECTILE_PATH
+            );
+            ShooterWeapon weapon = AssetDatabase.LoadAssetAtPath<ShooterWeapon>(
+                RESOURCE_ROOT + "/Weapons/rpg7.asset"
+            );
+            if (holdClip == null || aimClip == null || shootClip == null ||
+                launchClip == null || flightLoop == null || explosionClip == null ||
+                distantExplosionClip == null ||
+                upperBodyMask == null || ammo == null || ammo.IsInfinite ||
+                idleSight == null || aimSight == null || projectile == null || weapon == null)
+            {
+                return true;
+            }
+
+            StateData equipState = (StateData) GetField(weapon, "m_State");
+            StateData idleState = (StateData) GetField(idleSight, "m_State");
+            StateData aimState = (StateData) GetField(aimSight, "m_State");
+            PropertyGetAnimation idleAnimation =
+                (PropertyGetAnimation) GetField(idleState, "m_AnimationClip");
+            PropertyGetAnimation aimAnimation =
+                (PropertyGetAnimation) GetField(aimState, "m_AnimationClip");
+            PropertyGetInteger idleLayer =
+                (PropertyGetInteger) GetField(idleSight, "m_Layer");
+            PropertyGetInteger aimLayer =
+                (PropertyGetInteger) GetField(aimSight, "m_Layer");
+            PropertyGetBool hasMagazine =
+                (PropertyGetBool) GetField(weapon.Magazine, "m_HasMagazine");
+            PropertyGetInteger magazineSize =
+                (PropertyGetInteger) GetField(weapon.Magazine, "m_MagazineSize");
+            PropertyGetBool autoReload =
+                (PropertyGetBool) GetField(weapon.Magazine, "m_AutoReload");
+            PropertyGetDecimal fireRate =
+                (PropertyGetDecimal) GetField(weapon.Fire, "m_FireRate");
+            PropertyGetDecimal minCharge =
+                (PropertyGetDecimal) GetField(weapon.Fire, "m_MinChargeTime");
+            PropertyGetDecimal maxCharge =
+                (PropertyGetDecimal) GetField(weapon.Fire, "m_MaxChargeTime");
+            PropertyGetBool autoRelease =
+                (PropertyGetBool) GetField(weapon.Fire, "m_AutoRelease");
+            AimCameraRaycast cameraAim = aimSight.Aim.Value as AimCameraRaycast;
+            LayerMask cameraAimMask = cameraAim != null
+                ? (LayerMask) GetField(cameraAim, "m_LayerMask")
+                : default;
+            PropertyGetDecimal maxSpreadX =
+                (PropertyGetDecimal) GetField(weapon.Accuracy, "m_MaxSpreadX");
+            PropertyGetDecimal maxSpreadY =
+                (PropertyGetDecimal) GetField(weapon.Accuracy, "m_MaxSpreadY");
+            PropertyGetDecimal motionAccuracy =
+                (PropertyGetDecimal) GetField(weapon.Accuracy, "m_MotionAccuracy");
+            PropertyGetDecimal airborneAccuracy =
+                (PropertyGetDecimal) GetField(weapon.Accuracy, "m_AirborneAccuracy");
+            PropertyGetDecimal accuracyKick =
+                (PropertyGetDecimal) GetField(weapon.Accuracy, "m_AccuracyKick");
+            if (equipState.Type != StateData.StateType.State || equipState.State != null ||
+                idleState.Type != StateData.StateType.AnimationClip ||
+                idleAnimation?.EditorValue != holdClip ||
+                idleState.AvatarMask != upperBodyMask ||
+                aimState.Type != StateData.StateType.AnimationClip ||
+                aimAnimation?.EditorValue != aimClip ||
+                aimState.AvatarMask != upperBodyMask ||
+                Convert.ToInt32(idleLayer.EditorValue) != 8 ||
+                Convert.ToInt32(aimLayer.EditorValue) != 8 ||
+                idleSight.Biomechanics.Value is not BiomechanicsNone ||
+                aimSight.Biomechanics.Value is BiomechanicsNone ||
+                !aimSight.ShootingUsesFK || !aimSight.ShootingUsesIK ||
+                !Mathf.Approximately(aimSight.SmoothTime, 0f) ||
+                cameraAim == null || cameraAimMask.value != SHOOTER_ALL_LAYER_MASK ||
+                !Mathf.Approximately((float) maxSpreadX.EditorValue, 0f) ||
+                !Mathf.Approximately((float) maxSpreadY.EditorValue, 0f) ||
+                !Mathf.Approximately((float) motionAccuracy.EditorValue, 0f) ||
+                !Mathf.Approximately((float) airborneAccuracy.EditorValue, 0f) ||
+                !Mathf.Approximately((float) accuracyKick.EditorValue, 0f) ||
+                weapon.Sights.Get(new IdString("idle"))?.Sight != idleSight ||
+                weapon.Sights.Get(new IdString("aim-ads"))?.Sight != aimSight ||
+                (Ammo) GetField(weapon.Magazine, "m_Ammo") != ammo ||
+                (bool) hasMagazine.EditorValue ||
+                Convert.ToInt32(magazineSize.EditorValue) != 1 ||
+                (bool) autoReload.EditorValue ||
+                weapon.Fire.Mode != ShootMode.Charge ||
+                !Mathf.Approximately((float) fireRate.EditorValue, 0.5f) ||
+                !Mathf.Approximately((float) minCharge.EditorValue, 0f) ||
+                !Mathf.Approximately((float) maxCharge.EditorValue, 1f) ||
+                (bool) autoRelease.EditorValue ||
+                weapon.Fire.FireAnimation(null) != shootClip ||
+                weapon.Fire.FireAvatarMask != upperBodyMask)
+            {
+                return true;
+            }
+
+            Rigidbody body = projectile.GetComponent<Rigidbody>();
+            CapsuleCollider collider = projectile.GetComponent<CapsuleCollider>();
+            TrailRenderer trail = projectile.GetComponentInChildren<TrailRenderer>(true);
+            FranklinRpgFlightAudio flightAudio =
+                projectile.GetComponent<FranklinRpgFlightAudio>();
+            if (body == null || body.useGravity || collider == null ||
+                body.collisionDetectionMode != CollisionDetectionMode.ContinuousSpeculative ||
+                projectile.GetComponent<Bullet>() == null ||
+                flightAudio == null || flightAudio.LaunchClip != launchClip ||
+                flightAudio.FlightLoop != flightLoop ||
+                !Mathf.Approximately(flightAudio.FlightVolume, 0.72f) ||
+                trail == null || !Mathf.Approximately(trail.time, 0.55f) ||
+                !Mathf.Approximately(trail.widthMultiplier, 0.085f) ||
+                !Mathf.Approximately(trail.minVertexDistance, 0.12f))
+            {
+                return true;
+            }
+
+            Shot shot = (Shot) GetField(weapon.Projectile, "m_Shot");
+            if (shot?.Value is not ShotRigidbody rigidbodyShot ||
+                GetBaseField(rigidbodyShot, "m_Prefab") is not
+                    PropertyGetGameObject prefab ||
+                prefab.EditorValue != projectile ||
+                GetBaseField(rigidbodyShot, "m_AimAtSightPoint") is not true ||
+                Convert.ToInt32(GetField(rigidbodyShot, "m_Impulse")) != 2 ||
+                Convert.ToInt32(GetField(rigidbodyShot, "m_Hit")) != 0 ||
+                GetField(rigidbodyShot, "m_ImpulseForce") is not
+                    PropertyGetDecimal impulse ||
+                !Mathf.Approximately((float) impulse.EditorValue, 42f) ||
+                GetField(rigidbodyShot, "m_AirResistance") is not
+                    PropertyGetDecimal resistance ||
+                !Mathf.Approximately((float) resistance.EditorValue, 0f) ||
+                GetField(rigidbodyShot, "m_WindInfluence") is not
+                    PropertyGetDecimal wind ||
+                !Mathf.Approximately((float) wind.EditorValue, 0f) ||
+                GetField(rigidbodyShot, "m_MaxDistance") is not
+                    PropertyGetDecimal maxDistance ||
+                !Mathf.Approximately((float) maxDistance.EditorValue, 150f))
+            {
+                return true;
+            }
+
+            GameObject prop = AssetDatabase.LoadAssetAtPath<GameObject>(
+                LOW_PREFABS + "/RPG7.prefab"
+            );
+            Vector3 muzzlePosition = GetRpgMuzzlePosition(prop);
+            Vector3 muzzleRotation = (Vector3) GetField(weapon.Muzzle, "m_Rotation");
+            PropertyGetInstantiate impact = (PropertyGetInstantiate) GetField(
+                weapon.Projectile,
+                "m_ImpactEffect"
+            );
+            GameObject expectedExplosion = AssetDatabase.LoadAssetAtPath<GameObject>(
+                EXPLOSION_EFFECT_PATH
+            );
+            if ((weapon.Muzzle.LocalPosition - muzzlePosition).sqrMagnitude > 0.000001f ||
+                (muzzleRotation - new Vector3(0f, 180f, 0f)).sqrMagnitude > 0.000001f ||
+                impact == null || impact.EditorValue != expectedExplosion ||
+                !impact.usePooling || impact.size != EXPLOSION_IMPACT_POOL_SIZE ||
+                !impact.hasDuration ||
+                !Mathf.Approximately(impact.duration, EXPLOSION_IMPACT_POOL_DURATION))
+            {
+                return true;
+            }
+
+            RunInstructionsList onHit = (RunInstructionsList) GetField(weapon, "m_OnHit");
+            InstructionList list = (InstructionList) GetField(onHit, "m_Instructions");
+            Instruction[] instructions =
+                (Instruction[]) GetField(list, "m_Instructions");
+            return instructions == null || instructions.Length != 1 ||
+                   instructions[0] is not InstructionFranklinExplosionDamage damage ||
+                   !Mathf.Approximately(damage.Radius, 5f) ||
+                   !Mathf.Approximately(damage.CharacterDamage, 250f) ||
+                   !Mathf.Approximately(damage.VehicleDamage, 60f) ||
+                   !damage.DestroyGroundVehiclesOnDirectHit ||
+                   !Mathf.Approximately(damage.DirectVehicleForwardVelocity, 2.8f) ||
+                   !Mathf.Approximately(damage.DirectVehicleUpwardVelocity, 0.35f) ||
+                   !Mathf.Approximately(damage.RagdollVelocity, 3.8f) ||
+                   damage.ExplosionClip != explosionClip ||
+                   damage.DistantExplosionClip != distantExplosionClip ||
+                   !Mathf.Approximately(damage.NearAudioDistance, 110f) ||
+                   !Mathf.Approximately(damage.DistantAudioDistance, 320f);
+        }
+
+        private static bool NeedsThrowableRepair()
+        {
+            GameObject explosion = AssetDatabase.LoadAssetAtPath<GameObject>(
+                EXPLOSION_EFFECT_PATH
+            );
+            AvatarMask throwableRightArmMask = AssetDatabase.LoadAssetAtPath<AvatarMask>(
+                BIKE_DRIVER_SHOOTER_MASK_PATH
+            );
+            if (throwableRightArmMask == null) return true;
+            AudioClip explosionClip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                SOURCE_GRENADE_EXPLOSION_AUDIO
+            );
+            AudioClip smokeHissClip = AssetDatabase.LoadAssetAtPath<AudioClip>(
+                SOURCE_SMOKE_HISS_AUDIO
+            );
+            if (explosionClip == null || smokeHissClip == null) return true;
+
+            foreach (Definition definition in DEFINITIONS)
+            {
+                if (definition.Kind == FranklinShooterCatalog.WeaponKind.Firearm)
+                    continue;
+
+                ShooterWeapon weapon = AssetDatabase.LoadAssetAtPath<ShooterWeapon>(
+                    $"{RESOURCE_ROOT}/Weapons/{definition.Id}.asset"
+                );
+                Ammo ammo = AssetDatabase.LoadAssetAtPath<Ammo>(
+                    $"{AMMO_ROOT}/{definition.Id}-ammo.asset"
+                );
+                GameObject projectile = AssetDatabase.LoadAssetAtPath<GameObject>(
+                    $"{PROJECTILE_ROOT}/{definition.Id}-projectile.prefab"
+                );
+                if (weapon == null || ammo == null || ammo.IsInfinite ||
+                    weapon.Fire.Mode != ShootMode.Charge ||
+                    weapon.Fire.FireAvatarMask != throwableRightArmMask ||
+                    projectile == null || projectile.GetComponent<Bullet>() == null ||
+                    projectile.GetComponent<Rigidbody>() == null ||
+                    projectile.GetComponent<Collider>() == null ||
+                    projectile.GetComponentInChildren<FranklinThrowableVisualSpin>(true) == null)
+                {
+                    return true;
+                }
+
+                if ((Ammo) GetField(weapon.Magazine, "m_Ammo") != ammo)
+                    return true;
+
+                SightItem idleSight = weapon.Sights.Get(new IdString("idle"));
+                SightItem throwSight = weapon.Sights.Get(new IdString("throw"));
+                if (idleSight?.Sight == null || throwSight?.Sight == null ||
+                    idleSight.Sight.Biomechanics.Value is not BiomechanicsNone ||
+                    throwSight.Sight.Biomechanics.Value is BiomechanicsNone ||
+                    !Mathf.Approximately(throwSight.Sight.SmoothTime, 0.14f))
+                {
+                    return true;
+                }
+
+                Shot shot = (Shot) GetField(weapon.Projectile, "m_Shot");
+                if (shot?.Value is not ShotRigidbody rigidbodyShot ||
+                    GetBaseField(rigidbodyShot, "m_Prefab") is not
+                        PropertyGetGameObject projectileProperty ||
+                    projectileProperty.EditorValue != projectile)
+                {
+                    return true;
+                }
+
+                RunInstructionsList onHit =
+                    (RunInstructionsList) GetField(weapon, "m_OnHit");
+                InstructionList instructionList =
+                    (InstructionList) GetField(onHit, "m_Instructions");
+                Instruction[] instructions =
+                    (Instruction[]) GetField(instructionList, "m_Instructions");
+                if (instructions == null || instructions.Length != 1) return true;
+
+                PropertyGetInstantiate impact = (PropertyGetInstantiate) GetField(
+                    weapon.Projectile,
+                    "m_ImpactEffect"
+                );
+                if (definition.Kind ==
+                    FranklinShooterCatalog.WeaponKind.ExplosiveGrenade)
+                {
+                    if (instructions[0] is not InstructionFranklinExplosionDamage damage ||
+                        !Mathf.Approximately(damage.Radius, 4f) ||
+                        !Mathf.Approximately(
+                            damage.CharacterDamage,
+                            definition.CharacterDamage
+                        ) ||
+                        !Mathf.Approximately(
+                            damage.VehicleDamage,
+                            definition.VehicleDamage
+                        ) || damage.DestroyGroundVehiclesOnDirectHit ||
+                        !Mathf.Approximately(damage.RagdollVelocity, 3.2f) ||
+                        !Mathf.Approximately(damage.RagdollDuration, 1.45f) ||
+                        damage.ExplosionClip != explosionClip ||
+                        impact == null || impact.EditorValue != explosion ||
+                        !impact.usePooling || impact.size != EXPLOSION_IMPACT_POOL_SIZE ||
+                        !impact.hasDuration || !Mathf.Approximately(
+                            impact.duration,
+                            EXPLOSION_IMPACT_POOL_DURATION
+                        ))
+                    {
+                        return true;
+                    }
+                }
+                else if (definition.Kind == FranklinShooterCatalog.WeaponKind.SmokeGrenade)
+                {
+                    if (instructions[0] is not InstructionFranklinSmokeGrenade smoke ||
+                        !Mathf.Approximately(smoke.Duration, 18f) ||
+                        !Mathf.Approximately(smoke.Radius, 7.5f) ||
+                        smoke.HissClip != smokeHissClip || impact?.EditorValue != null)
+                    {
+                        return true;
+                    }
+                }
+                else if (instructions[0] is not InstructionFranklinFlashGrenade flash ||
+                         !Mathf.Approximately(flash.Duration, 0.9f) ||
+                         !Mathf.Approximately(flash.Radius, 12f) ||
+                         flash.FlashClip != explosionClip || impact?.EditorValue != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool NeedsRenderingRepair()
         {
             if (HasLegacyShooterSampleMaterials()) return true;
 
-            return AssetDatabase.LoadAssetAtPath<Sprite>(CAUTIOUS_WALK_ICON_PATH) == null ||
+            return !MaterialUsesShader(
+                       CHARGE_GRENADE_FADE_MATERIAL,
+                       URP_PARTICLE_SHADER
+                   ) ||
+                   !MaterialUsesShader(CHARGE_GRENADE_GUIDE_MATERIAL, URP_LIT_SHADER) ||
+                   !MaterialUsesShader(CHARGE_GRENADE_JOINTS_MATERIAL, URP_LIT_SHADER) ||
+                   !MaterialUsesShader(CHARGE_GRENADE_SURFACE_MATERIAL, URP_LIT_SHADER) ||
+                   !MaterialUsesShader(LOW_WEAPON_MATERIAL, URP_LIT_SHADER) ||
+                   AssetDatabase.LoadAssetAtPath<Sprite>(CAUTIOUS_WALK_ICON_PATH) == null ||
                    AssetDatabase.LoadAssetAtPath<Sprite>(FIRST_PERSON_ICON_PATH) == null ||
                    AssetDatabase.LoadAssetAtPath<GameObject>(SOURCE_BLOOD_HIT_EFFECT) == null ||
                    AssetDatabase.LoadAssetAtPath<AvatarMask>(BIKE_DRIVER_MASK_PATH) == null ||
@@ -1359,24 +2600,63 @@ namespace FranklinGame.Shooter.Editor
             return BulletDecalAssetsNeedRepair(
                        VEHICLE_BULLET_TEXTURE_PATH,
                        VEHICLE_BULLET_MATERIAL_PATH,
-                       shader
+                       shader,
+                       256
                    ) ||
                    BulletDecalAssetsNeedRepair(
                        WALL_BULLET_TEXTURE_PATH,
                        WALL_BULLET_MATERIAL_PATH,
-                       shader
+                       shader,
+                       256
+                   ) ||
+                   BulletDecalAssetsNeedRepair(
+                       RPG_EXPLOSION_DECAL_TEXTURE_PATH,
+                       RPG_EXPLOSION_DECAL_MATERIAL_PATH,
+                       shader,
+                       512,
+                       0.82f,
+                       0.66f,
+                       0.326f
+                   ) ||
+                   BulletDecalAssetsNeedRepair(
+                       RPG_EXPLOSION_VEHICLE_DECAL_TEXTURE_PATH,
+                       RPG_EXPLOSION_VEHICLE_DECAL_MATERIAL_PATH,
+                       shader,
+                       512,
+                       0.7f,
+                       0.56f,
+                       0.348f
                    );
         }
 
         private static bool BulletDecalAssetsNeedRepair(
             string texturePath,
             string materialPath,
-            Shader shader)
+            Shader shader,
+            int maxTextureSize,
+            float sootStrength = 0f,
+            float sootOpacity = 0f,
+            float impactCoreScale = 1f)
         {
             Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
             Material material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
             if (texture == null || material == null || material.shader != shader ||
-                material.GetTexture("_BaseMap") != texture || !material.enableInstancing)
+                material.GetTexture("_BaseMap") != texture || !material.enableInstancing ||
+                !material.HasProperty("_SootStrength") ||
+                !Mathf.Approximately(
+                    material.GetFloat("_SootStrength"),
+                    sootStrength
+                ) ||
+                !material.HasProperty("_SootOpacity") ||
+                !Mathf.Approximately(
+                    material.GetFloat("_SootOpacity"),
+                    sootOpacity
+                ) ||
+                !material.HasProperty("_ImpactCoreScale") ||
+                !Mathf.Approximately(
+                    material.GetFloat("_ImpactCoreScale"),
+                    impactCoreScale
+                ))
             {
                 return true;
             }
@@ -1388,7 +2668,7 @@ namespace FranklinGame.Shooter.Editor
                    importer.alphaSource != TextureImporterAlphaSource.FromInput ||
                    !importer.alphaIsTransparency ||
                    !importer.mipmapEnabled ||
-                   importer.maxTextureSize != 256 ||
+                   importer.maxTextureSize != maxTextureSize ||
                    importer.wrapMode != TextureWrapMode.Clamp ||
                    importer.isReadable;
         }
@@ -1417,7 +2697,7 @@ namespace FranklinGame.Shooter.Editor
             );
             if (locomotion == null || upperBodyMask == null ||
                 locomotion.StateMask != null ||
-                locomotion.name != "Shooter_Locomotion")
+                locomotion.name != GetAssetMainName(SHOOTER_LOCOMOTION_PATH))
             {
                 return true;
             }
@@ -1436,7 +2716,20 @@ namespace FranklinGame.Shooter.Editor
                 if (weapon == null) return true;
 
                 StateData weaponState = (StateData) GetField(weapon, "m_State");
-                if (weaponState.State != locomotion) return true;
+                bool isRpg = string.Equals(
+                    definition.Id,
+                    "rpg7",
+                    StringComparison.OrdinalIgnoreCase
+                );
+                if (definition.Kind == FranklinShooterCatalog.WeaponKind.Firearm && !isRpg)
+                {
+                    if (weaponState.State != locomotion) return true;
+                }
+                else if (weaponState.Type != StateData.StateType.State ||
+                         weaponState.State != null)
+                {
+                    return true;
+                }
             }
 
             return false;
@@ -1451,6 +2744,16 @@ namespace FranklinGame.Shooter.Editor
 
             foreach (Definition definition in DEFINITIONS)
             {
+                if (definition.Kind != FranklinShooterCatalog.WeaponKind.Firearm)
+                    continue;
+                if (string.Equals(
+                        definition.Id,
+                        "rpg7",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 ShooterWeapon weapon = AssetDatabase.LoadAssetAtPath<ShooterWeapon>(
                     $"{RESOURCE_ROOT}/Weapons/{definition.Id}.asset"
                 );
@@ -1730,9 +3033,6 @@ namespace FranklinGame.Shooter.Editor
             GameObject expectedMuzzle = AssetDatabase.LoadAssetAtPath<GameObject>(
                 MUZZLE_EFFECT_PATH
             );
-            GameObject expectedExplosion = AssetDatabase.LoadAssetAtPath<GameObject>(
-                EXPLOSION_EFFECT_PATH
-            );
 
             foreach (Definition definition in DEFINITIONS)
             {
@@ -1770,12 +3070,6 @@ namespace FranklinGame.Shooter.Editor
                     !Mathf.Approximately(shell.duration, SHELL_POOL_DURATION))
                 {
                     return true;
-                }
-
-                if (definition.Id == "rpg7")
-                {
-                    if (ExplosionInstructionNeedsRepair(weapon, expectedExplosion))
-                        return true;
                 }
 
                 Shot shot = (Shot) GetField(weapon.Projectile, "m_Shot");
@@ -2022,10 +3316,6 @@ namespace FranklinGame.Shooter.Editor
                     );
                 }
 
-                AssetDatabase.ImportAsset(
-                    IMPACT_AUDIO_ONLY_PATH,
-                    ImportAssetOptions.ForceSynchronousImport
-                );
                 audioOnly = AssetDatabase.LoadAssetAtPath<MaterialSoundsAsset>(
                     IMPACT_AUDIO_ONLY_PATH
                 );
@@ -2042,7 +3332,7 @@ namespace FranklinGame.Shooter.Editor
             // preserving this asset's own GUID. Visual impact prefabs are then removed
             // from both the default entry and any future material-specific entries.
             EditorUtility.CopySerialized(source, audioOnly);
-            audioOnly.name = "Franklin Shooter Impact Audio";
+            audioOnly.name = GetAssetMainName(IMPACT_AUDIO_ONLY_PATH);
             ClearImpactVisual(audioOnly.MaterialSounds.DefaultSounds);
             foreach (MaterialSoundTexture materialSound in
                      audioOnly.MaterialSounds.MaterialSounds)
@@ -2111,7 +3401,48 @@ namespace FranklinGame.Shooter.Editor
                     UpgradeTransparentMaterial(material, particleShader);
             }
 
+            UpgradeRequiredMaterial(
+                CHARGE_GRENADE_FADE_MATERIAL,
+                particleShader,
+                true
+            );
+            UpgradeRequiredMaterial(
+                CHARGE_GRENADE_GUIDE_MATERIAL,
+                litShader,
+                false
+            );
+            UpgradeRequiredMaterial(
+                CHARGE_GRENADE_JOINTS_MATERIAL,
+                litShader,
+                false
+            );
+            UpgradeRequiredMaterial(
+                CHARGE_GRENADE_SURFACE_MATERIAL,
+                litShader,
+                false
+            );
+            UpgradeRequiredMaterial(LOW_WEAPON_MATERIAL, litShader, false);
+
             AssetDatabase.SaveAssets();
+        }
+
+        private static void UpgradeRequiredMaterial(
+            string path,
+            Shader shader,
+            bool transparent)
+        {
+            Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material == null)
+            {
+                throw new InvalidOperationException(
+                    $"Required material is missing: {path}"
+                );
+            }
+
+            if (transparent)
+                UpgradeTransparentMaterial(material, shader);
+            else
+                UpgradeOpaqueMaterial(material, shader);
         }
 
         private static void UpgradeOpaqueMaterial(Material material, Shader shader)
@@ -2272,8 +3603,13 @@ namespace FranklinGame.Shooter.Editor
 
         private static void CreateOrRepairVehicleBulletDecalAssets()
         {
-            ConfigureBulletDecalTexture(VEHICLE_BULLET_TEXTURE_PATH);
-            ConfigureBulletDecalTexture(WALL_BULLET_TEXTURE_PATH);
+            ConfigureBulletDecalTexture(VEHICLE_BULLET_TEXTURE_PATH, 256);
+            ConfigureBulletDecalTexture(WALL_BULLET_TEXTURE_PATH, 256);
+            ConfigureBulletDecalTexture(RPG_EXPLOSION_DECAL_TEXTURE_PATH, 512);
+            ConfigureBulletDecalTexture(
+                RPG_EXPLOSION_VEHICLE_DECAL_TEXTURE_PATH,
+                512
+            );
 
             AssetDatabase.ImportAsset(
                 VEHICLE_BULLET_SHADER_PATH,
@@ -2301,9 +3637,29 @@ namespace FranklinGame.Shooter.Editor
                 "Wall Bullet Hole URP",
                 shader
             );
+            CreateOrRepairBulletDecalMaterial(
+                RPG_EXPLOSION_DECAL_TEXTURE_PATH,
+                RPG_EXPLOSION_DECAL_MATERIAL_PATH,
+                "RPG Explosion Scorch URP",
+                shader,
+                0.82f,
+                0.66f,
+                0.326f
+            );
+            CreateOrRepairBulletDecalMaterial(
+                RPG_EXPLOSION_VEHICLE_DECAL_TEXTURE_PATH,
+                RPG_EXPLOSION_VEHICLE_DECAL_MATERIAL_PATH,
+                "RPG Explosion Vehicle Scorch URP",
+                shader,
+                0.7f,
+                0.56f,
+                0.348f
+            );
         }
 
-        private static void ConfigureBulletDecalTexture(string texturePath)
+        private static void ConfigureBulletDecalTexture(
+            string texturePath,
+            int maxTextureSize)
         {
             AssetDatabase.ImportAsset(
                 texturePath,
@@ -2321,7 +3677,7 @@ namespace FranklinGame.Shooter.Editor
                 importer.alphaSource != TextureImporterAlphaSource.FromInput ||
                 !importer.alphaIsTransparency ||
                 !importer.mipmapEnabled ||
-                importer.maxTextureSize != 256 ||
+                importer.maxTextureSize != maxTextureSize ||
                 importer.wrapMode != TextureWrapMode.Clamp ||
                 importer.filterMode != FilterMode.Bilinear ||
                 importer.anisoLevel != 1 ||
@@ -2333,7 +3689,7 @@ namespace FranklinGame.Shooter.Editor
             importer.alphaIsTransparency = true;
             importer.sRGBTexture = true;
             importer.mipmapEnabled = true;
-            importer.maxTextureSize = 256;
+            importer.maxTextureSize = maxTextureSize;
             importer.wrapMode = TextureWrapMode.Clamp;
             importer.filterMode = FilterMode.Bilinear;
             importer.anisoLevel = 1;
@@ -2346,7 +3702,10 @@ namespace FranklinGame.Shooter.Editor
             string texturePath,
             string materialPath,
             string materialName,
-            Shader shader)
+            Shader shader,
+            float sootStrength = 0f,
+            float sootOpacity = 0f,
+            float impactCoreScale = 1f)
         {
             Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
             if (texture == null)
@@ -2364,6 +3723,12 @@ namespace FranklinGame.Shooter.Editor
             material.SetTexture("_BaseMap", texture);
             material.SetColor("_Color", Color.white);
             material.SetFloat("_AlphaCutoff", 0.025f);
+            material.SetFloat("_SootStrength", Mathf.Clamp01(sootStrength));
+            material.SetFloat("_SootOpacity", Mathf.Clamp01(sootOpacity));
+            material.SetFloat(
+                "_ImpactCoreScale",
+                Mathf.Clamp(impactCoreScale, 0.25f, 1f)
+            );
             material.enableInstancing = true;
             material.renderQueue = (int) UnityEngine.Rendering.RenderQueue.Transparent + 10;
             EditorUtility.SetDirty(material);
@@ -2527,6 +3892,86 @@ namespace FranklinGame.Shooter.Editor
             };
         }
 
+        private static void ConfigureRpgAudioImporters()
+        {
+            foreach (string path in RPG_AUDIO_PATHS)
+            {
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                if (AssetImporter.GetAtPath(path) is not AudioImporter importer)
+                    throw new InvalidOperationException("RPG-7 audio asset is missing: " + path);
+
+                bool changed = false;
+                if (!importer.forceToMono)
+                {
+                    importer.forceToMono = true;
+                    changed = true;
+                }
+                if (importer.loadInBackground)
+                {
+                    importer.loadInBackground = false;
+                    changed = true;
+                }
+                if (importer.ambisonic)
+                {
+                    importer.ambisonic = false;
+                    changed = true;
+                }
+
+                AudioImporterSampleSettings settings = importer.defaultSampleSettings;
+                if (settings.loadType != AudioClipLoadType.DecompressOnLoad)
+                {
+                    settings.loadType = AudioClipLoadType.DecompressOnLoad;
+                    changed = true;
+                }
+                if (settings.compressionFormat != AudioCompressionFormat.Vorbis)
+                {
+                    settings.compressionFormat = AudioCompressionFormat.Vorbis;
+                    changed = true;
+                }
+                if (!Mathf.Approximately(settings.quality, 0.5f))
+                {
+                    settings.quality = 0.5f;
+                    changed = true;
+                }
+                if (settings.sampleRateSetting != AudioSampleRateSetting.OptimizeSampleRate)
+                {
+                    settings.sampleRateSetting = AudioSampleRateSetting.OptimizeSampleRate;
+                    changed = true;
+                }
+                if (!settings.preloadAudioData)
+                {
+                    settings.preloadAudioData = true;
+                    changed = true;
+                }
+
+                if (!changed) continue;
+                importer.defaultSampleSettings = settings;
+                importer.SaveAndReimport();
+            }
+        }
+
+        private static bool NeedsRpgAudioImporterRepair()
+        {
+            foreach (string path in RPG_AUDIO_PATHS)
+            {
+                if (AssetImporter.GetAtPath(path) is not AudioImporter importer)
+                    return true;
+
+                AudioImporterSampleSettings settings = importer.defaultSampleSettings;
+                if (!importer.forceToMono || importer.loadInBackground || importer.ambisonic ||
+                    settings.loadType != AudioClipLoadType.DecompressOnLoad ||
+                    settings.compressionFormat != AudioCompressionFormat.Vorbis ||
+                    !Mathf.Approximately(settings.quality, 0.5f) ||
+                    settings.sampleRateSetting != AudioSampleRateSetting.OptimizeSampleRate ||
+                    !settings.preloadAudioData)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static void ReplaceObjectReferences(
             UnityEngine.Object asset,
             UnityEngine.Object source,
@@ -2556,9 +4001,13 @@ namespace FranklinGame.Shooter.Editor
             EnsureFolder(ROOT, "Shaders");
             EnsureFolder(ROOT + "/Resources", "FranklinShooter");
             EnsureFolder(RESOURCE_ROOT, "Weapons");
+            EnsureFolder(RESOURCE_ROOT, "Ammo");
+            EnsureFolder(RESOURCE_ROOT, "Projectiles");
             EnsureFolder(RESOURCE_ROOT, "Animations");
             EnsureFolder(RESOURCE_ROOT, "Sights");
             EnsureFolder(RESOURCE_ROOT + "/Sights", "Bike");
+            EnsureFolder(RESOURCE_ROOT + "/Sights", "Throwable");
+            EnsureFolder(RESOURCE_ROOT + "/Sights", "RPG7");
             EnsureFolder(RESOURCE_ROOT, "MaterialSounds");
             EnsureFolder(RESOURCE_ROOT, "Materials");
             EnsureFolder(RESOURCE_ROOT, "Effects");
@@ -2594,6 +4043,15 @@ namespace FranklinGame.Shooter.Editor
             FieldInfo field = target.GetType().GetField(name, FIELD_FLAGS);
             if (field == null) throw new MissingFieldException(target.GetType().FullName, name);
             field.SetValue(target, value);
+        }
+
+        private static void SetEnumField(object target, string name, int value)
+        {
+            FieldInfo field = target.GetType().GetField(name, FIELD_FLAGS);
+            if (field == null) throw new MissingFieldException(target.GetType().FullName, name);
+            if (!field.FieldType.IsEnum)
+                throw new InvalidOperationException($"{target.GetType().Name}.{name} is not an enum");
+            field.SetValue(target, Enum.ToObject(field.FieldType, value));
         }
 
         private static object GetField(object target, string name)

@@ -15,6 +15,14 @@ namespace FranklinGame.Shooter
     )]
     public sealed class FranklinShooterCatalog : ScriptableObject
     {
+        public enum WeaponKind
+        {
+            Firearm,
+            ExplosiveGrenade,
+            SmokeGrenade,
+            FlashGrenade
+        }
+
         [Serializable]
         public sealed class Entry
         {
@@ -25,6 +33,7 @@ namespace FranklinGame.Shooter
             [SerializeField] private GameObject m_PropPrefab;
             [SerializeField] private Sprite m_Icon;
             [SerializeField] private int m_StartingMagazine;
+            [SerializeField] private WeaponKind m_Kind;
             [SerializeField] private Vector3 m_LocalPosition = new(-0.04f, 0.09f, 0.04f);
             [SerializeField] private Vector3 m_LocalRotation = new(-90f, 0f, 90f);
             [SerializeField] private Vector3 m_LocalScale = Vector3.one;
@@ -39,6 +48,8 @@ namespace FranklinGame.Shooter
             public GameObject PropPrefab => this.m_PropPrefab;
             public Sprite Icon => this.m_Icon;
             public int StartingMagazine => Mathf.Max(0, this.m_StartingMagazine);
+            public WeaponKind Kind => this.m_Kind;
+            public bool IsThrowable => this.m_Kind != WeaponKind.Firearm;
             public Vector3 LocalPosition => this.m_LocalPosition;
             public Vector3 LocalEulerAngles => this.m_LocalRotation;
             public Quaternion LocalRotation => Quaternion.Euler(this.m_LocalRotation);

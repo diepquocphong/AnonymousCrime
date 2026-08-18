@@ -143,6 +143,23 @@ namespace FranklinGame.Shooter
         private float m_RotationBase;
         private float m_RotationLastApplied;
         private bool m_HasRotationSnapshot;
+        // Keep independent constant wrappers because GC2's live Shot inspector can mutate
+        // a property's backing object. Sharing one zero instance between unrelated fields
+        // would make an inspector edit to Shoulder also alter Lift or Sensitivity.
+        private readonly PropertyGetDecimal m_ProfileShoulderProperty = new(0f);
+        private readonly PropertyGetDecimal m_ProfileLiftProperty = new(0f);
+        private readonly PropertyGetDecimal m_SuppressedSensitivityXProperty = new(0f);
+        private readonly PropertyGetDecimal m_SuppressedSensitivityYProperty = new(0f);
+        private PropertyGetGameObject m_ProfilePivotProperty;
+        private Transform m_ProfilePivotSource;
+        private PropertyGetDecimal m_ProfileRadiusProperty;
+        private float m_ProfileRadiusValue = float.NaN;
+        private PropertyGetDecimal m_ProfileSmoothTimeProperty;
+        private float m_ProfileSmoothTimeValue = float.NaN;
+        private PropertyGetDecimal m_ProfileSensitivityXProperty;
+        private float m_ProfileSensitivityXValue = float.NaN;
+        private PropertyGetDecimal m_ProfileSensitivityYProperty;
+        private float m_ProfileSensitivityYValue = float.NaN;
         private bool m_HasInspectorPreviewState;
         private Vector3 m_InspectorPreviewPosition;
         private Vector3 m_InspectorPreviewFallbackPosition;
@@ -334,6 +351,11 @@ namespace FranklinGame.Shooter
 
             if (this.IsActive)
             {
+                bool contextChanged = this.m_Context != context;
+                bool pivotChanged = this.m_Pivot != pivot;
+                bool alignmentTargetChanged =
+                    this.m_AlignmentTarget != alignmentTarget;
+
                 this.m_Context = context;
                 if (context != Context.Bike)
                     this.m_BikeShooterPositionActive = false;
@@ -341,7 +363,17 @@ namespace FranklinGame.Shooter
                 this.m_AlignmentTarget = alignmentTarget;
                 this.m_RefreshPreviewPose = refreshPreviewPose;
                 this.AcquireIdleAnimationSuppression();
-                this.ApplyProfile(false);
+
+                // On-foot Shooter refreshes its presentation state on a small timer so it
+                // can yield promptly to external Car/Bike shots. Most of those calls point
+                // to the profile that is already installed. Reapplying it used reflection
+                // and constructed several GC2 Property objects every time, creating steady
+                // managed churn for the whole FPS session. Only a changed profile binding
+                // needs the full write; a new heading target only needs its pivot refreshed.
+                if (contextChanged || pivotChanged)
+                    this.ApplyProfile(false);
+                else if (alignmentTargetChanged)
+                    this.UpdateHeadingPivot();
                 return true;
             }
 
@@ -485,7 +517,11 @@ namespace FranklinGame.Shooter
             if (!this.IsOwnedBy(owner)) return;
 
             this.CancelFieldOfViewTween();
-            this.ApplyProfile(false);
+            // Sight enter/exit instructions only author the shared viewport FOV. Restoring
+            // the complete reflected Third Person profile here rebuilt six Property wrappers
+            // on every trigger release. Keep the public API for Bike/on-foot callers, but
+            // reassert only the viewport values that the Sight can actually overwrite.
+            this.ApplyViewport();
         }
 
         /// <summary>
@@ -620,12 +656,38 @@ namespace FranklinGame.Shooter
 
             PIVOT_FIELD?.SetValue(
                 this.m_ThirdPerson,
-                GetGameObjectInstance.Create(this.m_Pivot.gameObject)
+                this.GetProfilePivotProperty()
             );
-            this.SetDecimal(SHOULDER_FIELD, 0f);
-            this.SetDecimal(LIFT_FIELD, 0f);
-            this.SetDecimal(RADIUS_FIELD, this.m_Radius);
-            this.SetDecimal(SMOOTH_TIME_FIELD, this.m_OrbitSmoothTime);
+            SHOULDER_FIELD?.SetValue(
+                this.m_ThirdPerson,
+                GetProfileConstant(
+                    this.m_ProfileShoulderProperty,
+                    0f
+                )
+            );
+            LIFT_FIELD?.SetValue(
+                this.m_ThirdPerson,
+                GetProfileConstant(
+                    this.m_ProfileLiftProperty,
+                    0f
+                )
+            );
+            RADIUS_FIELD?.SetValue(
+                this.m_ThirdPerson,
+                GetCachedDecimal(
+                    this.m_Radius,
+                    ref this.m_ProfileRadiusValue,
+                    ref this.m_ProfileRadiusProperty
+                )
+            );
+            SMOOTH_TIME_FIELD?.SetValue(
+                this.m_ThirdPerson,
+                GetCachedDecimal(
+                    this.m_OrbitSmoothTime,
+                    ref this.m_ProfileSmoothTimeValue,
+                    ref this.m_ProfileSmoothTimeProperty
+                )
+            );
             this.ApplySensitivity(this.m_OrbitSuppressions > 0);
 
             this.m_ThirdPerson.MaxPitch = this.m_MaxPitch;
@@ -660,6 +722,14 @@ namespace FranklinGame.Shooter
                 );
             }
 
+            this.ApplyViewport();
+            this.UpdateAlignmentGate();
+        }
+
+        private void ApplyViewport()
+        {
+            if (this.m_MainCamera == null) return;
+
             this.m_MainCamera.Viewport.SetFieldOfView(
                 this.m_FieldOfView,
                 0f,
@@ -670,7 +740,6 @@ namespace FranklinGame.Shooter
                 0f,
                 Easing.Type.Linear
             );
-            this.UpdateAlignmentGate();
         }
 
         private void RestoreSnapshot(bool restoreViewport, float duration)
@@ -758,7 +827,15 @@ namespace FranklinGame.Shooter
                 Vector3.up
             );
             if (forward.sqrMagnitude <= 0.0001f) return;
-            this.m_Pivot.rotation = Quaternion.LookRotation(forward.normalized, Vector3.up);
+            Quaternion rotation = Quaternion.LookRotation(
+                forward.normalized,
+                Vector3.up
+            );
+            // A Transform write dirties the whole camera hierarchy. A parked or
+            // straight-running Bike commonly keeps this yaw unchanged for many
+            // frames, so avoid submitting the identical pose indefinitely.
+            if (Quaternion.Angle(this.m_Pivot.rotation, rotation) > 0.01f)
+                this.m_Pivot.rotation = rotation;
         }
 
         private void ApplyInspectorPreviewPosition()
@@ -848,9 +925,10 @@ namespace FranklinGame.Shooter
                                            this.m_AlignmentReleaseDelay;
             }
 
-            this.m_ThirdPerson.Alignment.AutoAlign =
-                !this.m_AlignmentSuspended &&
-                Time.unscaledTime >= this.m_AlignmentResumeAt;
+            bool shouldAlign = !this.m_AlignmentSuspended &&
+                               Time.unscaledTime >= this.m_AlignmentResumeAt;
+            if (this.m_ThirdPerson.Alignment.AutoAlign != shouldAlign)
+                this.m_ThirdPerson.Alignment.AutoAlign = shouldAlign;
         }
 
         private void CancelAlignmentDampingAtCurrentRotation()
@@ -886,9 +964,30 @@ namespace FranklinGame.Shooter
         private void ApplySensitivity(bool suppressed)
         {
             if (this.m_ThirdPerson == null) return;
-            this.m_ThirdPerson.Sensitivity = suppressed
-                ? Vector2.zero
-                : this.m_Sensitivity;
+
+            PropertyGetDecimal sensitivityX = suppressed
+                ? GetProfileConstant(
+                    this.m_SuppressedSensitivityXProperty,
+                    0f
+                )
+                : GetCachedDecimal(
+                    this.m_Sensitivity.x,
+                    ref this.m_ProfileSensitivityXValue,
+                    ref this.m_ProfileSensitivityXProperty
+                );
+            PropertyGetDecimal sensitivityY = suppressed
+                ? GetProfileConstant(
+                    this.m_SuppressedSensitivityYProperty,
+                    0f
+                )
+                : GetCachedDecimal(
+                    this.m_Sensitivity.y,
+                    ref this.m_ProfileSensitivityYValue,
+                    ref this.m_ProfileSensitivityYProperty
+                );
+
+            SENSITIVITY_X_FIELD?.SetValue(this.m_ThirdPerson, sensitivityX);
+            SENSITIVITY_Y_FIELD?.SetValue(this.m_ThirdPerson, sensitivityY);
         }
 
         private void CaptureAngularSpeed()
@@ -931,7 +1030,8 @@ namespace FranklinGame.Shooter
                 this.m_RotationBase = currentMotion.AngularSpeed;
             }
 
-            currentMotion.AngularSpeed = this.m_FpsAngularSpeed;
+            if (!Mathf.Approximately(currentMotion.AngularSpeed, this.m_FpsAngularSpeed))
+                currentMotion.AngularSpeed = this.m_FpsAngularSpeed;
             this.m_RotationLastApplied = currentMotion.AngularSpeed;
         }
 
@@ -993,9 +1093,52 @@ namespace FranklinGame.Shooter
                    this.m_ActiveShot;
         }
 
-        private void SetDecimal(FieldInfo field, float value)
+        private PropertyGetGameObject GetProfilePivotProperty()
         {
-            field?.SetValue(this.m_ThirdPerson, new PropertyGetDecimal(value));
+#if UNITY_EDITOR
+            // The live GC2 Shot Inspector mutates Property wrapper instances.
+            // Preserve editor tuning semantics; player builds use the allocation-
+            // free cached wrapper below.
+            if (Application.isPlaying)
+                return GetGameObjectInstance.Create(this.m_Pivot);
+#endif
+            if (this.m_ProfilePivotProperty == null ||
+                this.m_ProfilePivotSource != this.m_Pivot)
+            {
+                this.m_ProfilePivotSource = this.m_Pivot;
+                this.m_ProfilePivotProperty = GetGameObjectInstance.Create(
+                    this.m_Pivot
+                );
+            }
+
+            return this.m_ProfilePivotProperty;
+        }
+
+        private static PropertyGetDecimal GetProfileConstant(
+            PropertyGetDecimal cachedProperty,
+            float value)
+        {
+#if UNITY_EDITOR
+            if (Application.isPlaying) return new PropertyGetDecimal(value);
+#endif
+            return cachedProperty;
+        }
+
+        private static PropertyGetDecimal GetCachedDecimal(
+            float value,
+            ref float cachedValue,
+            ref PropertyGetDecimal cachedProperty)
+        {
+#if UNITY_EDITOR
+            if (Application.isPlaying) return new PropertyGetDecimal(value);
+#endif
+            if (cachedProperty == null || cachedValue != value)
+            {
+                cachedValue = value;
+                cachedProperty = new PropertyGetDecimal(value);
+            }
+
+            return cachedProperty;
         }
 
         private static bool TryGetThirdPerson(

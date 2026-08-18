@@ -136,6 +136,7 @@ namespace FranklinGame.PhoneSystem
         private float m_TapElapsed = -1f;
         private bool m_TargetOpen;
         private bool m_SelfieMode;
+        private bool m_PhoneModelHidden;
         private bool m_TapPending;
         private bool m_ScreenIsOn;
         private bool m_IKRegistered;
@@ -174,6 +175,17 @@ namespace FranklinGame.PhoneSystem
             if (phonePrefab != null) this.m_PhonePrefab = phonePrefab;
         }
 
+        /// <summary>
+        /// Temporarily hides only the physical phone mesh without interrupting
+        /// the hand pose, draw/store animation or screen state.
+        /// </summary>
+        public void SetPhoneModelHidden(bool hidden)
+        {
+            if (this.m_PhoneModelHidden == hidden) return;
+            this.m_PhoneModelHidden = hidden;
+            this.RefreshPhoneModelVisibility();
+        }
+
         public void SetPhoneOpen(bool open, bool immediate = false)
         {
             this.m_TargetOpen = open;
@@ -186,10 +198,7 @@ namespace FranklinGame.PhoneSystem
                     this.AcquireRightArmBusyMask();
                     if (immediate) this.m_PresentationWeight = 1f;
                     this.PlacePhoneAtRightHand();
-                    this.m_PhoneInstance.SetActive(
-                        immediate ||
-                        this.m_PresentationWeight >= this.m_PhoneRevealThreshold
-                    );
+                    this.RefreshPhoneModelVisibility();
                     this.SetScreenLit(
                         immediate || this.m_PresentationWeight >= this.m_ScreenOnThreshold
                     );
@@ -265,9 +274,7 @@ namespace FranklinGame.PhoneSystem
 
             if (this.m_TargetOpen && this.m_PhoneInstance != null)
             {
-                this.m_PhoneInstance.SetActive(
-                    this.m_PresentationWeight >= this.m_PhoneRevealThreshold
-                );
+                this.RefreshPhoneModelVisibility();
                 if (!this.m_ScreenIsOn &&
                     this.m_PresentationWeight >= this.m_ScreenOnThreshold)
                 {
@@ -297,6 +304,17 @@ namespace FranklinGame.PhoneSystem
                 if (this.m_TapElapsed >= this.m_TapDuration)
                     this.m_TapElapsed = -1f;
             }
+        }
+
+        private void RefreshPhoneModelVisibility()
+        {
+            if (this.m_PhoneInstance == null) return;
+
+            bool visible = !this.m_PhoneModelHidden &&
+                           this.m_PresentationWeight >=
+                           this.m_PhoneRevealThreshold;
+            if (this.m_PhoneInstance.activeSelf != visible)
+                this.m_PhoneInstance.SetActive(visible);
         }
 
         private void LateUpdate()

@@ -28,6 +28,8 @@ namespace FranklinGame.Vehicles
         [SerializeField, Min(10f)] private float m_LoopEffectsCullDistance = 55f;
         [SerializeField, Range(0.5f, 2f)]
         private float m_LoopEffectsLodInterval = 1f;
+        [Tooltip("Destroyed Fire stops after this lifetime; the charred wreck remains visible.")]
+        [SerializeField, Min(5f)] private float m_DestroyedFireLifetime = 25f;
 
         [Header("Loop Audio")]
         [SerializeField] private AudioSource m_SmokeAudioSource;
@@ -55,6 +57,7 @@ namespace FranklinGame.Vehicles
         private Coroutine m_PendingExplosion;
         private Coroutine m_CriticalHealthDrain;
         private Coroutine m_LoopEffectsLodRoutine;
+        private Coroutine m_DestroyedFireLifetimeRoutine;
         private ParticleSystem[] m_WeakSmokeParticles =
             System.Array.Empty<ParticleSystem>();
         private ParticleSystem[] m_CriticalFireParticles =
@@ -62,6 +65,7 @@ namespace FranklinGame.Vehicles
         private ParticleSystem[] m_DestroyedFireParticles =
             System.Array.Empty<ParticleSystem>();
         private bool m_LoopEffectsCulled;
+        private bool m_DestroyedFireExpired;
         private static Camera s_LoopEffectsCamera;
 
         public bool IsConfigured => m_Health != null && m_WeakHealthSmoke != null &&
@@ -82,6 +86,7 @@ namespace FranklinGame.Vehicles
         public float SmokeLoopVolume => m_SmokeLoopVolume;
         public float CriticalFireLoopVolume => m_CriticalFireLoopVolume;
         public float DestroyedFireLoopVolume => m_DestroyedFireLoopVolume;
+        public float DestroyedFireLifetime => m_DestroyedFireLifetime;
         public float MinimumExplosionCameraHold => m_MinimumExplosionCameraHold;
         public float MaximumExplosionCameraHold => m_MaximumExplosionCameraHold;
 
@@ -115,6 +120,10 @@ namespace FranklinGame.Vehicles
                 m_Health.EventHealthChanged -= OnHealthChanged;
             CancelPendingExplosion();
             StopCriticalHealthDrain();
+            StopDestroyedFireLifetime();
+            if (m_HasExploded || (m_Destruction != null && m_Destruction.IsDestroyed))
+                m_DestroyedFireExpired = true;
+            SetLoopEffectActive(m_DestroyedFire, false);
             StopLoopEffectsLod();
             m_LoopEffectsCulled = true;
             ApplyLoopParticleCulling();
@@ -173,6 +182,7 @@ namespace FranklinGame.Vehicles
             m_CriticalBurnTickInterval = 0.25f;
             m_MinimumExplosionCameraHold = 0.9f;
             m_MaximumExplosionCameraHold = 2.5f;
+            m_DestroyedFireLifetime = 25f;
             m_Destruction = destruction;
             CacheLoopParticles();
         }
@@ -224,6 +234,8 @@ namespace FranklinGame.Vehicles
             SetLoopEffectActive(m_CriticalWarningFire, false);
             SetLoopEffectActive(m_DestroyedFire, false);
             CancelPendingExplosion();
+            StopDestroyedFireLifetime();
+            m_DestroyedFireExpired = false;
             RefreshWindActivity();
             for (int i = 0; i < m_ExplosionParticles.Length; ++i)
             {
@@ -267,7 +279,7 @@ namespace FranklinGame.Vehicles
                 StopCriticalHealthDrain();
                 SetLoopEffectActive(m_WeakHealthSmoke, false);
                 SetLoopEffectActive(m_CriticalWarningFire, false);
-                SetLoopEffectActive(m_DestroyedFire, true);
+                SetLoopEffectActive(m_DestroyedFire, !m_DestroyedFireExpired);
                 RefreshWindActivity();
                 return;
             }
@@ -292,7 +304,11 @@ namespace FranklinGame.Vehicles
                 // wreck may stop emitting loop VFX, but it must never explode a
                 // second time or become driveable again without respawning it.
                 if (m_Destruction == null || !m_Destruction.IsDestroyed)
+                {
                     m_HasExploded = false;
+                    m_DestroyedFireExpired = false;
+                    StopDestroyedFireLifetime();
+                }
             }
             RefreshWindActivity();
         }
@@ -365,25 +381,45 @@ namespace FranklinGame.Vehicles
             m_PendingExplosion = null;
         }
 
-        private void TriggerExplosion(bool applyDestruction)
+        /// <summary>
+        /// Immediately enters the terminal Car explosion pipeline. External
+        /// explosions can skip the Car's local burst to avoid duplicate VFX/audio.
+        /// </summary>
+        public void TriggerImmediateExplosion(bool playOneShotEffects = true)
         {
+            CancelPendingExplosion();
+            StopCriticalHealthDrain();
+            TriggerExplosion(true, playOneShotEffects);
+        }
+
+        private void TriggerExplosion(
+            bool applyDestruction,
+            bool playOneShotEffects = true)
+        {
+            if (m_HasExploded) return;
             m_HasExploded = true;
+            m_DestroyedFireExpired = false;
             SetLoopEffectActive(m_WeakHealthSmoke, false);
             SetLoopEffectActive(m_CriticalWarningFire, false);
             SetLoopEffectActive(m_DestroyedFire, true);
+            StartDestroyedFireLifetime();
             RefreshWindActivity();
-            if (m_ExplosionAudioSource != null && m_ExplosionClip != null)
+            if (playOneShotEffects && m_ExplosionAudioSource != null &&
+                m_ExplosionClip != null)
             {
                 m_ExplosionAudioSource.Stop();
                 m_ExplosionAudioSource.PlayOneShot(m_ExplosionClip, 1f);
             }
 
-            for (int i = 0; i < m_ExplosionParticles.Length; ++i)
+            if (playOneShotEffects)
             {
-                ParticleSystem particles = m_ExplosionParticles[i];
-                if (particles == null) continue;
-                particles.Clear(true);
-                particles.Play(true);
+                for (int i = 0; i < m_ExplosionParticles.Length; ++i)
+                {
+                    ParticleSystem particles = m_ExplosionParticles[i];
+                    if (particles == null) continue;
+                    particles.Clear(true);
+                    particles.Play(true);
+                }
             }
 
             if (applyDestruction)
@@ -392,6 +428,33 @@ namespace FranklinGame.Vehicles
                     CalculateExplosionCameraHoldDuration()
                 );
             }
+        }
+
+        private void StartDestroyedFireLifetime()
+        {
+            StopDestroyedFireLifetime();
+            if (!isActiveAndEnabled || m_DestroyedFire == null) return;
+            m_DestroyedFireLifetimeRoutine = StartCoroutine(
+                ExpireDestroyedFireAfterLifetime()
+            );
+        }
+
+        private IEnumerator ExpireDestroyedFireAfterLifetime()
+        {
+            yield return new WaitForSecondsRealtime(
+                Mathf.Max(5f, m_DestroyedFireLifetime)
+            );
+            m_DestroyedFireLifetimeRoutine = null;
+            m_DestroyedFireExpired = true;
+            SetLoopEffectActive(m_DestroyedFire, false);
+            RefreshWindActivity();
+        }
+
+        private void StopDestroyedFireLifetime()
+        {
+            if (m_DestroyedFireLifetimeRoutine == null) return;
+            StopCoroutine(m_DestroyedFireLifetimeRoutine);
+            m_DestroyedFireLifetimeRoutine = null;
         }
 
         private float CalculateExplosionCameraHoldDuration()
@@ -650,6 +713,7 @@ namespace FranklinGame.Vehicles
                 0.5f,
                 2f
             );
+            m_DestroyedFireLifetime = Mathf.Max(5f, m_DestroyedFireLifetime);
             m_MinimumExplosionCameraHold = Mathf.Max(
                 0f,
                 m_MinimumExplosionCameraHold

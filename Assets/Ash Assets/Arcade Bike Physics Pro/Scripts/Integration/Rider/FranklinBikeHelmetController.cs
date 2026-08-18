@@ -15,6 +15,9 @@ namespace FranklinGame.Vehicles
     [RequireComponent(typeof(Character))]
     public sealed class FranklinBikeHelmetController : MonoBehaviour
     {
+        private const float MOBILE_IDLE_POSE_CHECK_SECONDS = 0.1f;
+        private const float DESKTOP_IDLE_POSE_CHECK_SECONDS = 1f / 30f;
+
         [Header("Helmet Asset")]
         [SerializeField] private GameObject m_HelmetPrefab;
 
@@ -54,6 +57,7 @@ namespace FranklinGame.Vehicles
         [SerializeField, Range(0.1f, 1f)] private float m_LowerArmReach = 0.95f;
 
         private Animator m_Animator;
+        private Character m_Character;
         private Transform m_Head;
         private Transform m_RightUpperArm;
         private Transform m_RightLowerArm;
@@ -71,6 +75,7 @@ namespace FranklinGame.Vehicles
         private Vector3 m_LastHelmetPoseEuler;
         private Vector3 m_LastHelmetPoseScale;
         private bool m_HasAppliedHelmetPose;
+        private float m_NextIdlePoseCheck;
 
         public bool IsEquipped => this.m_IsEquipped;
         public bool IsTransitioning => this.m_Transition != null;
@@ -121,6 +126,7 @@ namespace FranklinGame.Vehicles
 
         private void Awake()
         {
+            this.m_Character = this.GetComponent<Character>();
             this.ResolveBones();
         }
 
@@ -148,6 +154,17 @@ namespace FranklinGame.Vehicles
             bool helmetVisible = this.m_HelmetInstance != null &&
                                  this.m_HelmetInstance.activeSelf;
             if (!helmetVisible && this.m_ReachWeight <= 0.0001f) return;
+
+            bool transitionActive = this.m_ReachWeight > 0.0001f;
+            if (!transitionActive)
+            {
+                float now = Time.unscaledTime;
+                if (now < this.m_NextIdlePoseCheck) return;
+                this.m_NextIdlePoseCheck = now +
+                    (Application.isMobilePlatform
+                        ? MOBILE_IDLE_POSE_CHECK_SECONDS
+                        : DESKTOP_IDLE_POSE_CHECK_SECONDS);
+            }
             if (!this.ResolveBones()) return;
             if (helmetVisible && this.HasHelmetPoseChanged())
                 this.ApplyCurrentHelmetPose();
@@ -345,7 +362,9 @@ namespace FranklinGame.Vehicles
 
         private bool ResolveBones()
         {
-            Animator animator = this.GetComponent<Character>()?.Animim?.Animator;
+            if (this.m_Character == null)
+                this.m_Character = this.GetComponent<Character>();
+            Animator animator = this.m_Character?.Animim?.Animator;
             if (animator == null) animator = this.GetComponentInChildren<Animator>(true);
             if (animator == null || !animator.isHuman) return false;
 

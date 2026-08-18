@@ -12,6 +12,7 @@ namespace GameCreator.Runtime.Shooter
 
         [SerializeField] protected PropertyGetGameObject m_Prefab = GetGameObjectInstance.Create();
         [SerializeField] private PropertyGetDecimal m_Delay = GetDecimalConstantZero.Create; 
+        [SerializeField] private bool m_AimAtSightPoint;
         
         // RUN METHOD: ----------------------------------------------------------------------------
         
@@ -41,8 +42,10 @@ namespace GameCreator.Runtime.Shooter
 
             for (int i = 0; i < projectilesUsed; ++i)
             {
-                Vector3 spreadDirection = sight.Sight.GetSpreadDirection(
-                    weaponData.WeaponArgs, 
+                Vector3 spreadDirection = this.GetShotDirection(
+                    sight.Sight,
+                    muzzle,
+                    weaponData.WeaponArgs,
                     weapon
                 );
                 
@@ -77,6 +80,27 @@ namespace GameCreator.Runtime.Shooter
             }
             
             return true;
+        }
+
+        // PRIVATE METHODS: ----------------------------------------------------------------------
+
+        private Vector3 GetShotDirection(
+            Sight sight,
+            MuzzleData muzzle,
+            Args args,
+            ShooterWeapon weapon)
+        {
+            if (!this.m_AimAtSightPoint)
+                return sight.GetSpreadDirection(args, weapon);
+
+            // Large projectiles can visibly lag a fast camera orbit when they inherit the
+            // animated muzzle rotation. This opt-in mode resolves the native GC2 Aim point
+            // again at the exact release frame and converges from the real muzzle. The
+            // projectile still starts at the muzzle, so nearby physical cover remains valid.
+            Vector3 direction = sight.Aim.GetPoint(args) - muzzle.Position;
+            return direction.sqrMagnitude > 0.000001f
+                ? direction.normalized
+                : muzzle.Direction.normalized;
         }
         
         // ABSTRACT METHODS: ----------------------------------------------------------------------

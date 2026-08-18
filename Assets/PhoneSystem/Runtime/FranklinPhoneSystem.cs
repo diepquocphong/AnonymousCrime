@@ -2,10 +2,12 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using FranklinGame.Animations;
+using FranklinGame.Menu;
 using FranklinGame.Shooter;
 using FranklinGame.UI;
 using GameCreator.Runtime.Common;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace FranklinGame.PhoneSystem
@@ -232,13 +234,47 @@ namespace FranklinGame.PhoneSystem
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
             s_Instance = null;
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
         {
-            if (FindFirstObjectByType<FranklinPhoneSystem>() != null) return;
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            EnsureSpawned();
+        }
+
+        private static void OnSceneLoaded(
+            Scene scene,
+            UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            EnsureSpawned();
+        }
+
+        private static void EnsureSpawned()
+        {
+            if (FranklinMenuRuntimeGate.IsMenuSceneActive)
+            {
+                if (s_Instance != null)
+                {
+                    GameObject instance = s_Instance.gameObject;
+                    instance.SetActive(false);
+                    Destroy(instance);
+                }
+                return;
+            }
+
+            FranklinPhoneSystem existing = FindFirstObjectByType<FranklinPhoneSystem>(
+                FindObjectsInactive.Include
+            );
+            if (existing != null)
+            {
+                s_Instance = existing;
+                existing.gameObject.SetActive(true);
+                return;
+            }
 
             FranklinPhoneSystem prefab =
                 Resources.Load<FranklinPhoneSystem>(RESOURCE_PATH);

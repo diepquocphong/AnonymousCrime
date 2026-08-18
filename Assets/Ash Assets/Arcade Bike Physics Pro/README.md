@@ -290,6 +290,11 @@ sequenceDiagram
     participant Ground as Drivable Ground
     participant FX as Audio / Skid / Smoke
 
+    Note over Driver,Ground: Spawn hoặc pool-reactivation — chạy đúng một lần
+    Driver->>Ground: RaycastNonAlloc tại root + hai bánh
+    Ground-->>Driver: contact point + surface normal
+    Driver->>RB: giữ heading, căn slope và đặt hai lốp sát ground
+
     UI->>Driver: SetVirtual...Input(bool)
     loop Mỗi Update
         Driver->>ABP: provideInput(0..1)
@@ -475,7 +480,7 @@ File: [Scripts/Integration/Physics/FranklinArcadeBikeDriver.cs](Scripts/Integrat
 | `SetVirtualSteerLeftInput(active)` | Lái trái. |
 | `SetVirtualSteerRightInput(active)` | Lái phải. |
 | `SetVirtualHandbrakeInput(active)` | Phanh tay/drift. |
-| `SetVirtualWheelieInput(active)` | Giữ input bốc bánh trước. |
+| `SetVirtualWheelieInput(active)` | Giữ input bốc bánh trước; Core chỉ chấp nhận khi tốc độ tiến đạt tối thiểu `10 km/h`. |
 | `SetVirtualBurnoutInput(active)` | Gửi đồng thời accelerate + reverse để kích hoạt burnout ABP. |
 | `SetHornPressed(active)` | Nhấn/thả còi Bike 3D; AudioSource chỉ tạo một lần khi dùng lần đầu. |
 | `SetDamageLocked(locked)` | Khóa toàn bộ input lái khi Bike health bằng 0 nhưng vẫn giữ exit flow an toàn. |
@@ -490,6 +495,7 @@ File: [Scripts/Integration/Physics/FranklinArcadeBikeDriver.cs](Scripts/Integrat
 | `CrashDismount(fallSign, toppleAngularVelocity)` | Thả rider và chuyển bike sang physics ragdoll động. |
 | `KeepCrashRagdollDynamic()` | Đảm bảo Rigidbody ragdoll không kinematic/freeze rotation. |
 | `ParkGroundedRagdoll()` | Park sau khi adapter xác nhận bike nằm ổn định trên ground. |
+| `SnapSpawnToGround()` | Dò drivable ground, giữ heading, căn bike theo slope và đặt hai lốp sát mặt đất; trả về `false` nếu không tìm thấy ground hợp lệ. |
 | `ResetVehicle()` | Xóa velocity và dựng lại các transform điều khiển chính. |
 
 `FranklinArcadeBikeDriver` đồng thời gửi trạng thái stunt sang
@@ -505,6 +511,40 @@ Các property đọc quan trọng: `IsVehicleEnabled`, `IsDamageLocked`, `IsAirb
 đang nhanh hơn giới hạn, driver nhả ga và giảm tốc mượt theo
 `Slow Speed Deceleration`; người dùng vẫn có thể chỉnh giới hạn này riêng trên
 component `FranklinArcadeBikeDriver` của từng prefab.
+
+#### Spawn Grounding
+
+`FranklinArcadeBikeDriver` tự gọi `SnapSpawnToGround()` trong `Start()` và khi
+Bike được bật lại từ object pool. Bước đặt xe có các nguyên tắc sau:
+
+- dùng `bikeSettings.drivableLayerMask`, bỏ trigger và toàn bộ collider thuộc
+  chính Bike;
+- lấy mẫu tại root, bánh trước và bánh sau bằng buffer `RaycastNonAlloc` cố định;
+- giữ nguyên hướng ngang do spawn point cung cấp, chỉ căn up-axis theo normal của
+  slope;
+- khôi phục pose gốc của `ABP Rotator`, `ABP Wheelie` và `ABP Lean` trước khi đo,
+  tránh trạng thái visual của lần chạy trước bị giữ lại khi dùng object pool;
+- tính vị trí từ tâm và bán kính thật của cả hai bánh, sau đó xóa linear/angular
+  velocity để Bike đỗ ổn định;
+- nếu không có ground hợp lệ trong phạm vi probe, API trả về `false` và không
+  dịch chuyển root sang một bề mặt tùy ý.
+
+Các thuộc tính Inspector trong nhóm `Spawn Grounding`:
+
+| Field | Mặc định | Ý nghĩa |
+|---|---:|---|
+| `Snap To Ground On Spawn` | `true` | Bật placement tự động khi spawn/pool-reactivation. |
+| `Spawn Ground Probe Height` | `1 m` | Độ cao bắt đầu ray, đủ sửa spawn hơi âm nền mà không bắt nhầm mái phía trên. |
+| `Spawn Ground Probe Distance` | `30 m` | Khoảng tìm ground phía dưới spawn point. |
+| `Spawn Ground Clearance` | `0.015 m` | Khe an toàn rất nhỏ giữa lốp và surface. |
+| `Min Spawn Ground Normal` | `0.45` | Loại tường hoặc bề mặt quá đứng khỏi kết quả ground. |
+
+Spawner tùy chỉnh có thể gọi lại API sau khi gán position/rotation cuối cùng:
+
+```csharp
+FranklinArcadeBikeDriver driver = bike.GetComponent<FranklinArcadeBikeDriver>();
+bool placed = driver != null && driver.SnapSpawnToGround();
+```
 
 ### `FranklinBikeHealth`
 
@@ -854,6 +894,8 @@ public sealed class DirectAbpInputExample : MonoBehaviour
 11. Copy rider targets và pose từ Bike 01 nếu bike mới thuộc cùng rider-fit profile.
 12. Không thêm `WheelCollider`; ABP dò ground bằng raycast.
 13. Giữ `MobileBlobShadow` ở root và `FranklinBlobShadow` cùng profile với Bike 01.
+14. Giữ `Snap To Ground On Spawn` bật. Spawn point phải có một surface thuộc
+    `drivableLayerMask` trong phạm vi `Spawn Ground Probe Distance`.
 
 ## 10. Lưu ý kỹ thuật
 
@@ -867,15 +909,32 @@ public sealed class DirectAbpInputExample : MonoBehaviour
 - Skidmark và tire smoke chỉ được tạo khi Bike đầu tiên được kích hoạt. Runtime
   mobile dùng tối đa `512` skid sections (desktop `2048`) và `80` tire-smoke
   particles; material skidmark dùng `sharedMaterial`, không clone material riêng.
+  Khi park, cả hai runtime object ngủ hoàn toàn; skidmark world-root và native Mesh
+  được giải phóng khi Bike bị hủy nên số Bike từng sử dụng không làm tăng draw call.
 - Hai wheel/suspension raycast của ABP chạy theo `FixedUpdate`, không theo refresh
   rate màn hình; mesh bánh vẫn dùng hit cache ở `Update`. Thiết bị 90/120 Hz vì vậy
   không phát sinh thêm physics query so với cấu hình physics tick của project.
+- Spawn grounding chỉ chạy một lần trong `Start` hoặc lúc object pool kích hoạt
+  lại Bike. Nó dùng buffer `RaycastNonAlloc` có sẵn, không tạo mảng và không để lại
+  `Update`/coroutine/raycast nền sau khi đặt xe.
 - Collision spark pool chỉ tạo ở va chạm hợp lệ đầu tiên, có `2` slot trên mobile;
   metal debris cũng tạo lazy, tối đa `20` billboard, không collision/trail/noise và
-  dùng culling `Automatic`. Ba burst nổ được giới hạn khoảng `42` particles.
+  dùng culling `Automatic`. Pool tự disable sau burst thay vì giữ ParticleSystem
+  active vô hạn. Ba burst nổ được giới hạn khoảng `42` particles và tự ngủ sau
+  khi hạt cuối cùng kết thúc; tire smoke cũng chỉ thức lúc trượt/burnout.
+- Skid audio chỉ chạy khi bánh thật sự trượt; trạng thái chạy bình thường không còn
+  decode một loop đang mute. Spot Light đèn pha được disable hẳn khi tắt, và blob
+  shadow của Bike đứng yên chỉ refresh chậm thay vì cập nhật projection mỗi frame.
 - Ragdoll chỉ bật `FixedUpdate/LateUpdate` trong thời gian xe thật sự đang ngã.
   Side-ground probe chạy tối đa `10 Hz` trên mobile, bỏ qua probe khi xe còn nhanh/
   chưa đủ nghiêng và không chạy ground-tunnelling scan khi Rigidbody đã sleep.
+- Enter/exit, passenger và crash đều hủy operation cũ khi Bike bị pool/disable,
+  đồng thời trả collision-ignore, physics, event subscription và IK về đúng owner.
+  `CharacterIKSetter` tự disable khi không còn target nên Character từng ngồi Bike
+  không tiếp tục nhận `OnAnimatorIK` trong phần còn lại của session.
+- HUD world-follow của Bike lấy mẫu layout tối đa `30 Hz` trên mobile; touch/UI
+  classification được cache theo frame. Bullet decal cũng dùng pool cố định và
+  budget mobile (`16` dấu trên xe, `32` dấu bề mặt), không tăng theo thời gian chơi.
 - Destroyed fire, loop audio và particle wind tự dừng sau `10 s`. Crash-engine
   không người lái cũng timeout sau `10 s`; terminal destruction dừng engine và
   fuel tick ngay. Particle wind tối đa `4 Hz` trên mobile và chỉ ghi module của
@@ -905,6 +964,9 @@ public sealed class DirectAbpInputExample : MonoBehaviour
   Tâm quay là contact point bánh trước, tốc độ mặc định `36°/s`; lái trái/phải
   chọn chiều quay, không nhập lái thì mặc định quay theo chiều kim đồng hồ.
   `burnoutLeanAngle` mặc định `8°` làm model nghiêng nhẹ theo hướng xoay.
+- Wheelie chỉ được kích hoạt khi vận tốc tiến đạt `minimumWheelieSpeedKph`, mặc
+  định `10 km/h`. Cả input mobile lẫn keyboard đều bị chặn dưới ngưỡng; trạng thái
+  stunt/unequip weapon cũng không bật nhầm khi bấm nút ở tốc độ thấp.
 - Khi tốc độ dưới `3 km/h`, `BikeEntry` blend chân trái tới `GroundLeftFoot`;
   từ ngưỡng này trở lên chân trở lại footpeg.
 - Bike 01–10 dùng `reverseMaxSpeed = 2 m/s` (`7.2 km/h`), bằng một nửa cấu hình
@@ -914,6 +976,17 @@ public sealed class DirectAbpInputExample : MonoBehaviour
   `66%` chu kỳ để động tác có lực rõ hơn. `Ground Right Foot` có thể gán
   riêng hoặc để trống để tự mirror từ `GroundLeftFoot`. Burnout, phanh khi còn chạy
   tới và trạng thái airborne không kích hoạt động tác này.
+- Khi giữ lùi hoặc bike vẫn đang trôi lùi, rider blend UpperChest/Neck/Head để
+  ngoái nhìn phía sau qua vai trái. `BikeEntry > Reverse Look Back` cho phép đổi
+  sang vai phải, chỉnh tổng yaw, head pitch, tỷ lệ từng bone và thời gian blend.
+  Runtime áp twist bằng Humanoid muscle (`UpperChest Twist`, `Neck Turn`,
+  `Head Turn/Nod`) thay vì local Euler của bone, nên rig Franklin xoay quanh trục
+  cơ thể mà không nghiêng lưng/ngửa cổ. Safe backing mặc định giữ cả hai tay trên
+  grip; tùy chọn `Release Left Hand` chỉ dành cho pose cinematic và tự khóa khi
+  có passenger hoặc Shooter giữ tay phải. Nếu không gán target riêng, tay thả được
+  đặt theo tỷ lệ UpperLeg/LowerLeg của rider thay vì target passenger, tránh cánh
+  tay văng cao trên các dáng ngồi khác nhau. Pose tự tắt khi airborne, Bike FPS,
+  Shooter hoặc animation đội/tháo mũ; exit/crash trả pose trước ragdoll.
 - Tên API `provideInput`, `resetCameratarget` và `CurrntGearProperty` giữ nguyên
   casing/typo của package để tránh phá serialized code hoặc integration hiện có.
 - Stock `CameraController` tự detach khỏi parent trong `Awake()`. Không bật nó

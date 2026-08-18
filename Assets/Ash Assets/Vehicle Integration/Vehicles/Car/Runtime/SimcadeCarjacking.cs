@@ -66,8 +66,12 @@ namespace FranklinGame.Vehicles
         private SimcadeCarDriver m_Driver;
         private Quaternion m_DriverDoorClosedRotation;
         private Quaternion m_PassengerDoorClosedRotation;
+        private Vector3 m_DriverDoorClosedPosition;
+        private Vector3 m_PassengerDoorClosedPosition;
         private CarEntrySideMode m_ActiveEntrySide = CarEntrySideMode.DriverDoor;
         private bool m_IsTransitioning;
+        private int m_OperationVersion;
+        private Character m_ActiveAttacker;
         private Character m_SpawnedNpcDriver;
         private CharacterIKSetter m_GrabIKSetter;
         private Transform m_GrabNeckTarget;
@@ -85,11 +89,19 @@ namespace FranklinGame.Vehicles
             if (this.m_CarEntry == null) this.m_CarEntry = this.GetComponent<CarEntry>();
             this.m_Driver = this.GetComponent<SimcadeCarDriver>();
             if (this.m_CarEntry?.doorTransform != null)
+            {
                 this.m_DriverDoorClosedRotation =
                     this.m_CarEntry.doorTransform.localRotation;
+                this.m_DriverDoorClosedPosition =
+                    this.m_CarEntry.doorTransform.localPosition;
+            }
             if (this.m_CarEntry?.passengerDoorTransform != null)
+            {
                 this.m_PassengerDoorClosedRotation =
                     this.m_CarEntry.passengerDoorTransform.localRotation;
+                this.m_PassengerDoorClosedPosition =
+                    this.m_CarEntry.passengerDoorTransform.localPosition;
+            }
             this.EnsureGrabTargets();
         }
 
@@ -98,6 +110,52 @@ namespace FranklinGame.Vehicles
             if (this.m_GrabNeckTarget != null) Destroy(this.m_GrabNeckTarget.gameObject);
             if (this.m_GrabShoulderTarget != null)
                 Destroy(this.m_GrabShoulderTarget.gameObject);
+        }
+
+        private void OnDisable()
+        {
+            unchecked { this.m_OperationVersion++; }
+            Character attacker = this.m_ActiveAttacker;
+            this.m_ActiveAttacker = null;
+            this.ClearGrabIK();
+            this.m_CarEntry?.SetPassengerPushArmFree(false);
+            this.m_CarEntry?.ClearPreparedEntrySide();
+            if (attacker != null)
+            {
+                // GC2 owns the temporary ragdoll colliders independently. Always
+                // restore the high-level Driver flag so a cancelled pooled
+                // carjacking cannot leave locomotion collision disabled.
+                if (attacker.Driver != null) attacker.Driver.Collision = true;
+                if (attacker.Player != null)
+                {
+                    attacker.Player.IsControllable = !attacker.IsDead &&
+                        !attacker.Ragdoll.IsRagdoll;
+                }
+            }
+            if (this.m_CarEntry?.doorTransform != null &&
+                this.m_CarEntry.CanAnimateDoor(CarEntrySideMode.DriverDoor))
+            {
+                this.m_CarEntry.doorTransform.SetLocalPositionAndRotation(
+                    this.m_DriverDoorClosedPosition,
+                    this.m_DriverDoorClosedRotation
+                );
+            }
+            if (this.m_CarEntry?.passengerDoorTransform != null &&
+                this.m_CarEntry.CanAnimateDoor(CarEntrySideMode.PassengerDoor))
+            {
+                this.m_CarEntry.passengerDoorTransform.SetLocalPositionAndRotation(
+                    this.m_PassengerDoorClosedPosition,
+                    this.m_PassengerDoorClosedRotation
+                );
+            }
+            this.m_ActiveEntrySide = CarEntrySideMode.DriverDoor;
+            this.m_IsTransitioning = false;
+        }
+
+        private bool IsOperationCurrent(int version)
+        {
+            return this != null && this.isActiveAndEnabled &&
+                   version == this.m_OperationVersion;
         }
 
         private void Start()
@@ -118,8 +176,12 @@ namespace FranklinGame.Vehicles
             return this.isActiveAndEnabled &&
                 !this.m_IsTransitioning &&
                 attacker != null &&
+                !attacker.IsDead &&
+                !attacker.Ragdoll.IsRagdoll &&
                 victim != null &&
                 victim != attacker &&
+                !victim.IsDead &&
+                !victim.Ragdoll.IsRagdoll &&
                 !victim.IsPlayer &&
                 this.m_CarEntry.entryStandingPoint != null &&
                 this.m_CarEntry.entryParent != null &&
@@ -143,7 +205,9 @@ namespace FranklinGame.Vehicles
                 ? CarEntrySideMode.PassengerDoor
                 : CarEntrySideMode.DriverDoor;
             this.m_IsTransitioning = true;
-            _ = this.RunCarjackingAsync(attacker);
+            int operationVersion = ++this.m_OperationVersion;
+            this.m_ActiveAttacker = attacker;
+            _ = this.RunCarjackingAsync(attacker, operationVersion);
             return true;
         }
 
@@ -178,7 +242,9 @@ namespace FranklinGame.Vehicles
             this.m_SpawnedNpcDriver = npc;
         }
 
-        private async Task RunCarjackingAsync(Character attacker)
+        private async Task RunCarjackingAsync(
+            Character attacker,
+            int operationVersion)
         {
             Character victim = this.m_CarEntry != null
                 ? this.m_CarEntry.SeatedCharacter
@@ -192,7 +258,10 @@ namespace FranklinGame.Vehicles
 
             try
             {
-                if (attacker == null || victim == null || this.m_CarEntry == null) return;
+                if (!this.IsOperationCurrent(operationVersion) ||
+                    attacker == null || victim == null ||
+                    attacker.Ragdoll.IsRagdoll || victim.Ragdoll.IsRagdoll ||
+                    this.m_CarEntry == null) return;
 
                 this.m_Driver?.SetVehicleEnabled(false);
                 if (attacker.Player != null) attacker.Player.IsControllable = false;
@@ -202,6 +271,7 @@ namespace FranklinGame.Vehicles
                 );
                 if (!await this.m_CarEntry.MoveCharacterToEntryStandingPointAsync(attacker))
                     return;
+                if (!this.IsOperationCurrent(operationVersion)) return;
 
                 bool passengerSide = this.m_ActiveEntrySide ==
                     CarEntrySideMode.PassengerDoor;
@@ -216,11 +286,14 @@ namespace FranklinGame.Vehicles
                     passengerDoorIsOpen = true;
                     if (!await this.m_CarEntry.EnterPassengerSeatForCarjackingAsync(attacker))
                         return;
+                    if (!this.IsOperationCurrent(operationVersion)) return;
 
                     await this.SetDoorOpenAsync(
                         false,
-                        CarEntrySideMode.PassengerDoor
+                        CarEntrySideMode.PassengerDoor,
+                        operationVersion
                     );
+                    if (!this.IsOperationCurrent(operationVersion)) return;
                     passengerDoorIsOpen = false;
 
                     if (!this.m_CarEntry.ReleaseOccupantForCarjacking(victim)) return;
@@ -229,7 +302,17 @@ namespace FranklinGame.Vehicles
                     victim.transform.SetPositionAndRotation(seat.position, seat.rotation);
 
                     driverDoorIsOpen = true;
-                    await this.PlayPassengerSeatPushAsync(attacker, victim);
+                    await this.PlayPassengerSeatPushAsync(
+                        attacker,
+                        victim,
+                        operationVersion
+                    );
+                    if (!this.IsOperationCurrent(operationVersion)) return;
+                    if (attacker == null || victim == null ||
+                        attacker.Ragdoll.IsRagdoll || victim.Ragdoll.IsRagdoll)
+                    {
+                        return;
+                    }
                     victimReleaseTask = this.CompleteVictimLandingAsync(victim);
 
                     if (attacker == null || this.m_CarEntry == null)
@@ -241,6 +324,7 @@ namespace FranklinGame.Vehicles
 
                     attackerSeated = await this.m_CarEntry
                         .CompletePassengerCarjackingEntryAsync(attacker);
+                    if (!this.IsOperationCurrent(operationVersion)) return;
                     await victimReleaseTask;
                     victimPhysicsWasRestored = true;
                 }
@@ -254,12 +338,23 @@ namespace FranklinGame.Vehicles
                     {
                         return;
                     }
+                    if (!this.IsOperationCurrent(operationVersion)) return;
                     if (!this.m_CarEntry.ReleaseOccupantForCarjacking(victim)) return;
                     victimWasReleased = true;
 
                     Transform seat = this.m_CarEntry.entryParent;
                     victim.transform.SetPositionAndRotation(seat.position, seat.rotation);
-                    await this.PlayPairedCarjackingAsync(attacker, victim);
+                    await this.PlayPairedCarjackingAsync(
+                        attacker,
+                        victim,
+                        operationVersion
+                    );
+                    if (!this.IsOperationCurrent(operationVersion)) return;
+                    if (attacker == null || victim == null ||
+                        attacker.Ragdoll.IsRagdoll || victim.Ragdoll.IsRagdoll)
+                    {
+                        return;
+                    }
                     victimReleaseTask = this.CompleteVictimLandingAsync(victim);
 
                     if (attacker == null || this.m_CarEntry == null)
@@ -275,11 +370,17 @@ namespace FranklinGame.Vehicles
                         CarEntrySideMode.DriverDoor
                     );
                     await victimReleaseTask;
+                    if (!this.IsOperationCurrent(operationVersion)) return;
                     victimPhysicsWasRestored = true;
                     attackerSeated = await enterTask;
                 }
 
-                await this.SetDoorOpenAsync(false, CarEntrySideMode.DriverDoor);
+                await this.SetDoorOpenAsync(
+                    false,
+                    CarEntrySideMode.DriverDoor,
+                    operationVersion
+                );
+                if (!this.IsOperationCurrent(operationVersion)) return;
                 driverDoorIsOpen = false;
 
                 attackerSeated = attackerSeated && this.m_CarEntry != null &&
@@ -291,28 +392,46 @@ namespace FranklinGame.Vehicles
             }
             finally
             {
-                this.ClearGrabIK();
-                this.m_CarEntry?.SetPassengerPushArmFree(false);
-                if (passengerDoorIsOpen)
-                    await this.SetDoorOpenAsync(false, CarEntrySideMode.PassengerDoor);
-                if (driverDoorIsOpen)
-                    await this.SetDoorOpenAsync(false, CarEntrySideMode.DriverDoor);
+                bool operationCurrent = this.IsOperationCurrent(operationVersion);
+                if (operationCurrent) this.ClearGrabIK();
+                if (operationCurrent)
+                    this.m_CarEntry?.SetPassengerPushArmFree(false);
+                if (operationCurrent && passengerDoorIsOpen)
+                    await this.SetDoorOpenAsync(
+                        false,
+                        CarEntrySideMode.PassengerDoor,
+                        operationVersion
+                    );
+                if (operationCurrent && driverDoorIsOpen)
+                    await this.SetDoorOpenAsync(
+                        false,
+                        CarEntrySideMode.DriverDoor,
+                        operationVersion
+                    );
                 if (victimWasReleased && !victimPhysicsWasRestored &&
                     victim != null && this.m_CarEntry != null)
                 {
-                    if (victimReleaseTask != null) await victimReleaseTask;
+                    if (victim.Ragdoll.IsRagdoll)
+                    {
+                        this.m_CarEntry.AbortOccupantReleaseForRagdoll(victim);
+                    }
+                    else if (victimReleaseTask != null) await victimReleaseTask;
                     else await this.CompleteVictimLandingAsync(victim);
                 }
 
-                if (!attackerSeated && attacker != null)
+                if (operationCurrent && !attackerSeated && attacker != null)
                 {
                     if (attacker.Driver != null) attacker.Driver.Collision = true;
                     if (attacker.Player != null) attacker.Player.IsControllable = true;
                 }
 
-                this.m_CarEntry?.ClearPreparedEntrySide();
-                this.m_ActiveEntrySide = CarEntrySideMode.DriverDoor;
-                this.m_IsTransitioning = false;
+                if (operationCurrent)
+                {
+                    this.m_CarEntry?.ClearPreparedEntrySide();
+                    this.m_ActiveAttacker = null;
+                    this.m_ActiveEntrySide = CarEntrySideMode.DriverDoor;
+                    this.m_IsTransitioning = false;
+                }
             }
         }
 
@@ -341,7 +460,8 @@ namespace FranklinGame.Vehicles
 
         private async Task PlayPairedCarjackingAsync(
             Character attacker,
-            Character victim)
+            Character victim,
+            int operationVersion)
         {
             if (attacker == null || victim == null) return;
 
@@ -386,7 +506,10 @@ namespace FranklinGame.Vehicles
             float duration = fullDuration * handoffTime;
             float startedAt = Time.time;
             float pullProgress = 0f;
-            while (pullProgress < 1f && attacker != null && victim != null)
+            while (pullProgress < 1f && attacker != null && victim != null &&
+                   this.IsOperationCurrent(operationVersion) &&
+                   !attacker.Ragdoll.IsRagdoll &&
+                   !victim.Ragdoll.IsRagdoll)
             {
                 pullProgress = Mathf.Clamp01(
                     (Time.time - startedAt) / Mathf.Max(0.01f, duration)
@@ -406,7 +529,11 @@ namespace FranklinGame.Vehicles
                 await Task.Yield();
             }
 
-            if (victim != null)
+            // OnDisable owns cleanup for a cancelled operation. Never let this
+            // stale continuation snap an old victim or clear a newly-started
+            // operation's shared IK state after a pool reuse.
+            if (!this.IsOperationCurrent(operationVersion)) return;
+            if (victim != null && !victim.Ragdoll.IsRagdoll)
             {
                 victim.transform.SetPositionAndRotation(
                     victimEndPosition,
@@ -420,7 +547,8 @@ namespace FranklinGame.Vehicles
 
         private async Task PlayPassengerSeatPushAsync(
             Character attacker,
-            Character victim)
+            Character victim,
+            int operationVersion)
         {
             if (attacker == null || victim == null ||
                 this.m_VictimGetKickedOut == null)
@@ -450,7 +578,10 @@ namespace FranklinGame.Vehicles
             float progress = 0f;
             Task driverDoorTask = null;
 
-            while (progress < 1f && attacker != null && victim != null)
+            while (progress < 1f && attacker != null && victim != null &&
+                   this.IsOperationCurrent(operationVersion) &&
+                   !attacker.Ragdoll.IsRagdoll &&
+                   !victim.Ragdoll.IsRagdoll)
             {
                 progress = Mathf.Clamp01(
                     (Time.time - startedAt) / Mathf.Max(0.01f, duration)
@@ -461,7 +592,8 @@ namespace FranklinGame.Vehicles
                     // reaches the NPC; it never opens merely because a seat is occupied.
                     driverDoorTask = this.SetDoorOpenAsync(
                         true,
-                        CarEntrySideMode.DriverDoor
+                        CarEntrySideMode.DriverDoor,
+                        operationVersion
                     );
                 }
 
@@ -485,16 +617,20 @@ namespace FranklinGame.Vehicles
                 await Task.Yield();
             }
 
-            if (driverDoorTask == null)
+            if (!this.IsOperationCurrent(operationVersion)) return;
+            if (driverDoorTask == null && attacker != null && victim != null &&
+                !attacker.Ragdoll.IsRagdoll && !victim.Ragdoll.IsRagdoll)
             {
                 driverDoorTask = this.SetDoorOpenAsync(
                     true,
-                    CarEntrySideMode.DriverDoor
+                    CarEntrySideMode.DriverDoor,
+                    operationVersion
                 );
             }
-            await driverDoorTask;
+            if (driverDoorTask != null) await driverDoorTask;
+            if (!this.IsOperationCurrent(operationVersion)) return;
 
-            if (victim != null)
+            if (victim != null && !victim.Ragdoll.IsRagdoll)
             {
                 victim.transform.SetPositionAndRotation(
                     victimEndPosition,
@@ -777,8 +913,13 @@ namespace FranklinGame.Vehicles
         private async Task CompleteVictimLandingAsync(Character victim)
         {
             if (victim == null) return;
+            if (victim.Ragdoll.IsRagdoll)
+            {
+                this.m_CarEntry?.AbortOccupantReleaseForRagdoll(victim);
+                return;
+            }
             await this.PlaceVictimAtLandingPointAsync(victim);
-            if (victim != null)
+            if (victim != null && !victim.Ragdoll.IsRagdoll)
             {
                 // Only reveal the base graph after collision is stable and GC2
                 // has registered a grounded frame at the authored landing point.
@@ -788,8 +929,11 @@ namespace FranklinGame.Vehicles
 
         private async Task SetDoorOpenAsync(
             bool open,
-            CarEntrySideMode side)
+            CarEntrySideMode side,
+            int operationVersion = -1)
         {
+            if (operationVersion >= 0 &&
+                !this.IsOperationCurrent(operationVersion)) return;
             if (this.m_CarEntry == null) return;
             if (!this.m_CarEntry.CanAnimateDoor(side)) return;
 
@@ -799,31 +943,53 @@ namespace FranklinGame.Vehicles
                 ? this.m_CarEntry.passengerDoorTransform
                 : this.m_CarEntry.doorTransform;
             if (door == null) return;
-            Quaternion start = door.localRotation;
-            Quaternion target = open
+            Quaternion startRotation = door.localRotation;
+            Vector3 startPosition = door.localPosition;
+            Quaternion closedRotation = passengerSide
+                ? this.m_PassengerDoorClosedRotation
+                : this.m_DriverDoorClosedRotation;
+            Vector3 closedPosition = passengerSide
+                ? this.m_PassengerDoorClosedPosition
+                : this.m_DriverDoorClosedPosition;
+            Vector3 openOffset = passengerSide
+                ? this.m_CarEntry.passengerDoorOpenLocalOffset
+                : this.m_CarEntry.doorOpenLocalOffset;
+            Quaternion targetRotation = open
                 ? Quaternion.Euler(
                     passengerSide
                         ? this.m_CarEntry.passengerDoorOpenRotation
                         : this.m_CarEntry.doorOpenRotation
                 )
-                : passengerSide
-                    ? this.m_PassengerDoorClosedRotation
-                    : this.m_DriverDoorClosedRotation;
+                : closedRotation;
+            Vector3 targetPosition = open
+                ? closedPosition + openOffset
+                : closedPosition;
             float duration = Mathf.Max(0.01f, this.m_CarEntry.doorRotationDuration);
             float elapsed = 0f;
 
             this.m_CarEntry.PlayEntryDoorSound(side, open);
 
-            while (elapsed < duration && door != null)
+            while (elapsed < duration && door != null &&
+                   (operationVersion < 0 ||
+                    this.IsOperationCurrent(operationVersion)))
             {
                 elapsed += Time.deltaTime;
                 float progress = Mathf.Clamp01(elapsed / duration);
                 progress = progress * progress * (3f - 2f * progress);
-                door.localRotation = Quaternion.Slerp(start, target, progress);
+                door.SetLocalPositionAndRotation(
+                    Vector3.Lerp(startPosition, targetPosition, progress),
+                    Quaternion.Slerp(startRotation, targetRotation, progress)
+                );
                 await Task.Yield();
             }
 
-            if (door != null) door.localRotation = target;
+            if (door == null) return;
+            if (operationVersion >= 0 &&
+                !this.IsOperationCurrent(operationVersion))
+            {
+                return;
+            }
+            door.SetLocalPositionAndRotation(targetPosition, targetRotation);
         }
     }
 }

@@ -101,7 +101,7 @@ namespace FranklinGame.PhoneSystem
             "BACK never reads or follows a hand bone."
         )]
         [SerializeField] private Vector3 m_BackCameraPosition =
-            new(0f, 1.55f, 0f);
+            new(0f, 0.5f, 0f);
         [InspectorName("Back Camera Rotation")]
         [Tooltip("Euler adjustment from the Player root rotation.")]
         [SerializeField] private Vector3 m_BackCameraRotation = Vector3.zero;
@@ -320,6 +320,7 @@ namespace FranklinGame.PhoneSystem
                 this.RestorePlayerTurnSpeed();
                 this.RestoreBackCameraPlayerPresentation();
                 this.m_PhoneSystem?.SetBackCameraFastMovementEnabled(false);
+                this.m_HandPresentation?.SetPhoneModelHidden(false);
                 this.m_HasBackCameraEntryRotation = false;
                 this.m_HandPresentation?.SetSelfieMode(false);
             }
@@ -418,6 +419,7 @@ namespace FranklinGame.PhoneSystem
             this.RestorePlayerTurnSpeed();
             this.RestoreBackCameraPlayerPresentation();
             this.m_PhoneSystem?.SetBackCameraFastMovementEnabled(false);
+            this.m_HandPresentation?.SetPhoneModelHidden(false);
             if (this.m_Player != null)
                 this.m_Player.EventBeforeUpdate -= this.OnPlayerBeforeUpdate;
             this.m_HandPresentation?.SetSelfieMode(false);
@@ -1370,11 +1372,13 @@ namespace FranklinGame.PhoneSystem
                 this.RestorePlayerTurnSpeed();
                 this.ApplyBackCameraPlayerPresentation();
                 this.m_PhoneSystem?.SetBackCameraFastMovementEnabled(true);
+                this.m_HandPresentation?.SetPhoneModelHidden(true);
                 return;
             }
 
             this.RestoreBackCameraPlayerPresentation();
             this.m_PhoneSystem?.SetBackCameraFastMovementEnabled(false);
+            this.m_HandPresentation?.SetPhoneModelHidden(false);
             this.ApplyPlayerSelfieTurnSpeed();
             this.UpdatePlayerFacing();
         }

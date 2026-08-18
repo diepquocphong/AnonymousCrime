@@ -1,0 +1,493 @@
+Unity Editor version:    6000.3.21f1 (c02631ffc030)
+Branch:                  6000.3/staging
+Build type:              Release
+Batch mode:              YES
+macOS version:           Version 26.4.1 (Build 25E253)
+Darwin version:          25.4.0
+Architecture:            arm64
+Running under Rosetta:   NO
+Available memory:        32768 MB
+Date:                    2026-08-17T04:10:13Z
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-diepquocphong" at "2026-08-17T04:10:13.429529Z"
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/PackageManager/Server/UnityPackageManager
+
+COMMAND LINE ARGUMENTS:
+/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/MacOS/Unity
+-batchmode
+-nographics
+-quit
+-projectPath
+/tmp/franklin-copman-rig-stage.NjhoFr
+-executeMethod
+CopManRigBuilder.BuildAndValidate
+-copManRigReport
+/Users/diepquocphong/Documents/Franklin Game/ArtSource/CopManRig/dist/CopMan_Unity_Rig_QA.json
+-logFile
+/Users/diepquocphong/Documents/Franklin Game/ArtSource/CopManRig/dist/CopMan_Unity_Rig_Build.log
+Successfully changed project path to: /tmp/franklin-copman-rig-stage.NjhoFr
+/private/tmp/franklin-copman-rig-stage.NjhoFr
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [8517392576]  Target information:
+
+Player connection [8517392576]  * "[IP] 192.168.2.1 [Port] 55505 [Flags] 2 [Guid] 301129678 [EditorId] 301129678 [Version] 1048832 [Id] OSXEditor(0,MacBookPro.lan) [Debug] 1 [PackageName] OSXEditor [ProjectName] Editor" 
+
+Player connection [8517392576]  * "[IP] 192.168.100.185 [Port] 55505 [Flags] 2 [Guid] 301129678 [EditorId] 301129678 [Version] 1048832 [Id] OSXEditor(0,MacBookPro.lan) [Debug] 1 [PackageName] OSXEditor [ProjectName] Editor" 
+
+Player connection [8517392576]  * "[IP] 192.168.3.1 [Port] 55505 [Flags] 2 [Guid] 301129678 [EditorId] 301129678 [Version] 1048832 [Id] OSXEditor(0,MacBookPro.lan) [Debug] 1 [PackageName] OSXEditor [ProjectName] Editor" 
+
+Player connection [8517392576] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [8517392576] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-33660" after 0.1 seconds.
+[Licensing::Module] Licensing is not yet initialized.
+[Licensing::Client] Error: HandshakeResponse reported an error:
+	ResponseCode: 505
+	ResponseStatus: Unsupported protocol version '1.18.1'.
+[Licensing::Module] Error: Failed to handshake to channel: "LicenseClient-diepquocphong"
+[Licensing::IpcConnector] LicenseClient-diepquocphong channel disconnected successfully.
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-diepquocphong-6000.3.21" at "2026-08-17T04:10:13.774535Z"
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.1+9fbee8e
+  Session Id:              3fa25c9f1cfb4d4d94e226a1dfdbaead
+  Correlation Id:          3987cf3d15e3d53f127bcfa3da443868
+  External correlation Id: 7430238290352925970
+  Machine Id:              islmrWih1ghNW7TWJRTHjE60RNw=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-diepquocphong-6000.3.21" (connect: 0.00s, validation: 0.00s, handshake: 0.31s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-diepquocphong-6000.3.21-notifications" at "2026-08-17T04:10:14.089521Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: 18966790666738-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.00
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Licensing Background thread has ended after 0.66s
+[Licensing::Module] Licensing is initialized (took 0.43s).
+[Licensing::Client] Successfully resolved entitlement details
+Library Redirect Path: Library/
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+Artifact Garbage Collection - Removed 4 unused hashed content files
+Refreshing native plugins compatible for Editor in 0.07 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.3.21f1 (c02631ffc030)
+[Subsystems] Discovering subsystems at path /Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path /private/tmp/franklin-copman-rig-stage.NjhoFr/Assets
+Forcing GfxDevice: Null
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+NullGfxDevice:
+    Version:  NULL 1.0 [1.0]
+    Renderer: Null Device
+    Vendor:   Unity Technologies
+Initialize mono
+Mono path[0] = '/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/Managed'
+Mono path[1] = '/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/lib/mono/unityjit-macos'
+Mono config path = '/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56660
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: /Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/PlaybackEngines/MacStandaloneSupport/UnityEditor.OSXStandalone.Extensions.dll
+[Licensing::Client] Successfully resolved entitlement details
+Register platform support module: /Applications/Unity/Hub/Editor/6000.3.21f1/PlaybackEngines/AndroidPlayer/UnityEditor.Android.Extensions.dll
+[Licensing::Client] Successfully resolved entitlement details
+Register platform support module: /Applications/Unity/Hub/Editor/6000.3.21f1/PlaybackEngines/iOSSupport/UnityEditor.iOS.Extensions.dll
+Registered in 0.005293 seconds.
+- Loaded All Assemblies, in  0.311 seconds
+[usbmuxd] Start listen thread
+[usbmuxd] Listen thread started
+[usbmuxd] Send listen message
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+Package Manager log level set to [2]
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:False
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.321 seconds
+Domain Reload Profiling: 632ms
+	BeginReloadAssembly (91ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (6ms)
+	RebuildCommonClasses (29ms)
+	RebuildNativeTypeToScriptingClass (10ms)
+	initialDomainReloadingComplete (34ms)
+	LoadAllAssembliesAndSetupDomain (146ms)
+		LoadAssemblies (86ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (143ms)
+			TypeCache.Refresh (141ms)
+				TypeCache.ScanAssembly (130ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (322ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (291ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (87ms)
+			SetLoadedEditorAssemblies (3ms)
+			BeforeProcessingInitializeOnLoad (56ms)
+			ProcessInitializeOnLoadAttributes (84ms)
+			ProcessInitializeOnLoadMethodAttributes (60ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 63 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.ai.navigation@2.0.14 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.ai.navigation@134dd6a3b97b)
+    com.unity.burst@1.8.30 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.burst@2f3d916873ea)
+    com.unity.cinemachine@3.1.5 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.cinemachine@5342685532bb)
+    com.unity.collab-proxy@2.12.4 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.collab-proxy@0b1559bcd34e)
+    com.unity.collections@2.6.8 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.collections@84e8eb3fc12e)
+    com.unity.formats.fbx@5.1.6 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.formats.fbx@9f10493e557a)
+    com.unity.ide.rider@3.0.40 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.ide.rider@e4950c6d131b)
+    com.unity.ide.visualstudio@2.0.26 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.ide.visualstudio@a99d56dec63f)
+    com.unity.inputsystem@1.20.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.inputsystem@7a4e1a2a8194)
+    com.unity.mathematics@1.3.3 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.mathematics@19a9377c4ffa)
+    com.unity.test-framework.performance@3.5.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.test-framework.performance@8b56083ec0f0)
+    com.unity.timeline@1.8.12 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.timeline@8cd8509afae5)
+    com.unity.visualscripting@1.9.12 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.visualscripting@4edfcc09512f)
+    com.autodesk.fbx@5.1.3 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.autodesk.fbx@90432ec06ab5)
+    com.unity.nuget.mono-cecil@1.11.6 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.splines@2.9.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.splines@e6e1d5900acc)
+    com.unity.searcher@4.9.4 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.searcher@d45a78918735)
+    com.unity.settings-manager@2.1.1 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.settings-manager@0b8638c5ce86)
+  Built-in packages:
+    com.unity.multiplayer.center@1.0.1 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.multiplayer.center@f01f4ba8d00a)
+    com.unity.render-pipelines.universal@17.3.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.render-pipelines.universal@8aa8d736cba6)
+    com.unity.test-framework@1.6.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.test-framework@bd7f943e9647)
+    com.unity.ugui@2.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.ugui@e20f1880fa04)
+    com.unity.modules.accessibility@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.accessibility)
+    com.unity.modules.adaptiveperformance@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.adaptiveperformance)
+    com.unity.modules.ai@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.physics2d)
+    com.unity.modules.screencapture@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.screencapture)
+    com.unity.modules.subsystems@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.subsystems)
+    com.unity.modules.terrain@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.terrainphysics)
+    com.unity.modules.tilemap@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.tilemap)
+    com.unity.modules.ui@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vectorgraphics@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.vectorgraphics)
+    com.unity.modules.vehicles@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.video)
+    com.unity.modules.vr@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.vr)
+    com.unity.modules.wind@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.xr)
+    com.unity.modules.hierarchycore@1.0.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.modules.hierarchycore)
+    com.unity.ext.nunit@2.0.5 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.ext.nunit@d8c07649098d)
+    com.unity.render-pipelines.core@17.3.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.render-pipelines.core@c67c01575725)
+    com.unity.shadergraph@17.3.0 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.shadergraph@aa8306cf39d6)
+    com.unity.render-pipelines.universal-config@17.0.3 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/com.unity.render-pipelines.universal-config@8dc1aab4af1d)
+  Git packages:
+    net.gree.unity-webview@https://github.com/gree/unity-webview.git?path=/dist/package-nofragment#356e9422e98af02d29771ccf622df7b785b16395 (location: /private/tmp/franklin-copman-rig-stage.NjhoFr/Library/PackageCache/net.gree.unity-webview@3a56624b5178)
+[Subsystems] No new subsystems found in resolved package list.
+[Package Manager] Done registering packages in 0.01 seconds
+Assembly reference Packages/com.unity.cinemachine/Editor/Samples/ExposeHDRPInternals/HDRP-Editor-ref.asmref has no target assembly definition
+Assembly reference Packages/com.unity.cinemachine/Editor/Samples/ExposeHDRPInternals/HDRP-Editor-ref.asmref has no target assembly definition
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://unix:/tmp/ilpp.sock-08b194054c359d50f5aa24d8a0ec38c7
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Content root path: /private/tmp/franklin-copman-rig-stage.NjhoFr/
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 27.7377ms
+Starting: /Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/BuildPipeline/bee_backend --ipc --defer-dag-verification --dagfile="Library/Bee/200b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: /private/tmp/franklin-copman-rig-stage.NjhoFr
+DisplayProgressbar: Compiling Scripts
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly unityeditor.ios.extensions.xcode has duplicate hint path. Ignoring "/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/PlaybackEngines/MacStandaloneSupport/UnityEditor.iOS.Extensions.Xcode.dll" in favor of "/Applications/Unity/Hub/Editor/6000.3.21f1/PlaybackEngines/iOSSupport/UnityEditor.iOS.Extensions.Xcode.dll"
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.runtime.interopservices.windowsruntime has duplicate hint path. Ignoring "/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/UnityReferenceAssemblies/unity-4.8-api/Facades/System.Runtime.InteropServices.WindowsRuntime.dll" in favor of "/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/NetStandard/Extensions/2.0.0/System.Runtime.InteropServices.WindowsRuntime.dll"
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.componentmodel.composition has duplicate hint path. Ignoring "/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/UnityReferenceAssemblies/unity-4.8-api/System.ComponentModel.Composition.dll" in favor of "/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/NetStandard/compat/2.1.0/shims/netfx/System.ComponentModel.Composition.dll"
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Burst.Cecil, Version=0.11.6.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.burst@2f3d916873ea/Unity.Burst.CodeGen/Unity.Burst.Cecil.dll
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Mono.Cecil, Version=0.11.5.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.nuget.mono-cecil@ecb9724e46ff/Mono.Cecil.dll
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc - - 200 - application/grpc 16.6759ms
+ExitCode: 0 Duration: 0s360ms
+[697/911    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+*** Tundra build success (0.34 seconds), 1 items updated, 911 evaluated
+AssetDatabase: script compilation time: 0.827317s
+Begin MonoManager ReloadAssembly
+Total cache size 234670052
+Total cache size after purge 234670052, took 00:00:00.1331455
+- Loaded All Assemblies, in  0.569 seconds
+'Packages/com.unity.cinemachine/Editor/Editors/CinemachineVirtualCameraBaseEditor.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+'Packages/com.unity.cinemachine/Editor/Obsolete/CinemachineVirtualCameraBaseEditor.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+Refreshing native plugins compatible for Editor in 6.39 ms, found 4 plugins.
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+Assembly reference Packages/com.unity.cinemachine/Editor/Samples/ExposeHDRPInternals/HDRP-Editor-ref.asmref has no target assembly definition
+Refreshing native plugins compatible for Editor in 1.00 ms, found 4 plugins.
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  2.332 seconds
+Domain Reload Profiling: 2901ms
+	BeginReloadAssembly (140ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (42ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (33ms)
+	RebuildCommonClasses (26ms)
+	RebuildNativeTypeToScriptingClass (10ms)
+	initialDomainReloadingComplete (15ms)
+	LoadAllAssembliesAndSetupDomain (377ms)
+		LoadAssemblies (231ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (190ms)
+			TypeCache.Refresh (138ms)
+				TypeCache.ScanAssembly (125ms)
+			BuildScriptInfoCaches (42ms)
+			ResolveRequiredComponents (8ms)
+	FinalizeReload (2332ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (2182ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (26ms)
+			SetLoadedEditorAssemblies (3ms)
+			BeforeProcessingInitializeOnLoad (107ms)
+			ProcessInitializeOnLoadAttributes (1999ms)
+			ProcessInitializeOnLoadMethodAttributes (46ms)
+			AfterProcessingInitializeOnLoad (1ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (10ms)
+Start importing Assets/Character/CopMan/Rigged/CopMan_Rigged.fbx using Guid(d74f183571912403da26436ccf442e58) (FBXImporter) -> (artifact id: 'e181697fbab008100e83c40d616b8261') in 0.105965125 seconds
+Start importing Assets/Character/CopMan/CopMan.prefab using Guid(7f6664276b3ac4e76939228191dfcc30) (PrefabImporter) -> (artifact id: '4d85e295624f4cdcfe7d5a475c80763e') in 0.041486625 seconds
+Refreshing native plugins compatible for Editor in 1.21 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=6fcb6f21c403946b6a28a8ca26de25f0): Total: 5.089 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=2 (actual=2, local cache=0, cache server=0)
+		Asset DB Process Time: managed=87 ms, native=3181 ms
+		Asset DB Callback time: managed=366 ms, native=13 ms
+		Scripting: domain reloads=1, domain reload time=569 ms, compile time=830 ms, other=39 ms
+		Project Asset Count: scripts=1415, non-scripts=2465
+		Asset File Changes: new=0, changed=1, moved=0, deleted=0
+		Scan Filter Count: 1
+	InvokeCustomDependenciesCallbacks: 0.003ms
+	InvokePackagesCallback: 8.911ms
+	ApplyChangesToAssetFolders: 0.287ms
+	Scan: 495.346ms
+	OnSourceAssetsModified: 0.630ms
+	CategorizeAssetsWithTransientArtifact: 54.612ms
+	ProcessAssetsWithTransientArtifactChanges: 50.057ms
+	CategorizeAssets: 70.147ms
+	ImportOutOfDateAssets: 2495.696ms (1513.718ms without children)
+		ImportManagerImport: 150.607ms (1.253ms without children)
+			ImportInProcess: 149.341ms
+			UpdateCategorizedAssets: 0.013ms
+		CompileScripts: 830.282ms
+		ReloadNativeAssets: 0.000ms
+		UnloadImportedAssets: 0.200ms
+		ReloadImportedAssets: 0.000ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.582ms
+		InitializingProgressBar: 0.006ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.300ms
+	PostProcessAllAssets: 369.197ms
+	Hotreload: 2.388ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.000ms
+	UnloadStreamsBegin: 0.926ms
+	PersistCurrentRevisions: 0.188ms
+	UnloadStreamsEnd: 0.001ms
+	GenerateScriptTypeHashes: 8.675ms
+	Untracked: 1540.380ms
+
+Application.AssetDatabase Initial Refresh End
+Scanning for USB devices : 0.046ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-franklin-copman-rig-stage.NjhoFr
+Unloading 227 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 7140 unused Assets / (5.4 MB). Loaded Objects now: 7864.
+Memory consumption went from 252.1 MB to 246.7 MB.
+Total: 9.717459 ms (FindLiveObjects: 0.367958 ms CreateObjectMapping: 0.198000 ms MarkObjects: 5.914667 ms  DeleteObjects: 3.236250 ms)
+
+Start importing Assets/Donor/franklin_1_fixed.fbx using Guid(4fbe2a33571f34841b4b1d16a2941e27) (FBXImporter) -> (artifact id: '347363d7596b335cb341d13d94e6667b') in 0.030774917 seconds
+Refreshing native plugins compatible for Editor in 2.08 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=2a994e7cc3d0d4bb1b096cb07d7544bc): Total: 0.078 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+ModelImporter.maxBonesPerVertex is ignored unless ModelImporter.skinWeights is set to ModelImporterSkinWeights.Custom.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:LogWarning (object)
+UnityEditor.ModelImporter:set_maxBonesPerVertex (int) (at /Users/bokken/build/output/unity/unity/Modules/AssetPipelineEditor/Public/ModelImporting/ModelImporter.bindings.cs:775)
+CopManRigBuilder:ConfigureRiggedModelImporter () (at Assets/Editor/CopManRigBuilder.cs:157)
+CopManRigBuilder:Build () (at Assets/Editor/CopManRigBuilder.cs:65)
+CopManRigBuilder:BuildAndValidate () (at Assets/Editor/CopManRigBuilder.cs:44)
+
+(Filename: /Users/bokken/build/output/unity/unity/Modules/AssetPipelineEditor/Public/ModelImporting/ModelImporter.bindings.cs Line: 775)
+
+ModelImporter.minBoneWeight is ignored unless ModelImporter.skinWeights is set to ModelImporterSkinWeights.Custom.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:LogWarning (object)
+UnityEditor.ModelImporter:set_minBoneWeight (single) (at /Users/bokken/build/output/unity/unity/Modules/AssetPipelineEditor/Public/ModelImporting/ModelImporter.bindings.cs:791)
+CopManRigBuilder:ConfigureRiggedModelImporter () (at Assets/Editor/CopManRigBuilder.cs:158)
+CopManRigBuilder:Build () (at Assets/Editor/CopManRigBuilder.cs:65)
+CopManRigBuilder:BuildAndValidate () (at Assets/Editor/CopManRigBuilder.cs:44)
+
+(Filename: /Users/bokken/build/output/unity/unity/Modules/AssetPipelineEditor/Public/ModelImporting/ModelImporter.bindings.cs Line: 791)
+
+Start importing Assets/Character/CopMan/Rigged/CopMan_Rigged.fbx using Guid(d74f183571912403da26436ccf442e58) (FBXImporter) -> (artifact id: 'e181697fbab008100e83c40d616b8261') in 0.030312208 seconds
+Refreshing native plugins compatible for Editor in 1.15 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=a464176e3d7534ce1adea49653585577): Total: 0.039 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Asset Pipeline Refresh (id=5453d624708314a0ca809ef93f71772d): Total: 0.004 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Curl error 35: Recv failure: Connection reset by peer
+Asset Pipeline Refresh (id=34f3a141cfcc944d487eafadd6723d4d): Total: 0.086 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+COPMAN_RIG_QA_SUCCESS avatar=CopMan_RiggedAvatar bones=68 vertices=8646 tris=5861 poseDelta=0.116794 y=180.0
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+CopManRigBuilder:Build () (at Assets/Editor/CopManRigBuilder.cs:132)
+CopManRigBuilder:BuildAndValidate () (at Assets/Editor/CopManRigBuilder.cs:44)
+
+(Filename: Assets/Editor/CopManRigBuilder.cs Line: 132)
+
+Thread 0x16dcab000 may have been prematurely finalized
+Batchmode quit successfully invoked - shutting down!
+Killing ADB server in 0.047298 seconds.
+Thread 0x16dd37000 may have been prematurely finalized
+The command could not be loaded, possibly because:
+  * You intended to execute a .NET application:
+      The application 'build-server' does not exist.
+  * You intended to execute a .NET SDK command:
+      No .NET SDKs were found.
+
+Download a .NET SDK:
+https://aka.ms/dotnet-download
+
+Learn about SDK resolution:
+https://aka.ms/dotnet/sdk-not-found
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+[Physics::Module] Cleanup current backend.
+[Physics::Module] Id: 0xf2b8ea05
+[Licensing::IpcConnector] LicenseClient-diepquocphong-6000.3.21-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-diepquocphong-6000.3.21 channel disconnected successfully.
+Thread 0x16eb6f000 may have been prematurely finalized
+Thread 0x16ec87000 may have been prematurely finalized
+Thread 0x16ee2b000 may have been prematurely finalized
+Thread 0x16ebfb000 may have been prematurely finalized
+Thread 0x16ed9f000 may have been prematurely finalized
+Thread 0x16ef43000 may have been prematurely finalized
+Thread 0x16eeb7000 may have been prematurely finalized
+Thread 0x16ed13000 may have been prematurely finalized
+AcceleratorClientConnectionCallback - disconnected - :0
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application is shutting down...
+Cleanup mono
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      ALC ILPP context 1 is unloading
+debugger-agent: Unable to listen on 43
+[usbmuxd] Stop listen thread
+[usbmuxd] Error: 
+[usbmuxd] Listen thread exiting
+Exiting batchmode successfully now!
+[Package Manager] Server process was shutdown

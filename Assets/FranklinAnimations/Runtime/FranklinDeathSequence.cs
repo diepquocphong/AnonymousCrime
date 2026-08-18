@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using FranklinGame.AirSystem;
 using FranklinGame.Animations;
 using FranklinGame.UI;
 using GameCreator.Runtime.Characters;
@@ -337,8 +338,8 @@ namespace FranklinGame.Combat
             int deathVersion = this.m_DeathVersion;
             try
             {
-                bool releasedBikePose = this.ReleaseBikeRiderPoseForDeath();
-                if (releasedBikePose)
+                bool releasedVehiclePose = this.ReleaseVehicleRiderPoseForDeath();
+                if (releasedVehiclePose)
                 {
                     // BikeEntry removes its state and IK immediately. Let GC2's
                     // playable graph evaluate once before RagdollDefault disables
@@ -370,13 +371,15 @@ namespace FranklinGame.Combat
             }
         }
 
-        private bool ReleaseBikeRiderPoseForDeath()
+        private bool ReleaseVehicleRiderPoseForDeath()
         {
             FranklinVehicleInteractionManager vehicleManager =
                 this.m_Character.GetComponentInChildren<
                     FranklinVehicleInteractionManager
                 >(true);
-            if (vehicleManager != null && vehicleManager.ReleaseActiveBikeForDeath())
+            if (vehicleManager != null &&
+                (vehicleManager.ReleaseActiveBikeForDeath() ||
+                 vehicleManager.ReleaseActiveHelicopterForDeath()))
             {
                 this.m_Character.GetComponentInChildren<FranklinAnimationBridge>(true)
                     ?.RestoreModelRootBaseline();
@@ -395,6 +398,25 @@ namespace FranklinGame.Combat
                 if (bikeEntry == null ||
                     bikeEntry.SeatedCharacter != this.m_Character ||
                     !bikeEntry.ReleaseForCrash(this.m_Character))
+                {
+                    continue;
+                }
+
+                this.m_Character.GetComponentInChildren<FranklinAnimationBridge>(true)
+                    ?.RestoreModelRootBaseline();
+                return true;
+            }
+
+            // Helicopters are already registered without a scene search. This
+            // fallback covers a lost manager reference while guaranteeing the
+            // Character is detached before GC2 snapshots its ragdoll pose.
+            var helicopters = HelicopterFlightController.Instances;
+            for (int index = 0; index < helicopters.Count; ++index)
+            {
+                HelicopterFlightController helicopter = helicopters[index];
+                CarEntry entry = helicopter != null ? helicopter.Entry : null;
+                if (entry == null ||
+                    !entry.ReleaseDriverForDeath(this.m_Character))
                 {
                     continue;
                 }

@@ -117,6 +117,7 @@ namespace FranklinGame.Vehicles
             m_DestroyedFireLoopVolume = 0.8f;
             CacheLoopParticleSystems();
             ApplyMobileParticleBudgets();
+            ConfigureExplosionParticleSleep();
         }
 
         private void Awake()
@@ -124,6 +125,7 @@ namespace FranklinGame.Vehicles
             if (m_Health == null) m_Health = GetComponent<FranklinBikeHealth>();
             CacheLoopParticleSystems();
             ApplyMobileParticleBudgets();
+            ConfigureExplosionParticleSleep();
         }
 
         private void OnEnable()
@@ -165,6 +167,7 @@ namespace FranklinGame.Vehicles
             m_ParticleWind?.SetWindActive(false);
             StopLoopAudio(m_SmokeAudioSource);
             StopLoopAudio(m_FireAudioSource);
+            SleepExplosionParticles(true);
         }
 
         private void OnHealthChanged(float current, float maximum)
@@ -285,7 +288,18 @@ namespace FranklinGame.Vehicles
             TriggerExplosion();
         }
 
-        private void TriggerExplosion()
+        /// <summary>
+        /// Immediately enters the terminal Bike explosion pipeline. External
+        /// explosions can skip the Bike's local burst to avoid duplicate VFX/audio.
+        /// </summary>
+        public void TriggerImmediateExplosion(bool playOneShotEffects = true)
+        {
+            CancelPendingExplosion();
+            StopCriticalHealthDrain();
+            TriggerExplosion(playOneShotEffects);
+        }
+
+        private void TriggerExplosion(bool playOneShotEffects = true)
         {
             if (m_HasExploded) return;
             m_HasExploded = true;
@@ -304,17 +318,23 @@ namespace FranklinGame.Vehicles
             RefreshLoopState();
             StartDestroyedEffectsTimeout();
 
-            if (m_ExplosionAudioSource != null && m_ExplosionClip != null)
+            if (playOneShotEffects && m_ExplosionAudioSource != null &&
+                m_ExplosionClip != null)
             {
                 m_ExplosionAudioSource.Stop();
                 m_ExplosionAudioSource.PlayOneShot(m_ExplosionClip, 1f);
             }
-            for (int i = 0; i < m_ExplosionParticles.Length; ++i)
+            if (playOneShotEffects)
             {
-                ParticleSystem particles = m_ExplosionParticles[i];
-                if (particles == null) continue;
-                particles.Clear(true);
-                particles.Play(true);
+                for (int i = 0; i < m_ExplosionParticles.Length; ++i)
+                {
+                    ParticleSystem particles = m_ExplosionParticles[i];
+                    if (particles == null) continue;
+                    if (!particles.gameObject.activeSelf)
+                        particles.gameObject.SetActive(true);
+                    particles.Clear(true);
+                    particles.Play(true);
+                }
             }
             m_Destruction?.TriggerDestruction();
         }
@@ -435,6 +455,43 @@ namespace FranklinGame.Vehicles
             ConfigureMobileParticles(m_DestroyedFireParticles, 0);
             // Three explosion systems share a bounded ~42-particle terminal burst.
             ConfigureMobileParticles(m_ExplosionParticles, 14);
+        }
+
+        private void ConfigureExplosionParticleSleep()
+        {
+            if (m_ExplosionParticles == null) return;
+            for (int i = 0; i < m_ExplosionParticles.Length; ++i)
+            {
+                ParticleSystem particles = m_ExplosionParticles[i];
+                if (particles == null) continue;
+                ParticleSystem.MainModule main = particles.main;
+                main.playOnAwake = false;
+                main.loop = false;
+                main.stopAction = ParticleSystemStopAction.Disable;
+                if (!particles.isPlaying && particles.particleCount == 0 &&
+                    particles.gameObject != gameObject)
+                {
+                    particles.gameObject.SetActive(false);
+                }
+            }
+        }
+
+        private void SleepExplosionParticles(bool clear)
+        {
+            if (m_ExplosionParticles == null) return;
+            for (int i = 0; i < m_ExplosionParticles.Length; ++i)
+            {
+                ParticleSystem particles = m_ExplosionParticles[i];
+                if (particles == null) continue;
+                particles.Stop(
+                    true,
+                    clear
+                        ? ParticleSystemStopBehavior.StopEmittingAndClear
+                        : ParticleSystemStopBehavior.StopEmitting
+                );
+                if (clear && particles.gameObject != gameObject)
+                    particles.gameObject.SetActive(false);
+            }
         }
 
         private static void ConfigureMobileParticles(

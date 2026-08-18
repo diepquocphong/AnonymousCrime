@@ -28,8 +28,8 @@ Vehicle Integration/
 │   ├── Car/
 │   │   ├── Runtime/         # Enter/exit, Sim-Cade adapter, health, fuel, damage
 │   │   ├── Editor/          # Installer, validator và Scene preview
-│   │   ├── Prefabs/         # Car.prefab, UI prefab và VFX prefab
-│   │   ├── Models/          # Car.FBX
+│   │   ├── Prefabs/         # Car, Cyclone, 15 profile AllStar, UI và VFX prefab
+│   │   ├── Models/          # Mỗi profile Car nằm trong thư mục cùng tên
 │   │   ├── Materials/       # Vehicle materials và VFX materials
 │   │   ├── Textures/        # UI generated/source và VFX textures
 │   │   ├── Animations/      # EntryExit, Carjacking và clip Generated
@@ -64,10 +64,27 @@ Vehicle Integration/
 | Cần tìm | Đường dẫn chuẩn |
 |---|---|
 | Prefab Car chính | [`Vehicles/Car/Prefabs/Car.prefab`](Vehicles/Car/Prefabs/Car.prefab) |
+| Prefab Cyclone 2 cửa | [`Vehicles/Car/Prefabs/Cyclone.prefab`](Vehicles/Car/Prefabs/Cyclone.prefab) |
+| Prefab Bezerker 4 cửa | [`Vehicles/Car/Prefabs/Bezerker.prefab`](Vehicles/Car/Prefabs/Bezerker.prefab) |
+| Prefab Boomslang 2 cửa | [`Vehicles/Car/Prefabs/Boomslang.prefab`](Vehicles/Car/Prefabs/Boomslang.prefab) |
+| Prefab DZ 2 cửa | [`Vehicles/Car/Prefabs/DZ.prefab`](Vehicles/Car/Prefabs/DZ.prefab) |
+| Prefab DZClassic 2 cửa | [`Vehicles/Car/Prefabs/DZClassic.prefab`](Vehicles/Car/Prefabs/DZClassic.prefab) |
+| Prefab Fastback 2 cửa | [`Vehicles/Car/Prefabs/Fastback.prefab`](Vehicles/Car/Prefabs/Fastback.prefab) |
+| Prefab Goat 2 cửa | [`Vehicles/Car/Prefabs/Goat.prefab`](Vehicles/Car/Prefabs/Goat.prefab) |
+| Prefab GT 2 cửa | [`Vehicles/Car/Prefabs/GT.prefab`](Vehicles/Car/Prefabs/GT.prefab) |
+| Prefab LuxSport 2 cửa | [`Vehicles/Car/Prefabs/LuxSport.prefab`](Vehicles/Car/Prefabs/LuxSport.prefab) |
+| Prefab Mako 2 cửa | [`Vehicles/Car/Prefabs/Mako.prefab`](Vehicles/Car/Prefabs/Mako.prefab) |
+| Prefab Matador 2 cửa | [`Vehicles/Car/Prefabs/Matador.prefab`](Vehicles/Car/Prefabs/Matador.prefab) |
+| Prefab Minari 2 cửa | [`Vehicles/Car/Prefabs/Minari.prefab`](Vehicles/Car/Prefabs/Minari.prefab) |
+| Prefab Palamino 2 cửa | [`Vehicles/Car/Prefabs/Palamino.prefab`](Vehicles/Car/Prefabs/Palamino.prefab) |
+| Prefab Pickup 2 cửa | [`Vehicles/Car/Prefabs/Pickup.prefab`](Vehicles/Car/Prefabs/Pickup.prefab) |
+| Prefab Stepvan 2 cửa trượt | [`Vehicles/Car/Prefabs/Stepvan.prefab`](Vehicles/Car/Prefabs/Stepvan.prefab) |
+| Prefab Van 2 cửa | [`Vehicles/Car/Prefabs/Van.prefab`](Vehicles/Car/Prefabs/Van.prefab) |
 | Prefab UI Car | [`Vehicles/Car/Prefabs/UI/`](Vehicles/Car/Prefabs/UI/) |
 | Prefab VFX Car | [`Vehicles/Car/Prefabs/VFX/`](Vehicles/Car/Prefabs/VFX/) |
 | Model Car | [`Vehicles/Car/Models/`](Vehicles/Car/Models/) |
 | Material thân xe | [`Vehicles/Car/Materials/Vehicle/`](Vehicles/Car/Materials/Vehicle/) |
+| Material kính Car dùng chung | [`Vehicles/Car/Materials/Vehicle/Shared/GlassWindow.mat`](Vehicles/Car/Materials/Vehicle/Shared/GlassWindow.mat) |
 | Material đèn dùng chung | [`Shared/Materials/VehicleLights/`](Shared/Materials/VehicleLights/) |
 | Material VFX | [`Vehicles/Car/Materials/VFX/`](Vehicles/Car/Materials/VFX/) |
 | Texture UI runtime | [`Vehicles/Car/Textures/UI/Generated/`](Vehicles/Car/Textures/UI/Generated/) |
@@ -120,7 +137,7 @@ hoặc GC2 dùng chung, nên không được đưa vào domain Car:
 
 | Script | Đường dẫn | Trách nhiệm |
 |---|---|---|
-| `CarEntry` | [`Vehicles/Car/Runtime/CarEntry.cs`](Vehicles/Car/Runtime/CarEntry.cs) | Chủ sở hữu enter/exit, bốn cửa/ghế, door animation, mirror entry và speed-aware bailout. |
+| `CarEntry` | [`Vehicles/Car/Runtime/CarEntry.cs`](Vehicles/Car/Runtime/CarEntry.cs) | Chủ sở hữu enter/exit cho profile hai hoặc bốn cửa, door animation, mirror entry và speed-aware bailout. |
 | `SimcadeCarDriver` | [`Vehicles/Car/Runtime/SimcadeCarDriver.cs`](Vehicles/Car/Runtime/SimcadeCarDriver.cs) | Adapter input, camera, mobile control, speed và presentation cho Sim-Cade. |
 | `SimcadeCarBrakeLights` | [`Vehicles/Car/Runtime/SimcadeCarBrakeLights.cs`](Vehicles/Car/Runtime/SimcadeCarBrakeLights.cs) | Điều khiển đèn hậu/phanh/số lùi từ input và vận tốc thật, theo kiến trúc Bike nhưng dùng hai mesh đèn hậu sẵn có của Car. |
 | `SimcadeCarHorn` | [`Vehicles/Car/Runtime/SimcadeCarHorn.cs`](Vehicles/Car/Runtime/SimcadeCarHorn.cs) | Còi Car dạng hold, dùng một AudioSource 3D mono và tự ngủ hoàn toàn khi im lặng. |
@@ -128,10 +145,11 @@ hoặc GC2 dùng chung, nên không được đưa vào domain Car:
 | `SimcadeCarHealth` | [`Vehicles/Car/Runtime/SimcadeCarHealth.cs`](Vehicles/Car/Runtime/SimcadeCarHealth.cs) | Nối impact đã phân loại với GC2 `health-attribute-id`; API damage/repair. |
 | `SimcadeCarFuel` | [`Vehicles/Car/Runtime/SimcadeCarFuel.cs`](Vehicles/Car/Runtime/SimcadeCarFuel.cs) | Nối GC2 `fuel-attribute-id`, hao xăng theo garanti/ga/tốc độ và khóa ga/engine khi cạn. |
 | `SimcadeCarDamageEffects` | [`Vehicles/Car/Runtime/SimcadeCarDamageEffects.cs`](Vehicles/Car/Runtime/SimcadeCarDamageEffects.cs) | Event-driven khói dưới 32% máu, explosion một lần và lửa khi xe hết máu. |
-| `SimcadeCarDestruction` | [`Vehicles/Car/Runtime/SimcadeCarDestruction.cs`](Vehicles/Car/Runtime/SimcadeCarDestruction.cs) | Phá hủy terminal: cháy đen riêng instance, văng bốn bánh, cưỡng chế Player ragdoll/cháy/Traits về 0 và khóa UI/điều khiển. |
+| `SimcadeCarDestruction` | [`Vehicles/Car/Runtime/SimcadeCarDestruction.cs`](Vehicles/Car/Runtime/SimcadeCarDestruction.cs) | Phá hủy terminal: cháy đen riêng instance, văng bốn bánh, hất nhẹ thân xe, cưỡng chế Player ragdoll/cháy/Traits về 0 và khóa UI/điều khiển. |
 | `SimcadeCarParticleWind` | [`Vehicles/Car/Runtime/SimcadeCarParticleWind.cs`](Vehicles/Car/Runtime/SimcadeCarParticleWind.cs) | Lực gió world-space cho smoke/fire, cộng airflow ngược vận tốc xe và chỉ cập nhật 4 Hz khi VFX gần camera. |
 | `SimcadeDetachedWheelCleanup` | [`Vehicles/Car/Runtime/SimcadeDetachedWheelCleanup.cs`](Vehicles/Car/Runtime/SimcadeDetachedWheelCleanup.cs) | Vòng đời debris bánh: văng, nằm phẳng theo ground, khóa physics 5 giây, chìm và tự dọn. |
 | `SimcadeCarImpactAudio` | [`Vehicles/Car/Runtime/SimcadeCarImpactAudio.cs`](Vehicles/Car/Runtime/SimcadeCarImpactAudio.cs) | Phân loại va chạm, audio, pooled spark/debris và phát event impact dùng chung. |
+| `SimcadeCarCharacterImpact` | [`Vehicles/Car/Runtime/SimcadeCarCharacterImpact.cs`](Vehicles/Car/Runtime/SimcadeCarCharacterImpact.cs) | Tông GC2 Character đủ nhanh sẽ gọi `RagdollDefault`, truyền vận tốc hất giới hạn và chỉ tự recover ragdoll do shared Car/explosion lease sở hữu. |
 | `VehicleImpactIgnored` | [`Vehicles/Car/Runtime/VehicleImpactIgnored.cs`](Vehicles/Car/Runtime/VehicleImpactIgnored.cs) | Marker cho physics prop nhẹ như shell: vẫn va chạm/phát tiếng riêng nhưng không đi vào damage, deformation, crash VFX hoặc ragdoll của Car/Bike. |
 | `SimcadeCarMetalDebris` | [`Vehicles/Car/Runtime/SimcadeCarMetalDebris.cs`](Vehicles/Car/Runtime/SimcadeCarMetalDebris.cs) | Tái sử dụng event impact để bắn mảnh kim loại lớn hơn Bike bằng một ParticleSystem pool tối ưu mobile. |
 | `SimcadeCarDoorDamage` | [`Vehicles/Car/Runtime/SimcadeCarDoorDamage.cs`](Vehicles/Car/Runtime/SimcadeCarDoorDamage.cs) | Tông mạnh tại từng cửa nhả chốt thành bản lề vật lý; kính đi cùng đúng cửa, còn cú cực mạnh hoặc va chạm trực tiếp tiếp theo mới làm cửa rời. |
@@ -162,7 +180,10 @@ hoặc GC2 dùng chung, nên không được đưa vào domain Car:
 | `CharacterIKSetter` | [`../Arcade Bike Physics Pro/Scripts/Integration/Rider/CharacterIKSetter.cs`](../Arcade%20Bike%20Physics%20Pro/Scripts/Integration/Rider/CharacterIKSetter.cs) | Cầu nối IK humanoid dùng chung. |
 | `FranklinVehicleInteractionManager` | [`../../FranklinAnimations/Runtime/FranklinVehicleInteractionManager.cs`](../../FranklinAnimations/Runtime/FranklinVehicleInteractionManager.cs) | Phát hiện vehicle gần Player và gọi API enter/exit. |
 | `FranklinMobileHud` | [`../../FranklinAnimations/Runtime/FranklinMobileHud.cs`](../../FranklinAnimations/Runtime/FranklinMobileHud.cs) | HUD điều khiển Player/Car/Bike dùng chung; không chứa logic riêng của Car dashboard. |
+| `FranklinPlayerRagdollGroundGuard` | [`../../FranklinAnimations/Runtime/FranklinPlayerRagdollGroundGuard.cs`](../../FranklinAnimations/Runtime/FranklinPlayerRagdollGroundGuard.cs) | Profile mobile của Player: core CCD chính xác, limb speculative và chống pelvis xuyên static ground trong lúc ragdoll. |
 | `FranklinRagdollGroundGuard` | [`../../FranklinAnimations/Runtime/FranklinRagdollGroundGuard.cs`](../../FranklinAnimations/Runtime/FranklinRagdollGroundGuard.cs) | Gia cố CCD/solver cho xương ragdoll GC2 và đưa pelvis trở lại trên static ground nếu solver thực sự xuyên mặt nền. |
+| `FranklinExplosionRagdollImpulse` | [`../../ShooterSystemGC2/Runtime/FranklinExplosionRagdollImpulse.cs`](../../ShooterSystemGC2/Runtime/FranklinExplosionRagdollImpulse.cs) | Lease ragdoll dùng chung Car/explosion: gộp velocity/deadline, recovery có blocker check, proxy bone→Character và cleanup an toàn khi pool/despawn. |
+| GC2 `Ragdoll` | [`../../Plugins/GameCreator/Packages/Core/Runtime/Characters/Features/Ragdoll/Ragdoll.cs`](../../Plugins/GameCreator/Packages/Core/Runtime/Characters/Features/Ragdoll/Ragdoll.cs) | API gốc `StartRagdoll`/`StartRecover`; bổ sung `StopRagdollImmediate()` để tắt bone physics và reparent model an toàn khi pool/despawn mà không chạy animation đứng dậy. |
 | `FranklinBikeImpactInstaller` | [`../Arcade Bike Physics Pro/Editor/Installation/FranklinBikeImpactInstaller.cs`](../Arcade%20Bike%20Physics%20Pro/Editor/Installation/FranklinBikeImpactInstaller.cs) | Bike tái sử dụng impact SFX/FX nhưng không phụ thuộc runtime dashboard Car. |
 | `FranklinBikeHealth` | [`../Arcade Bike Physics Pro/Scripts/Integration/Damage/FranklinBikeHealth.cs`](../Arcade%20Bike%20Physics%20Pro/Scripts/Integration/Damage/FranklinBikeHealth.cs) | Nối impact Bike đã qua phân loại/cooldown với GC2 `health-attribute-id`; API damage/repair và khóa ga/lái ở 0 HP. |
 | `FranklinFuelStation` | [`Stations/Fuel/Runtime/FranklinFuelStation.cs`](Stations/Fuel/Runtime/FranklinFuelStation.cs) | Tạo trigger tại GC2 Marker, hiển thị nút hold mobile và thực hiện giao dịch xăng cho Car/Bike. |
@@ -197,6 +218,8 @@ flowchart LR
     FuelGauge --> Dashboard
     Impact["SimcadeCarImpactAudio"] --> Audio["Light / heavy impact SFX"]
     Impact --> FX["Pooled spark + debris FX"]
+    Impact --> CharacterHit["Raw filtered Character contact"]
+    CharacterHit --> GC2Ragdoll["GC2 RagdollDefault + bounded velocity"]
     Impact --> Health["SimcadeCarHealth"]
     Impact --> Dent["Edy radius-based render-mesh dent"]
     Impact --> DoorDamage["Nearest-door latch / hinge damage"]
@@ -222,6 +245,7 @@ flowchart LR
     Destruction --> Wheels["4 detached wheel rigidbodies"]
     Wheels --> WheelCleanup["Flat settle -> physics off 5s -> sink"]
     Destruction --> Eject["Player ejection + permanent ragdoll"]
+    Destruction --> BodyKick["One-shot root lift + bounded pitch/roll"]
     Eject --> PlayerTraits["Player Traits hp = 0"]
     Eject --> Burn["Prebuilt Fire3 for 4 seconds"]
     Destruction --> HideUI["Car dashboard + all mobile controls hidden"]
@@ -283,6 +307,7 @@ Trạng thái đọc nhanh:
 |---|---|
 | `SetVehicleEnabled(bool state)` | Bật/tắt điều khiển xe, camera và presentation. |
 | `SetVehicleEnabled(bool state, bool preserveMomentum)` | Tắt điều khiển nhưng tùy chọn giữ động lượng cho bailout. |
+| `bool SnapSpawnToGround()` | API pool/spawner gọi sau khi gán pose world cuối cùng; dùng bốn wheel authoring để đặt Car lên static ground rồi khóa pose đỗ. `Start` và pooled `OnEnable` đã tự gọi cùng luồng này. |
 | `FinalizeParkedPoseAfterKinematicTransition()` | API nội bộ `CarEntry` gọi sau cửa sổ kinematic của enter/exit ghế trước/sau; khóa lại ride height của xe đỗ để marker không chìm theo chassis. |
 | `SetPassengerPresentation(bool active)` | Giữ camera/UI phù hợp khi Player là hành khách. |
 | `SetDestroyed()` | Khóa vĩnh viễn input/controller/audio/dashboard của wreck; camera chỉ tắt ngay nếu không có destruction hold. |
@@ -431,9 +456,54 @@ không `Update`, allocation, tìm component hoặc tạo AudioClip runtime trên
 
 ### `SimcadeCarImpactAudio`
 
-Component tự phân loại va chạm nhẹ/nặng theo impulse, điều chỉnh âm lượng/pitch so với động cơ và phát VFX tia lửa–mảnh vụn bằng pool. `EventImpactAccepted(bool isHeavy, float severity)` được phát một lần sau cooldown để `SimcadeCarHealth` dùng lại kết quả. `EventImpactContactAccepted(Collision, bool, float)` chuyển cùng kết quả và contact point cho deformation ngay trong callback, không tính collision lần hai. API `Configure(...)` chỉ dành cho installer/authoring.
+Component tự phân loại va chạm nhẹ/nặng theo impulse, điều chỉnh âm lượng/pitch so với động cơ và phát VFX tia lửa–mảnh vụn bằng pool. `EventCollisionContact(Collision)` được phát đồng bộ sau bộ lọc prop nhẹ nhưng trước cấu hình/cooldown SFX; subscriber phải lấy dữ liệu ngay trong callback và không giữ `Collision`. `EventImpactAccepted(bool isHeavy, float severity)` được phát một lần sau cooldown để `SimcadeCarHealth` dùng lại kết quả. `EventImpactContactAccepted(Collision, bool, float)` chuyển cùng kết quả và contact point cho deformation ngay trong callback, không tính collision lần hai. API `Configure(...)` chỉ dành cho installer/authoring.
 
 Năm prefab vỏ đạn Shooter (`AK`, `Pistol`, `Shotgun`, `Minigun`, `Sniper`) có marker `VehicleImpactIgnored`. Bộ phân loại Car và lớp Bike kế thừa đều loại chúng trước khi tính impact; collider, Rigidbody và âm thanh rơi/nảy riêng của shell vẫn giữ nguyên, nhưng shell không thể làm móp mesh, trừ máu xe, phát crash VFX hay kích hoạt ragdoll.
+
+### `SimcadeCarCharacterImpact`
+
+Car và Cyclone dùng chung component event-only này. Nó nhận raw contact từ chính
+`SimcadeCarImpactAudio`, vì vậy cú tông Character không bị mất khi một collision
+âm thanh khác còn trong cooldown `0.16s`, đồng thời Car vẫn chỉ có một
+`OnCollisionEnter`. Target phải là GC2 `Character` còn sống, có
+`RagdollDefault`, không ngồi hoặc tham gia transition của chính Car đó, và Car
+không ở trạng thái destroyed. Người đi đường không liên quan vẫn là target hợp lệ
+khi một occupant khác đang exit; Player đang bị khóa điều khiển bởi một
+entry/exit/cutscene khác cũng không bị luồng mới giành quyền ragdoll.
+
+Ragdoll bắt đầu khi cả vận tốc tại contact của thân xe và vận tốc đóng theo hướng
+tới Character đạt `4.1667m/s` (xấp xỉ `15km/h`). Response tăng dần tới profile đầy
+đủ tại `13.89m/s` (`50km/h`): lực hất ngang `2.4–5.5m/s`, hất lên
+`0.35–0.8m/s`, tổng bị clamp `6m/s`. GC2 bật các Rigidbody xương đồng bộ, sau đó
+component truyền cùng vận tốc giới hạn cho toàn bộ xương để joint không bị giật
+rời. Character sống tự recover sau `2.25s`; nếu BoxCollider Car còn đè lên xương,
+recovery được kiểm tra lại ở `10Hz` và chỉ trì hoãn tối đa thêm `1.5s`. Car và
+explosion dùng cùng một lease/deadline nên vụ nổ đến sau sẽ gia hạn đúng ragdoll.
+Một ragdoll đã thuộc hệ khác có thể nhận thêm vận tốc hất đã clamp nhưng Car không
+giành quyền tự recover nó; Character chết cũng không bị dựng dậy. Cooldown `0.8s`
+trên chính Character ngăn multi-collider gọi lại phản ứng liên tục.
+
+Contact đã nhận là GC2 Character được consume trước nhánh impact kim loại, nên
+không phát spark/mảnh vỡ, không móp panel, làm hỏng cửa hoặc trừ health Car. Tính
+năng này chỉ điều khiển ragdoll; nó không tự trừ `hp` hay Armor của Character.
+Với Player, Shooter hủy ngay fire-hold/aim/reload, Object Direction và throwable camera,
+đóng weapon menu rồi ẩn Shooter controls/FPS trong toàn bộ thời gian GC2 ragdoll
+hoặc death. Sau recovery chỉ UI hợp lệ được hiện lại; thao tác fire cũ không tự
+tiếp tục và lựa chọn vũ khí/FPS đã lưu không bị xóa.
+
+`SimcadeCarCharacterImpact` không có `Update`, overlap/raycast hoặc
+`Physics.SyncTransforms`. Player và NPC được gắn sẵn shared lease; component tự
+tắt khi không có phản ứng, cache Rigidbody/collider theo Animator và chỉ bật
+`Update` trong thời gian ragdoll tạm. Trước mọi nguồn GC2 ragdoll, một proxy
+không-tick được gắn lên model để giữ liên kết về Character sau khi GC2 unparent
+Animator. Nhờ vậy cú tông đầu tiên sau Bike crash, bailout hoặc ragdoll thủ công
+vẫn resolve đúng; với Character đã chết, proxy vẫn consume contact khỏi pipeline
+kim loại nhưng không tạo lease/recovery mới. Explosion overlap dùng cùng proxy,
+nên vẫn trừ damage/gia hạn lease và không dán scorch decal lên xương. Khi pool,
+disable hoặc destroy trong ragdoll do lease sở hữu, guard dùng
+`Ragdoll.StopRagdollImmediate()` để tắt bone physics và reparent model. Nếu GC2 đã
+bắt đầu get-up, hierarchy/bone physics đã được phục hồi đồng bộ và CrossFade tự
+thoát khi Character inactive, không giữ task nền vô hạn.
 
 ### `SimcadeCarMetalDebris`
 
@@ -443,7 +513,25 @@ Component nghe trực tiếp `EventImpactContactAccepted` của `SimcadeCarImpac
 
 Component nhận lại chính `EventImpactContactAccepted`, chỉ tìm cửa trong bán kính `0.8m` quanh contact sau một cú va chạm nặng đã được chấp nhận. Severity mặc định `8` làm cửa nhả chốt, mở và dao động tự do bằng `HingeJoint`; cú va chạm đầu phải đạt mức thảm khốc `22` mới làm cửa rời ngay. Với cửa đã lỏng, impact Car tiếp theo phải đạt `16.5`, hoặc chính cánh cửa phải nhận một contact mới có normal speed `13m/s` và impulse/mass `8.5m/s` sau khoảng bảo vệ `0.45s`. Break force/torque bản lề được nâng lên `14500/12000`, tránh việc cửa vừa mở đã tự rơi do chạm nền hay do chính contact vừa nhả chốt.
 
-Bốn mesh kính `FLWin`, `FRWin`, `RLWin`, `RRWin` được bind một lần vào pivot cửa tương ứng trước khi cache renderer/collider. Vì vậy mở cửa, cửa lỏng và cửa rời đều mang kính đi cùng; không tạo Rigidbody, collider hay script riêng cho kính. Installer tổng cũng lưu bốn reference này cho các Car prefab cấu hình lại sau này.
+Mỗi mesh kính của **cửa đã cấu hình** được bind một lần vào đúng pivot trước khi
+cache renderer/collider. Sedan chính dùng `FLWin`, `FRWin`, `RLWin`, `RRWin`;
+Cyclone chỉ bind `WindowL` và `WindowR`. Vì vậy mở cửa, cửa lỏng và cửa rời đều
+mang đúng kính đi cùng mà không tạo Rigidbody, collider hay script riêng cho
+kính. `WindowBL`/`WindowBR` của Cyclone là kính quarter cố định trên thân xe,
+không phải cửa sau.
+
+Pickup và Van bind `WindowL/WindowR` và gương vào đúng cửa tương ứng.
+Stepvan bind riêng `WindowBL/WindowBR` vào hai cửa trượt; `WindowFL/FR`,
+`WindowL/R` và `MirrorL/R` vẫn cố định trên thân. Cửa Stepvan mở bằng
+local-position offset về đuôi xe theo `-Z`, không xoay pivot; cùng luồng pose này
+được dùng cho enter/exit, carjacking, bailout và phục hồi khi pool.
+
+Parent và local position/rotation/scale của từng kính cửa được cache đúng một
+lần. Trước khi cửa thành bản lề/rời và khi garage sửa, runtime áp lại anchor này;
+không có logic giữ kính chạy mỗi frame. Khi Car pooled/streamed bị tắt, cửa lỏng
+lưu pose tương đối với root rồi được rebase ở vị trí Car mới; cửa đã rời không bị
+hồi sinh tại world pose cũ. Điều này ngăn `HingeJoint` kéo cả cửa và kính vọt lên
+khi một instance được tái sử dụng.
 
 `RepairAllDoors()` trả tất cả cửa lỏng/rời về đúng parent và local pose đã cache
 khi `Awake`, khóa physics ngay rồi dọn `HingeJoint`, Rigidbody, BoxCollider và
@@ -461,6 +549,11 @@ Lý do không đổi sang MeshCollider: tài liệu Unity 6 xếp convex MeshCol
 Thuật toán cũ đã được thay bằng phần render-mesh deformation của `Assets/EVP5/Scripts/VehicleDamage.cs` trong Edy's Vehicle Physics 5.5.3 do chủ project cung cấp. Chỉ công thức `DeformMesh` được port: contact velocity nhân `0.02`, falloff tuyến tính trong bán kính, fracture ngẫu nhiên nhẹ, clamp tổng displacement, sau đó luôn `RecalculateNormals()` và `RecalculateBounds()`. Không import `EVP.VehicleController`, wheel/node damage, input, repair hotkey, camera, UI hay controller nào khác của package.
 
 Profile mobile giữ cảm giác móp của prefab `Sport Coupe` Edy: minimum relative velocity `2.5 m/s`, multiplier `1`, radius `0.5m`, max displacement `0.2m`; fracture ngẫu nhiên đặt `0` để bỏ `Random.onUnitSphere` theo từng vertex. Mỗi impact chỉ xử lý hai render panel gần contact nhất trong bán kính. Danh sách ứng viên vẫn gồm `FrontBumper`, `RearBumper`, hai `FrontFender`, cửa lái active `DoorFL (1)`, ba cửa còn lại, `RearSanoughDoor` và `MainBody`; `DoorFL` inactive không được dùng. Mesh chỉ clone khi lần đầu thực sự tham gia deformation, vertex buffer được tái sử dụng, giới hạn `12.000` vertices/panel và tối đa 8 impact trên một Car.
+
+Cyclone dùng profile low-poly riêng gồm `Cyclone3BodyDoorCut`, `DoorL` và
+`DoorR`; không thêm hai body variant inactive để lấp số panel, không deform
+kính/bánh và không dùng mesh `Collision` làm collider runtime. Ngưỡng cấu hình
+chấp nhận ba panel thật cho Car hai cửa; sedan chính vẫn giữ danh sách 10 panel.
 
 Va chạm lệch trái/phải từ severity `4.5` trở lên cộng một steering bias nhỏ theo phía hư hỏng. Mỗi lần tối đa `0.055`, tổng được `SimcadeCarDriver` clamp ở `±0.16`; người chơi vẫn counter-steer được. API sửa chữa là `ResetDeformation(bool resetSteering = true)`, `RepairDamageSteering(float amount)` và `ResetDamageSteering()`.
 
@@ -640,7 +733,7 @@ lớn nhất hiện tại (30.320 vertices). `ResetDeformation()` phục hồi m
 
 ### `SimcadeCarDamageEffects`
 
-Component không có `Update`: chỉ nhận `EventHealthChanged`. Dưới hoặc bằng 32% máu, Hovl `Smoke1` được bật. Dưới hoặc bằng 14%, một `Critical Warning Fire` nhỏ bắt đầu cháy và tự rút máu theo tick `0.25s`; tốc độ được tính theo phần trăm maximum health nên từ đúng ngưỡng 14% sẽ mất khoảng `7s` để về 0. Nếu Repair đưa máu lên trên 14%, coroutine dừng mà không trừ thêm. Khi health chạm 0, smoke và warning fire luôn được giữ thêm `1.35s` rồi `Explosion11` mới chạy đúng một lần; vì vậy lửa tiếp tục báo nguy hiểm cho tới đúng lúc nổ. Sau explosion, warning/smoke tắt và `Destroyed Fire` duy trì cùng `SimcadeCarDestruction`. Wreck là trạng thái terminal: Repair không hồi sinh điều khiển hoặc arm lại explosion; muốn dùng lại phải respawn prefab Car.
+Component không có `Update`: chỉ nhận `EventHealthChanged`. Dưới hoặc bằng 32% máu, Hovl `Smoke1` được bật. Dưới hoặc bằng 14%, một `Critical Warning Fire` nhỏ bắt đầu cháy và tự rút máu theo tick `0.25s`; tốc độ được tính theo phần trăm maximum health nên từ đúng ngưỡng 14% sẽ mất khoảng `7s` để về 0. Nếu Repair đưa máu lên trên 14%, coroutine dừng mà không trừ thêm. Khi health chạm 0, smoke và warning fire luôn được giữ thêm `1.35s` rồi `Explosion11` mới chạy đúng một lần; vì vậy lửa tiếp tục báo nguy hiểm cho tới đúng lúc nổ. Sau explosion, warning/smoke tắt và `Destroyed Fire` cháy tối đa `25s`, sau đó particle, loop audio và wind đều dừng trong khi thân xe cháy đen vẫn còn hiển thị. Cờ expiry chặn mọi health refresh hoặc re-enable bật lại loop này. Wreck là trạng thái terminal: Repair không hồi sinh điều khiển hoặc arm lại explosion; muốn dùng lại phải respawn prefab Car.
 
 Explosion audio dùng bản ghi thực tế từ một lần thử nghiệm nổ xe của `eth131`, giấy phép CC0. Bản dùng trong game được cắt khoảng lặng, downmix mono, resample `32 kHz` và giữ dynamic transient/đuôi vang tự nhiên; Unity nén Vorbis `Compressed In Memory` để phù hợp mobile. AudioSource là 3D logarithmic, không Doppler, nghe đầy ở gần trong `7m` và giảm tự nhiên đến `110m`. Nguồn và quy trình xử lý được lưu tại `Car/Audio/SFX/CarExplosionSfx_SOURCE.txt`.
 
@@ -650,9 +743,19 @@ Khi Weak Smoke hoạt động, một loop hơi/khí xì 3D rất nhẹ chạy �
 
 `SimcadeCarDestruction` quét renderer đúng một lần lúc nổ và ghi màu đen bằng `MaterialPropertyBlock`, vì vậy không clone material và không làm đổi màu những Car khác đang dùng chung material. Bốn wheel visual được tách thành rigidbody tạm thời, kế thừa một phần vận tốc xe và văng ngang/xoay. Khi chạm ground và giảm tốc (hoặc hết thời gian bay tối đa), `SimcadeDetachedWheelCleanup` căn trục bánh theo pháp tuyến mặt đất để lốp nằm phẳng, đặt Rigidbody kinematic, tắt gravity/collision/collider hoàn toàn, giữ nguyên 5 giây rồi chìm `0.48m` trong `0.8s` và tự dọn.
 
+Sau khi bánh và mọi occupant đã được detach, root Rigidbody nhận đúng một lần
+`VelocityChange`: `+1.4m/s` theo world-up, pitch `0.16rad/s` để đầu xe nhấc nhẹ
+và roll ngẫu nhiên trái/phải `0.22rad/s`; không thêm yaw. Thứ tự này ngăn bánh
+và Player/NPC bị cộng lực hai lần. Root được trả về dynamic, gravity/collision
+bật và BoxCollider không còn trigger trước khi kick; controller/suspension vẫn
+tắt vĩnh viễn. `Explosion11`, `Sparks`, `SmokeBig` dùng World simulation space
+nên vụ nổ đứng lại tại điểm phát, không bị dán theo thân xe đang nhô lên. Toàn bộ
+phản ứng là event một lần, không có `Update`, `AddExplosionForce` scan hay collider
+mới trên body.
+
 Nếu Player đang ngồi trong Car, camera Sim-Cade được giữ tại vụ nổ theo thời lượng visual burst của ParticleSystem, clamp trong `0.9–2.5s` (`Explosion11` hiện là `1.5s`). Đuôi vang 7 giây của audio không giữ camera quá lâu; audio length chỉ là fallback nếu không có particle. Sau đó camera target dùng smoothstep để lerp trong `0.75s` từ wreck tới hips của Player ragdoll, chờ thêm một `LateUpdate`, rồi mới trả camera cho GC2. Car rỗng hoặc camera xe không active không khởi tạo luồng camera này.
 
-Xác Car luôn tồn tại ít nhất 15 giây. Sau mốc này hệ thống chỉ kiểm tra mỗi `0.5s` và chỉ ẩn toàn bộ wreck khi đồng thời thỏa hai điều kiện: bounds thân xe không nằm trong frustum của `Camera.main`, và Player cách xe ít nhất `35m`. Các giá trị này chỉnh được trong nhóm `Wreck Cleanup` của `SimcadeCarDestruction`. Khi Player đang ở bất kỳ ghế nào, Car nhả Player cạnh thân xe không qua exit animation, bật ragdoll không auto-recover, gắn `Fire3` đã author sẵn trong prefab trong 4 giây, đưa GC2 Player Traits `hp` về `0`, đồng thời ẩn cả dashboard/Car controls và Player mobile controls. Có thể mở lại HUD sau respawn bằng `FranklinMobileHud.SetControlsSuppressed(false)`.
+Xác Car luôn tồn tại ít nhất 15 giây. Sau mốc này hệ thống chỉ kiểm tra mỗi `1s` và chỉ giải phóng terminal wreck khi đồng thời thỏa hai điều kiện: bounds thân xe không nằm trong frustum của `Camera.main`, và Player cách xe ít nhất `35m`. Ngay trước `Destroy`, mọi cửa lỏng/rời đã unparent được tắt physics/render và dọn cùng wreck, nên không để lại door root trong scene. Các giá trị này chỉnh được trong nhóm `Wreck Cleanup` của `SimcadeCarDestruction`. Khi Player đang ở bất kỳ ghế nào, Car nhả Player cạnh thân xe không qua exit animation, bật ragdoll không auto-recover, gắn `Fire3` đã author sẵn trong prefab trong 4 giây, đưa GC2 Player Traits `hp` về `0`, đồng thời ẩn cả dashboard/Car controls và Player mobile controls. Sau đuôi particle, hoặc ngay khi Car disable/destroy sớm, `Fire3` luôn được stop/clear, tắt và parent về đúng pose gốc dưới Car; Player không tích lũy VFX cháy ẩn qua nhiều vụ nổ. Có thể mở lại HUD sau respawn bằng `FranklinMobileHud.SetControlsSuppressed(false)`.
 
 Chỉ các asset/dependency cần thiết được lấy từ `3D Fire and Explosions v2.1`; không import toàn bộ package. Texture 2K được giới hạn còn `512px` (`Point19` là `256px`) và dùng ASTC 6x6 trên Android/iOS. Ngân sách mobile: smoke tối đa 28 hạt, critical fire 16 hạt, destroyed fire 24 hạt, Player burn 12 hạt và ba lớp explosion tổng capacity không quá 60 hạt. Tất cả ParticleSystem được author sẵn trong prefab, không `Instantiate` lúc nổ.
 
@@ -685,7 +788,7 @@ Dashboard dùng đúng một Canvas static dùng chung với sorting order `1210
 ```csharp
 CarEntry car = carObject.GetComponent<CarEntry>();
 
-// Cửa gần nhất trong bốn cửa, không teleport Player.
+// Cửa gần nhất trong các cửa đã cấu hình, không teleport Player.
 if (car.CanRequestEnter(player, CarEntrySideMode.Automatic))
 {
     car.RequestEnter(player);
@@ -814,7 +917,7 @@ flowchart TD
     H --> J["Cửa khép tự nhiên trong 2 giây, không đóng kín"]
 ```
 
-`SeatedSkeletonPoseGuard` giữ pelvis/spine/head ở pose ghế trong điểm chuyển camera và trước bailout, ngăn locomotion graph làm Player đứng hoặc nhô lên nóc xe vài frame.
+`SeatedSkeletonPoseGuard` giữ pelvis/spine/head ở pose ghế trong điểm chuyển camera và trước bailout, ngăn locomotion graph làm Player đứng hoặc nhô lên nóc xe vài frame. Profile cabin thấp có thể bật `autoFitSeatedModel`: sau khi Driving pose đã evaluate, `CarEntry` đo Head/Hips với ceiling anchor của đúng ghế, chỉ scale đồng đều model Animator quanh Hips và bù xuống trong giới hạn profile. Character root/capsule, Car root, body, wheel và collider không bị scale; transform model gốc được phục hồi ở mọi nhánh exit, carjacking, ragdoll, destruction và pool disable.
 
 Damage bailout chỉ áp dụng cho GC2 Player khi tốc độ lúc bắt đầu exit lớn hơn `50 km/h`, sau khi ragdoll đã nhận pose. Công thức mặc định là `min(60, 10 + (speedKph - 50) * 0.5)`: 60 km/h mất 15 HP, 100 km/h mất 35 HP và từ 150 km/h trở lên mất tối đa 60 HP. Giá trị được ghi trực tiếp vào Player Traits `hp`, tự clamp theo Min/Max của GC2. Exit chậm sau khi xe dừng và NPC không bị trừ HP bởi nhánh này. Các thông số nằm trong nhóm `Moving Exit Traits Damage` của `CarEntry`.
 
@@ -832,33 +935,70 @@ dụng không tiếp tục chạy hệ thống treo, HUD, audio hoặc presentat
   mọi cửa sổ kinematic và Driver phục hồi constraints gốc trước enter, bailout
   hoặc explosion. Bốn suspension `SphereCast` mỗi physics tick chỉ chạy trong
   lúc lái, dừng để exit hoặc coast tối đa `12s`; xe airborne không bao giờ bị
-  freeze giữa không trung. Car mới spawn hoặc trường hợp grounded chưa chắc chắn
-  có cửa sổ settle giới hạn `0.25–1.5s` rồi mới khóa pose. Brake light cũng tắt
-  hai frame callback khi Car không được lái.
+  freeze giữa không trung. Car mới spawn và Car được bật lại từ pool chạy một
+  pass `SnapSpawnToGround` allocation-free: tối đa hai lượt × bốn raycast từ tâm
+  wheel authoring, chỉ nhận static `Default/Ground/Building/Prop`, loại
+  trigger, chính chiếc Car và Rigidbody động. Ít nhất ba wheel cùng cả hai axle
+  phải có support; root được căn theo pháp tuyến mặt đường, nâng theo wheel cao
+  nhất + clearance `0.015m`, zero velocity rồi khóa pose đỗ. Đây là one-shot,
+  không tạo polling sau spawn trên mặt phẳng/dốc đồng nhất. Chỉ khi curb/lift làm
+  độ cao support lệch quá nửa hành trình wheel, suspension được bật tạm trong cửa
+  sổ giới hạn `0.25–1.5s` để phía thấp không bị nổi rồi mới ngủ. Nếu marker không
+  có ground hợp lệ trong `30m`,
+  development build cảnh báo một lần và giữ pose fail-safe thay vì để chassis
+  chìm. Brake light cũng tắt hai frame callback khi Car không được lái.
 - High-speed bailout vẫn giữ engine loop đúng gameplay. Khi xe bỏ lại đã dừng
   hoặc hết ngân sách coast `12s`, `GearSystem` và `AudioSystem` ngừng `Update`;
   AudioSource giữ pitch garanti cuối thay vì tiếp tục tính pitch/gear mỗi frame.
+  Đèn pha tắt ngay lúc rời xe. Engine/fuel chuyển sang kiểm tra `1 Hz`, được giữ
+  tối thiểu `30s` và tiếp tục khi Player còn gần; sau mốc đó, nếu camera/Player đã
+  cách ít nhất `60m`, audio voice và fuel coroutine tự kết thúc. Enter lại trước
+  khi retire khôi phục engine bình thường, không có race giữa tick chậm và handoff.
 - `CarEntry.LateUpdate` thoát ngay khi không enter/exit, không có IK/alignment và
-  không có người ngồi. Horn tự disable khi nhả nút; fuel chỉ chạy coroutine
-  `0.25s` khi engine hoạt động và chỉ báo Driver khi trạng thái có-xăng thay đổi.
+  không có người ngồi; khi đã ngồi chỉ ghi lại seat Transform nếu phát hiện drift,
+  không dirty hierarchy mỗi frame. Horn tự disable khi nhả nút; fuel chỉ chạy coroutine
+  `0.25s` khi đang lái, `1s` khi engine của Car bỏ lại còn chạy, và chỉ báo Driver
+  khi trạng thái có-xăng thay đổi. Animator NPC ngồi xe dùng `CullCompletely` khi
+  ra ngoài frustum rồi phục hồi đúng mode cũ lúc NPC rời ghế; Player không bị đổi.
 - `FranklinMobileHud` lấy Car đang active qua registry, không
   `FindObjectsByType<SimcadeCarDriver>` định kỳ. Availability của nút Enter được
   refresh `10 Hz`, trong khi thao tác nhấn vẫn xác thực target thật ngay lập tức.
+  Fallback tìm `CanvasPlayerControl` cho phép UI xuất hiện trễ trong `8s`, sau đó
+  dừng scene scan thay vì gọi `FindObjectsByType<Canvas>` suốt phiên chơi. Nút
+  hold Sim-Cade cũng tự xóa `isPressed` khi Canvas bị disable nên input không thể
+  kẹt qua lần exit/enter kế tiếp.
 - Text tốc độ tối đa `10 Hz`; phép chiếu chassis/HUD tối đa `20 Hz`, còn bước
-  `SmoothDamp` rẻ chạy theo render frame về target đã cache để HUD không giật
-  nấc. Fuel fill dừng ghi Canvas khi đã tới target. FPS ẩn telemetry nên không
+  `SmoothDamp` chạy theo render frame trên desktop nhưng bị giới hạn `30 Hz` trên
+  thiết bị mobile để giảm Canvas rebuild. Đĩa radio chỉ đổi Transform `15 Hz`
+  trên mobile; góc quay vẫn dùng thời gian thực nên không chạy chậm sau frame
+  drop. Fuel fill dừng ghi Canvas khi đã tới target. FPS ẩn telemetry nên không
   chạy phép chiếu. Orbit target chỉ được ghi Transform khi yaw thật sự đổi.
 - Wind smoke/fire tối đa `4 Hz`. LOD `1 Hz` pause particle, wind và loop audio
   ngoài `55m`; explosion one-shot không bị cull sai. Bánh rời chỉ dò ground
-  khoảng `6.7 Hz` sau thời gian bay tối đa thay vì mỗi FixedUpdate.
+  khoảng `6.7 Hz` sau thời gian bay tối đa thay vì mỗi FixedUpdate. Destroyed
+  Fire tự kết thúc sau `25s`; health refresh không thể bật lại particle/audio/wind.
 - Cửa lỏng dùng `ContinuousSpeculative`, không interpolation và solver `3/1`;
-  cửa đã rời dừng physics muộn nhất sau `15s`. Body Car vẫn dùng primitive
-  `BoxCollider`, không runtime-cook `MeshCollider`.
+  cửa đã rời dừng physics muộn nhất sau `15s`. Khi terminal wreck đủ xa và ngoài
+  camera, mọi pivot cửa đã unparent được dọn trước khi toàn bộ wreck bị `Destroy`;
+  không còn Rigidbody, renderer hoặc helper cửa mồ côi. Nếu Car bị pool/stream
+  bằng `SetActive(false)`, cửa world-root cũng tắt theo và chỉ bật lại cùng owner;
+  `OnDestroy` là fallback cleanup cho mọi nhánh despawn. Body Car vẫn dùng
+  primitive `BoxCollider`, không runtime-cook `MeshCollider`.
 - Deformation là event-only: tối đa `8` dents, `12.000` vertices/panel, chỉ hai
   panel hợp lệ gần contact mỗi impact và fracture ngẫu nhiên bằng `0` trên
   profile mobile. Panel unreadable/quá giới hạn được loại trước khi chọn nearest,
   nên panel hợp lệ kế tiếp vẫn nhận móp. Vết móp, normals, bounds và sai lệch lái
   vẫn được giữ.
+- Skidmark root runtime được Car sở hữu và dọn trong `OnDestroy`; car pool/hidden
+  tắt root cùng owner nên không còn renderer/mesh mồ côi. Mobile chỉ giữ `512`
+  đoạn thay vì `2.048`; buffer/mesh chỉ cấp phát ở lần trượt lốp thật đầu tiên.
+  Renderer dùng shared material, bounds thật và không có callback `LateUpdate` khi
+  mesh ổn định. Sau `30s` không phát sinh mark, mesh được clear và renderer tắt;
+  desktop giữ tối đa `90s`. Mỗi lần Car bị pool cũng clear ngay.
+- Cinemachine rig, hai camera target và fallback mobile Canvas chỉ được tạo khi
+  Player thật sự yêu cầu enter (prewarm trong lúc đi/mở cửa), không còn prewarm
+  trên mọi Car ở `Start`. Destruction handoff unparent target vẫn được dọn tường
+  minh trong `OnDestroy`.
 
 Các giới hạn này loại bỏ tải nền/GC lặp lại do stack Car. Nhiệt độ tuyệt đối còn
 phụ thuộc SoC, ambient, số draw call của scene, target FPS và chất lượng URP, nên
@@ -868,12 +1008,11 @@ script Car, chỉ một `SimcadeVehicleController` của Car do Player điều k
 không có particle/audio loop ở Car xa, và không xuất hiện spike deformation lặp
 lại ngoài đúng frame va chạm.
 
-Camera rig và buffer `Skidmarks` của Sim-Cade vẫn được prewarm theo từng prefab
-Car để lần enter đầu không hitch; khi inactive chúng không tạo tải CPU mỗi frame,
-nhưng memory/load time vẫn tăng theo số Car trong scene. Scene traffic dày phải đo
-thêm Memory Profiler và không bật đồng thời nhiều cặp spotlight; nếu sau này có
-đội xe NPC chạy ban đêm, cần chuyển camera sang shared pool và đèn sang distance
-LOD manager thay vì thêm polling riêng trên từng Car.
+Scene traffic dày vẫn phải đo thêm Memory Profiler và không bật đồng thời nhiều
+cặp spotlight. NPC driver là một GC2 Character đầy đủ nên số Car có NPC đồng thời
+vẫn là một budget gameplay cần giới hạn; culling Animator đã giảm phần render-off,
+nhưng nếu sau này có đội xe NPC chạy ban đêm cần dùng traffic pool/LOD tập trung,
+không thêm polling riêng trên từng Car.
 
 ## Authoring và validation
 
@@ -881,17 +1020,133 @@ Các menu Car được giữ tối thiểu trong Unity:
 
 - `Tools > Franklin Game > Car Entry Live Setup`: chỉnh/preview điểm đứng, doorway, ghế, tay nắm, cửa và animation Player trong Scene view.
 - `Tools > Franklin Game > Install Sim-Cade Car`: installer tổng; tự gắn physics, entry/exit, deformation, dashboard/radio và damage VFX theo đúng thứ tự.
-- `Tools > Franklin Game > Validate Consolidated Car Assets`: kiểm tra cấu trúc, prefab Car, toàn bộ Sim-Cade stack, bốn cửa/ghế, camera/mobile UI, audio/VFX, bailout và NPC carjacking.
+- `Tools > Franklin Game > Validate Consolidated Car Assets`: kiểm tra profile sedan `Car.prefab`, toàn bộ Sim-Cade stack, bốn cửa/ghế, camera/mobile UI, audio/VFX, bailout và NPC carjacking. Cyclone dùng cấu hình hai cửa đã author sẵn, không chạy rule exact-mesh/exact-door của sedan.
 
 Các installer/validator thành phần vẫn là API Editor nội bộ để installer tổng gọi, nhưng không tạo thêm mục trong menu. `Consolidate()` cũng được giữ làm API migration nội bộ vì asset đã gom xong.
 
 Prefab chính: `Vehicles/Car/Prefabs/Car.prefab`.
 
+### Cyclone — profile Car 2 cửa
+
+Cyclone dùng nguyên stack runtime của Car chính nhưng chỉ có hai cửa và không có
+entry ghế sau. Prefab production được dựng từ cấu hình `Car.prefab`; prefab Unity 5 legacy
+chỉ được dùng làm nguồn visual và không còn `CarMotor`, entry script cũ,
+`WheelCollider` hay `MeshCollider`. Root giữ đúng một `Rigidbody` mass `1000` và
+một `BoxCollider` primitive; mesh `Collision` trong FBX chỉ là dữ liệu authoring.
+
+| Asset | Đường dẫn |
+|---|---|
+| Prefab runtime | [`Vehicles/Car/Prefabs/Cyclone.prefab`](Vehicles/Car/Prefabs/Cyclone.prefab) |
+| Model | [`Vehicles/Car/Models/Cyclone/Cyclone.FBX`](Vehicles/Car/Models/Cyclone/Cyclone.FBX) |
+| Texture | [`Vehicles/Car/Textures/Vehicle/Cyclone/Cyclone.tga`](Vehicles/Car/Textures/Vehicle/Cyclone/Cyclone.tga) |
+| Materials | [`Vehicles/Car/Materials/Vehicle/Cyclone/`](Vehicles/Car/Materials/Vehicle/Cyclone/) |
+| Shared window material | [`Vehicles/Car/Materials/Vehicle/Shared/GlassWindow.mat`](Vehicles/Car/Materials/Vehicle/Shared/GlassWindow.mat) |
+| Entry | [`Vehicles/Car/Runtime/CarEntry.cs`](Vehicles/Car/Runtime/CarEntry.cs) |
+| Driver/camera | [`Vehicles/Car/Runtime/SimcadeCarDriver.cs`](Vehicles/Car/Runtime/SimcadeCarDriver.cs) |
+| Shared dashboard binder | [`Vehicles/Car/Runtime/SimcadeCarDashboard.cs`](Vehicles/Car/Runtime/SimcadeCarDashboard.cs) |
+| Shared interaction owner | [`../../FranklinAnimations/Runtime/FranklinVehicleInteractionManager.cs`](../../FranklinAnimations/Runtime/FranklinVehicleInteractionManager.cs) |
+
+Wheel mapping luôn là `WheelFL`, `WheelFR`, `WheelBL`, `WheelBR` → controller
+`FL`, `FR`, `RL`, `RR`; mỗi target có visual ở child 0 và hardpoint nằm cùng local
+frame. Model được hạ `0.94m` để wheel center khớp ride height Sim-Cade. Cyclone
+giữ `entrySideMode = Automatic`, hai Hotspot GC2 tên chính xác
+`Triggers_Enter/Exit` và `Triggers_Enter/Exit Passenger`; toàn bộ reference và
+Hotspot rear bị bỏ nên `HasRearSeatSetup()` luôn `false`. Cửa trái dùng
+`DoorL/WindowL/MirrorL`, cửa phải dùng `DoorR/WindowR/MirrorR`.
+
+Cyclone không tạo Canvas hoặc camera riêng. Mỗi instance có health/fuel/radio
+binder riêng nhưng dùng chung một `Sim-Cade Shared Car Dashboard`; camera rig và
+mobile fallback vẫn được `SimcadeCarDriver` tạo lazy đúng như Car chính. Prefab
+chỉ giữ vô-lăng cùng bốn emitter đèn canonical đã căn theo Cyclone. Toàn bộ
+cockpit, pedal, đồng hồ, gạt mưa, thân và suspension sedan mẫu bị lệch đã tắt;
+`HUD_Car` cũng không được dùng. `Front Seat Cabin Ceiling` là ceiling anchor dùng
+chung cho hai ghế trước; auto-fit chỉ tác động model nhân vật và được tính một lần
+khi ngồi, không chạy scan/scale mỗi frame. Texture
+thân xe bật mipmap, Default/Android/iOS giới hạn `1024px`; mobile dùng ASTC 6x6.
+`Cyclone.FBX` phải giữ Read/Write vì deformation tạo runtime render mesh khi có
+impact, nhưng không runtime-cook collider.
+
+### AllStar — 15 profile Car dùng chung
+
+Mười lăm profile dưới đây dùng cùng runtime stack với `Car.prefab` và
+`Cyclone.prefab`.
+Mỗi prefab production chỉ giữ một `Rigidbody`, một `BoxCollider` primitive, bốn
+wheel/hardpoint Sim-Cade và visual của đúng model tương ứng. Rigidbody,
+`MeshCollider`, `WheelCollider`, `WheelRamp`, motor và entry script trong prefab
+AllStar cũ chỉ là dữ liệu nguồn và không được mang sang prefab production.
+
+| Profile | Cửa/ghế | Body và kính canonical | Lưu ý authoring |
+|---|---|---|---|
+| Bezerker | 4 cửa, 4 ghế | `Bezerker3BodyDoorCut`; `DoorL/WindowL`, `DoorR/WindowR`, `DoorBL/WindowBL`, `DoorBR/WindowBR`; `WindowFront/WindowRear` cố định | Là profile duy nhất bind rear doors, rear seat parents, rear Hotspot, rear ceiling và lap-hand targets. |
+| Boomslang | 2 cửa, 2 ghế dùng entry | `Boomslang3BodyDoorCut`; `DoorL/WindowL`, `DoorR/WindowR`; `WindowF/WindowB` cố định | Hai standing point trái/phải được author riêng vì vị trí nguồn không đối xứng tuyệt đối. |
+| DZ | 2 cửa, 2 ghế dùng entry | `DZ3BodyDoorCut`; `DoorL`, `DoorR`; chỉ có `WindowF` cố định | Model không có kính cửa. Hai reference kính trước của `SimcadeCarDoorDamage` phải để `null`; không dùng windshield làm kính cửa và validator phải xem đây là cấu hình hợp lệ của DZ. |
+| DZClassic | 2 cửa, 2 ghế dùng entry | `DZClassic3BodyDoorCut`; `DoorL/WindowL`, `DoorR/WindowR`; `WindowF/B/BL/BR` cố định | Kính quarter `WindowBL/WindowBR` ở lại body, không đi theo cửa. |
+| Fastback | 2 cửa, 2 ghế dùng entry | `Fastback3BodyDoorCut`; `DoorL/WindowL`, `DoorR/WindowR`; `WindowF/B/BL/BR` cố định | Không mang hai legacy door `Animator` sang production; reset translation/yaw được lưu trong prefab nguồn trước khi căn hardpoint. |
+| Goat | 2 cửa, 2 ghế dùng entry | `Goat3BodyDoorCut`; `DoorL/WindowL`, `DoorR/WindowR`; `WindowF/B/BL/BR` cố định | Thân dài không đồng nghĩa có rear entry: toàn bộ rear reference và Hotspot vẫn phải `null`. |
+| GT | 2 cửa, 2 ghế dùng entry | `GT3BodyDoorCut`; `DoorL/WindowL`, `DoorR/WindowR`; `WindowF/B/BL/BR` cố định | Giữ nguyên local scale `0.0162387` của `DoorL/WindowL` và `WindowBL`; không normalize về `1`. Reset translation/yaw nguồn và tune wheel radius theo visual rear wheel. |
+| LuxSport | 2 cửa, 2 ghế dùng entry | `LuxSport3BodyDoorCut`; `DoorL/WindowL`, `DoorR/WindowR`; `WindowF/B/BL/BR` cố định | Wheelbase dài nên seat, Steering và ceiling phải căn theo cabin LuxSport, không copy tọa độ Cyclone. |
+| Mako | 2 cửa, 2 ghế dùng entry | `Mako3BodyDoorCut`; `DoorL/WindowL`, `DoorR/WindowR`; chỉ `WindowF/B` cố định | Cabin thấp: ceiling/head-clearance phải QA riêng. Reset translation/yaw nguồn; bỏ `WheelRamp` vì nó trùng đúng front-right collider. |
+| Matador | 2 cửa, 2 ghế dùng entry | `Matador3BodyDoorCut`; `DoorL/WindowL`, `DoorR/WindowR`; `WindowF/B/BL/BL2/BR/BR2` cố định | Cabin thấp. Giữ body/pane offset Z `0.75542` và scale âm của kính trái; chỉ reset root scene transform. Không copy suspension legacy `0.03`. |
+| Minari | 2 cửa, 2 ghế dùng entry | `Minari3BodyDoorCut`; `DoorL/WindowL`, `DoorR/WindowR`; chỉ `WindowF` cố định | Cabin thấp và cửa/bánh hơi bất đối xứng. Giữ body import transform, reset root scene transform và lấy hardpoint từ visual wheel thay vì legacy collider. |
+| Palamino | 2 cửa, 2 ghế dùng entry | `Palamino3BodyDoorCut`; `DoorL/WindowL`, `DoorR/WindowR`; `WindowF/B` cố định | Pivot kính cố định ở root vì vị trí đã bake trong mesh; cabin/seat không được suy ra từ body center lệch về sau. |
+| Pickup | 2 cửa, 2 ghế dùng entry | `Pickup3BodyDoorCut`; `DoorL/WindowL/MirrorL`, `DoorR/WindowR/MirrorR`; `WindowF/B` cố định | Thùng sau là khoang hàng, không tạo rear seat/Hotspot. Root nguồn sạch; giữ `PickupTeal` và texture `Pickup_1024` là appearance production. |
+| Stepvan | 2 cửa trượt, 2 ghế dùng entry | `Stepvan3BodyDoorCut`; pivot ngoài `DoorL > DoorL/WindowBL`, `DoorR > DoorR/WindowBR`; `WindowFL/FR/L/R`, `MirrorL/R` cố định | Hai cửa trượt về `-Z` lần lượt `0.57987m/0.57701m`, không xoay; chuỗi `DoorBack1Top > ... > DoorBack6Bottom` chỉ là cửa khoang hàng. Production không dùng legacy `Animator`/controller và reset translation/yaw scene nguồn. |
+| Van | 2 cửa, 2 ghế dùng entry | `Van3BodyDoorCut`; `DoorL/WindowL/MirrorL`, `DoorR/WindowR/MirrorR`; `WindowF/B` cố định | Thân dài không đồng nghĩa có rear entry; reset translation/yaw scene nguồn và giữ toàn bộ rear reference/Hotspot `null`. |
+
+Asset của từng profile nằm đúng bốn vị trí sau; `<Name>` là một trong
+`Bezerker`, `Boomslang`, `DZ`, `DZClassic`, `Fastback`, `Goat`, `GT`,
+`LuxSport`, `Mako`, `Matador`, `Minari`, `Palamino`, `Pickup`, `Stepvan`, `Van`:
+
+| Loại asset | Đường dẫn chuẩn |
+|---|---|
+| Prefab runtime | `Vehicles/Car/Prefabs/<Name>.prefab` |
+| Model | `Vehicles/Car/Models/<Name>/<Name>.FBX` |
+| Material | `Vehicles/Car/Materials/Vehicle/<Name>/` |
+| Texture | `Vehicles/Car/Textures/Vehicle/<Name>/` |
+
+Stepvan giữ thêm `Models/Stepvan/DoorL.FBX` và `DoorR.FBX`; hai nested mesh
+cửa production tham chiếu trực tiếp các FBX này nhưng không dùng Animator,
+animation clip hay controller legacy. Mọi FBX production tắt material import;
+chỉ các material canonical trong
+`Materials/Vehicle/<Name>/` được dùng, không sinh bản trùng trong `Models/`.
+
+Model import giữ scale `1`; ride height được căn bằng visual wheel center và
+hardpoint của từng profile, không bằng cách scale cả xe. Chỉ bật body variant
+`*3BodyDoorCut`, các door panel và kính canonical trong bảng; mọi low-res,
+windowed/super-low body và mesh `Collision` chồng hình phải tắt. `Enter*` trong
+model nguồn có renderer nên chỉ dùng tọa độ tham khảo để tạo empty standing,
+step, cabin và handle anchor, không được render trong prefab production.
+
+Mười bốn profile 2 cửa phải để toàn bộ rear door/seat/ceiling/lap-hand reference
+và rear Hotspot là `null`; không tự tạo lối vào ghế sau qua cửa trước. Bezerker
+dùng đầy đủ luồng bốn cửa và chọn Hotspot gần Player. Mọi profile vẫn dùng chung
+`Sim-Cade Shared Car Dashboard`, radio binder, mobile controls và camera rig do
+`SimcadeCarDriver` quản lý. Không profile nào tạo Canvas, EventSystem, dashboard
+singleton hoặc camera riêng; đổi `Car → profile → profile → Car` chỉ rebind
+telemetry/health/fuel/radio và active camera target.
+
+Các model AllStar không có semantic seat, cabin ceiling, steering hoặc lamp
+transform. Vì vậy prefab production author các empty anchor nhẹ và bốn lamp
+emitter theo hình học riêng, nhưng tái sử dụng material, flare, light controller
+và Steering/hand-target contract hiện có. Không copy cabin/body cosmetic của
+sedan mẫu để lấp phần interior còn thiếu.
+
+Tám profile LuxSport/Mako/Matador/Minari/Palamino/Pickup/Stepvan/Van đặt
+driver seat và passenger cabin theo sàn cabin thật, không nâng kính hoặc
+mái để che lỗi head clipping. Năm profile đầu có root-local
+`seat / ceiling Y` lần lượt là `-0.200 / 0.379`,
+`-0.280 / 0.192`, `-0.281 / 0.223`, `-0.293 / 0.210` và
+`-0.188 / 0.383`; Pickup, Stepvan và Van lần lượt là
+`0.159 / 0.8065`, `0.454 / 1.4408` và `0.112 / 0.7979`. `CarEntry` vẫn
+đo Humanoid Head/Hips sau khi Driving pose đã
+evaluate và chỉ co/hạ model nhân vật một lần nếu avatar cao hơn khoảng trống;
+Character root, capsule, thân xe, bánh, collider và toàn bộ kính giữ nguyên.
+
 ## Quy tắc mở rộng
 
-1. Logic chỉ dành cho sedan Car đặt trong `Vehicles/Car/Runtime` hoặc `Vehicles/Car/Editor`.
+1. Logic chỉ dành cho các profile Car đặt trong `Vehicles/Car/Runtime` hoặc `Vehicles/Car/Editor`.
 2. API dùng từ hai loại vehicle trở lên đặt trong `Core/Runtime/Vehicle`, `Core/Runtime/Instructions` hoặc layer shared tương ứng.
-3. Không sửa trực tiếp mã trong `ThirdParty/Sim-Cade Vehicle Physics` trừ adapter đường dẫn/package compatibility; gameplay tùy biến đặt ở `SimcadeCarDriver`.
+3. Không sửa trực tiếp mã trong `ThirdParty/Sim-Cade Vehicle Physics` trừ adapter đường dẫn/package compatibility hoặc bản vá lifecycle/performance đã được kiểm chứng; gameplay tùy biến đặt ở `SimcadeCarDriver`.
 4. Không gắn `Legacy/PhysicsCarController` hoặc `SimcadeRvrCarPhysics` lên prefab Car chính thức.
 5. Khi thêm asset, luôn di chuyển trong Unity/`AssetDatabase` để giữ `.meta` và GUID.
 6. UI hold dùng `PointerDown`/`PointerUp`; không cấp phát hoặc tìm component trong `Update`/`FixedUpdate`.
@@ -903,18 +1158,19 @@ Prefab chính: `Vehicles/Car/Prefabs/Car.prefab`.
 12. Damage smoke/fire/explosion/Player burn phải dùng component event-driven và ParticleSystem đã có sẵn trong prefab; không spawn effect lúc nhận damage.
 13. Màu cháy đen phải dùng `MaterialPropertyBlock`; không sửa `sharedMaterial` và không tạo material runtime cho từng Car.
 14. Wheel cleanup chỉ chạy `FixedUpdate` trong vài giây đang bay; sau khi nằm phẳng phải khóa Rigidbody/collider hoàn toàn, giữ 5 giây rồi chìm và tự dọn.
-15. Wreck cleanup chỉ kiểm tra mỗi `0.5s` sau mốc 15 giây; không dùng kiểm tra camera/khoảng cách mỗi frame.
+15. Wreck cleanup chỉ kiểm tra mỗi `1s` sau mốc 15 giây; không dùng kiểm tra camera/khoảng cách mỗi frame.
 16. Smoke/fire dùng world-space `Force over Lifetime`; cập nhật airflow tối đa 4 Hz, pause ngoài 55m và dừng coroutine khi không có loop VFX hoạt động.
 17. Car động giữ primitive `BoxCollider`; visual dent không được cập nhật MeshCollider hoặc gọi runtime mesh cooking.
-18. Deformation dùng 10 render mesh visible từ `Vehicles/Car/Models/Car.FBX`; cửa lái phải là `DoorFL (1)` active, không phải `DoorFL` inactive.
+18. Profile sedan dùng 10 render mesh visible từ `Vehicles/Car/Models/Car.FBX`; Cyclone dùng đúng ba panel visible `Cyclone3BodyDoorCut`, `DoorL`, `DoorR`. Không dùng mesh inactive/overlap để lấp panel count.
 19. Mỗi impact Edy chỉ xử lý hai panel gần nhất có renderer bounds nằm trong radius, tối đa 8 impact và 12.000 vertices/panel; mesh thay đổi phải tính lại normals và bounds để vết móp hiển thị đúng.
 20. Không tạo thêm `MenuItem`, EditorWindow, wizard hoặc tool preview mới nếu người dùng chưa yêu cầu rõ. Ưu tiên API/component, installer tổng và validator tổng hiện có để menu không bị rối.
-21. Ragdoll Player phải dùng `ContinuousDynamic`, interpolation và solver profile của `FranklinRagdollGroundGuard`; chỉ sửa vị trí khi đáy pelvis đã xuyên quá tolerance, không snap nhân vật xuống ground khi vẫn ở trên không.
+21. Ragdoll Player phải dùng core `ContinuousDynamic`, limb `ContinuousSpeculative` và solver profile của `FranklinPlayerRagdollGroundGuard`; chỉ sửa vị trí khi đáy pelvis đã xuyên quá tolerance, không snap nhân vật xuống ground khi vẫn ở trên không. `FranklinRagdollGroundGuard` là fallback generic cho Character không có guard mobile này.
 22. Car dùng một `MobileBlobShadow` trên root: footprint box bo góc rất nhẹ bằng
     superellipse bậc 8, raster bằng một oversized triangle duy nhất nên không còn
     cạnh chia chéo. `Opacity 0.94` và dark core `0.58` mô phỏng gầm xe
-    che gần hết ánh sáng. Bounds Car là `1.91m × 4.23m` (rộng × dài) và có tâm local
-    X `-0.43m`; không được đặt FBS tại pivot `(0,0)` vì mesh Car lệch pivot.
+    che gần hết ánh sáng. Bounds `1.91m × 4.23m`, tâm local X `-0.43m` là profile
+    sedan chính; mỗi Car model khác phải author footprint từ bounds riêng thay vì
+    copy tọa độ sedan hoặc mặc định đặt tại pivot `(0,0)`.
     Probe ground `10 Hz`, distance check `4 Hz` có stagger và cull hoàn toàn sau `45m`.
     Khi bị cull phải dừng cả renderer lẫn ground raycast. API authoring dùng chung là
     `FranklinGame.Rendering.Editor.FranklinBlobShadowInstaller.InstallAll()`;
@@ -938,26 +1194,38 @@ Prefab chính: `Vehicles/Car/Prefabs/Car.prefab`.
 | Enter trái có NPC | Kéo NPC đúng landing point, NPC tắt vật lý khi ngồi và phục hồi một lần khi ra. |
 | Enter phải có NPC | Player vào ghế phụ, thân nghiêng/nhìn NPC, tay phải bám vô lăng, tay trái đẩy NPC. |
 | Ghế sau trái/phải | Cửa gần nhất được chọn; hai tay giữ trên đùi, không giơ lên trần. |
-| Exit dừng → park → enter lại | Lặp 10 lần với cả bốn cửa: root Y trước/sau lệch không quá 1 cm, bánh không lún, hotspot vẫn chọn được. Khi park, Rigidbody giữ `FreezeAll` và controller nghỉ; khi enter, constraints gốc/controller phải được phục hồi. Kiểm tra thêm exit sau auto-stop dưới 50 km/h và trên mặt dốc. |
+| Exit dừng → park → enter lại | Lặp 10 lần với mọi cửa đã cấu hình: root Y trước/sau lệch không quá 1 cm, bánh không lún, hotspot vẫn chọn được. Khi park, Rigidbody giữ `FreezeAll` và controller nghỉ; khi enter, constraints gốc/controller phải được phục hồi. Kiểm tra thêm exit sau auto-stop dưới 50 km/h và trên mặt dốc. |
+| Spawn/Pool Car + Cyclone + AllStar | Spawn ở marker mặt đất, cao `0.5m/3m/10m` và thấp `0.2m`, yaw khác nhau, mặt phẳng/dốc; cả hai axle phải bám ground, chassis không xuyên và không nghỉ trên BoxCollider. Disable → đổi pose → enable 20 lần phải snap trước frame render kế tiếp, zero stale velocity, giữ đúng một Rigidbody/BoxCollider và sau đó controller/skid nghỉ hoàn toàn. Marker không có ground trong `30m` phải chỉ cảnh báo một lần, không polling vô hạn. |
+| Cyclone cấu trúc | Không Missing MonoBehaviour/legacy motor; 0 `MeshCollider`/`WheelCollider`; đúng 1 root `Rigidbody` + `BoxCollider`; bốn wheel/hardpoint theo thứ tự `FL,FR,RL,RR`; không có Hotspot rear. Chỉ 4 light emitter và Steering từ template Car được phép render; không còn cockpit/body/pedal/gauge/wiper sedan bay ngoài Cyclone. |
+| Cyclone enter hai cửa | Đứng từng bên chọn đúng cửa gần nhất và Player đi tới anchor, không teleport; lặp enter/exit 10 lần không nhô lên nóc/lệch ghế. Kiểm tra Head nằm dưới `Front Seat Cabin Ceiling`, Hips không đổi vị trí và model/capsule trở về đúng scale sau exit, bailout/ragdoll rồi enter Car/Bike khác. Có NPC: cửa trái kéo NPC, cửa phải vào ghế phụ rồi đẩy NPC sang trái. |
+| Cyclone shared HUD/camera | Chuyển `Car → Cyclone → Car`: Hierarchy chỉ có một shared dashboard, telemetry/radio bind đúng active vehicle; TPS/FPS/orbit/rear-view centered và không tạo Canvas/camera Cyclone riêng. |
+| AllStar cấu trúc 15 profile | Mỗi prefab Bezerker/Boomslang/DZ/DZClassic/Fastback/Goat/GT/LuxSport/Mako/Matador/Minari/Palamino/Pickup/Stepvan/Van có đúng 1 root `Rigidbody` + `BoxCollider`, 0 `MeshCollider`/`WheelCollider`/`WheelRamp`/legacy motor, 4 wheel theo thứ tự `FL,FR,RL,RR`, đúng một body `*3BodyDoorCut` và không render `Enter*` hay body variant chồng hình. Model scale giữ `1`; Fastback/GT/Mako/Matador/Minari/Stepvan/Van không còn root transform từ scene nguồn. |
+| AllStar cửa và kính | Bezerker chọn được đủ bốn cửa/ghế và kính đi theo đúng cửa. Mười bốn profile còn lại không có rear Hotspot/reference. DZ mở/rơi cửa bình thường khi door-window refs đều `null`; Minari chỉ có windshield cố định. GT giữ scale kính `0.0162387`; Matador giữ scale âm kính trái và đủ bốn quarter panes; Fastback không còn legacy Animator tranh rotation với `CarEntry`. Stepvan phải trượt hai cửa về `-Z`, chỉ mang `WindowBL/BR`; kính hông, gương và chuỗi cửa khoang hàng phải giữ nguyên. |
+| AllStar cabin/profile đặc thù | LuxSport dùng cabin/wheelbase riêng; Mako, Matador và Minari không nhô đầu qua mái thấp khi enter hoặc đổi camera; Mako không có wheel thứ năm trùng FR. Matador giữ offset body/pane nhưng root sạch, mọi kính fixed không đi theo cửa; Minari dùng visual wheel center và không tạo rear glass giả; Palamino giữ WindowF/B tại baked mesh pose và seat không lệch theo body center. Pickup không tạo ghế trong thùng; Stepvan/Van không tạo rear seat dù cabin cao hoặc thân dài. |
+| AllStar ghế/cabin/lights | Enter/exit hai phía từng profile 10 lần: Player đi tới anchor, không teleport/nhô nóc/lệch ghế; head nằm dưới ceiling và tay khớp Steering. Kiểm riêng Pickup/Van với avatar cao và Stepvan với bậc cabin cao. Bốn emitter pha/phanh bám đúng lens khi đánh lái, không flare trượt trong model. Bezerker rear-seat hands nằm trên đùi; profile 2 cửa không được chọn rear seat. |
+| AllStar ground/physics | Spawn từng profile trên phẳng/dốc ở nhiều cao độ, exit/park/enter lại và pool 20 lần: visual wheel center trùng hardpoint, đủ ground clearance, không lún/nảy do radius nguồn sai; BoxCollider không chạm nền trước bánh. Riêng DZ/DZClassic/GT/Minari kiểm radius/hardpoint theo wheel mesh thay vì copy mù giá trị legacy; Matador không dùng suspension `0.03`; Pickup/Stepvan/Van phải giữ bốn bánh tiếp đất và collider thân cao hơn đáy bánh ngay frame spawn đầu. |
+| AllStar shared HUD/camera | Chuyển liên tục `Car → 15 profile → Cyclone → Car`: chỉ tồn tại một shared dashboard/camera rig/mobile control set; km/h, fuel, health, radio và TPS/FPS/orbit/rear-view rebind đúng active vehicle, không giữ target đã pool và không phát sinh Canvas/camera/runtime UI clone. |
+| AllStar mobile soak | Development Build trên thiết bị thật chạy lần lượt cả 15 profile tối thiểu 30 phút, gồm enter/exit, camera, light/horn, impact/deformation, door detach, damage VFX và garage repair. Steady state phải `0 B/frame` GC từ Car script; xe không active không polling HUD/camera, không mô phỏng VFX/audio xa và không làm tăng dần AudioSource, runtime Mesh, ParticleSystem hoặc nhiệt độ sau mỗi lần đổi xe. |
 | Exit dưới 50 km/h | Xe giảm tốc tự nhiên tới dừng rồi mới mở cửa; không sinh khói phanh giả. |
 | Exit trên 50 km/h | Không đứng lên; dùng 50 frame đầu, ragdoll, trừ Traits `hp` đúng một lần theo tốc độ, giữ camera/engine, cửa khép không kín. |
 | Camera/UI mobile | Orbit trái/phải có input và tự trở về; giữ Rear View thấy đúng đường phía sau; toggle FPS nằm đúng mắt tài xế, không thấy mesh đầu, orbit/rear-view vẫn hoạt động; exit phục hồi đúng chase offset/FOV nhưng lần enter Car tiếp theo và lần mở game sau vẫn nhớ lựa chọn TPS/FPS cuối. |
 | Va chạm | Âm nhẹ/nặng nghe rõ hơn động cơ theo mức va chạm; spark/debris được pool; panel gần contact móp theo severity. |
+| Tông GC2 Character | Thử Player/NPC ở `0/14/15.1/50 km/h`, tiến/lùi và quẹt ngang: dưới ngưỡng không ragdoll; trên ngưỡng gọi đúng `RagdollDefault`, hất có giới hạn và Character sống tự recover khoảng 2.25s. Character chạy vào Car đỗ, occupant/Character đang transition với chính Car, Character chết hoặc Player bị cutscene khóa không được tạo lease mới; một NPC không liên quan vẫn phải bị hất khi Car đang exit/coast. Một Character đang ragdoll không được `StartRagdoll` lần hai: shared Car/explosion lease có thể được cú tông/explosion hợp lệ gia hạn, còn ragdoll thuộc hệ khác tuyệt đối không bị Car tự recover. Khi Player ngã, Shooter phải nhả trigger/aim/Object Direction, tắt throwable camera, weapon menu, Shooter controls và FPS; sau recover UI trở lại nhưng không tự bắn tiếp. Tông ngay sau va tường trong 0.16s vẫn phải hoạt động; nhiều collider không được kích hoạt hai lần hoặc xuyên ground. Test thêm: Bike/bailout/manual ragdoll trước cú tông đầu tiên; xe thứ hai tông sau khi model đã rời root; explosion đến sau; external/manual ragdoll trong lúc Player chờ Bike entry hoặc NPC đang đi tới cửa Car phải abort an toàn; disable/re-enable pool giữa ragdoll phải reparent model, tắt bone physics và không kẹt trạng thái. Disable Car giữa rear-entry hoặc driver/passenger carjack không được để continuation cũ attach Character, giữ IK/pose guard hay đổi cửa sau khi pool. |
 | Deformation mobile | Từ `2.5m/s` trở lên phải thấy tối đa hai panel gần contact móp, ánh sáng/mesh bounds cập nhật ngay; quá 8 impact không tiếp tục sửa vertex. |
 | Lệch lái do hỏng | Tông lệch trái/phải đủ mạnh làm xe kéo nhẹ về phía hỏng; bias không vượt `±0.16`, counter-steer và Reset API hoạt động. |
-| Hư hỏng cửa | Tông mạnh đúng vùng cửa chỉ làm cửa bật và dao động trên bản lề, không tự rơi ngay khi chạm nền; cú cực mạnh/va chạm trực tiếp lần hai mới làm cửa rời. Cả bốn kính phải mở, lắc và rơi cùng đúng cửa. Enter/exit qua cửa đã mất không chạy rotation, SFX hoặc IK mở cửa. |
+| Hư hỏng cửa | Tông mạnh đúng vùng cửa chỉ làm cửa bật và dao động trên bản lề, không tự rơi ngay khi chạm nền; cú cực mạnh/va chạm trực tiếp lần hai mới làm cửa rời. Mọi kính cửa đã cấu hình phải mở, lắc và rơi cùng đúng cửa (Cyclone chỉ `WindowL/R`; kính quarter giữ trên body). Pool move/re-enable không được làm cửa/kính vọt lên. Enter/exit qua cửa đã mất không chạy rotation, SFX hoặc IK mở cửa. |
 | Garage sửa cửa | Cửa lỏng hoặc rơi vẫn làm nút sửa khả dụng khi Car đang 100% máu; sau progress, cửa và kính trở lại đúng pose đóng, không còn Rigidbody/collider tạm và enter/exit dùng cửa bình thường. |
 | Máu Car | Va chạm nhẹ/nặng trừ đúng một lần; fill/icon xanh da trời và Repair API cập nhật ngay trên HUD dùng chung. |
-| Damage VFX | <=32% có khói; <=14% có warning fire; health 0 phải cảnh báo thêm 1.35s mới nổ; wreck terminal không nổ lại hoặc lái lại sau Repair. |
+| Damage VFX | <=32% có khói; <=14% có warning fire; health 0 phải cảnh báo thêm 1.35s mới nổ; Destroyed Fire tắt hoàn toàn sau khoảng 25s và không bật lại khi refresh health/re-enable; wreck terminal không nổ lại hoặc lái lại sau Repair. |
 | Gió VFX | Khi đứng yên smoke/fire nghiêng theo world wind; khi xe chạy, luồng khí bẻ ngược hướng vận tốc; hạt cũ ở world-space không bị kéo cứng theo xe. |
-| Phá hủy Car rỗng/NPC lái | Toàn bộ renderer Car cháy đen riêng instance; bốn bánh tách/văng, nằm phẳng, khóa physics 5 giây rồi chìm/ẩn; chỉ camera/dashboard/Car control của xe bị ẩn. HUD đi bộ của Player đứng ngoài phải giữ nguyên. |
-| Cleanup xác xe | Trước 15 giây không ẩn; sau 15 giây vẫn giữ nếu camera thấy hoặc Player gần hơn 35m; chỉ ẩn khi ngoài camera và Player đủ xa. |
-| Phá hủy khi Player ngồi | Player nằm gần Car, ragdoll không tự đứng, cháy đen + Fire3, Traits `hp` = 0; camera giữ hết burst rồi lerp 0.75s tới Player, controls vẫn ẩn ngay. |
+| Phá hủy Car rỗng/NPC lái | Toàn bộ renderer Car cháy đen riêng instance; bốn bánh tách/văng rồi nằm phẳng, khóa physics 5 giây và chìm/ẩn. Thân root nhấc nhẹ đúng một lần rồi rơi lại bằng BoxCollider; chỉ camera/dashboard/Car control của xe bị ẩn. HUD đi bộ của Player đứng ngoài phải giữ nguyên. Thử cả Car/Cyclone đang đỗ FreezeAll và đang chạy: giữ momentum ngang, root phải dynamic/non-trigger, không lật và explosion particle không chạy theo body. |
+| Cleanup xác xe | Trước 15 giây không giải phóng; sau 15 giây vẫn giữ nếu camera thấy hoặc Player gần hơn 35m; chỉ `Destroy` khi ngoài camera và Player đủ xa. Cửa lỏng/rời không được còn lại trong Hierarchy sau cleanup. Thử thêm disable/re-enable một Car có cửa lỏng: door root phải tắt/bật theo owner và despawn phải dọn sạch. |
+| Phá hủy khi Player ngồi | Player nằm gần Car, ragdoll không tự đứng, cháy đen + Fire3, Traits `hp` = 0; camera giữ hết burst rồi lerp 0.75s tới Player, controls vẫn ẩn ngay. Sau khoảng 5s Fire3 phải tắt/clear và rời khỏi Player; thử disable/destroy Car sớm để xác nhận không còn particle hoặc object cháy mồ côi. |
 | Tốc độ | Hiển thị km/h bên trái thân xe, bám chuyển động/camera với target lag nhẹ; text không cập nhật khi số không đổi. |
 | Radio | Power/Prev/Play/Next hoạt động, disc quay, static phát ngắn, ba station loop và rời xe thì dừng. |
 | HUD không nền | Không có radio panel hoặc health rectangle background; PNG alpha không tạo viền chroma. |
 | Safe area | Speed/radio/health không nằm dưới notch hoặc home indicator ở cả hai hướng landscape. |
-| Thermal/Profiler | Scene nhiều Car đỗ chỉ có controller của Car đang lái chạy; steady-state Car scripts `GC Alloc = 0 B/frame`; Car xa hơn 55m không còn smoke/fire loop audio, wind hoặc particle simulation. |
+| Thermal/Profiler | Chạy soak test tối thiểu 30 phút: đổi qua nhiều Car, tạo skid, bailout nhanh, làm hỏng cửa và phá hủy nhiều xe. Scene nhiều Car đỗ chỉ có controller của Car đang lái chạy; steady-state Car scripts `GC Alloc = 0 B/frame`; Car xa hơn 55m không còn smoke/fire loop audio, wind hoặc particle simulation. Skid renderer phải tắt khoảng 30s sau mark cuối trên mobile; không có `* Skidmarks (Runtime)`, camera target, cửa hoặc Fire3 mồ côi sau despawn. Engine Car bailout xa 60m phải retire sau grace 30s. Số AudioSource đang phát, runtime Mesh, ParticleSystem và terminal wreck phải trở về baseline; không có Destroyed Fire nào chạy quá 25s. |
 | Blob shadow Car | Có đúng một child `MobileBlobShadow`; projection footprint `1.91 × 4.23m`, không có vệt chéo, center X `-0.43m`, opacity/core `0.94/0.58`, trục dài xoay theo hướng Car, bám ground, nhỏ/mờ khi Car bay và không render/raycast khi camera xa hơn 45m. |
 | FBS Player khi dùng xe | Bắt đầu enter là Player FBS tắt; giữ tắt khi ngồi và trong exit; chỉ bật lại sau khi Player trở về đi bộ. FBS không được chiếu lên nóc Car/Bike. |
 | FBS NPC/passenger | Khi Character nằm trong hierarchy ghế Car/Bike, chỉ giữ FBS vehicle; FBS Character phải tắt. Sau detach, Character FBS xuất hiện lại trên nền. |

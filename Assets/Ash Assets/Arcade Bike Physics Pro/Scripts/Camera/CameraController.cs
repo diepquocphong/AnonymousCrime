@@ -6,8 +6,8 @@ namespace ArcadeBP_Pro
 {
     public class CameraController : MonoBehaviour
     {
-        [Tooltip("Array of Cinemachine virtual cameras.")]
-        public CinemachineVirtualCamera[] cameras;
+        [Tooltip("Array of Cinemachine 3 cameras.")]
+        public CinemachineCamera[] cameras;
 
         [Tooltip("Reference to the bike controller.")]
         public ArcadeBikeControllerPro bikeController;
@@ -62,7 +62,8 @@ namespace ArcadeBP_Pro
             for (int i = 0; i < cameras.Length; i++)
             {
                 cameras[i].gameObject.SetActive(i == currentCameraIndex);
-                cameraNoise[i] = cameras[i].GetCinemachineComponent<CinemachineBasicMultiChannelPerlin>();
+                cameraNoise[i] =
+                    cameras[i].GetComponent<CinemachineBasicMultiChannelPerlin>();
 
                 initialCameraFollowTargets[i] = cameras[i].Follow;
                 initialCameraLookAtTargets[i] = cameras[i].LookAt;
@@ -134,7 +135,7 @@ namespace ArcadeBP_Pro
 
             smoothFOV = Mathf.Lerp(smoothFOV, newFOV, Time.deltaTime * FOV_smoother);
 
-            cameras[currentCameraIndex].m_Lens.FieldOfView = smoothFOV;
+            cameras[currentCameraIndex].Lens.FieldOfView = smoothFOV;
         }
 
 

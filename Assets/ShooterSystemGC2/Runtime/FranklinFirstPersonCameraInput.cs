@@ -16,29 +16,92 @@ namespace FranklinGame.Shooter
     [Title("Franklin Unified Camera Orbit")]
     [Category("Franklin/Camera/Unified FPS Orbit")]
     [Description(
-        "Mouse, right stick and a free touch on the right half of the screen"
+        "Mouse, right stick, Fire-drag and a free touch on the right half of the screen"
     )]
     [Serializable]
     public sealed class FranklinFirstPersonCameraInput : TInputValueVector2
     {
         private const float POINTER_DELTA_EPSILON = 0.0001f;
 
-        // A touch is only classified as an orbit gesture when it first moves in
-        // the free right-hand gameplay area. After that, keep the exact control
-        // captured until its physical press ends. Rechecking screen-half/UI on
-        // every frame made a stationary finger look released after it crossed a
-        // boundary, which let GC2 auto-align while the finger was still down.
+        // A free touch is classified as orbit when it first moves in the right-hand
+        // gameplay area. The Fire touch becomes eligible only after EventSystem's
+        // drag threshold. Once selected, keep the exact control captured until its
+        // physical press ends; zero delta is not a release signal.
         private static TouchControl s_CapturedOrbitTouch;
         private static int s_CapturedOrbitTouchId = int.MinValue;
+        private static int s_ReservedFireTouchId = int.MinValue;
+        private static bool s_FireTouchOrbitEnabled;
         private static bool s_MouseOrbitCaptured;
         private static readonly List<RaycastResult> s_UiRaycastResults = new(16);
         private static EventSystem s_UiEventSystem;
         private static PointerEventData s_UiPointerData;
+        private static int s_TouchCaptureScanFrame = -1;
+        private static TouchControl s_TouchCaptureScanResult;
+        private static int s_TouchCaptureScanId = int.MinValue;
 
         [NonSerialized] private InputAction m_DesktopAction;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            // Input providers can outlive a scene when Domain Reload is disabled in
+            // the Editor. Never retain a TouchControl, EventSystem or its raycast
+            // references into the next session.
+            s_CapturedOrbitTouch = null;
+            s_CapturedOrbitTouchId = int.MinValue;
+            s_ReservedFireTouchId = int.MinValue;
+            s_FireTouchOrbitEnabled = false;
+            s_MouseOrbitCaptured = false;
+            s_UiEventSystem = null;
+            s_UiPointerData = null;
+            s_UiRaycastResults.Clear();
+            s_TouchCaptureScanFrame = -1;
+            s_TouchCaptureScanResult = null;
+            s_TouchCaptureScanId = int.MinValue;
+        }
+
         public override bool IsDeltaControl =>
             this.m_DesktopAction?.activeControl is DeltaControl;
+
+        public static void SetFireTouchReserved(int touchId, bool reserved)
+        {
+            if (touchId == 0 || touchId == int.MinValue) return;
+
+            if (reserved)
+            {
+                s_ReservedFireTouchId = touchId;
+                s_FireTouchOrbitEnabled = false;
+                if (s_CapturedOrbitTouchId == touchId)
+                {
+                    s_CapturedOrbitTouch = null;
+                    s_CapturedOrbitTouchId = int.MinValue;
+                }
+
+                InvalidateTouchCaptureScan();
+                return;
+            }
+
+            if (s_ReservedFireTouchId != touchId) return;
+
+            if (s_CapturedOrbitTouchId == touchId)
+            {
+                s_CapturedOrbitTouch = null;
+                s_CapturedOrbitTouchId = int.MinValue;
+            }
+
+            s_ReservedFireTouchId = int.MinValue;
+            s_FireTouchOrbitEnabled = false;
+            InvalidateTouchCaptureScan();
+        }
+
+        public static void SetFireTouchOrbitEnabled(int touchId)
+        {
+            if (touchId == int.MinValue || touchId != s_ReservedFireTouchId) return;
+            if (s_FireTouchOrbitEnabled) return;
+
+            s_FireTouchOrbitEnabled = true;
+            InvalidateTouchCaptureScan();
+        }
 
         private InputAction DesktopAction
         {
@@ -166,7 +229,9 @@ namespace FranklinGame.Shooter
             TouchControl touch = s_CapturedOrbitTouch;
             if (touch != null && touch.device is Touchscreen touchscreen &&
                 touchscreen.added && touch.press.isPressed &&
-                touch.touchId.ReadValue() == s_CapturedOrbitTouchId)
+                touch.touchId.ReadValue() == s_CapturedOrbitTouchId &&
+                (s_CapturedOrbitTouchId != s_ReservedFireTouchId ||
+                 s_FireTouchOrbitEnabled))
             {
                 return true;
             }
@@ -182,11 +247,33 @@ namespace FranklinGame.Shooter
             Touchscreen touchscreen = Touchscreen.current;
             if (touchscreen == null) return false;
 
+            // GC2 can ask the input provider more than once in one render frame
+            // (Read + the alignment gate). Input state is frame-stable, so reuse
+            // the classification and avoid repeating every touch/UI raycast.
+            int frame = Time.frameCount;
+            if (s_TouchCaptureScanFrame == frame)
+            {
+                captured = s_TouchCaptureScanResult;
+                return captured != null && captured.press.isPressed &&
+                       captured.touchId.ReadValue() == s_TouchCaptureScanId &&
+                       (s_TouchCaptureScanId != s_ReservedFireTouchId ||
+                        s_FireTouchOrbitEnabled);
+            }
+
+            s_TouchCaptureScanFrame = frame;
+            s_TouchCaptureScanResult = null;
+            s_TouchCaptureScanId = int.MinValue;
+
             float largestDelta = POINTER_DELTA_EPSILON;
             for (int index = 0; index < touchscreen.touches.Count; index++)
             {
                 TouchControl touch = touchscreen.touches[index];
                 if (touch == null || !touch.press.isPressed) continue;
+
+                int touchId = touch.touchId.ReadValue();
+                bool isFireOrbit = touchId == s_ReservedFireTouchId &&
+                                   s_FireTouchOrbitEnabled;
+                if (touchId == s_ReservedFireTouchId && !isFireOrbit) continue;
 
                 // Capture the moving free touch instead of an unrelated held
                 // finger. This preserves Fire + orbit multi-touch behavior.
@@ -198,8 +285,11 @@ namespace FranklinGame.Shooter
                 // buttons do not repeatedly raycast the Canvas while another
                 // input provider asks for the same camera state.
                 Vector2 position = touch.position.ReadValue();
-                if (position.x <= Screen.width * 0.5f) continue;
-                if (IsOverInteractiveUi(position, touch.touchId.ReadValue())) continue;
+                if (!isFireOrbit)
+                {
+                    if (position.x <= Screen.width * 0.5f) continue;
+                    if (IsOverInteractiveUi(position, touchId)) continue;
+                }
 
                 captured = touch;
                 largestDelta = magnitude;
@@ -208,6 +298,8 @@ namespace FranklinGame.Shooter
             if (captured == null) return false;
             s_CapturedOrbitTouch = captured;
             s_CapturedOrbitTouchId = captured.touchId.ReadValue();
+            s_TouchCaptureScanResult = captured;
+            s_TouchCaptureScanId = s_CapturedOrbitTouchId;
             return true;
         }
 
@@ -301,6 +393,13 @@ namespace FranklinGame.Shooter
 
             s_UiRaycastResults.Clear();
             return false;
+        }
+
+        private static void InvalidateTouchCaptureScan()
+        {
+            s_TouchCaptureScanFrame = -1;
+            s_TouchCaptureScanResult = null;
+            s_TouchCaptureScanId = int.MinValue;
         }
     }
 }

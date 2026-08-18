@@ -24,6 +24,8 @@ namespace FranklinGame.UI.Editor
             "Assets/Plugins/GameCreator/Installs/GameCreator.Blockout@1.6.12/UI/_Fonts/JosefinSans-Bold.ttf";
         private const string PLAYER_HUD_ASSET_ROOT =
             "Assets/UI/FranklinPlayerHud/Resources/FranklinPlayerHud/";
+        private const string SMOKE_ICON_PATH =
+            "Assets/ShooterSystemGC2/Resources/FranklinShooter/UI/Weapons/smoke.png";
         private const string ON_FOOT_GROUP = "Franklin On Foot Controls";
         private const string VEHICLE_GROUP = "Franklin Vehicle Controls";
         private const string PLAYER_STATUS_HUD = "Franklin Player Status HUD";
@@ -56,7 +58,7 @@ namespace FranklinGame.UI.Editor
         private const int MONEY_VALUE_FONT_SIZE = 46;
         private const float QUICK_ARMOR_X = -130f;
         private const float QUICK_GRENADE_X = 0f;
-        private const float QUICK_MOLOTOV_X = 130f;
+        private const float QUICK_SMOKE_X = 130f;
         private const float QUICK_LEFT_DIVIDER_X = -65f;
         private const float QUICK_RIGHT_DIVIDER_X = 65f;
 
@@ -423,14 +425,13 @@ namespace FranklinGame.UI.Editor
                 }
                 RectTransform grenade =
                     FindDirectChild(quickRail, "Grenade Button") as RectTransform;
-                RectTransform molotov =
-                    FindDirectChild(quickRail, "Molotov Button") as RectTransform;
+                RectTransform smoke = FindSmokeButton(quickRail) as RectTransform;
                 RectTransform rightDivider =
                     FindDirectChild(quickRail, "Quick Item Divider") as RectTransform;
                 if (grenade != null)
                     grenade.anchoredPosition = new Vector2(QUICK_GRENADE_X, 0f);
-                if (molotov != null)
-                    molotov.anchoredPosition = new Vector2(QUICK_MOLOTOV_X, 0f);
+                if (smoke != null)
+                    smoke.anchoredPosition = new Vector2(QUICK_SMOKE_X, 0f);
                 if (rightDivider != null)
                     rightDivider.anchoredPosition =
                         new Vector2(QUICK_RIGHT_DIVIDER_X, 0f);
@@ -480,7 +481,7 @@ namespace FranklinGame.UI.Editor
 
             AssetDatabase.SaveAssets();
             Debug.Log(
-                "Franklin Armor/Grenade/Molotov rail is aligned below the Weapon card."
+                "Franklin Armor/Grenade/Smoke rail is aligned below the Weapon card."
             );
         }
 
@@ -536,13 +537,12 @@ namespace FranklinGame.UI.Editor
                 RectTransform armor = FindDirectChild(quickRail, "Armor Display") as RectTransform;
                 RectTransform grenade =
                     FindDirectChild(quickRail, "Grenade Button") as RectTransform;
-                RectTransform molotov =
-                    FindDirectChild(quickRail, "Molotov Button") as RectTransform;
+                RectTransform smoke = FindSmokeButton(quickRail) as RectTransform;
                 RectTransform leftDivider =
                     FindDirectChild(quickRail, "Quick Item Divider Armor") as RectTransform;
                 RectTransform rightDivider =
                     FindDirectChild(quickRail, "Quick Item Divider") as RectTransform;
-                if (armor == null || grenade == null || molotov == null ||
+                if (armor == null || grenade == null || smoke == null ||
                     leftDivider == null || rightDivider == null)
                 {
                     Debug.LogWarning("Franklin quick items are missing a slot or divider.");
@@ -551,7 +551,7 @@ namespace FranklinGame.UI.Editor
 
                 armor.anchoredPosition = new Vector2(QUICK_ARMOR_X, 0f);
                 grenade.anchoredPosition = new Vector2(QUICK_GRENADE_X, 0f);
-                molotov.anchoredPosition = new Vector2(QUICK_MOLOTOV_X, 0f);
+                smoke.anchoredPosition = new Vector2(QUICK_SMOKE_X, 0f);
                 leftDivider.anchoredPosition = new Vector2(QUICK_LEFT_DIVIDER_X, 0f);
                 rightDivider.anchoredPosition = new Vector2(QUICK_RIGHT_DIVIDER_X, 0f);
                 PrefabUtility.SaveAsPrefabAsset(canvasRoot, PLAYER_CANVAS_PATH);
@@ -562,7 +562,7 @@ namespace FranklinGame.UI.Editor
             }
 
             AssetDatabase.SaveAssets();
-            Debug.Log("Franklin Armor/Grenade/Molotov slots were distributed evenly.");
+            Debug.Log("Franklin Armor/Grenade/Smoke slots were distributed evenly.");
         }
 
         private static void InstallMapUtilityButtons(bool phoneOnly)
@@ -697,7 +697,7 @@ namespace FranklinGame.UI.Editor
             EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "ui-solid.png");
             EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "hud-square-frame.png");
             EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "grenade.png");
-            EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "molotov.png");
+            EnsureSpriteImporter(SMOKE_ICON_PATH);
             EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "armor.png");
             EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "hud-panel-urban-v2.png");
             EnsureSpriteImporter(PLAYER_HUD_ASSET_ROOT + "hud-quick-rail-urban-v2.png");
@@ -1103,7 +1103,7 @@ namespace FranklinGame.UI.Editor
             Sprite solid = LoadHudSprite("ui-solid.png");
             Sprite quickRailFrame = LoadHudSprite("hud-quick-rail-urban-v2.png");
             Sprite grenade = LoadHudSprite("grenade.png");
-            Sprite molotov = LoadHudSprite("molotov.png");
+            Sprite smoke = AssetDatabase.LoadAssetAtPath<Sprite>(SMOKE_ICON_PATH);
             Sprite armor = LoadHudSprite("armor.png");
             Sprite phone = LoadHudSprite("phone-button.png");
             Sprite home = LoadHudSprite("home-button.png");
@@ -1224,6 +1224,7 @@ namespace FranklinGame.UI.Editor
 
             DestroyDirectChild(root, "Grenade Button");
             DestroyDirectChild(root, "Molotov Button");
+            DestroyDirectChild(root, "Smoke Button");
             Image quickRail = EnsureHudImage(
                 root,
                 "Quick Item Rail",
@@ -1275,18 +1276,23 @@ namespace FranklinGame.UI.Editor
                 new Vector2(QUICK_GRENADE_X, 0f),
                 out Image grenadeSelection
             );
-            Button molotovButton = EnsureQuickItemButton(
+            MigrateDirectChildName(
                 quickRail.rectTransform,
                 "Molotov Button",
+                "Smoke Button"
+            );
+            Button smokeButton = EnsureQuickItemButton(
+                quickRail.rectTransform,
+                "Smoke Button",
                 solid,
-                molotov,
+                smoke,
                 hudFont,
                 "2",
-                new Vector2(QUICK_MOLOTOV_X, 0f),
-                out Image molotovSelection
+                new Vector2(QUICK_SMOKE_X, 0f),
+                out Image smokeSelection
             );
             grenadeSelection.enabled = true;
-            molotovSelection.enabled = false;
+            smokeSelection.enabled = false;
 
             RectTransform mapMaskRoot = EnsureHudRect(root, "Mini Map Mask");
             ConfigureRect(
@@ -1387,12 +1393,10 @@ namespace FranklinGame.UI.Editor
             serializedHud.FindProperty("m_UnarmedWeaponSprite").objectReferenceValue = fists;
             serializedHud.FindProperty("m_WeaponNameText").objectReferenceValue = weaponName;
             serializedHud.FindProperty("m_AmmoText").objectReferenceValue = ammoText;
-            serializedHud.FindProperty("m_GrenadeButton").objectReferenceValue = grenadeButton;
-            serializedHud.FindProperty("m_MolotovButton").objectReferenceValue = molotovButton;
-            serializedHud.FindProperty("m_GrenadeSelection").objectReferenceValue =
-                grenadeSelection;
-            serializedHud.FindProperty("m_MolotovSelection").objectReferenceValue =
-                molotovSelection;
+            SetObjectReference(serializedHud, "m_GrenadeButton", grenadeButton);
+            SetObjectReference(serializedHud, "m_GrenadeSelection", grenadeSelection);
+            SetObjectReference(serializedHud, "m_SmokeButton", smokeButton);
+            SetObjectReference(serializedHud, "m_SmokeSelection", smokeSelection);
             serializedHud.ApplyModifiedPropertiesWithoutUndo();
 
             root.gameObject.SetActive(true);
@@ -1666,6 +1670,48 @@ namespace FranklinGame.UI.Editor
             if (child != null) Object.DestroyImmediate(child.gameObject);
         }
 
+        private static void MigrateDirectChildName(
+            Transform parent,
+            string legacyName,
+            string currentName)
+        {
+            if (parent == null) return;
+
+            Transform currentChild = FindDirectChild(parent, currentName);
+            Transform legacyChild = FindDirectChild(parent, legacyName);
+            if (currentChild != null)
+            {
+                if (legacyChild != null) Object.DestroyImmediate(legacyChild.gameObject);
+                return;
+            }
+
+            if (legacyChild != null) legacyChild.name = currentName;
+        }
+
+        private static Transform FindSmokeButton(Transform parent)
+        {
+            return FindDirectChild(parent, "Smoke Button") ??
+                   FindDirectChild(parent, "Molotov Button");
+        }
+
+        private static void SetObjectReference(
+            SerializedObject serializedObject,
+            string propertyName,
+            Object value)
+        {
+            SerializedProperty property = serializedObject.FindProperty(propertyName);
+            if (property == null)
+            {
+                Debug.LogError(
+                    $"Franklin mobile HUD expected serialized property '{propertyName}' " +
+                    $"on {serializedObject.targetObject.GetType().Name}."
+                );
+                return;
+            }
+
+            property.objectReferenceValue = value;
+        }
+
         private static RectTransform EnsureHudRect(Transform parent, string objectName)
         {
             Transform existing = FindDirectChild(parent, objectName);
@@ -1768,14 +1814,20 @@ namespace FranklinGame.UI.Editor
             bool hasArmorReferences =
                 serializedStatus.FindProperty("m_ArmorFill")?.objectReferenceValue != null &&
                 serializedStatus.FindProperty("m_ArmorText")?.objectReferenceValue != null;
+            bool hasQuickItemReferences =
+                serializedStatus.FindProperty("m_GrenadeButton")?.objectReferenceValue != null &&
+                serializedStatus.FindProperty("m_SmokeButton")?.objectReferenceValue != null &&
+                serializedStatus.FindProperty("m_GrenadeSelection")?.objectReferenceValue != null &&
+                serializedStatus.FindProperty("m_SmokeSelection")?.objectReferenceValue != null;
             return statusHud != null &&
                    hasArmorReferences &&
+                   hasQuickItemReferences &&
                    FindDirectChild(statusHud, "Money Card")?.GetComponent<Image>() != null &&
                    FindDirectChild(statusHud, "Health Card")?.GetComponent<Image>() != null &&
                    FindDirectChild(statusHud, "Weapon Card")?.GetComponent<Image>() != null &&
                    quickRail?.GetComponent<Image>() != null &&
                    FindDirectChild(quickRail, "Grenade Button")?.GetComponent<Button>() != null &&
-                   FindDirectChild(quickRail, "Molotov Button")?.GetComponent<Button>() != null &&
+                   FindDirectChild(quickRail, "Smoke Button")?.GetComponent<Button>() != null &&
                    FindDirectChild(statusHud, "Mini Map Mask")?.GetComponent<Mask>() != null &&
                    FindDirectChild(statusHud, "Mini Map Frame")?.GetComponent<Image>() != null;
         }

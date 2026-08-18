@@ -155,7 +155,11 @@ namespace FranklinGame.Animations
             // Another facade can finish its stale presentation one frame after
             // Bike acquires the shared manager. Repair head occlusion without
             // rebuilding or rotating the GC2 Camera Shot.
-            this.EnsureFirstPersonHeadOcclusion();
+            if (this.m_FirstPersonHeadOcclusion == null ||
+                !this.m_FirstPersonHeadOcclusion.enabled)
+            {
+                this.EnsureFirstPersonHeadOcclusion();
+            }
         }
 
         private void OnDestroy()

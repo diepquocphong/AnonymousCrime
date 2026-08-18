@@ -56,7 +56,10 @@ namespace FranklinGame.Vehicles
 
         public bool IsConfigured => m_ImpactAudio != null && m_Driver != null &&
             m_BodyCollider != null && m_DeformablePanels != null &&
-            m_DeformablePanels.Length >= 5;
+            // A two-door low-poly profile has one body shell and two moving
+            // door panels. The canonical sedan still supplies its larger panel
+            // list, while Cyclone is valid without fake/overlapping body meshes.
+            m_DeformablePanels.Length >= 3;
         public bool UsesEdysMeshDeformation => true;
         public int DentCount => m_DentCount;
         public int LastDeformedVertexCount => m_LastDeformedVertexCount;

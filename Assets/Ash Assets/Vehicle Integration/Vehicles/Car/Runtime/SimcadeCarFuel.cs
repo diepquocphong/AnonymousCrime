@@ -219,13 +219,33 @@ namespace FranklinGame.Vehicles
 
         private IEnumerator ConsumeFuelWhileEngineRuns()
         {
-            float interval = Mathf.Clamp(m_ConsumptionTickInterval, 0.1f, 0.5f);
-            WaitForSeconds wait = new WaitForSeconds(interval);
+            float activeInterval = Mathf.Clamp(
+                m_ConsumptionTickInterval,
+                0.1f,
+                0.5f
+            );
+            float abandonedInterval = Mathf.Max(1f, activeInterval);
+            WaitForSeconds activeWait = new WaitForSeconds(activeInterval);
+            WaitForSeconds abandonedWait = new WaitForSeconds(abandonedInterval);
 
             while (m_EngineRequested && isActiveAndEnabled && HasFuel)
             {
-                yield return wait;
+                bool abandonedAtWaitStart = m_Driver != null &&
+                    !m_Driver.IsVehicleEnabled;
+                float elapsedInterval = abandonedAtWaitStart
+                    ? abandonedInterval
+                    : activeInterval;
+                yield return abandonedAtWaitStart ? abandonedWait : activeWait;
                 if (!m_EngineRequested || !isActiveAndEnabled || !HasFuel) break;
+
+                bool abandonedNow = m_Driver != null &&
+                    !m_Driver.IsVehicleEnabled;
+                if (abandonedNow &&
+                    !m_Driver.MaintainAbandonedEngineAfterBailout())
+                {
+                    m_EngineRequested = false;
+                    break;
+                }
 
                 float throttle = m_Driver != null ? m_Driver.ThrottleMagnitude : 0f;
                 float speedRatio = m_Driver != null
@@ -234,7 +254,7 @@ namespace FranklinGame.Vehicles
                 float consumptionPerSecond = m_IdleConsumption +
                     m_ThrottleConsumption * throttle +
                     m_HighSpeedConsumption * speedRatio;
-                Consume(consumptionPerSecond * interval);
+                Consume(consumptionPerSecond * elapsedInterval);
             }
 
             m_ConsumptionRoutine = null;

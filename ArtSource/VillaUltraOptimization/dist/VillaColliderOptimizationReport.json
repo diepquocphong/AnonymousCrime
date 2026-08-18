@@ -1,0 +1,49 @@
+{
+    "passed": true,
+    "sourcePrefab": "Assets/Model/franklin-villa-estate-ultra-optimized/franklin-villa-estate-ultra-optimized.prefab",
+    "optimizedPrefab": "Assets/Model/franklin-villa-estate-ultra-optimized/franklin-villa-estate-ultra-collider-optimized.prefab",
+    "source": {
+        "total": 461,
+        "box": 455,
+        "mesh": 6,
+        "trigger": 0,
+        "disabled": 0,
+        "zeroSized": 1
+    },
+    "optimized": {
+        "total": 115,
+        "box": 115,
+        "mesh": 0,
+        "trigger": 0,
+        "disabled": 0,
+        "zeroSized": 0
+    },
+    "sourceVisual": {
+        "renderers": 26,
+        "slots": 41,
+        "uniqueMeshes": 26,
+        "vertices": 17891,
+        "triangles": 16520
+    },
+    "optimizedVisual": {
+        "renderers": 26,
+        "slots": 41,
+        "uniqueMeshes": 26,
+        "vertices": 17891,
+        "triangles": 16520
+    },
+    "aggregateProxyCount": 30,
+    "removedSourceColliders": 377,
+    "convertedRampMeshColliders": 6,
+    "reductionPercent": 75.05422973632813,
+    "notes": [
+        "The existing 26-renderer ultra prefab is unchanged; this is a second prefab sharing its visual assets.",
+        "Ten moving anchors each own one local BoxCollider proxy and a gravity-free kinematic Rigidbody.",
+        "Eight static glass/window proxies replace 104 per-pane/frame colliders; the upstairs front bank is split around the balcony doorway.",
+        "Furniture uses one coarse proxy per sofa, table and bed; kitchen retains island, rear run and refrigerator.",
+        "Parking/helipad markings, glow meshes, foliage leaves, garage stripes/tracks and redundant boundary caps do not collide.",
+        "Six 12-triangle cuboid ramp MeshColliders are represented by exact local-bounds BoxColliders.",
+        "The pool water plane's invalid zero-thickness solid collider is removed; pool shell colliders remain.",
+        "All visual metrics remain 26 renderers, 41 slots and 16,520 triangles."
+    ]
+}

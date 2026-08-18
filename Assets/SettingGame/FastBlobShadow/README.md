@@ -25,7 +25,11 @@ có offset tâm `-0.43m` theo local X. Footprint giữ trục dài theo hướng
 vehicle và đồng thời nghiêng theo normal mặt đất; Bike lấy hướng từ `ABP Rotator`, không
 lấy root vốn không được ABP xoay. Ground tracking dùng `Physics.RaycastNonAlloc`; probe mặc định của
 Player chạy mỗi `0.08s` thay vì mỗi frame, bỏ qua trigger và collider thuộc chính owner.
-Giữa hai probe, vị trí được chiếu lên mặt phẳng ground đã cache để giảm độ trễ khi di chuyển.
+Giữa hai probe, vị trí được chiếu theo trục Y lên mặt phẳng ground đã cache để tâm bóng
+luôn nằm ngay dưới owner trên dốc, không bị trượt ngang theo normal. Sai khác normal
+nhỏ ở đường nối tam giác được nội suy theo thời gian; thay đổi góc dốc thật được snap
+ngay để footprint dài của Car/Bike không bị cắt khỏi receiver band. Cách này không cần
+tăng số raycast.
 
 Khi Player nhảy hoặc bay lên, shadow vẫn nằm trên ground nhưng tự thu nhỏ và mờ dần. Mặc định hiệu ứng bắt đầu sau `0.05m` độ cao airborne và renderer tắt hoàn toàn từ `2.5m`. Chiều cao được tính sau khi trừ pivot grounded `1m` của Player.
 
@@ -35,12 +39,20 @@ instance, shader keyword hoặc variant theo từng vehicle. Controller tự b�
 `requiresDepthTexture` trên camera gameplay; không bật depth toàn bộ `Mobile_RPAsset`,
 tránh áp chi phí này cho camera không dùng shadow.
 
-Rectangle dùng superellipse bậc 8 thay cho `max(X,Z)`: footprint vẫn gần vuông nhưng
+Receiver band bất đối xứng cho phép object ở phía thấp hơn nhận bóng rộng hơn phía
+trên, đồng thời tăng nhẹ tolerance về mép footprint. Vì vậy FBS có thể phủ cả hai
+object tại seam lệch cao độ/normal nhỏ mà vẫn loại nóc hoặc thân xe ở xa ground plane.
+Nếu raycast chạm đúng biên hai collider, hit được chọn ổn định theo normal trước đó,
+distance và instance ID để bóng không đổi bên giữa các probe.
+
+Pixel ngoài footprint được loại sớm; shader chỉ tính nhánh ellipse hoặc rectangle của
+instance hiện tại. Rectangle dùng superellipse bậc 8 thay cho `max(X,Z)`: footprint vẫn gần vuông nhưng
 gradient liên tục ở bốn góc, không còn đường đạo hàm chéo. Car projection raster bằng
 một oversized triangle rồi shader tự clip ngoài footprint, nên cũng không có diagonal
 mesh seam để lộ trên nền sáng.
 
-Lưu ý: vật liệu transparent không ghi depth sẽ không nhận blob shadow.
+Lưu ý: receiver dùng vật liệu Transparent, `ZWrite Off` hoặc không có `DepthOnly` sẽ
+không xuất hiện trong camera depth và không thể nhận blob shadow.
 
 ## API runtime
 
@@ -109,6 +121,8 @@ if (FranklinBlobShadow.TryGet(playerComponent, out shadow))
     shadow.SetDiameter(1f);
     shadow.SetAirborneResponse(1f, 0.05f, 2.5f, 0.25f);
     shadow.SetGroundTracking(true);
+    shadow.SetGroundNormalSmoothing(18f); // 0 = snap, không tăng raycast
+    shadow.SetReceiverBand(0.22f, 0.40f, 0.10f); // above, below, seam edge
     shadow.RefreshGround();
 }
 ```
@@ -157,7 +171,16 @@ API Editor `FranklinGame.Rendering.Editor.FranklinBlobShadowInstaller.InstallAll
 - `Probe Interval`: tăng lên `0.10-0.15` nếu có nhiều character; Player mặc định là `0.08`.
 - `Max Visible Distance`: giảm để bỏ cả draw và ground probe ở khoảng cách xa; `0` là không giới hạn.
 - `Distance Check Interval`: mặc định `0.25s`; không kiểm tra khoảng cách mỗi frame.
-- `Ground Layers`: nên chỉ chọn layer môi trường để giảm physics query. Controller vẫn lọc collider con của owner.
+- `Ground Layers`: mặc định chỉ dùng `Default`, `Ground`, `Building`, `Wall`, `Prop`;
+  prefab cũ lưu `Everything` tự được nâng cấp trong memory trước raycast đầu tiên.
+- Probe và idle refresh được stagger ổn định theo instance, tránh nhiều NPC/vehicle
+  dồn physics query vào cùng một frame.
+- `Ground Normal Sharpness`: mặc định `18`, chỉ làm mượt nhiễu normal rất nhỏ giữa
+  các probe mà không phát sinh thêm raycast hoặc GC; góc dốc thay đổi khoảng `2°` trở
+  lên vẫn snap ngay. Đặt `0` nếu muốn mọi thay đổi đều snap.
+- `Receiver Above / Below / Seam Allowance`: mặc định `0.22 / 0.40 / 0.10` trong
+  local projection volume. Không bỏ receiver limit hoàn toàn vì sẽ làm bóng dính lên
+  character hoặc vehicle. Các giá trị này không thêm raycast hay draw call.
 - `Ignore Rigidbody Receivers`: mặc định bật; raycast bỏ qua Car/Bike/vật thể động và
   tiếp tục xuống nền thật, vì vậy Player FBS không chiếu lên nóc xe.
 - `Grounded Pivot Height`: Player hiện dùng pivot giữa capsule cao 2m nên giá trị mặc định là `1`.

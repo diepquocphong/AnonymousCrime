@@ -56,6 +56,25 @@ MonoBehaviour:
   m_DepthTextureFormat: 0
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 0
+--- !u!114 &856374920194365771
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f2be26418ae64576a30cb769fab4aa4b, type: 3}
+  m_Name: Fast Mobile DOF (Franklin Quarter Res)
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Rendering.FranklinFastDepthOfFieldFeature
+  m_Active: 1
+  m_Shader: {fileID: 4800000, guid: 9cb6299a411c4235bac901634fab5df1, type: 3}
+  m_NearBlurDistance: 15
+  m_FarBlurDistance: 40
+  m_BlurTransition: 10
+  m_BlurRadius: 1.35
+  m_Strength: 0.3
 --- !u!114 &7320813960732399841
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -82,22 +101,3 @@ MonoBehaviour:
     BlurQuality: 2
     Falloff: 80
     SampleCount: -1
---- !u!114 &856374920194365771
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f2be26418ae64576a30cb769fab4aa4b, type: 3}
-  m_Name: Fast Mobile DOF (Franklin Quarter Res)
-  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Rendering.FranklinFastDepthOfFieldFeature
-  m_Active: 1
-  m_Shader: {fileID: 4800000, guid: 9cb6299a411c4235bac901634fab5df1, type: 3}
-  m_NearBlurDistance: 15
-  m_FarBlurDistance: 40
-  m_BlurTransition: 10
-  m_BlurRadius: 1.35
-  m_Strength: 0.3

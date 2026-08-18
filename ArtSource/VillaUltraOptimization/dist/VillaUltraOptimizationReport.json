@@ -1,0 +1,67 @@
+{
+    "passed": true,
+    "sourcePrefab": "Assets/Model/franklin-villa-estate-unity/franklin-villa-estate-unity.prefab",
+    "optimizedPrefab": "Assets/Model/franklin-villa-estate-ultra-optimized/franklin-villa-estate-ultra-optimized.prefab",
+    "source": {
+        "gameObjectCount": 517,
+        "rendererCount": 461,
+        "materialSlotCount": 498,
+        "uniqueMeshCount": 440,
+        "materialCount": 26,
+        "referencedTextureCount": 5,
+        "colliderCount": 461,
+        "boxColliderCount": 455,
+        "meshColliderCount": 6,
+        "instanceVertexCount": 17891,
+        "instanceTriangleCount": 16520,
+        "boundsCenter": {
+            "x": -1.5,
+            "y": 3.3639090061187746,
+            "z": -7.133180618286133
+        },
+        "boundsSize": {
+            "x": 70.0,
+            "y": 10.62781810760498,
+            "z": 48.11363983154297
+        }
+    },
+    "optimized": {
+        "gameObjectCount": 544,
+        "rendererCount": 26,
+        "materialSlotCount": 41,
+        "uniqueMeshCount": 26,
+        "materialCount": 4,
+        "referencedTextureCount": 1,
+        "colliderCount": 461,
+        "boxColliderCount": 455,
+        "meshColliderCount": 6,
+        "instanceVertexCount": 17891,
+        "instanceTriangleCount": 16520,
+        "boundsCenter": {
+            "x": -1.5,
+            "y": 3.3639090061187746,
+            "z": -7.133182525634766
+        },
+        "boundsSize": {
+            "x": 70.0,
+            "y": 10.62781810760498,
+            "z": 48.11363983154297
+        }
+    },
+    "sourceOpaqueMaterialCount": 23,
+    "outputGroupCount": 26,
+    "rendererReductionPercent": 94.3600845336914,
+    "materialSlotReductionPercent": 91.7670669555664,
+    "uniqueMeshReductionPercent": 94.09091186523438,
+    "sourceLocalAssetBytes": 6618891,
+    "optimizedLocalAssetBytes": 5050078,
+    "notes": [
+        "The original prefab/folder was not modified.",
+        "All 517 original transforms and all 461 colliders retain their exact paths and local transforms.",
+        "The 23 opaque appearances are baked into UV3-UV5 and one shared atlas material.",
+        "Glass and water retain the original Piglet zwrite plus transparent material passes.",
+        "Only ten true moving anchors receive their own compact visual batch; ramp visuals are region-batched.",
+        "No decimation was used: all 16,520 rendered triangles remain.",
+        "Atlas uses original 256px pixels with eight-pixel wrap gutters, BC1 desktop and ASTC 4x4 mobile."
+    ]
+}

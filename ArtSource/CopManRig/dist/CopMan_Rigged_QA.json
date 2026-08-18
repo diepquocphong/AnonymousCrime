@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 2,
+  "status": "passed",
+  "blenderVersion": "4.5.0",
+  "method": {
+    "weightTransfer": "POLYINTERP_NEAREST",
+    "normalizeBeforeLimit": true,
+    "maximumInfluencesPerVertex": 4,
+    "normalizeAfterLimit": true,
+    "donorMeshRemoved": true,
+    "exportedObjectTypes": [
+      "ARMATURE",
+      "MESH"
+    ],
+    "stagedRotationYDegrees": 0,
+    "uvAdjustment": "V = 1 - V for existing Piglet-flipped Unity PNG",
+    "flippedUvCoordinateCount": 17583
+  },
+  "sources": {
+    "copGlb": {
+      "path": "/Users/diepquocphong/Downloads/police+officer+3d+model.glb",
+      "sha256": "335dbd870e0d27465888ab23ea909636ab61f317651d70753f02f38c60c385cf",
+      "vertexCount": 8649,
+      "triangleCount": 5861,
+      "worldDimensions": [
+        0.87304699,
+        0.22070318,
+        0.99804688
+      ]
+    },
+    "donorFbx": {
+      "path": "/Users/diepquocphong/Documents/Franklin Game/Assets/Character/Franklin/franklin_1_fixed.fbx",
+      "sha256": "0f1e28687499467b77ecbcf3c70e05fd6198c2654691562719dacbb04e7816bc",
+      "meshVertexCount": 2902,
+      "boneCount": 68,
+      "vertexGroupCount": 68,
+      "worldDimensions": [
+        0.85742214,
+        0.19335947,
+        0.99804808
+      ]
+    }
+  },
+  "stagedMesh": {
+    "vertexCount": 8649,
+    "vertexGroupCount": 68,
+    "groupsWithWeights": 53,
+    "emptyGroups": [
+      "middle1_base.l",
+      "pinky1_base.l",
+      "pinky1.l",
+      "pinky2.l",
+      "pinky3.l",
+      "ring1.l",
+      "ring2.l",
+      "ring3.l",
+      "middle1_base.r",
+      "pinky1.r",
+      "pinky2.r",
+      "pinky3.r",
+      "ring1.r",
+      "ring2.r",
+      "ring3.r"
+    ],
+    "zeroWeightVertices": 0,
+    "minInfluencesPerVertex": 1,
+    "maxInfluencesPerVertex": 4,
+    "averageInfluencesPerVertex": 2.796277,
+    "influenceDistribution": {
+      "1": 1041,
+      "2": 1966,
+      "3": 3356,
+      "4": 2286
+    },
+    "minWeightSum": 0.999999762,
+    "maxWeightSum": 1.000000138,
+    "maxWeightSumError": 2.38e-07,
+    "triangleCount": 5861,
+    "uvLayerCount": 1,
+    "uvLayerNames": [
+      "UVMap"
+    ],
+    "materialSlotCount": 1,
+    "materialNames": [
+      "tripo_mat_a12a1546-291e-4a69-9c07-4a8453a56544"
+    ],
+    "worldDimensions": [
+      0.87304699,
+      0.22070316,
+      0.99804677
+    ],
+    "armatureModifierCount": 1
+  },
+  "fbxRoundtrip": {
+    "vertexCount": 8649,
+    "vertexGroupCount": 53,
+    "groupsWithWeights": 53,
+    "emptyGroups": [],
+    "zeroWeightVertices": 0,
+    "minInfluencesPerVertex": 1,
+    "maxInfluencesPerVertex": 4,
+    "averageInfluencesPerVertex": 2.796277,
+    "influenceDistribution": {
+      "1": 1041,
+      "2": 1966,
+      "3": 3356,
+      "4": 2286
+    },
+    "minWeightSum": 0.999999762,
+    "maxWeightSum": 1.000000138,
+    "maxWeightSumError": 2.38e-07,
+    "triangleCount": 5861,
+    "uvLayerCount": 1,
+    "uvLayerNames": [
+      "UVMap"
+    ],
+    "materialSlotCount": 1,
+    "materialNames": [
+      "tripo_mat_a12a1546-291e-4a69-9c07-4a8453a56544"
+    ],
+    "worldDimensions": [
+      0.87304696,
+      0.22070307,
+      0.99804666
+    ],
+    "armatureModifierCount": 1,
+    "armatureBoneCount": 68,
+    "armatureObjectName": "root",
+    "meshObjectName": "CopMan_Mesh"
+  },
+  "checks": {
+    "sourceVertexCountMatches": true,
+    "sourceTriangleCountMatches": true,
+    "donorBoneCountMatches": true,
+    "donorGroupCountMatches": true,
+    "allVerticesWeighted": true,
+    "maximumFourInfluences": true,
+    "weightsNormalized": true,
+    "uvPreparedForUnityTexture": true,
+    "materialSlotPreserved": true,
+    "worldDimensionsPreserved": true,
+    "fbxRoundtripBoneCountMatches": true,
+    "fbxRoundtripAllVerticesWeighted": true,
+    "fbxRoundtripMaximumFourInfluences": true
+  },
+  "outputs": {
+    "fbx": {
+      "path": "/Users/diepquocphong/Documents/Franklin Game/ArtSource/CopManRig/dist/CopMan_Rigged.fbx",
+      "bytes": 1148492,
+      "sha256": "44c52147c1afe562cff21696cd21d8458e42b39b2fdd5a49f9106b9a21035aea"
+    },
+    "blend": {
+      "path": "/Users/diepquocphong/Documents/Franklin Game/ArtSource/CopManRig/dist/CopMan_Rigged.blend",
+      "bytes": 791929,
+      "sha256": "c4a04bf9328d822262bd25a420c3402dc7f88f92fc11f74eea8c7e788bffd1de"
+    },
+    "qaReport": "/Users/diepquocphong/Documents/Franklin Game/ArtSource/CopManRig/dist/CopMan_Rigged_QA.json"
+  }
+}

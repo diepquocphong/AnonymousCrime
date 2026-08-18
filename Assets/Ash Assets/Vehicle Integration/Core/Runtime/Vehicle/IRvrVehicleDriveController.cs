@@ -43,3 +43,14 @@ public interface IRvrVehicleAirborneState
 {
     bool IsAirborne { get; }
 }
+
+/// <summary>
+/// Optional per-vehicle collision lease used while an occupant crosses the
+/// vehicle hull during authored enter/exit animation. Implementations ignore
+/// only Character/vehicle collider pairs and must restore them deterministically.
+/// </summary>
+public interface IRvrVehicleOccupantCollisionPolicy
+{
+    void BeginOccupantCollisionIgnore(GameCreator.Runtime.Characters.Character character);
+    void EndOccupantCollisionIgnore(GameCreator.Runtime.Characters.Character character);
+}

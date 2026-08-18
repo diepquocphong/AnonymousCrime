@@ -6,6 +6,7 @@ using GameCreator.Runtime.Common;
 using GameCreator.Runtime.Shooter;
 using GameCreator.Runtime.Stats;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace FranklinGame.UI
@@ -58,13 +59,18 @@ namespace FranklinGame.UI
         [SerializeField] private Text m_WeaponNameText;
         [SerializeField] private Text m_AmmoText;
         [SerializeField] private Button m_GrenadeButton;
-        [SerializeField] private Button m_MolotovButton;
+        [FormerlySerializedAs("m_MolotovButton")]
+        [SerializeField] private Button m_SmokeButton;
         [SerializeField] private Image m_GrenadeSelection;
-        [SerializeField] private Image m_MolotovSelection;
+        [FormerlySerializedAs("m_MolotovSelection")]
+        [SerializeField] private Image m_SmokeSelection;
 
         private static readonly CultureInfo DISPLAY_CULTURE = CultureInfo.InvariantCulture;
         private bool m_QuickItemListenersBound;
-        private bool m_MolotovSelected;
+        private bool m_GrenadeSelected;
+        private bool m_SmokeSelected;
+        private Text m_GrenadeQuantityText;
+        private Text m_SmokeQuantityText;
         private Traits m_PlayerTraits;
         private RuntimeAttributeData m_PlayerHealth;
         private float m_NextPlayerLookupTime;
@@ -80,6 +86,7 @@ namespace FranklinGame.UI
         private bool m_PlayerWeaponBound;
         private bool m_IsUnarmed;
         private bool m_IsAmmoInfinite;
+        private bool m_WeaponUsesMagazine = true;
         private bool m_WeaponLayoutInitialized;
         private Vector2 m_TargetWeaponCardPosition;
         private Vector2 m_TargetWeaponCardSize;
@@ -123,6 +130,7 @@ namespace FranklinGame.UI
         private void Awake()
         {
             s_Instance = this;
+            this.ResolveQuickItemQuantityText();
             this.m_DisplayedMoney = this.m_Money;
             this.m_MoneyDisplayInitialized = true;
             this.RefreshView();
@@ -283,6 +291,7 @@ namespace FranklinGame.UI
             this.m_AmmoInClip = Mathf.Max(0, ammoInClip);
             this.m_AmmoReserve = Mathf.Max(0, ammoReserve);
             this.m_IsAmmoInfinite = false;
+            this.m_WeaponUsesMagazine = true;
             this.m_RuntimeWeaponSprite = null;
             this.RefreshWeapon();
         }
@@ -294,15 +303,22 @@ namespace FranklinGame.UI
 
         public void SelectGrenade()
         {
-            this.m_MolotovSelected = false;
+            this.m_GrenadeSelected = true;
+            this.m_SmokeSelected = false;
+            FranklinShooterSystem.Instance?.SelectWeaponById("rgd5");
             this.RefreshQuickItem();
         }
 
-        public void SelectMolotov()
+        public void SelectSmoke()
         {
-            this.m_MolotovSelected = true;
+            this.m_GrenadeSelected = false;
+            this.m_SmokeSelected = true;
+            FranklinShooterSystem.Instance?.SelectWeaponById("smoke");
             this.RefreshQuickItem();
         }
+
+        [Obsolete("Use SelectSmoke")]
+        public void SelectMolotov() => this.SelectSmoke();
 
         private void RefreshView()
         {
@@ -539,8 +555,10 @@ namespace FranklinGame.UI
             if (this.m_AmmoText != null)
             {
                 this.m_AmmoText.gameObject.SetActive(!this.m_IsUnarmed);
-                this.m_AmmoText.text = this.m_AmmoInClip + " / " +
-                                       (this.m_IsAmmoInfinite ? "∞" : this.m_AmmoReserve);
+                this.m_AmmoText.text = this.m_WeaponUsesMagazine
+                    ? this.m_AmmoInClip + " / " +
+                      (this.m_IsAmmoInfinite ? "∞" : this.m_AmmoReserve)
+                    : this.m_IsAmmoInfinite ? "∞" : this.m_AmmoInClip.ToString();
             }
 
             this.SetWeaponLayoutTarget(this.m_IsUnarmed);
@@ -599,8 +617,12 @@ namespace FranklinGame.UI
                 this.m_AmmoInClip = 0;
                 this.m_AmmoReserve = 0;
                 this.m_IsAmmoInfinite = false;
+                this.m_WeaponUsesMagazine = false;
                 this.m_RuntimeWeaponSprite = null;
+                this.m_GrenadeSelected = false;
+                this.m_SmokeSelected = false;
                 this.RefreshWeapon();
+                this.RefreshQuickItem();
                 return;
             }
 
@@ -613,19 +635,33 @@ namespace FranklinGame.UI
                 ? weapon.name
                 : weaponName;
             this.m_RuntimeWeaponSprite = weapon.GetSprite(args);
+            this.m_WeaponUsesMagazine = weapon.Magazine.GetHasMagazine(args);
+            this.m_GrenadeSelected = string.Equals(
+                this.m_WeaponName,
+                "RGD-5",
+                StringComparison.OrdinalIgnoreCase
+            );
+            this.m_SmokeSelected = string.Equals(
+                this.m_WeaponName,
+                "Smoke Grenade",
+                StringComparison.OrdinalIgnoreCase
+            );
 
             if (this.m_PlayerCharacter.Combat.RequestMunition(weapon) is
                 ShooterMunition munition)
             {
                 int totalAmmo = weapon.Magazine.GetTotalAmmo(args);
-                this.m_AmmoInClip = munition.InMagazine;
+                this.m_AmmoInClip = this.m_WeaponUsesMagazine
+                    ? munition.InMagazine
+                    : totalAmmo;
                 this.m_IsAmmoInfinite = totalAmmo >= int.MaxValue;
-                this.m_AmmoReserve = this.m_IsAmmoInfinite
+                this.m_AmmoReserve = this.m_IsAmmoInfinite || !this.m_WeaponUsesMagazine
                     ? 0
                     : Mathf.Max(0, totalAmmo - munition.InMagazine);
             }
 
             this.RefreshWeapon();
+            this.RefreshQuickItem();
         }
 
         private void SetWeaponLayoutTarget(bool unarmed)
@@ -700,9 +736,9 @@ namespace FranklinGame.UI
             {
                 this.m_GrenadeButton.onClick.AddListener(this.SelectGrenade);
             }
-            if (this.m_MolotovButton != null)
+            if (this.m_SmokeButton != null)
             {
-                this.m_MolotovButton.onClick.AddListener(this.SelectMolotov);
+                this.m_SmokeButton.onClick.AddListener(this.SelectSmoke);
             }
             this.m_QuickItemListenersBound = true;
         }
@@ -714,9 +750,9 @@ namespace FranklinGame.UI
             {
                 this.m_GrenadeButton.onClick.RemoveListener(this.SelectGrenade);
             }
-            if (this.m_MolotovButton != null)
+            if (this.m_SmokeButton != null)
             {
-                this.m_MolotovButton.onClick.RemoveListener(this.SelectMolotov);
+                this.m_SmokeButton.onClick.RemoveListener(this.SelectSmoke);
             }
             this.m_QuickItemListenersBound = false;
         }
@@ -725,11 +761,40 @@ namespace FranklinGame.UI
         {
             if (this.m_GrenadeSelection != null)
             {
-                this.m_GrenadeSelection.enabled = !this.m_MolotovSelected;
+                this.m_GrenadeSelection.enabled = this.m_GrenadeSelected;
             }
-            if (this.m_MolotovSelection != null)
+            if (this.m_SmokeSelection != null)
             {
-                this.m_MolotovSelection.enabled = this.m_MolotovSelected;
+                this.m_SmokeSelection.enabled = this.m_SmokeSelected;
+            }
+
+            this.ResolveQuickItemQuantityText();
+            FranklinShooterSystem shooter = FranklinShooterSystem.Instance;
+            if (this.m_GrenadeQuantityText != null)
+            {
+                string count = (shooter?.GetRemainingAmmo("rgd5") ?? 0).ToString();
+                if (this.m_GrenadeQuantityText.text != count)
+                    this.m_GrenadeQuantityText.text = count;
+            }
+            if (this.m_SmokeQuantityText != null)
+            {
+                string count = (shooter?.GetRemainingAmmo("smoke") ?? 0).ToString();
+                if (this.m_SmokeQuantityText.text != count)
+                    this.m_SmokeQuantityText.text = count;
+            }
+        }
+
+        private void ResolveQuickItemQuantityText()
+        {
+            if (this.m_GrenadeQuantityText == null && this.m_GrenadeButton != null)
+            {
+                this.m_GrenadeQuantityText =
+                    this.m_GrenadeButton.transform.Find("Quantity")?.GetComponent<Text>();
+            }
+            if (this.m_SmokeQuantityText == null && this.m_SmokeButton != null)
+            {
+                this.m_SmokeQuantityText =
+                    this.m_SmokeButton.transform.Find("Quantity")?.GetComponent<Text>();
             }
         }
     }

@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "views": {
+    "Hero": {
+      "normalizedRMSE": 0.0420272313,
+      "SSIM": 0.9695701003,
+      "PSNRdB": 27.5293844
+    },
+    "Front": {
+      "normalizedRMSE": 0.0053588306,
+      "SSIM": 0.9977162480,
+      "PSNRdB": 45.4185995
+    },
+    "Top": {
+      "normalizedRMSE": 0.0112479553,
+      "SSIM": 0.9801999927,
+      "PSNRdB": 38.9785284
+    }
+  },
+  "notes": [
+    "Same Unity version, render pipeline, camera, lighting and source materials were used.",
+    "Front and top views are near-identical; the Hero delta is concentrated in oblique textured surfaces and real-time shadows.",
+    "Visual comparisons were inspected in addition to numeric metrics."
+  ]
+}

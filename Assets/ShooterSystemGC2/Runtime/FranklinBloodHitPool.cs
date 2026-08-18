@@ -23,6 +23,7 @@ namespace FranklinGame.Shooter
         {
             public GameObject Root;
             public PGBloodFactory Factory;
+            public ParticleSystem[] Particles;
             public float ExpireAt;
         }
 
@@ -86,7 +87,10 @@ namespace FranklinGame.Shooter
 
         private void Update()
         {
-            float now = Time.time;
+            // Visual lifetimes must keep progressing while gameplay time is paused/slowed.
+            // Otherwise pooled particle roots remain active and keep their renderers/coroutines
+            // registered for the entire pause.
+            float now = Time.unscaledTime;
             bool hasActiveHit = false;
             for (int i = 0; i < this.m_Slots.Length; ++i)
             {
@@ -148,7 +152,7 @@ namespace FranklinGame.Shooter
                 particle.Execute(collisionMask);
             }
 
-            slot.ExpireAt = Time.time + Mathf.Clamp(
+            slot.ExpireAt = Time.unscaledTime + Mathf.Clamp(
                 requestedLifetime,
                 MIN_LIFETIME,
                 MAX_LIFETIME
@@ -186,34 +190,44 @@ namespace FranklinGame.Shooter
             }
 
             factory.executeOnAwake = false;
-            foreach (ParticleSystem particle in
-                     root.GetComponentsInChildren<ParticleSystem>(true))
+            ParticleSystem[] particles =
+                root.GetComponentsInChildren<ParticleSystem>(true);
+            foreach (ParticleSystem particle in particles)
             {
                 ParticleSystem.MainModule main = particle.main;
                 main.maxParticles = Mathf.Min(
                     main.maxParticles,
                     MAX_PARTICLES_PER_SYSTEM
                 );
+
+                // BloodFactory's collision path performs per-particle physics callbacks and
+                // spawns ten-second decals. Franklin deliberately disables those decals via
+                // spawnActive, so keeping collision simulation enabled only burns CPU on mobile.
+                ParticleSystem.CollisionModule collision = particle.collision;
+                collision.enabled = false;
             }
             root.SetActive(false);
             slot.Root = root;
             slot.Factory = factory;
+            slot.Particles = particles;
             slot.ExpireAt = 0f;
             return true;
         }
 
         private static void Deactivate(ref Slot slot)
         {
-            if (slot.Root == null || slot.Factory == null) return;
+            if (slot.Root == null) return;
 
-            for (int i = 0; i < slot.Factory.bloodParticles.Count; ++i)
+            // Clear every authored child system, including BloodFactory's auxiliary splash,
+            // before recycling the root. Stopping only bloodParticles can leave auxiliary
+            // particles resident across successive pool uses.
+            ParticleSystem[] particles = slot.Particles;
+            if (particles != null)
             {
-                BloodParticle bloodParticle = slot.Factory.bloodParticles[i];
-                ParticleSystem particle = bloodParticle != null
-                    ? bloodParticle.particle
-                    : null;
-                if (particle != null)
+                for (int i = 0; i < particles.Length; ++i)
                 {
+                    ParticleSystem particle = particles[i];
+                    if (particle == null) continue;
                     particle.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
                 }
             }

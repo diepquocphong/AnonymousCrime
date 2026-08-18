@@ -1,4 +1,6 @@
 ﻿using UnityEngine;
+using System;
+using System.Collections;
 using UnityEngine.Rendering;
 
 namespace Ashsvp
@@ -9,7 +11,11 @@ namespace Ashsvp
 		[HideInInspector]
 		public float SkidmarkWidth = 0.5f;
 
-		private const int MaxSkidMarks = 2048;
+		private const int DesktopMaxSkidMarks = 2048;
+		private const int MobileMaxSkidMarks = 512;
+		private const float DesktopRetentionSeconds = 90f;
+		private const float MobileRetentionSeconds = 30f;
+		private const float RetentionCheckSeconds = 5f;
 		private const float contact_Offset = 0.02f;
 		private const float MinDistance = 0.25f;
 		private const float MinDistanceSquare = MinDistance * MinDistance;
@@ -24,9 +30,12 @@ namespace Ashsvp
 			public Vector3 Posr = Vector3.zero;
 			public Color32 Colour;
 			public int LastIndex;
+			public int Generation;
 		};
 
 		int markIndex;
+		int maxSkidMarks;
+		int generation = 1;
 		SkidMarkSection[] skidmarks;
 		Mesh marksMesh;
 		MeshRenderer mr;
@@ -40,7 +49,10 @@ namespace Ashsvp
 		int[] triangles;
 
 		bool meshUpdated;
-		bool haveSetBounds;
+		bool hasVisibleMarks;
+		bool initialized;
+		float lastMarkTime;
+		Coroutine retentionRoutine;
 
 		Color32 black = Color.black;
 
@@ -56,9 +68,21 @@ namespace Ashsvp
 
 		protected void Start()
 		{
-			skidmarks = new SkidMarkSection[MaxSkidMarks];
+			// Parked traffic does not allocate a dynamic mesh or large vertex arrays.
+			// AddSkidMark initializes the bounded pool on first real tire slip.
+			enabled = false;
+		}
 
-			for (int i = 0; i < MaxSkidMarks; i++)
+		void EnsureInitialized()
+		{
+			if (initialized) return;
+			initialized = true;
+			maxSkidMarks = Application.isMobilePlatform
+				? MobileMaxSkidMarks
+				: DesktopMaxSkidMarks;
+			skidmarks = new SkidMarkSection[maxSkidMarks];
+
+			for (int i = 0; i < maxSkidMarks; i++)
 			{
 				skidmarks[i] = new SkidMarkSection();
 			}
@@ -80,17 +104,21 @@ namespace Ashsvp
 			}
 			mf.sharedMesh = marksMesh;
 
-			vertices = new Vector3[MaxSkidMarks * 4];
-			normals = new Vector3[MaxSkidMarks * 4];
-			tangents = new Vector4[MaxSkidMarks * 4];
-			colors = new Color32[MaxSkidMarks * 4];
-			uvs = new Vector2[MaxSkidMarks * 4];
-			triangles = new int[MaxSkidMarks * 6];
+			vertices = new Vector3[maxSkidMarks * 4];
+			normals = new Vector3[maxSkidMarks * 4];
+			tangents = new Vector4[maxSkidMarks * 4];
+			colors = new Color32[maxSkidMarks * 4];
+			uvs = new Vector2[maxSkidMarks * 4];
+			triangles = new int[maxSkidMarks * 6];
 
 			mr.shadowCastingMode = ShadowCastingMode.Off;
 			mr.receiveShadows = false;
-			mr.material = skidmarksMaterial;
+			mr.sharedMaterial = skidmarksMaterial;
 			mr.lightProbeUsage = LightProbeUsage.Off;
+			mr.enabled = false;
+
+			// AddSkidMark re-enables this component only when a mesh upload is pending.
+			// This removes an otherwise permanent LateUpdate callback per Car.
 		}
 
 		protected void LateUpdate()
@@ -105,13 +133,8 @@ namespace Ashsvp
 			marksMesh.colors32 = colors;
 			marksMesh.uv = uvs;
 
-			if (!haveSetBounds)
-			{
-				marksMesh.bounds = new Bounds(new Vector3(0, 0, 0), new Vector3(10000, 10000, 10000));
-				haveSetBounds = true;
-			}
-
-			mf.sharedMesh = marksMesh;
+			UpdateMeshBounds();
+			enabled = false;
 		}
 
 		public int AddSkidMark(Vector3 pos, Vector3 normal, float opacity, int lastIndex)
@@ -126,6 +149,12 @@ namespace Ashsvp
 		public int AddSkidMark(Vector3 pos, Vector3 normal, Color32 colour, int lastIndex)
 		{
 			if (colour.a == 0) return -1;
+			EnsureInitialized();
+			if (lastIndex < 0 || lastIndex >= maxSkidMarks ||
+				skidmarks[lastIndex].Generation != generation)
+			{
+				lastIndex = -1;
+			}
 
 			SkidMarkSection lastSection = null;
 			Vector3 distAndDirection = Vector3.zero;
@@ -154,6 +183,7 @@ namespace Ashsvp
 			curSection.Normal = normal;
 			curSection.Colour = colour;
 			curSection.LastIndex = lastIndex;
+			curSection.Generation = generation;
 
 			if (lastSection != null)
 			{
@@ -173,7 +203,7 @@ namespace Ashsvp
 			UpdateSkidmarksMesh();
 
 			int curIndex = markIndex;
-			markIndex = ++markIndex % MaxSkidMarks;
+			markIndex = ++markIndex % maxSkidMarks;
 
 			return curIndex;
 		}
@@ -182,7 +212,13 @@ namespace Ashsvp
 		{
 			SkidMarkSection curr = skidmarks[markIndex];
 
-			if (curr.LastIndex == -1) return;
+			if (curr.LastIndex == -1)
+			{
+				ClearSegment(markIndex);
+				meshUpdated = true;
+				enabled = true;
+				return;
+			}
 
 			SkidMarkSection last = skidmarks[curr.LastIndex];
 			vertices[markIndex * 4 + 0] = last.Posl;
@@ -219,6 +255,157 @@ namespace Ashsvp
 			triangles[markIndex * 6 + 4] = markIndex * 4 + 3;
 
 			meshUpdated = true;
+			hasVisibleMarks = true;
+			lastMarkTime = Time.unscaledTime;
+			if (mr != null) mr.enabled = true;
+			EnsureRetentionRoutine();
+			enabled = true;
+		}
+
+		private void OnEnable()
+		{
+			EnsureRetentionRoutine();
+		}
+
+		void EnsureRetentionRoutine()
+		{
+			if (!hasVisibleMarks || retentionRoutine != null ||
+				!gameObject.activeInHierarchy)
+			{
+				return;
+			}
+
+			retentionRoutine = StartCoroutine(ClearExpiredMarks());
+		}
+
+		private void OnDisable()
+		{
+			// Disabling this component after a one-frame mesh upload must not stop
+			// retention. A pooled/hidden GameObject does stop Unity coroutines, so
+			// release the handle and let OnEnable schedule it again later.
+			if (!gameObject.activeInHierarchy)
+			{
+				retentionRoutine = null;
+			}
+		}
+
+		IEnumerator ClearExpiredMarks()
+		{
+			WaitForSecondsRealtime wait =
+				new WaitForSecondsRealtime(RetentionCheckSeconds);
+			float retention = Application.isMobilePlatform
+				? MobileRetentionSeconds
+				: DesktopRetentionSeconds;
+
+			while (gameObject.activeInHierarchy && hasVisibleMarks)
+			{
+				yield return wait;
+				if (Time.unscaledTime - lastMarkTime < retention) continue;
+
+				ClearAllMarks();
+				retentionRoutine = null;
+				yield break;
+			}
+
+			retentionRoutine = null;
+		}
+
+		void ClearAllMarks()
+		{
+			if (vertices != null) Array.Clear(vertices, 0, vertices.Length);
+			if (normals != null) Array.Clear(normals, 0, normals.Length);
+			if (tangents != null) Array.Clear(tangents, 0, tangents.Length);
+			if (colors != null) Array.Clear(colors, 0, colors.Length);
+			if (uvs != null) Array.Clear(uvs, 0, uvs.Length);
+			if (triangles != null) Array.Clear(triangles, 0, triangles.Length);
+
+			if (skidmarks != null)
+			{
+				for (int i = 0; i < skidmarks.Length; i++)
+				{
+					skidmarks[i].LastIndex = -1;
+					skidmarks[i].Generation = 0;
+					skidmarks[i].Colour = default;
+				}
+			}
+
+			markIndex = 0;
+			generation = generation == int.MaxValue ? 1 : generation + 1;
+			meshUpdated = false;
+			hasVisibleMarks = false;
+			if (marksMesh != null) marksMesh.Clear(false);
+			if (mr != null) mr.enabled = false;
+		}
+
+		public void ClearForOwnerDeactivation()
+		{
+			if (retentionRoutine != null)
+			{
+				StopCoroutine(retentionRoutine);
+				retentionRoutine = null;
+			}
+			ClearAllMarks();
+		}
+
+		void ClearSegment(int segmentIndex)
+		{
+			int vertexStart = segmentIndex * 4;
+			int triangleStart = segmentIndex * 6;
+
+			for (int i = 0; i < 4; i++)
+			{
+				colors[vertexStart + i] = default;
+			}
+
+			for (int i = 0; i < 6; i++)
+			{
+				triangles[triangleStart + i] = 0;
+			}
+		}
+
+		void UpdateMeshBounds()
+		{
+			bool hasPoint = false;
+			Bounds bounds = default;
+
+			for (int segment = 0; segment < maxSkidMarks; segment++)
+			{
+				int vertexStart = segment * 4;
+				if (colors[vertexStart].a == 0) continue;
+
+				for (int i = 0; i < 4; i++)
+				{
+					Vector3 point = vertices[vertexStart + i];
+					if (!hasPoint)
+					{
+						bounds = new Bounds(point, Vector3.one * 0.05f);
+						hasPoint = true;
+					}
+					else
+					{
+						bounds.Encapsulate(point);
+					}
+				}
+			}
+
+			marksMesh.bounds = hasPoint
+				? bounds
+				: new Bounds(Vector3.zero, Vector3.one * 0.05f);
+		}
+
+		private void OnDestroy()
+		{
+			retentionRoutine = null;
+			if (marksMesh == null) return;
+
+			if (mf != null && mf.sharedMesh == marksMesh)
+			{
+				mf.sharedMesh = null;
+			}
+
+			if (Application.isPlaying) Destroy(marksMesh);
+			else DestroyImmediate(marksMesh);
+			marksMesh = null;
 		}
 	}
 }

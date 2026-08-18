@@ -66,6 +66,12 @@ namespace FranklinGame.Vehicles
         private Character m_CapturedOccupant;
         private Character m_CapturedPassenger;
         private MaterialPropertyBlock m_PropertyBlock;
+        private Coroutine m_OccupantFireRoutine;
+        private Transform m_OccupantFireOriginalParent;
+        private Vector3 m_OccupantFireOriginalLocalPosition;
+        private Quaternion m_OccupantFireOriginalLocalRotation;
+        private Vector3 m_OccupantFireOriginalLocalScale = Vector3.one;
+        private bool m_HasCachedOccupantFireHome;
 
         public bool IsDestroyed => m_IsDestroyed;
         public bool HasDetachablePartsConfiguration =>
@@ -108,6 +114,7 @@ namespace FranklinGame.Vehicles
         private void Awake()
         {
             ResolveReferences();
+            CacheOccupantFireHome();
         }
 
         private void OnEnable()
@@ -127,6 +134,7 @@ namespace FranklinGame.Vehicles
                 m_Health.EventDestroyed -= CaptureOccupant;
                 m_Health.EventRestored -= ClearCapturedOccupant;
             }
+            RestoreOccupantFire();
         }
 
         private void CaptureOccupant()
@@ -502,6 +510,12 @@ namespace FranklinGame.Vehicles
         private void AttachBurnFire(Character character)
         {
             if (m_OccupantBurnFire == null) return;
+            CacheOccupantFireHome();
+            if (m_OccupantFireRoutine != null)
+            {
+                StopCoroutine(m_OccupantFireRoutine);
+                m_OccupantFireRoutine = null;
+            }
             Animator animator = character.Animim?.Animator;
             Transform anchor = animator != null && animator.isHuman
                 ? animator.GetBoneTransform(HumanBodyBones.Hips)
@@ -519,7 +533,9 @@ namespace FranklinGame.Vehicles
                 particles[i].Clear(true);
                 particles[i].Play(true);
             }
-            StartCoroutine(StopOccupantFireAfterDelay(particles));
+            m_OccupantFireRoutine = StartCoroutine(
+                StopOccupantFireAfterDelay(particles)
+            );
         }
 
         private IEnumerator StopOccupantFireAfterDelay(ParticleSystem[] particles)
@@ -531,7 +547,53 @@ namespace FranklinGame.Vehicles
                     particles[i].Stop(true, ParticleSystemStopBehavior.StopEmitting);
             }
             yield return new WaitForSecondsRealtime(1f);
-            if (m_OccupantBurnFire != null) m_OccupantBurnFire.SetActive(false);
+            m_OccupantFireRoutine = null;
+            RestoreOccupantFire();
+        }
+
+        private void CacheOccupantFireHome()
+        {
+            if (m_OccupantBurnFire == null || m_HasCachedOccupantFireHome)
+                return;
+            Transform fire = m_OccupantBurnFire.transform;
+            m_OccupantFireOriginalParent = fire.parent;
+            m_OccupantFireOriginalLocalPosition = fire.localPosition;
+            m_OccupantFireOriginalLocalRotation = fire.localRotation;
+            m_OccupantFireOriginalLocalScale = fire.localScale;
+            m_HasCachedOccupantFireHome = true;
+        }
+
+        private void RestoreOccupantFire()
+        {
+            if (m_OccupantFireRoutine != null)
+            {
+                StopCoroutine(m_OccupantFireRoutine);
+                m_OccupantFireRoutine = null;
+            }
+            if (m_OccupantBurnFire == null) return;
+
+            ParticleSystem[] particles =
+                m_OccupantBurnFire.GetComponentsInChildren<ParticleSystem>(true);
+            for (int i = 0; i < particles.Length; ++i)
+            {
+                if (particles[i] != null)
+                {
+                    particles[i].Stop(
+                        true,
+                        ParticleSystemStopBehavior.StopEmittingAndClear
+                    );
+                }
+            }
+            m_OccupantBurnFire.SetActive(false);
+
+            // The authored fire belongs to this Bike. Moving it to the Player
+            // without returning it leaks one inactive object under the Player per
+            // destroyed Bike (or an active effect if the Bike is unloaded early).
+            Transform fire = m_OccupantBurnFire.transform;
+            fire.SetParent(m_OccupantFireOriginalParent, false);
+            fire.localPosition = m_OccupantFireOriginalLocalPosition;
+            fire.localRotation = m_OccupantFireOriginalLocalRotation;
+            fire.localScale = m_OccupantFireOriginalLocalScale;
         }
 
         private void ApplyCharredAppearance(Renderer[] renderers, Color color)

@@ -225,6 +225,10 @@ namespace ArcadeBP_Pro
             [Tooltip("Speed of the wheelie animation.")]
             public float wheelieAnimationSpeed = 3f;
 
+            [Tooltip("Minimum forward speed in km/h required to perform a wheelie.")]
+            [Min(0f)]
+            public float minimumWheelieSpeedKph = 10f;
+
             [Tooltip("Speed of aligning the rotator when the bike is on the ground. How fast bike align with the ground surface.")]
             public float alignRotatorSpeed_Ground = 10;
 
@@ -323,11 +327,16 @@ namespace ArcadeBP_Pro
 
         [HideInInspector] public Vector3 localBikeVelocity { get; private set; }
 
+        public bool CanPerformWheelie =>
+            Mathf.Max(0f, localBikeVelocity.z) * 3.6f >=
+            Mathf.Max(0f, bikeSettings.minimumWheelieSpeedKph);
+
         public int CurrentSteerInput { get; private set; }
 
 
         public SkidmarkController skidmarkController { get; private set; }
         private ParticleSystem tireSmoke_ps;
+        private GameObject runtimeSkidmarkObject;
         private bool runtimeEffectsInitialized;
 
         #endregion
@@ -345,11 +354,17 @@ namespace ArcadeBP_Pro
         private void OnEnable()
         {
             EnsureRuntimeEffects();
-            if (skidmarkController != null) skidmarkController.enabled = true;
+            SetRuntimeSkidmarksActive(true);
+            // Tire smoke wakes lazily on real slip/burnout. Keeping a stopped
+            // ParticleSystem active for the whole ride still leaves it registered
+            // in Unity's particle update and render managers.
+            SetRuntimeTireSmokeActive(false);
         }
 
         private void OnDisable()
         {
+            AudioSource skidAudio = bikeAudio != null ? bikeAudio.SkidSound : null;
+            if (skidAudio != null) skidAudio.Stop();
             if (tireSmoke_ps != null)
             {
                 tireSmoke_ps.Stop(
@@ -357,7 +372,21 @@ namespace ArcadeBP_Pro
                     ParticleSystemStopBehavior.StopEmittingAndClear
                 );
             }
-            if (skidmarkController != null) skidmarkController.enabled = false;
+            SetRuntimeTireSmokeActive(false);
+            SetRuntimeSkidmarksActive(false);
+        }
+
+        private void OnDestroy()
+        {
+            // Skidmarks live in world space instead of under the Bike hierarchy.
+            // Explicit ownership prevents orphan renderers and native Mesh objects
+            // accumulating when Bikes are destroyed/replaced during a long session.
+            if (runtimeSkidmarkObject != null)
+            {
+                Destroy(runtimeSkidmarkObject);
+                runtimeSkidmarkObject = null;
+                skidmarkController = null;
+            }
         }
 
         private void EnsureRuntimeEffects()
@@ -368,6 +397,7 @@ namespace ArcadeBP_Pro
             if (bikeReferences.skidmarksPrefab != null)
             {
                 var skidmarkControllerInstance = Instantiate(bikeReferences.skidmarksPrefab);
+                runtimeSkidmarkObject = skidmarkControllerInstance;
                 skidmarkController = skidmarkControllerInstance?.GetComponent<SkidmarkController>();
                 if (skidmarkController == null)
                 {
@@ -386,13 +416,19 @@ namespace ArcadeBP_Pro
                 tireSmoke_ps = tireSmokeInstance?.GetComponent<ParticleSystem>();
                 if (tireSmoke_ps != null)
                 {
-                    tireSmoke_ps.Stop();
+                    ParticleSystem.MainModule main = tireSmoke_ps.main;
+                    main.playOnAwake = false;
+                    main.stopAction = ParticleSystemStopAction.Disable;
+                    main.cullingMode = ParticleSystemCullingMode.Automatic;
                     if (Application.isMobilePlatform)
                     {
-                        ParticleSystem.MainModule main = tireSmoke_ps.main;
                         main.maxParticles = Mathf.Min(main.maxParticles, 80);
-                        main.cullingMode = ParticleSystemCullingMode.Automatic;
                     }
+                    tireSmoke_ps.Stop(
+                        true,
+                        ParticleSystemStopBehavior.StopEmittingAndClear
+                    );
+                    tireSmoke_ps.gameObject.SetActive(false);
                 }
                 else
                 {
@@ -406,6 +442,30 @@ namespace ArcadeBP_Pro
 
             if (skidmarkController != null)
                 skidmarkController.SkidmarkWidth = bikeGeometry.RearWheelWidth;
+        }
+
+        private void SetRuntimeSkidmarksActive(bool active)
+        {
+            GameObject skidmarkObject = runtimeSkidmarkObject != null
+                ? runtimeSkidmarkObject
+                : skidmarkController != null
+                    ? skidmarkController.gameObject
+                    : null;
+            if (skidmarkObject == null) return;
+
+            // Disabling only the callback leaves its MeshRenderer alive. Disable
+            // the entire pooled object so parked Bikes contribute no draw calls.
+            if (skidmarkObject.activeSelf != active)
+                skidmarkObject.SetActive(active);
+            if (active && skidmarkController != null)
+                skidmarkController.enabled = true;
+        }
+
+        private void SetRuntimeTireSmokeActive(bool active)
+        {
+            if (tireSmoke_ps == null) return;
+            GameObject smokeObject = tireSmoke_ps.gameObject;
+            if (smokeObject.activeSelf != active) smokeObject.SetActive(active);
         }
 
 
@@ -1187,11 +1247,13 @@ namespace ArcadeBP_Pro
 
         private void wheelieAnimation()
         {
-            if (bikeInput.Wheelie > 0 && rearWheelIsGrounded)
+            bool wheelieRequested = bikeInput.Wheelie > 0 && CanPerformWheelie;
+
+            if (wheelieRequested && rearWheelIsGrounded)
             {
                 isDoingWheelie = true;
             }
-            if (!(bikeInput.Wheelie > 0) && frontWheelIsGrounded)
+            if (!wheelieRequested && frontWheelIsGrounded)
             {
                 isDoingWheelie = false;
             }
@@ -1213,7 +1275,7 @@ namespace ArcadeBP_Pro
 
             if (isDoingWheelie)
             {
-                if (bikeInput.Wheelie > 0)
+                if (wheelieRequested)
                 {
                     // smooth lerp rotate wheelieTransform by maxWheelieAngle in local space (local x axis)
                     float targetAngle = -bikeSettings.maxWheelieAngle;
@@ -1348,9 +1410,21 @@ namespace ArcadeBP_Pro
 
         private void UpdateSkidSound()
         {
+            AudioSource skidAudio = bikeAudio != null ? bikeAudio.SkidSound : null;
+            if (skidAudio == null) return;
+
             float skidIntensity = Mathf.Max(TotalSlip_frontWheel, TotalSlip_rearWheel);
-            bikeAudio.SkidSound.mute = skidIntensity < 0.1f;
-            bikeAudio.SkidSound.volume = skidIntensity;
+            if (skidIntensity < 0.1f)
+            {
+                // Muting a looping AudioSource still decodes/mixes it. Fully stop
+                // idle skid audio so a normal long ride has no hidden audio cost.
+                if (skidAudio.isPlaying) skidAudio.Stop();
+                return;
+            }
+
+            skidAudio.mute = false;
+            skidAudio.volume = Mathf.Clamp01(skidIntensity);
+            if (!skidAudio.isPlaying && skidAudio.clip != null) skidAudio.Play();
         }
 
         #endregion
@@ -1421,11 +1495,23 @@ namespace ArcadeBP_Pro
             bool shouldEmitSmoke = isDoingBurnout || TotalSlip_rearWheel >= 0.5f;
             if (shouldEmitSmoke)
             {
+                if (!tireSmoke_ps.gameObject.activeSelf)
+                    tireSmoke_ps.gameObject.SetActive(true);
                 if (!tireSmoke_ps.isPlaying) tireSmoke_ps.Play();
             }
             else if (tireSmoke_ps.isPlaying)
             {
-                tireSmoke_ps.Stop();
+                // StopAction.Disable sleeps the hierarchy after the final live
+                // particle fades, preserving its visual tail without idle cost.
+                tireSmoke_ps.Stop(
+                    false,
+                    ParticleSystemStopBehavior.StopEmitting
+                );
+            }
+            else if (tireSmoke_ps.particleCount == 0 &&
+                     tireSmoke_ps.gameObject.activeSelf)
+            {
+                tireSmoke_ps.gameObject.SetActive(false);
             }
         }
 

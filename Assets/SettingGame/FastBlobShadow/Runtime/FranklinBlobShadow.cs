@@ -18,8 +18,19 @@ namespace FranklinGame.Rendering
     {
         public const string GlobalEnabledPreferenceKey =
             "Franklin.FastBlobShadow.Enabled";
+        public const int DefaultGroundReceiverLayerMask =
+            (1 << 0) | // Default
+            (1 << 7) | // Ground
+            (1 << 8) | // Building
+            (1 << 9) | // Wall
+            (1 << 10); // Prop
         private const string OwnerLayerMigrationPreferenceKey =
             "Franklin.FastBlobShadow.OwnerLayers.V1";
+        private const float GroundHitTieDistance = 0.025f;
+        private const float GroundHitNormalTieEpsilon = 0.0001f;
+        private const float GroundHitDistanceTieEpsilon = 0.001f;
+        private const float GroundNormalSnapDot = 0.99939f; // About two degrees.
+        private const float GroundNormalSettledDot = 0.9999f;
 
         public enum FootprintShape
         {
@@ -43,6 +54,12 @@ namespace FranklinGame.Rendering
         private static readonly int BlobPowerId = Shader.PropertyToID("_BlobPower");
         private static readonly int BlobShapeId = Shader.PropertyToID("_BlobShape");
         private static readonly int BlobCoreId = Shader.PropertyToID("_BlobCore");
+        private static readonly int BlobReceiverAboveId =
+            Shader.PropertyToID("_BlobReceiverAbove");
+        private static readonly int BlobReceiverBelowId =
+            Shader.PropertyToID("_BlobReceiverBelow");
+        private static readonly int BlobSeamAllowanceId =
+            Shader.PropertyToID("_BlobSeamAllowance");
 
         [Header("References")]
         [SerializeField] private Transform m_ShadowTransform;
@@ -67,12 +84,16 @@ namespace FranklinGame.Rendering
 
         [Header("Ground Tracking")]
         [SerializeField] private bool m_FollowGround = true;
-        [SerializeField] private LayerMask m_GroundLayers = ~0;
+        [SerializeField] private LayerMask m_GroundLayers = DefaultGroundReceiverLayerMask;
         [SerializeField, Min(0f)] private float m_ProbeStartHeight = 0.5f;
         [SerializeField, Min(0.05f)] private float m_MaxGroundDistance = 5f;
         [SerializeField, Min(0.02f)] private float m_ProbeInterval = 0.08f;
         [SerializeField, Min(0f)] private float m_GroundOffset = 0.025f;
         [SerializeField, Range(0f, 1f)] private float m_MinGroundNormalY = 0.35f;
+        [SerializeField, Min(0f)] private float m_GroundNormalSharpness = 18f;
+        [SerializeField, Range(0.02f, 0.5f)] private float m_ReceiverAbove = 0.22f;
+        [SerializeField, Range(0.02f, 0.75f)] private float m_ReceiverBelow = 0.40f;
+        [SerializeField, Range(0f, 0.3f)] private float m_SeamAllowance = 0.10f;
         [SerializeField] private bool m_HideWhenGroundMissing = true;
         [SerializeField] private bool m_IgnoreRigidbodyReceivers = true;
         [SerializeField] private bool m_SuppressInsideShadowOwner = true;
@@ -85,6 +106,7 @@ namespace FranklinGame.Rendering
         private MaterialPropertyBlock m_PropertyBlock;
         private Vector3 m_GroundPoint;
         private Vector3 m_GroundNormal = Vector3.up;
+        private Vector3 m_TargetGroundNormal = Vector3.up;
         private Camera m_DepthConfiguredCamera;
         private float m_NextGroundProbeTime;
         private float m_NextCameraSearchTime;
@@ -99,6 +121,13 @@ namespace FranklinGame.Rendering
         private bool m_UserVisible = true;
         private bool m_Suspended;
         private bool m_InsideShadowOwner;
+        private bool m_GroundNormalSettling;
+        private bool m_HasPlacementPose;
+        private Vector3 m_LastOwnerPosition;
+        private Quaternion m_LastOwnerRotation;
+        private Vector3 m_LastOrientationPosition;
+        private Quaternion m_LastOrientationRotation;
+        private float m_NextIdlePlacementTime;
 
         public static event Action<bool> GlobalEnabledChanged;
 
@@ -153,6 +182,8 @@ namespace FranklinGame.Rendering
             this.m_ForceGroundProbe = true;
             this.m_NextGroundProbeTime = 0f;
             this.m_NextDistanceCheckTime = 0f;
+            this.m_HasPlacementPose = false;
+            this.m_NextIdlePlacementTime = 0f;
             this.m_DistanceVisible = true;
             this.TryResolveCamera(true);
 
@@ -188,6 +219,11 @@ namespace FranklinGame.Rendering
                 return;
             }
 
+            if (!this.ShouldRefreshPlacement())
+            {
+                return;
+            }
+
             this.UpdatePlacement(false);
         }
 
@@ -214,8 +250,13 @@ namespace FranklinGame.Rendering
             this.m_MinAirborneScale = Mathf.Clamp(this.m_MinAirborneScale, 0.05f, 1f);
             this.m_MaxGroundDistance = Mathf.Max(0.05f, this.m_MaxGroundDistance);
             this.m_ProbeInterval = Mathf.Max(0.02f, this.m_ProbeInterval);
+            this.m_GroundNormalSharpness = Mathf.Max(0f, this.m_GroundNormalSharpness);
+            this.m_ReceiverAbove = Mathf.Clamp(this.m_ReceiverAbove, 0.02f, 0.5f);
+            this.m_ReceiverBelow = Mathf.Clamp(this.m_ReceiverBelow, 0.02f, 0.75f);
+            this.m_SeamAllowance = Mathf.Clamp(this.m_SeamAllowance, 0f, 0.3f);
             this.m_MaxVisibleDistance = Mathf.Max(0f, this.m_MaxVisibleDistance);
             this.m_DistanceCheckInterval = Mathf.Max(0.05f, this.m_DistanceCheckInterval);
+            this.NormalizeLegacyGroundLayerMask();
 
             this.ApplyVolumeSize();
             this.ApplyAppearance();
@@ -225,6 +266,8 @@ namespace FranklinGame.Rendering
         private void OnTransformParentChanged()
         {
             this.RefreshShadowOwnerSuppression();
+            this.m_HasPlacementPose = false;
+            this.m_ForceGroundProbe = true;
         }
 
         /// <summary>Enables or disables the shadow without disabling this component.</summary>
@@ -470,7 +513,39 @@ namespace FranklinGame.Rendering
         public void SetGroundLayers(LayerMask layers)
         {
             this.m_GroundLayers = layers;
+            this.NormalizeLegacyGroundLayerMask();
             this.RefreshGround();
+        }
+
+        /// <summary>
+        /// Smooths ground-normal changes without adding physics probes. A value
+        /// of zero snaps immediately; 18 is the mobile default.
+        /// </summary>
+        public void SetGroundNormalSmoothing(float sharpness)
+        {
+            this.m_GroundNormalSharpness = Mathf.Max(0f, sharpness);
+            if (this.m_GroundNormalSharpness <= 0f)
+            {
+                this.m_GroundNormal = this.m_TargetGroundNormal;
+                this.m_GroundNormalSettling = false;
+            }
+        }
+
+        /// <summary>
+        /// Sets the normalized receiver limits used across neighboring ground
+        /// objects. Below can be wider than above so seams remain covered
+        /// without allowing the blob onto vehicle roofs.
+        /// </summary>
+        public void SetReceiverBand(
+            float above,
+            float below,
+            float seamAllowance = 0.10f
+        )
+        {
+            this.m_ReceiverAbove = Mathf.Clamp(above, 0.02f, 0.5f);
+            this.m_ReceiverBelow = Mathf.Clamp(below, 0.02f, 0.75f);
+            this.m_SeamAllowance = Mathf.Clamp(seamAllowance, 0f, 0.3f);
+            this.ApplyAppearance();
         }
 
         /// <summary>Forces a ground refresh without waiting for the probe interval.</summary>
@@ -525,6 +600,8 @@ namespace FranklinGame.Rendering
 
         private void ResolveReferences()
         {
+            this.NormalizeLegacyGroundLayerMask();
+
             if (this.m_ShadowTransform == null)
             {
                 Transform child = this.transform.Find("MobileBlobShadow");
@@ -580,6 +657,9 @@ namespace FranklinGame.Rendering
             );
             this.m_PropertyBlock.SetFloat(BlobPowerId, this.m_Power);
             this.m_PropertyBlock.SetFloat(BlobCoreId, this.m_Core);
+            this.m_PropertyBlock.SetFloat(BlobReceiverAboveId, this.m_ReceiverAbove);
+            this.m_PropertyBlock.SetFloat(BlobReceiverBelowId, this.m_ReceiverBelow);
+            this.m_PropertyBlock.SetFloat(BlobSeamAllowanceId, this.m_SeamAllowance);
             this.m_PropertyBlock.SetFloat(
                 BlobShapeId,
                 this.m_FootprintShape == FootprintShape.Rectangle ? 1f : 0f
@@ -682,24 +762,45 @@ namespace FranklinGame.Rendering
             if (!this.m_FollowGround)
             {
                 this.m_HasGround = true;
+                this.m_GroundNormal = Vector3.up;
+                this.m_TargetGroundNormal = Vector3.up;
+                this.m_GroundNormalSettling = false;
                 this.ResetAirborneState();
                 Vector3 position = this.GetFootprintWorldCenter() + Vector3.up * this.m_GroundOffset;
                 Quaternion rotation = this.GetGroundAlignedRotation(Vector3.up);
                 this.m_ShadowTransform.SetPositionAndRotation(position, rotation);
                 this.UpdateRendererVisibility();
+                this.RememberPlacementPose();
                 return;
             }
 
             float now = Time.time;
+            bool hadGround = this.m_HasGround;
             if (force || this.m_ForceGroundProbe || now >= this.m_NextGroundProbeTime)
             {
                 this.m_ForceGroundProbe = false;
-                this.m_NextGroundProbeTime = now + this.m_ProbeInterval;
-                this.m_HasGround = this.TrySampleGround(out this.m_GroundPoint, out this.m_GroundNormal);
+                this.m_NextGroundProbeTime =
+                    now + this.m_ProbeInterval * this.GetGroundProbeStagger();
+
+                this.m_HasGround = this.TrySampleGround(
+                    out Vector3 sampledPoint,
+                    out Vector3 sampledNormal
+                );
+                if (this.m_HasGround)
+                {
+                    this.m_GroundPoint = sampledPoint;
+                    this.m_TargetGroundNormal = sampledNormal;
+                }
+                else
+                {
+                    this.m_GroundNormalSettling = false;
+                }
             }
 
             if (this.m_HasGround)
             {
+                this.UpdateGroundNormal(force || !hadGround);
+
                 Vector3 ownerPosition = this.GetFootprintWorldCenter();
                 float planeDistance = Vector3.Dot(ownerPosition - this.m_GroundPoint, this.m_GroundNormal);
                 float normalY = Mathf.Max(0.01f, this.m_GroundNormal.y);
@@ -707,7 +808,9 @@ namespace FranklinGame.Rendering
                 float airborneHeight = Mathf.Max(0f, verticalHeight - this.m_GroundedPivotHeight);
                 this.UpdateAirborneState(airborneHeight);
 
-                Vector3 position = ownerPosition - this.m_GroundNormal * planeDistance;
+                // Keep the FBS center vertically below its owner. Projecting
+                // along the surface normal shifts the center sideways on a slope.
+                Vector3 position = ownerPosition - Vector3.up * verticalHeight;
                 position += this.m_GroundNormal * this.m_GroundOffset;
 
                 Quaternion rotation = this.GetGroundAlignedRotation(this.m_GroundNormal);
@@ -719,6 +822,123 @@ namespace FranklinGame.Rendering
             }
 
             this.UpdateRendererVisibility();
+            this.RememberPlacementPose();
+        }
+
+        private bool ShouldRefreshPlacement()
+        {
+            if (
+                !this.m_HasPlacementPose ||
+                this.m_ForceGroundProbe ||
+                this.m_GroundNormalSettling
+            )
+            {
+                return true;
+            }
+
+            Transform orientation = this.m_OrientationTransform != null
+                ? this.m_OrientationTransform
+                : this.transform;
+            bool moved = (this.transform.position - this.m_LastOwnerPosition)
+                             .sqrMagnitude > 0.000001f ||
+                         Mathf.Abs(Quaternion.Dot(
+                             this.transform.rotation,
+                             this.m_LastOwnerRotation
+                         )) < 0.999999f ||
+                         (orientation.position - this.m_LastOrientationPosition)
+                             .sqrMagnitude > 0.000001f ||
+                         Mathf.Abs(Quaternion.Dot(
+                             orientation.rotation,
+                             this.m_LastOrientationRotation
+                         )) < 0.999999f;
+            if (moved) return true;
+
+            // Static parked vehicles and idle characters need no per-frame
+            // projection work. A low-frequency refresh still follows moving
+            // ground that changes without moving the owner transform.
+            return Time.unscaledTime >= this.m_NextIdlePlacementTime;
+        }
+
+        private void RememberPlacementPose()
+        {
+            Transform orientation = this.m_OrientationTransform != null
+                ? this.m_OrientationTransform
+                : this.transform;
+            this.m_LastOwnerPosition = this.transform.position;
+            this.m_LastOwnerRotation = this.transform.rotation;
+            this.m_LastOrientationPosition = orientation.position;
+            this.m_LastOrientationRotation = orientation.rotation;
+            this.m_HasPlacementPose = true;
+            float idleStagger = 0.85f + ((this.GetInstanceID() >> 4) & 31) * 0.01f;
+            this.m_NextIdlePlacementTime = Time.unscaledTime + idleStagger;
+        }
+
+        private void UpdateGroundNormal(bool snap)
+        {
+            if (
+                snap ||
+                this.m_GroundNormalSharpness <= 0f ||
+                this.m_GroundNormal.sqrMagnitude < 0.5f
+            )
+            {
+                this.m_GroundNormal = this.m_TargetGroundNormal;
+                this.m_GroundNormalSettling = false;
+                return;
+            }
+
+            float normalDot = Vector3.Dot(
+                this.m_GroundNormal,
+                this.m_TargetGroundNormal
+            );
+            // A large intermediate tilt can move the ends of a long Car
+            // footprint outside the thin receiver band. Snap real slope
+            // changes; smooth only tiny triangle-normal noise.
+            if (normalDot < GroundNormalSnapDot)
+            {
+                this.m_GroundNormal = this.m_TargetGroundNormal;
+                this.m_GroundNormalSettling = false;
+                return;
+            }
+
+            if (normalDot >= GroundNormalSettledDot)
+            {
+                this.m_GroundNormal = this.m_TargetGroundNormal;
+                this.m_GroundNormalSettling = false;
+                return;
+            }
+
+            float blend = 1f - Mathf.Exp(
+                -this.m_GroundNormalSharpness * Time.unscaledDeltaTime
+            );
+            this.m_GroundNormal = Vector3.Lerp(
+                this.m_GroundNormal,
+                this.m_TargetGroundNormal,
+                blend
+            ).normalized;
+
+            this.m_GroundNormalSettling = Vector3.Dot(
+                this.m_GroundNormal,
+                this.m_TargetGroundNormal
+            ) < GroundNormalSettledDot;
+            if (!this.m_GroundNormalSettling)
+            {
+                this.m_GroundNormal = this.m_TargetGroundNormal;
+            }
+        }
+
+        private float GetGroundProbeStagger()
+        {
+            return 0.9f + (this.GetInstanceID() & 15) * (0.2f / 15f);
+        }
+
+        private void NormalizeLegacyGroundLayerMask()
+        {
+            // Prefabs installed before the mobile receiver contract used
+            // Everything. Upgrade them in memory before their first raycast.
+            if (this.m_GroundLayers.value == ~0)
+            {
+                this.m_GroundLayers = DefaultGroundReceiverLayerMask;
+            }
         }
 
         private Quaternion GetGroundAlignedRotation(Vector3 groundNormal)
@@ -820,7 +1040,7 @@ namespace FranklinGame.Rendering
                 {
                     continue;
                 }
-                if (hit.distance >= nearestDistance) continue;
+                if (!this.IsBetterGroundHit(hit, nearestIndex, nearestDistance)) continue;
 
                 nearestDistance = hit.distance;
                 nearestIndex = i;
@@ -836,6 +1056,37 @@ namespace FranklinGame.Rendering
             point = default;
             normal = Vector3.up;
             return false;
+        }
+
+        private bool IsBetterGroundHit(
+            RaycastHit candidate,
+            int currentIndex,
+            float currentDistance
+        )
+        {
+            if (currentIndex < 0) return true;
+
+            float distanceDelta = candidate.distance - currentDistance;
+            if (distanceDelta < -GroundHitTieDistance) return true;
+            if (distanceDelta > GroundHitTieDistance) return false;
+
+            RaycastHit current = GroundHits[currentIndex];
+            float candidateAlignment = Vector3.Dot(
+                candidate.normal,
+                this.m_TargetGroundNormal
+            );
+            float currentAlignment = Vector3.Dot(
+                current.normal,
+                this.m_TargetGroundNormal
+            );
+            float alignmentDelta = candidateAlignment - currentAlignment;
+            if (alignmentDelta > GroundHitNormalTieEpsilon) return true;
+            if (alignmentDelta < -GroundHitNormalTieEpsilon) return false;
+
+            if (distanceDelta < -GroundHitDistanceTieEpsilon) return true;
+            if (distanceDelta > GroundHitDistanceTieEpsilon) return false;
+
+            return candidate.collider.GetInstanceID() < current.collider.GetInstanceID();
         }
 
         private void UpdateRendererVisibility()

@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#05080d">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data:; script-src 'self' file:; style-src 'self' 'unsafe-inline' file:; img-src 'self' file: data:; font-src 'self' file: data:; connect-src 'none'; media-src 'self' file: data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Frank Sandbox Game</title>
+  <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="assets/menu.css?v=20260817-online2">
+  <script src="assets/menu-i18n.js" defer></script>
+  <script src="assets/menu-i18n-de-fr.js" defer></script>
+  <script src="assets/menu-i18n-ja-ko.js" defer></script>
+  <script src="assets/menu-i18n-zhhant-nl.js" defer></script>
+  <script src="assets/menu-i18n-online.js" defer></script>
+  <script src="assets/menu-audio.js" defer></script>
+    <script src="assets/menu.js?v=20260817-online2" defer></script>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <div class="background" aria-hidden="true"></div>
+    <div class="background-vignette" aria-hidden="true"></div>
+    <div id="safe-area-probe" class="safe-area-probe" aria-hidden="true"></div>
+
+    <main id="design-stage" class="design-stage" aria-label="Menu chính Frank Sandbox Game" data-i18n-aria-label="a11y.mainMenu">
+      <div class="stage-background" aria-hidden="true"></div>
+      <svg class="canvas-frame" viewBox="0 0 1920 1080" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="frame-top-metal" gradientUnits="userSpaceOnUse" x1="20" y1="0" x2="1500" y2="0">
+            <stop offset="0" stop-color="#edf0f4" stop-opacity="0.82"></stop>
+            <stop offset="0.34" stop-color="#d9dde2" stop-opacity="0.62"></stop>
+            <stop offset="0.7" stop-color="#b9c0c9" stop-opacity="0.34"></stop>
+            <stop offset="1" stop-color="#aeb6c0" stop-opacity="0"></stop>
+          </linearGradient>
+          <linearGradient id="frame-top-soft" gradientUnits="userSpaceOnUse" x1="128" y1="0" x2="1210" y2="0">
+            <stop offset="0" stop-color="#e2e6eb" stop-opacity="0.55"></stop>
+            <stop offset="0.58" stop-color="#c6ccd4" stop-opacity="0.34"></stop>
+            <stop offset="1" stop-color="#aeb6c0" stop-opacity="0"></stop>
+          </linearGradient>
+          <linearGradient id="frame-top-right" gradientUnits="userSpaceOnUse" x1="1400" y1="0" x2="1900" y2="0">
+            <stop offset="0" stop-color="#bbc2cb" stop-opacity="0"></stop>
+            <stop offset="0.28" stop-color="#cbd1d8" stop-opacity="0.32"></stop>
+            <stop offset="0.8" stop-color="#e4e7eb" stop-opacity="0.7"></stop>
+            <stop offset="1" stop-color="#d4d9e0" stop-opacity="0.48"></stop>
+          </linearGradient>
+          <linearGradient id="frame-left-fade" gradientUnits="userSpaceOnUse" x1="0" y1="110" x2="0" y2="980">
+            <stop offset="0" stop-color="#e4e8ed" stop-opacity="0.66"></stop>
+            <stop offset="0.54" stop-color="#c2c9d2" stop-opacity="0.36"></stop>
+            <stop offset="1" stop-color="#aeb6c0" stop-opacity="0"></stop>
+          </linearGradient>
+          <linearGradient id="frame-bottom-metal" gradientUnits="userSpaceOnUse" x1="20" y1="0" x2="1230" y2="0">
+            <stop offset="0" stop-color="#e6e9ed" stop-opacity="0.7"></stop>
+            <stop offset="0.48" stop-color="#ccd2da" stop-opacity="0.5"></stop>
+            <stop offset="0.82" stop-color="#b5bdc7" stop-opacity="0.24"></stop>
+            <stop offset="1" stop-color="#aeb6c0" stop-opacity="0"></stop>
+          </linearGradient>
+          <linearGradient id="frame-bottom-right" gradientUnits="userSpaceOnUse" x1="1320" y1="0" x2="1900" y2="0">
+            <stop offset="0" stop-color="#aeb6c0" stop-opacity="0"></stop>
+            <stop offset="0.42" stop-color="#c2c8d0" stop-opacity="0.24"></stop>
+            <stop offset="1" stop-color="#e0e4e9" stop-opacity="0.58"></stop>
+          </linearGradient>
+        </defs>
+
+        <g class="canvas-frame__rails">
+          <path class="canvas-frame__rail canvas-frame__rail--main" vector-effect="non-scaling-stroke" stroke="url(#frame-top-metal)" d="M20 118V30H118L131 45H1500"></path>
+          <path class="canvas-frame__rail canvas-frame__rail--soft" vector-effect="non-scaling-stroke" stroke="url(#frame-top-soft)" d="M128 25H212M136 34H212M274 33H662L676 46H713L727 30H1210"></path>
+          <path class="canvas-frame__rail canvas-frame__rail--main" vector-effect="non-scaling-stroke" stroke="url(#frame-top-right)" d="M1400 31H1516L1530 20H1846L1864 38H1899V130"></path>
+          <path class="canvas-frame__rail canvas-frame__rail--soft" vector-effect="non-scaling-stroke" stroke="url(#frame-top-right)" d="M1454 44H1576L1590 33H1838L1852 47H1887V112"></path>
+
+          <path class="canvas-frame__rail canvas-frame__rail--main" vector-effect="non-scaling-stroke" stroke="url(#frame-left-fade)" d="M20 118L31 132V970"></path>
+          <path class="canvas-frame__rail canvas-frame__rail--soft" vector-effect="non-scaling-stroke" stroke="url(#frame-left-fade)" d="M25 184V760"></path>
+
+          <path class="canvas-frame__rail canvas-frame__rail--main" vector-effect="non-scaling-stroke" stroke="url(#frame-bottom-metal)" d="M21 975V1023L40 1043H92"></path>
+          <path class="canvas-frame__rail canvas-frame__rail--main" vector-effect="non-scaling-stroke" stroke="url(#frame-bottom-metal)" d="M29 1013H280M284 1012L299 1028H390L410 1010H1230"></path>
+          <path class="canvas-frame__rail canvas-frame__rail--soft" vector-effect="non-scaling-stroke" stroke="url(#frame-bottom-metal)" d="M120 1055H596L610 1043H662L676 1055H1110"></path>
+          <path class="canvas-frame__rail canvas-frame__rail--soft" vector-effect="non-scaling-stroke" stroke="url(#frame-bottom-right)" d="M1320 1043H1584L1598 1029H1844L1860 1043H1899V990"></path>
+        </g>
+
+        <g class="canvas-frame__micro">
+          <path vector-effect="non-scaling-stroke" d="M31 151L36 157M31 164L36 171"></path>
+          <path vector-effect="non-scaling-stroke" d="M1494 35H1516"></path>
+          <path vector-effect="non-scaling-stroke" d="M62 1027H104L114 1017"></path>
+        </g>
+
+        <g class="canvas-frame__corner-glow">
+          <path vector-effect="non-scaling-stroke" d="M30 61V41H51"></path>
+        </g>
+        <path class="canvas-frame__corner" vector-effect="non-scaling-stroke" d="M30 61V41H51"></path>
+
+        <g class="canvas-frame__slashes canvas-frame__slashes--top">
+          <polygon points="218,34 225,34 220,40 213,40"></polygon>
+          <polygon points="229,34 236,34 231,40 224,40"></polygon>
+          <polygon points="240,34 247,34 242,40 235,40"></polygon>
+          <polygon points="251,34 258,34 253,40 246,40"></polygon>
+        </g>
+        <g class="canvas-frame__slashes canvas-frame__slashes--top-right">
+          <polygon points="1718,34 1725,34 1720,40 1713,40"></polygon>
+          <polygon points="1729,34 1736,34 1731,40 1724,40"></polygon>
+          <polygon points="1740,34 1747,34 1742,40 1735,40"></polygon>
+        </g>
+        <g class="canvas-frame__slashes canvas-frame__slashes--bottom">
+          <polygon points="603,1014 610,1014 605,1020 598,1020"></polygon>
+          <polygon points="614,1014 621,1014 616,1020 609,1020"></polygon>
+          <polygon points="625,1014 632,1014 627,1020 620,1020"></polygon>
+          <polygon points="636,1014 643,1014 638,1020 631,1020"></polygon>
+        </g>
+      </svg>
+
+      <header class="top-actions" aria-label="Tài khoản và đồng bộ" data-i18n-aria-label="a11y.accountActions">
+        <button class="top-action top-action--profile" type="button" data-action="profile" aria-label="Mở hồ sơ" data-i18n-aria-label="main.profile">
+          <span class="top-action__surface" aria-hidden="true"></span>
+          <span class="top-action__inner-frame" aria-hidden="true"></span>
+          <svg class="top-icon top-icon--profile" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+            <circle class="top-icon__ring" cx="32" cy="32" r="28"></circle>
+            <circle class="top-icon__fill" cx="32" cy="24" r="9"></circle>
+            <path class="top-icon__fill" d="M15 52c1.4-11 8.2-17 17-17s15.6 6 17 17H15z"></path>
+          </svg>
+          <span class="top-action__label" data-i18n="main.profile">HỒ SƠ</span>
+        </button>
+        <button class="top-action top-action--sync" type="button" data-action="sync" aria-label="Kiểm tra đồng bộ" data-i18n-aria-label="main.sync">
+          <span class="top-action__surface" aria-hidden="true"></span>
+          <span class="top-action__inner-frame" aria-hidden="true"></span>
+          <svg class="top-icon top-icon--sync" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+            <path d="M18 47h29c7 0 12-4.8 12-11s-5-11-12-11h-2C42.8 15.8 35.1 11 27.6 13c-6.7 1.7-11.2 7-12 13.4C9.5 27.4 5 31.5 5 37c0 6 5.1 10 13 10z"></path>
+            <path d="M32 48V28"></path>
+            <path d="M23.5 36.5 32 28l8.5 8.5"></path>
+          </svg>
+          <span class="top-action__label" data-i18n="main.sync">ĐỒNG BỘ</span>
+          <span id="sync-state" class="top-action__state">OFFLINE</span>
+        </button>
+      </header>
+
+      <section class="menu-column" aria-labelledby="game-title">
+        <div class="brand-block">
+          <h1 id="game-title" class="brand-title">FRANK</h1>
+          <div class="brand-subtitle-row" aria-hidden="true">
+            <span class="brand-line brand-line--left"></span>
+            <p class="brand-subtitle">SANDBOX GAME</p>
+            <span class="brand-line brand-line--right"></span>
+          </div>
+        </div>
+
+        <nav class="menu-actions" aria-label="Chức năng chính" data-i18n-aria-label="a11y.primaryActions">
+          <button class="tech-button" type="button" data-action="continue" disabled aria-disabled="true">
+            <span class="tech-button__surface" aria-hidden="true"></span>
+            <span class="tech-button__inner-frame" aria-hidden="true"></span>
+            <span class="tech-button__icon-slot" aria-hidden="true">
+              <svg class="menu-icon-svg" viewBox="0 0 64 64" focusable="false">
+                <path d="M15 24A20 20 0 0 1 49 22"></path>
+                <path d="m48 12 2 11-11 1"></path>
+                <path d="M49 40A20 20 0 0 1 15 42"></path>
+                <path d="m16 52-2-11 11-1"></path>
+              </svg>
+            </span>
+            <span class="tech-button__label" data-i18n="main.continue">TIẾP TỤC</span>
+            <span class="tech-button__ray" aria-hidden="true"></span>
+          </button>
+
+          <button class="tech-button" type="button" data-action="new-game">
+            <span class="tech-button__surface" aria-hidden="true"></span>
+            <span class="tech-button__inner-frame" aria-hidden="true"></span>
+            <span class="tech-button__icon-slot" aria-hidden="true">
+              <svg class="menu-icon-svg menu-icon-svg--plus" viewBox="0 0 64 64" focusable="false">
+                <path d="M32 12v40M12 32h40"></path>
+              </svg>
+            </span>
+            <span class="tech-button__label" data-i18n="main.newGame">TRÒ CHƠI MỚI</span>
+            <span class="tech-button__ray" aria-hidden="true"></span>
+          </button>
+
+          <button class="tech-button tech-button--mission" type="button" data-action="mission-open">
+            <span class="tech-button__surface" aria-hidden="true"></span>
+            <span class="tech-button__inner-frame" aria-hidden="true"></span>
+            <span class="tech-button__icon-slot" aria-hidden="true">
+              <svg class="menu-icon-svg menu-icon-svg--mission" viewBox="0 0 64 64" focusable="false">
+                <path d="M14 8h28l8 8v40H14z"></path>
+                <path d="M42 8v8h8"></path>
+                <path d="m22 32 6 6 13-15"></path>
+                <path d="M22 47h20"></path>
+              </svg>
+            </span>
+            <span class="tech-button__label" data-i18n="main.missions">NHIỆM VỤ</span>
+            <span class="tech-button__ray" aria-hidden="true"></span>
+          </button>
+
+          <button class="tech-button tech-button--online" type="button" data-action="online-open">
+            <span class="tech-button__surface" aria-hidden="true"></span>
+            <span class="tech-button__inner-frame" aria-hidden="true"></span>
+            <span class="tech-button__icon-slot" aria-hidden="true">
+              <svg class="menu-icon-svg menu-icon-svg--online" viewBox="0 0 64 64" focusable="false">
+                <circle cx="25" cy="24" r="9"></circle>
+                <path d="M8 51c2-11 8-17 17-17s15 6 17 17"></path>
+                <circle cx="47" cy="25" r="6"></circle>
+                <path d="M41 37c9-2 15 3 16 12"></path>
+                <path d="M8 12h9M12.5 7.5v9M48 48h9"></path>
+              </svg>
+            </span>
+            <span class="tech-button__label" data-i18n="main.online">CHƠI ONLINE</span>
+            <span class="tech-button__ray" aria-hidden="true"></span>
+          </button>
+
+          <button class="tech-button" type="button" data-action="settings">
+            <span class="tech-button__surface" aria-hidden="true"></span>
+            <span class="tech-button__inner-frame" aria-hidden="true"></span>
+            <span class="tech-button__icon-slot" aria-hidden="true">
+              <svg class="menu-icon-svg menu-icon-svg--gear" viewBox="0 0 64 64" focusable="false">
+                <path d="M27 6h10l2.1 8.1c2.2.8 4.2 1.9 6 3.5l8-2.3 5 8.7-5.9 5.8c.2 1.1.3 2.2.3 3.2s-.1 2.1-.3 3.2l5.9 5.8-5 8.7-8-2.3c-1.8 1.6-3.8 2.7-6 3.5L37 58H27l-2.1-8.1c-2.2-.8-4.2-1.9-6-3.5l-8 2.3-5-8.7 5.9-5.8a16 16 0 0 1 0-6.4L5.9 22l5-8.7 8 2.3c1.8-1.6 3.8-2.7 6-3.5L27 6z"></path>
+                <circle cx="32" cy="32" r="8"></circle>
+              </svg>
+            </span>
+            <span class="tech-button__label" data-i18n="main.settings">CÀI ĐẶT</span>
+            <span class="tech-button__ray" aria-hidden="true"></span>
+          </button>
+
+          <button class="tech-button" type="button" data-action="quit">
+            <span class="tech-button__surface" aria-hidden="true"></span>
+            <span class="tech-button__inner-frame" aria-hidden="true"></span>
+            <span class="tech-button__icon-slot" aria-hidden="true">
+              <svg class="menu-icon-svg menu-icon-svg--exit" viewBox="0 0 64 64" focusable="false">
+                <path d="M10 9h27v46H10z"></path>
+                <path d="M27 32h29"></path>
+                <path d="m46 22 10 10-10 10"></path>
+              </svg>
+            </span>
+            <span class="tech-button__label" data-i18n="main.quit">THOÁT</span>
+            <span class="tech-button__ray" aria-hidden="true"></span>
+          </button>
+        </nav>
+      </section>
+
+      <section id="guest-screen" class="guest-screen" role="dialog" aria-modal="true" aria-labelledby="guest-title" aria-describedby="guest-local-notice" tabindex="-1" hidden aria-hidden="true">
+        <div class="guest-screen__shade" aria-hidden="true"></div>
+
+        <svg class="guest-avatar-defs" width="0" height="0" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="guest-avatar-metal" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#ffffff"></stop>
+              <stop offset="0.52" stop-color="#c9cbd0"></stop>
+              <stop offset="1" stop-color="#777c84"></stop>
+            </linearGradient>
+            <linearGradient id="guest-avatar-ring" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#a23cff"></stop>
+              <stop offset="0.58" stop-color="#af50ff"></stop>
+              <stop offset="1" stop-color="#18e7ed"></stop>
+            </linearGradient>
+            <symbol id="guest-avatar-neutral" viewBox="0 0 128 128">
+              <circle cx="64" cy="39" r="23"></circle>
+              <path d="M24 112c3-28 18-43 40-43s37 15 40 43c-21 9-59 9-80 0Z"></path>
+            </symbol>
+            <symbol id="guest-avatar-masc" viewBox="0 0 128 128">
+              <path d="M43 39c0-18 9-28 21-28s21 10 21 28c0 17-8 27-21 27S43 56 43 39Z"></path>
+              <path d="M41 35c2-18 12-27 26-26 11 1 18 9 19 23-8-2-14-8-18-16-8 11-16 17-27 19Z"></path>
+              <path d="M24 112c3-27 18-42 40-42s37 15 40 42c-21 9-59 9-80 0Z"></path>
+            </symbol>
+            <symbol id="guest-avatar-fem" viewBox="0 0 128 128">
+              <path d="M35 43c0-23 11-35 29-35s29 12 29 35c0 18 5 30 13 39-10 6-19 8-29 8H51c-10 0-19-2-29-8 8-9 13-21 13-39Z"></path>
+              <ellipse cx="64" cy="39" rx="20" ry="25"></ellipse>
+              <path d="M21 113c5-27 20-41 43-41s38 14 43 41c-23 8-63 8-86 0Z"></path>
+            </symbol>
+          </defs>
+        </svg>
+
+        <div class="guest-brand" aria-hidden="true">
+          <strong>FRANK</strong>
+          <span><i></i>SANDBOX GAME<i></i></span>
+        </div>
+
+        <button class="guest-back" type="button" data-guest-back aria-label="Quay lại menu chính" data-i18n-aria-label="guest.backLabel">
+          <span class="guest-action__surface" aria-hidden="true"></span>
+          <svg class="guest-tech-rails guest-tech-rails--back" viewBox="0 0 312 106" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <path class="guest-tech-rail guest-tech-rail--main" vector-effect="non-scaling-stroke" d="M22 1H278L311 34V75L281 105H22L1 84V22Z"></path>
+            <path class="guest-tech-rail guest-tech-rail--soft" vector-effect="non-scaling-stroke" d="M29 9H274L303 38V70L276 97H29L9 78V29Z"></path>
+            <path class="guest-tech-rail guest-tech-rail--purple" vector-effect="non-scaling-stroke" d="M17 32V17H34M17 74V89H35"></path>
+            <path class="guest-tech-rail guest-tech-rail--cyan" vector-effect="non-scaling-stroke" d="M302 38V68"></path>
+            <path class="guest-tech-rail guest-tech-rail--gold" d="M220 99h12l-5 5h-12Zm16 0h12l-5 5h-12Zm16 0h12l-5 5h-12Z"></path>
+          </svg>
+          <svg class="guest-back__icon" viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M39 14 17 36l22 22M19 36h39"></path></svg>
+          <span data-i18n="guest.back">QUAY LẠI</span>
+        </button>
+
+        <section class="guest-panel" tabindex="-1">
+          <svg class="guest-panel__frame" viewBox="0 0 1588 820" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <defs>
+              <linearGradient id="guest-frame-main" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1588" y2="0">
+                <stop offset="0" stop-color="#e6e9ed" stop-opacity="0.72"></stop>
+                <stop offset="0.42" stop-color="#c4cbd4" stop-opacity="0.35"></stop>
+                <stop offset="0.72" stop-color="#dce1e7" stop-opacity="0.58"></stop>
+                <stop offset="1" stop-color="#b5bdc7" stop-opacity="0.28"></stop>
+              </linearGradient>
+            </defs>
+            <path class="guest-panel__rail guest-panel__rail--main" vector-effect="non-scaling-stroke" stroke="url(#guest-frame-main)" d="M35 0H490L504 12H1080L1094 0H1552L1588 36V784L1552 820H1094L1080 808H504L490 820H35L0 785V35Z"></path>
+            <path class="guest-panel__rail guest-panel__rail--soft" vector-effect="non-scaling-stroke" d="M47 10H475L490 21H1094L1108 10H1541L1577 46V774L1541 810H1108L1094 798H490L475 810H46L11 774V46Z"></path>
+            <path class="guest-panel__rail guest-panel__rail--purple" vector-effect="non-scaling-stroke" d="M26 55V26H55M1534 26H1562V56M26 765V793H57M1533 793H1562V764"></path>
+            <path class="guest-panel__rail guest-panel__rail--cyan" vector-effect="non-scaling-stroke" d="M504 8H640M948 8H1080M504 812H640M948 812H1080"></path>
+          </svg>
+
+          <h2 id="guest-title" class="guest-title" data-i18n="guest.title">CHÀO MỪNG</h2>
+
+          <div class="guest-modes" role="group" aria-label="Chọn chế độ hồ sơ khách" data-i18n-aria-label="a11y.guestModes">
+            <button class="guest-mode is-active" type="button" data-guest-mode="create" aria-pressed="true">
+              <span class="guest-mode__surface" aria-hidden="true"></span>
+              <svg class="guest-tech-rails guest-tech-rails--mode" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                <path class="guest-tech-rail guest-tech-rail--main" vector-effect="non-scaling-stroke" d="M28 1H968L999 31V99H1V28Z"></path>
+                <path class="guest-tech-rail guest-tech-rail--soft" vector-effect="non-scaling-stroke" d="M36 9H963L991 36V91H9V35Z"></path>
+                <path class="guest-tech-rail guest-tech-rail--purple" vector-effect="non-scaling-stroke" d="M20 41V20H42M948 9H965L991 35V57"></path>
+                <path class="guest-tech-rail guest-tech-rail--cyan" vector-effect="non-scaling-stroke" d="M1 57V29L29 1H108M999 67V98H944"></path>
+              </svg>
+              <span data-i18n="guest.createMode">TẠO KHÁCH</span>
+            </button>
+            <button class="guest-mode" type="button" data-guest-mode="login" aria-pressed="false">
+              <span class="guest-mode__surface" aria-hidden="true"></span>
+              <svg class="guest-tech-rails guest-tech-rails--mode" viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                <path class="guest-tech-rail guest-tech-rail--main" vector-effect="non-scaling-stroke" d="M28 1H968L999 31V99H1V28Z"></path>
+                <path class="guest-tech-rail guest-tech-rail--soft" vector-effect="non-scaling-stroke" d="M36 9H963L991 36V91H9V35Z"></path>
+                <path class="guest-tech-rail guest-tech-rail--purple" vector-effect="non-scaling-stroke" d="M20 41V20H42M948 9H965L991 35V57"></path>
+                <path class="guest-tech-rail guest-tech-rail--cyan" vector-effect="non-scaling-stroke" d="M1 57V29L29 1H108M999 67V98H944"></path>
+                <path class="guest-tech-rail guest-tech-rail--gold" d="M870 92h24l-9 6h-24Zm34 0h24l-9 6h-24Zm34 0h24l-9 6h-24Z"></path>
+              </svg>
+              <span data-i18n="guest.loginMode">ĐĂNG NHẬP</span>
+            </button>
+          </div>
+
+          <div class="guest-content">
+            <svg class="guest-content__frame" viewBox="0 0 1475 460" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+              <path class="guest-content__rail guest-content__rail--main" vector-effect="non-scaling-stroke" d="M22 0H1453L1475 22V438L1453 460H22L0 438V22Z"></path>
+              <path class="guest-content__rail guest-content__rail--soft" vector-effect="non-scaling-stroke" d="M31 8H1444L1467 31V429L1444 452H31L8 429V31Z"></path>
+              <path class="guest-content__rail guest-content__rail--cyan" vector-effect="non-scaling-stroke" d="M0 68V22L22 0H116M1475 392V438L1453 460H1358"></path>
+              <path class="guest-content__rail guest-content__rail--purple" vector-effect="non-scaling-stroke" d="M1475 80V22L1453 0H1392M0 380V438L22 460H83"></path>
+            </svg>
+            <section id="guest-create-pane" class="guest-create-pane" aria-label="Tạo hoặc cập nhật hồ sơ khách" data-i18n-aria-label="a11y.guestCreatePane">
+              <div class="guest-avatar-preview" data-guest-avatar-preview="avatar-1" aria-hidden="true">
+                <svg viewBox="0 0 156 156" focusable="false">
+                  <circle class="guest-avatar-ring guest-avatar-ring--outer" cx="78" cy="78" r="69"></circle>
+                  <circle class="guest-avatar-ring guest-avatar-ring--inner" cx="78" cy="78" r="61"></circle>
+                  <use class="guest-avatar-art" x="20" y="20" width="116" height="116" href="#guest-avatar-neutral" xlink:href="#guest-avatar-neutral"></use>
+                </svg>
+              </div>
+
+              <div class="guest-name-field">
+                <label for="guest-name-input" data-i18n="guest.nameLabel">TÊN NGƯỜI CHƠI</label>
+                <span class="guest-name-field__surface" aria-hidden="true"></span>
+                <input id="guest-name-input" type="text" maxlength="20" autocomplete="nickname" autocapitalize="words" spellcheck="false" enterkeyhint="done" aria-describedby="guest-name-help guest-feedback" placeholder="Nhập tên của bạn" data-i18n-placeholder="guest.namePlaceholder">
+                <small id="guest-name-help" data-i18n="guest.nameHint">2–20 • Chữ, số, _ hoặc -</small>
+              </div>
+
+              <div class="guest-avatar-options" role="radiogroup" aria-label="Chọn ảnh đại diện" data-i18n-aria-label="a11y.avatarGroup">
+                <button class="guest-avatar-option is-selected" type="button" role="radio" data-guest-avatar="avatar-1" aria-checked="true" aria-label="Ảnh đại diện 1" data-i18n-aria-label="a11y.avatar1" tabindex="0">
+                  <svg viewBox="0 0 156 156" aria-hidden="true" focusable="false">
+                    <circle class="guest-avatar-ring guest-avatar-ring--outer" cx="78" cy="78" r="69"></circle>
+                    <circle class="guest-avatar-ring guest-avatar-ring--inner" cx="78" cy="78" r="61"></circle>
+                    <use class="guest-avatar-art" x="20" y="20" width="116" height="116" href="#guest-avatar-neutral" xlink:href="#guest-avatar-neutral"></use>
+                  </svg>
+                  <span aria-hidden="true">01</span>
+                </button>
+                <button class="guest-avatar-option" type="button" role="radio" data-guest-avatar="avatar-2" aria-checked="false" aria-label="Ảnh đại diện 2" data-i18n-aria-label="a11y.avatar2" tabindex="-1">
+                  <svg viewBox="0 0 156 156" aria-hidden="true" focusable="false">
+                    <circle class="guest-avatar-ring guest-avatar-ring--outer" cx="78" cy="78" r="69"></circle>
+                    <circle class="guest-avatar-ring guest-avatar-ring--inner" cx="78" cy="78" r="61"></circle>
+                    <use class="guest-avatar-art" x="20" y="20" width="116" height="116" href="#guest-avatar-masc" xlink:href="#guest-avatar-masc"></use>
+                  </svg>
+                  <span aria-hidden="true">02</span>
+                </button>
+                <button class="guest-avatar-option" type="button" role="radio" data-guest-avatar="avatar-3" aria-checked="false" aria-label="Ảnh đại diện 3" data-i18n-aria-label="a11y.avatar3" tabindex="-1">
+                  <svg viewBox="0 0 156 156" aria-hidden="true" focusable="false">
+                    <circle class="guest-avatar-ring guest-avatar-ring--outer" cx="78" cy="78" r="69"></circle>
+                    <circle class="guest-avatar-ring guest-avatar-ring--inner" cx="78" cy="78" r="61"></circle>
+                    <use class="guest-avatar-art" x="20" y="20" width="116" height="116" href="#guest-avatar-fem" xlink:href="#guest-avatar-fem"></use>
+                  </svg>
+                  <span aria-hidden="true">03</span>
+                </button>
+              </div>
+            </section>
+
+            <section id="guest-login-pane" class="guest-login-pane is-inactive" aria-label="Hồ sơ khách đã lưu" data-i18n-aria-label="a11y.guestSavedPane" aria-hidden="true">
+              <h3 data-i18n="guest.savedTitle">HỒ SƠ KHÁCH</h3>
+              <article class="guest-profile-card">
+                <span class="guest-profile-card__surface" aria-hidden="true"></span>
+                <svg class="guest-tech-rails guest-tech-rails--profile" viewBox="0 0 628 277" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                  <path class="guest-tech-rail guest-tech-rail--main" vector-effect="non-scaling-stroke" d="M18 1H610L627 18V259L610 276H18L1 259V18Z"></path>
+                  <path class="guest-tech-rail guest-tech-rail--soft" vector-effect="non-scaling-stroke" d="M27 9H601L619 27V250L601 268H27L9 250V27Z"></path>
+                  <path class="guest-tech-rail guest-tech-rail--purple" vector-effect="non-scaling-stroke" d="M1 70V18L18 1H134M494 1H610L627 18V77M1 207V259L18 276H138M491 276H610L627 259V202"></path>
+                  <path class="guest-tech-rail guest-tech-rail--cyan" vector-effect="non-scaling-stroke" d="M9 45V27L27 9H60M619 232V250L601 268H568"></path>
+                </svg>
+                <div class="guest-profile-avatar" data-guest-profile-avatar="avatar-1" aria-hidden="true">
+                  <svg viewBox="0 0 156 156" focusable="false">
+                    <circle class="guest-avatar-ring guest-avatar-ring--outer" cx="78" cy="78" r="69"></circle>
+                    <circle class="guest-avatar-ring guest-avatar-ring--inner" cx="78" cy="78" r="61"></circle>
+                    <use class="guest-avatar-art" x="20" y="20" width="116" height="116" href="#guest-avatar-neutral" xlink:href="#guest-avatar-neutral"></use>
+                  </svg>
+                </div>
+                <div class="guest-profile-copy">
+                  <strong id="guest-profile-id">CHƯA CÓ HỒ SƠ</strong>
+                  <span id="guest-profile-name">Tạo hồ sơ khách để bắt đầu</span>
+                  <i aria-hidden="true"></i>
+                  <p>
+                    <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false"><circle cx="20" cy="20" r="15"></circle><path d="M20 10v11l8 5"></path></svg>
+                    <span id="guest-last-played">Chưa bắt đầu chơi</span>
+                  </p>
+                  <p>
+                    <svg viewBox="0 0 40 40" aria-hidden="true" focusable="false"><path d="M10 5h20v30H10zM14 10h12M14 27h12M20 31h.1"></path></svg>
+                    <span data-i18n="guest.savedOnDevice">Tiến trình được lưu trên thiết bị này.</span>
+                  </p>
+                </div>
+              </article>
+            </section>
+            <span class="guest-content__divider" aria-hidden="true"></span>
+            <p id="guest-local-notice" class="guest-local-notice" data-i18n="guest.localNotice">
+              Hồ sơ cục bộ • Xóa dữ liệu ứng dụng có thể làm mất tiến trình.
+            </p>
+          </div>
+
+          <p id="guest-feedback" class="guest-feedback" role="alert" aria-live="assertive"></p>
+
+          <footer class="guest-footer">
+            <button class="guest-primary guest-primary--create" type="button" data-guest-create>
+              <span class="guest-primary__surface" aria-hidden="true"></span>
+              <svg class="guest-tech-rails guest-tech-rails--primary" viewBox="0 0 438 90" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                <path class="guest-tech-rail guest-tech-rail--main" vector-effect="non-scaling-stroke" d="M22 1H416L437 22V68L416 89H22L1 68V22Z"></path>
+                <path class="guest-tech-rail guest-tech-rail--soft" vector-effect="non-scaling-stroke" d="M29 9H409L429 29V61L409 81H29L9 61V29Z"></path>
+                <path class="guest-tech-rail guest-tech-rail--purple" vector-effect="non-scaling-stroke" d="M1 50V22L22 1H93M345 1H416L437 22V47M1 49V68L22 89H97M342 89H416L437 68V48"></path>
+                <path class="guest-tech-rail guest-tech-rail--cyan" vector-effect="non-scaling-stroke" d="M429 30V59"></path>
+              </svg>
+              <span id="guest-create-label">TẠO HỒ SƠ</span>
+            </button>
+            <button class="guest-primary guest-primary--login" type="button" data-guest-login disabled aria-disabled="true">
+              <span class="guest-primary__surface" aria-hidden="true"></span>
+              <svg class="guest-tech-rails guest-tech-rails--primary" viewBox="0 0 438 90" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                <path class="guest-tech-rail guest-tech-rail--main" vector-effect="non-scaling-stroke" d="M22 1H416L437 22V68L416 89H22L1 68V22Z"></path>
+                <path class="guest-tech-rail guest-tech-rail--soft" vector-effect="non-scaling-stroke" d="M29 9H409L429 29V61L409 81H29L9 61V29Z"></path>
+                <path class="guest-tech-rail guest-tech-rail--purple" vector-effect="non-scaling-stroke" d="M1 50V22L22 1H93M345 1H416L437 22V47"></path>
+                <path class="guest-tech-rail guest-tech-rail--cyan" vector-effect="non-scaling-stroke" d="M1 49V68L22 89H97M342 89H416L437 68V48"></path>
+              </svg>
+              <span data-i18n="guest.continue">TIẾP TỤC</span>
+            </button>
+          </footer>
+        </section>
+      </section>
+
+      <section id="online-screen" class="online-screen" hidden aria-hidden="true">
+        <div class="online-screen__shade" aria-hidden="true"></div>
+        <section class="online-panel" role="dialog" aria-modal="true" aria-labelledby="online-title" aria-describedby="online-disclaimer" tabindex="-1">
+          <header class="online-header">
+            <div>
+              <span class="online-kicker" data-i18n="online.kicker">PLAYER ONLINE</span>
+              <h2 id="online-title" class="online-title" data-i18n="online.title">TÌM NGƯỜI CHƠI</h2>
+              <span class="online-title__rail" aria-hidden="true"></span>
+            </div>
+            <div class="online-limit" aria-label="Thời gian tìm tối đa 30 giây" data-i18n-aria-label="a11y.onlineLimit">
+              <span data-i18n="online.maxWait">THỜI GIAN TỐI ĐA</span>
+              <strong>30s</strong>
+              <i aria-hidden="true"></i>
+            </div>
+          </header>
+
+          <div class="online-content">
+            <section class="online-search-card" aria-labelledby="online-status">
+              <span class="online-search-card__surface" aria-hidden="true"></span>
+              <div class="online-radar" aria-hidden="true">
+                <span class="online-radar__ring online-radar__ring--outer"></span>
+                <span class="online-radar__ring online-radar__ring--middle"></span>
+                <span class="online-radar__ring online-radar__ring--inner"></span>
+                <span class="online-radar__cross online-radar__cross--x"></span>
+                <span class="online-radar__cross online-radar__cross--y"></span>
+                <span class="online-radar__sweep"></span>
+                <i class="online-radar__signal online-radar__signal--one"></i>
+                <i class="online-radar__signal online-radar__signal--two"></i>
+                <i class="online-radar__signal online-radar__signal--three"></i>
+              </div>
+              <div class="online-search-copy">
+                <span class="online-simulation-badge" data-i18n="online.simulation">MÔ PHỎNG</span>
+                <h3 id="online-status" role="status" aria-live="polite" aria-atomic="true" data-i18n="online.searching">ĐANG TÌM PHÒNG...</h3>
+                <p id="online-status-detail" data-i18n="online.searchingHint">Đang quét các phiên chơi phù hợp trong khu vực</p>
+              </div>
+              <div class="online-search-progress" role="progressbar" aria-label="Tiến trình tìm người chơi" data-i18n-aria-label="a11y.onlineProgress" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0" aria-valuetext="0 trên 30 giây">
+                <span aria-hidden="true"><i id="online-progress-bar"></i></span>
+                <div><small data-i18n="online.elapsed">ĐÃ CHỜ</small><strong id="online-time">00:00</strong><b>/ 00:30</b></div>
+              </div>
+            </section>
+
+            <section class="online-roster" aria-labelledby="online-roster-title">
+              <header>
+                <div><span data-i18n="online.room">PHÒNG CHỜ</span><h3 id="online-roster-title" data-i18n="online.players">NGƯỜI CHƠI</h3></div>
+                <strong id="online-player-count">1/4</strong>
+              </header>
+              <div class="online-player-list" role="list" aria-live="polite" aria-label="Danh sách người chơi mô phỏng" data-i18n-aria-label="a11y.onlinePlayers">
+                <article class="online-player is-ready" role="listitem" data-online-slot="0">
+                  <span class="online-player__avatar" aria-hidden="true"><svg viewBox="0 0 64 64" focusable="false"><circle cx="32" cy="22" r="11"></circle><path d="M12 55c2-16 9-23 20-23s18 7 20 23"></path></svg></span>
+                  <span class="online-player__copy"><strong data-online-name>NGƯỜI CHƠI</strong><small data-online-state>SẴN SÀNG</small></span>
+                  <span class="online-player__ping" data-online-ping>24 ms</span>
+                </article>
+                <article class="online-player is-waiting" role="listitem" data-online-slot="1">
+                  <span class="online-player__avatar" aria-hidden="true"><svg viewBox="0 0 64 64" focusable="false"><circle cx="32" cy="22" r="11"></circle><path d="M12 55c2-16 9-23 20-23s18 7 20 23"></path></svg></span>
+                  <span class="online-player__copy"><strong data-online-name>---</strong><small data-online-state>ĐANG TÌM...</small></span>
+                  <span class="online-player__ping" data-online-ping>-- ms</span>
+                </article>
+                <article class="online-player is-waiting" role="listitem" data-online-slot="2">
+                  <span class="online-player__avatar" aria-hidden="true"><svg viewBox="0 0 64 64" focusable="false"><circle cx="32" cy="22" r="11"></circle><path d="M12 55c2-16 9-23 20-23s18 7 20 23"></path></svg></span>
+                  <span class="online-player__copy"><strong data-online-name>---</strong><small data-online-state>ĐANG TÌM...</small></span>
+                  <span class="online-player__ping" data-online-ping>-- ms</span>
+                </article>
+                <article class="online-player is-waiting" role="listitem" data-online-slot="3">
+                  <span class="online-player__avatar" aria-hidden="true"><svg viewBox="0 0 64 64" focusable="false"><circle cx="32" cy="22" r="11"></circle><path d="M12 55c2-16 9-23 20-23s18 7 20 23"></path></svg></span>
+                  <span class="online-player__copy"><strong data-online-name>---</strong><small data-online-state>ĐANG TÌM...</small></span>
+                  <span class="online-player__ping" data-online-ping>-- ms</span>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <footer class="online-footer">
+            <button class="online-back online-footer-action" type="button" data-online-back>
+              <span class="online-footer-action__surface" aria-hidden="true"></span>
+              <svg viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M39 14 17 36l22 22M19 36h39"></path></svg>
+              <span id="online-back-label" data-i18n="online.cancel">HỦY</span>
+            </button>
+            <p id="online-disclaimer" class="online-disclaimer">
+              <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M32 5 56 18v28L32 59 8 46V18Z"></path><path d="M32 27v19M32 18h.1"></path></svg>
+              <span data-i18n="online.disclaimer">Mô phỏng giao diện tìm người chơi • Chưa kết nối máy chủ thật</span>
+            </p>
+            <button class="online-retry online-footer-action" type="button" data-online-retry>
+              <span class="online-footer-action__surface" aria-hidden="true"></span>
+              <svg viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M17 29a21 21 0 1 1 2 19"></path><path d="M8 18v17h17"></path></svg>
+              <span data-i18n="online.retry">TÌM LẠI</span>
+            </button>
+          </footer>
+        </section>
+      </section>
+
+      <section id="mission-screen" class="mission-screen" hidden aria-hidden="true">
+        <div class="mission-screen__shade" aria-hidden="true"></div>
+        <section class="mission-panel" role="dialog" aria-modal="true" aria-labelledby="mission-title" aria-describedby="mission-help" tabindex="-1">
+          <header class="mission-header">
+            <h2 id="mission-title" class="mission-title" data-i18n="mission.title">CHỌN MÀN CHƠI</h2>
+            <span class="mission-title__rail" aria-hidden="true"></span>
+            <div id="mission-progress" class="mission-progress" role="progressbar" aria-label="Tiến độ nhiệm vụ" data-i18n-aria-label="a11y.missionProgress" aria-valuemin="0" aria-valuemax="6" aria-valuenow="0" aria-valuetext="Đã hoàn thành 0 trên 6 màn">
+              <div class="mission-progress__copy"><span data-i18n="mission.progress">TIẾN ĐỘ</span><strong id="mission-progress-value">0/6</strong></div>
+              <div class="mission-progress__segments" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i>
+              </div>
+            </div>
+          </header>
+
+          <div class="mission-grid" role="radiogroup" aria-orientation="horizontal" aria-label="Chọn màn chơi" data-i18n-aria-label="a11y.missionGrid">
+            <button class="mission-card" type="button" role="radio" data-mission-card="strawberry-pickup" aria-checked="true" aria-disabled="false" tabindex="0">
+              <span class="mission-card__surface" aria-hidden="true"></span>
+              <span class="mission-card__inner" aria-hidden="true"></span>
+              <span class="mission-card__number">MÀN 01</span>
+              <span class="mission-card__media">
+                <img src="assets/missions/mission-01-strawberry-pickup.webp" alt="" draggable="false" loading="lazy" decoding="async">
+                <span class="mission-card__scrim" aria-hidden="true"></span>
+              </span>
+              <span class="mission-card__lock" aria-hidden="true"></span>
+              <span class="mission-card__footer">
+                <span class="mission-card__title" data-mission-title>CUỘC HẸN STRAWBERRY</span>
+                <span class="mission-card__status" data-mission-status>ĐÃ MỞ KHÓA</span>
+              </span>
+              <span class="mission-card__connector" aria-hidden="true"><i></i></span>
+            </button>
+
+            <button class="mission-card" type="button" role="radio" data-mission-card="warehouse-recon" aria-checked="false" aria-disabled="true" tabindex="-1">
+              <span class="mission-card__surface" aria-hidden="true"></span>
+              <span class="mission-card__inner" aria-hidden="true"></span>
+              <span class="mission-card__number">MÀN 02</span>
+              <span class="mission-card__media">
+                <img src="assets/missions/mission-02-warehouse-recon.webp" alt="" draggable="false" loading="lazy" decoding="async">
+                <span class="mission-card__scrim" aria-hidden="true"></span>
+              </span>
+              <span class="mission-card__lock" aria-hidden="true"></span>
+              <span class="mission-card__footer">
+                <span class="mission-card__title" data-mission-title>TRINH SÁT KHO HÀNG</span>
+                <span class="mission-card__status" data-mission-status>KHÓA</span>
+              </span>
+              <span class="mission-card__connector" aria-hidden="true"><i></i></span>
+            </button>
+
+            <button class="mission-card" type="button" role="radio" data-mission-card="downtown-vip" aria-checked="false" aria-disabled="true" tabindex="-1">
+              <span class="mission-card__surface" aria-hidden="true"></span>
+              <span class="mission-card__inner" aria-hidden="true"></span>
+              <span class="mission-card__number">MÀN 03</span>
+              <span class="mission-card__media">
+                <img src="assets/missions/mission-03-downtown-vip.webp" alt="" draggable="false" loading="lazy" decoding="async">
+                <span class="mission-card__scrim" aria-hidden="true"></span>
+              </span>
+              <span class="mission-card__lock" aria-hidden="true"></span>
+              <span class="mission-card__footer">
+                <span class="mission-card__title" data-mission-title>VIP DOWNTOWN</span>
+                <span class="mission-card__status" data-mission-status>KHÓA</span>
+              </span>
+              <span class="mission-card__connector" aria-hidden="true"><i></i></span>
+            </button>
+
+            <button class="mission-card" type="button" role="radio" data-mission-card="range-pressure" aria-checked="false" aria-disabled="true" tabindex="-1">
+              <span class="mission-card__surface" aria-hidden="true"></span>
+              <span class="mission-card__inner" aria-hidden="true"></span>
+              <span class="mission-card__number">MÀN 04</span>
+              <span class="mission-card__media">
+                <img src="assets/missions/mission-04-range-pressure.webp" alt="" draggable="false" loading="lazy" decoding="async">
+                <span class="mission-card__scrim" aria-hidden="true"></span>
+              </span>
+              <span class="mission-card__lock" aria-hidden="true"></span>
+              <span class="mission-card__footer">
+                <span class="mission-card__title" data-mission-title>ÁP LỰC TRƯỜNG BẮN</span>
+                <span class="mission-card__status" data-mission-status>KHÓA</span>
+              </span>
+              <span class="mission-card__connector" aria-hidden="true"><i></i></span>
+            </button>
+
+            <button class="mission-card" type="button" role="radio" data-mission-card="fuel-run" aria-checked="false" aria-disabled="true" tabindex="-1">
+              <span class="mission-card__surface" aria-hidden="true"></span>
+              <span class="mission-card__inner" aria-hidden="true"></span>
+              <span class="mission-card__number">MÀN 05</span>
+              <span class="mission-card__media">
+                <img src="assets/missions/mission-05-fuel-run.webp" alt="" draggable="false" loading="lazy" decoding="async">
+                <span class="mission-card__scrim" aria-hidden="true"></span>
+              </span>
+              <span class="mission-card__lock" aria-hidden="true"></span>
+              <span class="mission-card__footer">
+                <span class="mission-card__title" data-mission-title>CHUYẾN HÀNG NÓNG</span>
+                <span class="mission-card__status" data-mission-status>KHÓA</span>
+              </span>
+              <span class="mission-card__connector" aria-hidden="true"><i></i></span>
+            </button>
+
+            <button class="mission-card" type="button" role="radio" data-mission-card="carrier-signal" aria-checked="false" aria-disabled="true" tabindex="-1">
+              <span class="mission-card__surface" aria-hidden="true"></span>
+              <span class="mission-card__inner" aria-hidden="true"></span>
+              <span class="mission-card__number">MÀN 06</span>
+              <span class="mission-card__media">
+                <img src="assets/missions/mission-06-carrier-signal.webp" alt="" draggable="false" loading="lazy" decoding="async">
+                <span class="mission-card__scrim" aria-hidden="true"></span>
+              </span>
+              <span class="mission-card__lock" aria-hidden="true"></span>
+              <span class="mission-card__footer">
+                <span class="mission-card__title" data-mission-title>MẬT LỆNH NGOÀI KHƠI</span>
+                <span class="mission-card__status" data-mission-status>KHÓA</span>
+              </span>
+            </button>
+          </div>
+
+          <section class="mission-detail" aria-labelledby="mission-detail-title">
+            <div class="mission-detail__index" aria-hidden="true"><span id="mission-detail-number">01</span><i></i></div>
+            <div class="mission-detail__copy">
+              <p id="mission-detail-sender" class="mission-detail__sender">NHIỆM VỤ TỪ LAMAR</p>
+              <h3 id="mission-detail-title">CUỘC HẸN STRAWBERRY</h3>
+              <p id="mission-detail-description">Đến Strawberry và tìm một chiếc xe đủ nhanh cho chuyến lấy hàng. Giữ phương tiện nguyên vẹn khi tới điểm hẹn.</p>
+            </div>
+            <div id="mission-detail-state" class="mission-detail__state">SẴN SÀNG</div>
+          </section>
+
+          <footer class="mission-footer">
+            <button class="mission-back mission-footer-action" type="button" data-mission-back aria-label="Quay lại menu chính" data-i18n-aria-label="a11y.backMain">
+              <span class="mission-footer-action__surface" aria-hidden="true"></span>
+              <svg viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M39 14 17 36l22 22M19 36h39"></path></svg>
+              <span data-i18n="mission.back">QUAY LẠI</span>
+            </button>
+            <p id="mission-help" class="mission-help" aria-live="polite">
+              <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M32 5 56 18v28L32 59 8 46V18Z"></path><path d="M32 27v19M32 18h.1"></path></svg>
+              <span data-i18n="mission.help">Hoàn thành màn trước để mở khóa màn tiếp theo</span>
+            </p>
+            <button class="mission-play mission-footer-action" type="button" data-mission-play>
+              <span class="mission-footer-action__surface" aria-hidden="true"></span>
+              <svg viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="m24 13 34 23-34 23Z"></path></svg>
+              <span data-i18n="mission.play">CHƠI</span>
+            </button>
+          </footer>
+        </section>
+      </section>
+
+      <section id="settings-screen" class="settings-screen" hidden aria-hidden="true">
+        <div class="settings-screen__shade" aria-hidden="true"></div>
+        <section class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-describedby="settings-description" tabindex="-1" data-settings-view="graphics">
+          <svg class="settings-panel__frame" viewBox="0 0 1340 926" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <defs>
+              <linearGradient id="settings-frame-top" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1340" y2="0">
+                <stop offset="0" stop-color="#e5e8ec" stop-opacity="0.72"></stop>
+                <stop offset="0.48" stop-color="#c6ccd4" stop-opacity="0.38"></stop>
+                <stop offset="0.76" stop-color="#d8dde3" stop-opacity="0.54"></stop>
+                <stop offset="1" stop-color="#aeb6c0" stop-opacity="0.18"></stop>
+              </linearGradient>
+              <linearGradient id="settings-frame-bottom" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1340" y2="0">
+                <stop offset="0" stop-color="#18e7ed" stop-opacity="0.78"></stop>
+                <stop offset="0.12" stop-color="#d8dde3" stop-opacity="0.48"></stop>
+                <stop offset="0.78" stop-color="#c1c8d0" stop-opacity="0.3"></stop>
+                <stop offset="1" stop-color="#9f35ff" stop-opacity="0.78"></stop>
+              </linearGradient>
+            </defs>
+            <g class="settings-panel__rails">
+              <path vector-effect="non-scaling-stroke" stroke="url(#settings-frame-top)" d="M34 0H482L496 10H836L850 0H1306L1340 34V892L1306 926H34L0 892V34Z"></path>
+              <path class="settings-panel__rail-soft" vector-effect="non-scaling-stroke" d="M44 9H467L479 18H856L869 9H1295L1330 44V882L1295 916H45L10 881V45Z"></path>
+              <path class="settings-panel__rail-cyan" vector-effect="non-scaling-stroke" d="M10 173V149L24 135H438"></path>
+              <path class="settings-panel__rail-purple" vector-effect="non-scaling-stroke" d="M24 12H8V45M1315 13H1330V47M1316 914H1331V884"></path>
+              <path vector-effect="non-scaling-stroke" stroke="url(#settings-frame-bottom)" d="M35 916H466L478 925H856L869 916H1306"></path>
+            </g>
+          </svg>
+
+          <header class="settings-header">
+            <h2 id="settings-title" class="settings-title" data-i18n="settings.title">CÀI ĐẶT</h2>
+            <p id="settings-description" class="sr-only" data-i18n="settings.description">Tùy chỉnh đồ họa, âm thanh và ngôn ngữ.</p>
+            <div class="settings-tabs" role="tablist" aria-label="Nhóm cài đặt" data-i18n-aria-label="a11y.settingsTabs">
+              <button id="settings-tab-graphics" class="settings-tab is-active" type="button" role="tab" data-settings-tab="graphics" aria-selected="true" aria-controls="settings-graphics-pane" tabindex="0" data-i18n="settings.tabs.graphics">ĐỒ HỌA</button>
+              <button id="settings-tab-audio" class="settings-tab" type="button" role="tab" data-settings-tab="audio" aria-selected="false" aria-controls="settings-audio-pane" tabindex="-1" data-i18n="settings.tabs.audio">ÂM THANH</button>
+              <button id="settings-tab-language" class="settings-tab" type="button" role="tab" data-settings-tab="language" aria-selected="false" aria-controls="settings-language-pane" tabindex="-1" data-i18n="settings.tabs.language">NGÔN NGỮ</button>
+            </div>
+            <button class="settings-close" type="button" data-settings-close aria-label="Đóng cài đặt" data-i18n-aria-label="a11y.settingsClose">
+              <span class="settings-close__ring" aria-hidden="true"></span>
+              <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M19 19l26 26M45 19 19 45"></path></svg>
+            </button>
+          </header>
+
+          <div id="settings-graphics-pane" class="settings-pane settings-pane--graphics" role="tabpanel" aria-labelledby="settings-tab-graphics" data-settings-pane="graphics">
+          <section class="settings-card settings-card--quality" aria-labelledby="quality-title">
+            <div class="settings-card__content">
+              <div class="settings-card__heading settings-card__heading--quality">
+                <svg class="settings-card__icon settings-card__icon--diamond" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><path d="M32 7 57 32 32 57 7 32Z"></path><path d="M32 15 49 32 32 49 15 32Z"></path></svg>
+                <div><h3 id="quality-title" data-i18n="settings.graphics.quality">CHẤT LƯỢNG</h3><p data-i18n="settings.graphics.qualityHint">Tự tối ưu theo thiết bị</p></div>
+              </div>
+              <div class="settings-segments settings-segments--quality" role="radiogroup" aria-label="Chất lượng đồ họa" data-i18n-aria-label="a11y.qualityGroup">
+                <button type="button" role="radio" data-setting="quality" data-value="auto" aria-checked="false"><span>AUTO</span><svg class="settings-auto-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="11"></circle><circle cx="24" cy="24" r="4"></circle><path d="M24 3v7M24 38v7M3 24h7M38 24h7"></path></svg></button>
+                <button type="button" role="radio" data-setting="quality" data-value="low" aria-checked="false" data-i18n="settings.graphics.low">THẤP</button>
+                <button type="button" role="radio" data-setting="quality" data-value="balanced" aria-checked="false" data-i18n="settings.graphics.balanced">VỪA</button>
+                <button type="button" role="radio" data-setting="quality" data-value="high" aria-checked="false" data-i18n="settings.graphics.high">CAO</button>
+              </div>
+              <p id="quality-summary" class="settings-quality-summary" aria-live="polite"><strong>AUTO</strong> ĐANG DÙNG: <b>VỪA</b><i aria-hidden="true"></i>TỰ CÂN BẰNG THEO FPS</p>
+            </div>
+          </section>
+
+          <section class="settings-card settings-card--aa" aria-labelledby="aa-title">
+            <div class="settings-card__content">
+              <div class="settings-card__heading settings-card__heading--compact">
+                <svg class="settings-card__icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><rect x="13" y="8" width="38" height="48" rx="3"></rect><path d="M22 18v28M42 18v28M18 25h28M18 39h28M24 29l5 5 11-12"></path></svg>
+                <h3 id="aa-title" data-i18n="settings.graphics.aa">KHỬ RĂNG CƯA</h3>
+              </div>
+              <div class="settings-segments settings-segments--three" role="radiogroup" aria-label="Khử răng cưa" data-i18n-aria-label="a11y.aaGroup">
+                <button type="button" role="radio" data-setting="aa" data-value="off" aria-checked="false" data-i18n="common.off">TẮT</button>
+                <button type="button" role="radio" data-setting="aa" data-value="fxaa" aria-checked="false">FXAA</button>
+                <button type="button" role="radio" data-setting="aa" data-value="smaa" aria-checked="false">SMAA LOW</button>
+              </div>
+              <p class="settings-lock-hint" data-lock-hint="aa" hidden aria-hidden="true">Preset đang quản lý hiệu ứng</p>
+            </div>
+          </section>
+
+          <section class="settings-card settings-card--dof" aria-labelledby="dof-title">
+            <div class="settings-card__content">
+              <div class="settings-card__heading settings-card__heading--compact">
+                <svg class="settings-card__icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><circle cx="32" cy="32" r="21"></circle><circle cx="32" cy="32" r="7"></circle><path d="M32 11 23 27l18-8M51 31l-18 1 12 14M20 50l9-16-17 4"></path></svg>
+                <h3 id="dof-title" data-i18n="settings.graphics.dof">LẤY NÉT DOF</h3>
+              </div>
+              <div class="settings-segments settings-segments--three" role="radiogroup" aria-label="Khoảng lấy nét" data-i18n-aria-label="a11y.dofGroup">
+                <button type="button" role="radio" data-setting="dof" data-value="off" aria-checked="false"><svg class="settings-off-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="16"></circle><path d="M13 35 35 13"></path></svg><span data-i18n="common.off">TẮT</span></button>
+                <button type="button" role="radio" data-setting="dof" data-value="near" aria-checked="false" data-i18n="settings.graphics.near">GẦN</button>
+                <button type="button" role="radio" data-setting="dof" data-value="far" aria-checked="false" data-i18n="settings.graphics.far">XA</button>
+              </div>
+              <p class="settings-lock-hint" data-lock-hint="dof" hidden aria-hidden="true">Preset đang quản lý hiệu ứng</p>
+            </div>
+          </section>
+
+          <section class="settings-card settings-card--fbs settings-feature" aria-labelledby="fbs-title">
+            <div class="settings-card__content">
+              <div class="settings-feature__icon settings-feature__icon--purple" aria-hidden="true">
+                <svg viewBox="0 0 72 72" focusable="false"><circle cx="36" cy="25" r="12"></circle><path d="M15 59c2-16 10-24 21-24 9 0 16 5 20 15-9 5-22 8-41 9Z"></path><path d="M28 20c-7 6-8 16-3 23"></path></svg>
+              </div>
+              <div class="settings-feature__copy"><h3 id="fbs-title" data-i18n="settings.graphics.fbs">BÓNG NHÂN VẬT</h3><p><strong>FBS</strong><i aria-hidden="true"></i><span data-i18n="settings.graphics.fbsHint">Bóng mềm, chi phí thấp</span></p></div>
+              <span class="settings-feature__badge settings-feature__badge--purple" data-i18n="settings.graphics.fbsBadge">NHẸ • ƯU TIÊN MOBILE</span>
+              <button class="settings-switch settings-switch--purple" type="button" role="switch" data-setting="fbs" aria-label="Bóng nhân vật" data-i18n-aria-label="settings.graphics.fbs" aria-checked="false"><span class="settings-switch__label">TẮT</span><span class="settings-switch__track" aria-hidden="true"><i></i></span></button>
+              <p class="settings-lock-hint settings-lock-hint--feature" data-lock-hint="fbs" hidden aria-hidden="true">Được quản lý bởi preset</p>
+            </div>
+          </section>
+
+          <section class="settings-card settings-card--ssao settings-feature" aria-labelledby="ssao-title">
+            <div class="settings-card__content">
+              <div class="settings-feature__icon settings-feature__icon--cyan" aria-hidden="true">
+                <svg viewBox="0 0 72 72" focusable="false"><path d="m36 8 24 13v29L36 64 12 50V21Z"></path><path d="m12 21 24 14 24-14M36 35v29M23 32v12l8-5M49 32v12l-8-5"></path></svg>
+              </div>
+              <div class="settings-feature__copy"><h3 id="ssao-title" data-i18n="settings.graphics.ssao">ĐỔ BÓNG MÔI TRƯỜNG</h3><p><strong>SSAO</strong><i aria-hidden="true"></i><span data-i18n="settings.graphics.ssaoHint">Tăng chiều sâu khung cảnh</span></p></div>
+              <span class="settings-feature__badge settings-feature__badge--cyan" data-i18n="settings.graphics.ssaoBadge">TỐI ƯU MOBILE • HALF RES</span>
+              <button class="settings-switch settings-switch--cyan" type="button" role="switch" data-setting="ssao" aria-label="Đổ bóng môi trường" data-i18n-aria-label="settings.graphics.ssao" aria-checked="false"><span class="settings-switch__label">TẮT</span><span class="settings-switch__track" aria-hidden="true"><i></i></span></button>
+              <p class="settings-lock-hint settings-lock-hint--feature" data-lock-hint="ssao" hidden aria-hidden="true">Được quản lý bởi preset</p>
+            </div>
+          </section>
+          </div>
+
+          <div id="settings-audio-pane" class="settings-pane settings-pane--audio" role="tabpanel" aria-labelledby="settings-tab-audio" data-settings-pane="audio" hidden>
+            <section class="settings-option-panel settings-option-panel--audio">
+              <header class="settings-option-panel__header">
+                <svg viewBox="0 0 72 72" aria-hidden="true" focusable="false"><path d="M9 28h14l17-15v46L23 44H9z"></path><path d="M49 25c4 3 6 7 6 11s-2 8-6 11M57 17c7 5 10 11 10 19s-3 14-10 19"></path></svg>
+                <div><h3 data-i18n="settings.audio.title">ÂM THANH MENU</h3><p data-i18n="settings.audio.subtitle">Điều chỉnh nhạc nền và hiệu ứng giao diện</p></div>
+                <button class="settings-audio-master" type="button" role="switch" data-audio-enabled aria-label="Bật hoặc tắt âm thanh menu" aria-checked="true">
+                  <span data-audio-enabled-label>BẬT</span><i aria-hidden="true"><b></b></i>
+                </button>
+              </header>
+
+              <div class="settings-audio-row">
+                <div class="settings-audio-row__copy"><strong data-i18n="settings.audio.master">ÂM LƯỢNG TỔNG</strong><small data-i18n="settings.audio.masterHint">Điều khiển toàn bộ âm thanh menu</small></div>
+                <label class="settings-range" for="settings-audio-master-range"><input id="settings-audio-master-range" type="range" min="0" max="100" step="1" value="100" data-audio-range="master" aria-label="Âm lượng tổng"><span aria-hidden="true"><i></i></span><output data-audio-output="master">100%</output></label>
+              </div>
+              <div class="settings-audio-row">
+                <div class="settings-audio-row__copy"><strong data-i18n="settings.audio.music">NHẠC NỀN MENU</strong><small data-i18n="settings.audio.musicHint">Nhạc không khí thành phố khi ở menu</small></div>
+                <label class="settings-range" for="settings-audio-music-range"><input id="settings-audio-music-range" type="range" min="0" max="100" step="1" value="70" data-audio-range="music" aria-label="Nhạc nền menu"><span aria-hidden="true"><i></i></span><output data-audio-output="music">70%</output></label>
+              </div>
+              <div class="settings-audio-row">
+                <div class="settings-audio-row__copy"><strong data-i18n="settings.audio.sfx">HIỆU ỨNG GIAO DIỆN</strong><small data-i18n="settings.audio.sfxHint">Chạm, xác nhận, cảnh báo và chuyển màn</small></div>
+                <label class="settings-range" for="settings-audio-sfx-range"><input id="settings-audio-sfx-range" type="range" min="0" max="100" step="1" value="100" data-audio-range="sfx" aria-label="Hiệu ứng giao diện"><span aria-hidden="true"><i></i></span><output data-audio-output="sfx">100%</output></label>
+              </div>
+              <p class="settings-option-panel__note" data-i18n="settings.audio.note">Các thanh này điều khiển âm thanh của menu. Âm thanh gameplay sẽ dùng bộ trộn riêng khi được kết nối.</p>
+            </section>
+          </div>
+
+          <div id="settings-language-pane" class="settings-pane settings-pane--language" role="tabpanel" aria-labelledby="settings-tab-language" data-settings-pane="language" hidden>
+            <section class="settings-option-panel settings-option-panel--language">
+              <header class="settings-option-panel__header">
+                <svg viewBox="0 0 72 72" aria-hidden="true" focusable="false"><circle cx="36" cy="36" r="29"></circle><path d="M8 36h56M36 7c9 8 14 18 14 29S45 57 36 65C27 57 22 47 22 36S27 15 36 7Z"></path></svg>
+                <div><h3 data-i18n="settings.language.title">NGÔN NGỮ GIAO DIỆN</h3><p data-i18n="settings.language.subtitle">Chọn ngôn ngữ phù hợp với khu vực của bạn</p></div>
+              </header>
+              <div class="settings-language-list" role="radiogroup" aria-label="Ngôn ngữ giao diện" data-i18n-aria-label="a11y.languageGroup">
+                <button type="button" role="radio" data-language="vi" aria-checked="true"><b>VI</b><span>Tiếng Việt</span><small>VIỆT NAM</small></button>
+                <button type="button" role="radio" data-language="en" aria-checked="false"><b>EN</b><span>English</span><small>US · UK · AU</small></button>
+                <button type="button" role="radio" data-language="de" aria-checked="false"><b>DE</b><span>Deutsch</span><small>DE · AT · CH</small></button>
+                <button type="button" role="radio" data-language="fr" aria-checked="false"><b>FR</b><span>Français</span><small>FR · CA · BE · CH</small></button>
+                <button type="button" role="radio" data-language="ja" aria-checked="false"><b>日</b><span>日本語</span><small>日本</small></button>
+                <button type="button" role="radio" data-language="ko" aria-checked="false"><b>한</b><span>한국어</span><small>대한민국</small></button>
+                <button type="button" role="radio" data-language="zh-Hans" aria-checked="false"><b>中</b><span>简体中文</span><small>中国</small></button>
+                <button type="button" role="radio" data-language="zh-Hant" aria-checked="false"><b>繁</b><span>繁體中文</span><small>台灣 · 香港 · 澳門</small></button>
+                <button type="button" role="radio" data-language="ru" aria-checked="false"><b>RU</b><span>Русский</span><small>РОССИЯ</small></button>
+                <button type="button" role="radio" data-language="pt-BR" aria-checked="false"><b>PT</b><span>Português</span><small>BRASIL</small></button>
+                <button type="button" role="radio" data-language="es-419" aria-checked="false"><b>ES</b><span>Español</span><small>LATAM</small></button>
+                <button type="button" role="radio" data-language="nl" aria-checked="false"><b>NL</b><span>Nederlands</span><small>NL · BE</small></button>
+              </div>
+              <p class="settings-option-panel__note" data-i18n="settings.language.note">Ngôn ngữ được lưu trên thiết bị và áp dụng ngay cho giao diện menu.</p>
+            </section>
+          </div>
+
+          <footer class="settings-footer">
+            <p class="settings-autosave"><svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path d="m10 25 9 9 20-23"></path></svg><span data-i18n="settings.autosave">THAY ĐỔI ĐƯỢC LƯU TỰ ĐỘNG</span></p>
+            <button class="settings-done" type="button" data-settings-close data-settings-complete><span data-i18n="settings.done">HOÀN TẤT</span></button>
+            <p class="settings-device-note" data-i18n="settings.mobile">TỐI ƯU CHO THIẾT BỊ MOBILE</p>
+          </footer>
+        </section>
+      </section>
+
+      <footer class="menu-footer">
+        <span class="footer-status" aria-hidden="true"><i></i></span>
+        <span id="game-version" class="footer-version">v0.1.0</span>
+        <span class="footer-line" aria-hidden="true"></span>
+      </footer>
+
+      <button id="audio-toggle" class="audio-toggle" type="button" data-action="audio-toggle" aria-label="Âm thanh" aria-pressed="true">
+        <span class="audio-toggle__surface" aria-hidden="true"></span>
+        <span class="audio-toggle__inner-frame" aria-hidden="true"></span>
+        <svg class="audio-toggle__icon" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+          <path class="audio-toggle__speaker" d="M10 25h11l13-11v36L21 39H10z"></path>
+          <path class="audio-toggle__waves" d="M42 23c3 2.4 4.5 5.4 4.5 9S45 38.6 42 41M49 16c5.2 4.3 8 9.6 8 16s-2.8 11.7-8 16"></path>
+          <path class="audio-toggle__muted" d="m42 24 15 16M57 24 42 40"></path>
+        </svg>
+        <span class="audio-toggle__copy">
+          <strong data-i18n="main.audio">ÂM THANH</strong>
+          <small id="audio-state">BẬT</small>
+        </span>
+      </button>
+
+      <div id="menu-toast" class="menu-toast" role="status" aria-live="polite" aria-atomic="true"></div>
+      <div id="menu-busy" class="menu-busy" role="status" aria-live="polite" aria-hidden="true">
+        <div class="menu-busy__panel">
+          <span class="menu-busy__accent" aria-hidden="true"></span>
+          <strong id="menu-busy-label">ĐANG XỬ LÝ...</strong>
+        </div>
+      </div>
+    </main>
+
+    <aside class="portrait-notice" aria-label="Yêu cầu xoay màn hình" data-i18n-aria-label="portrait.label">
+      <span class="rotate-device" aria-hidden="true"></span>
+      <strong data-i18n="portrait.rotate">XOAY NGANG THIẾT BỊ</strong>
+      <span data-i18n="portrait.message">Frank Sandbox Game được thiết kế cho chế độ landscape.</span>
+    </aside>
+
+    <noscript>
+      <div class="noscript-message">Giao diện cần JavaScript để kết nối với Unity.</div>
+    </noscript>
+  </div>
+</body>
+</html>

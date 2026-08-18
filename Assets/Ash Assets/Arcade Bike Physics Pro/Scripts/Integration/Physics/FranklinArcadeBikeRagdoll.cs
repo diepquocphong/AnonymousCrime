@@ -69,6 +69,7 @@ namespace FranklinGame.Vehicles
         private Collider[] m_BodyAttachedColliders = Array.Empty<Collider>();
         private float m_StableGroundTimer;
         private float m_ParkingProbeAccumulator;
+        private float m_SleepingIdleTimer;
         private int m_StableGroundSide;
         private int m_ParkedGroundSide;
         private Collider m_CachedSafetyGroundCollider;
@@ -166,6 +167,7 @@ namespace FranklinGame.Vehicles
             this.UpdateGroundSafetyCache();
             this.m_StableGroundTimer = 0f;
             this.m_ParkingProbeAccumulator = 0f;
+            this.m_SleepingIdleTimer = 0f;
             this.IsRagdoll = true;
             this.enabled = true;
             this.m_Driver.CrashDismount(fallSign, toppleAngularVelocity);
@@ -245,6 +247,7 @@ namespace FranklinGame.Vehicles
             this.m_StableGroundSide = 0;
             this.m_StableGroundTimer = 0f;
             this.m_ParkingProbeAccumulator = 0f;
+            this.m_SleepingIdleTimer = 0f;
             this.SetWheelCollidersEnabled(false);
             this.SetBodyColliderMode(false);
             this.enabled = false;
@@ -307,8 +310,25 @@ namespace FranklinGame.Vehicles
         {
             if (!this.IsRagdoll) return;
             this.EnsureDynamicRagdollState();
-            if (this.m_Body != null && !this.m_Body.IsSleeping())
-                this.PreventGroundTunnelling();
+            if (this.m_Body != null && this.m_Body.IsSleeping())
+            {
+                this.m_SleepingIdleTimer += Time.fixedDeltaTime;
+                float idleDelay = Application.isMobilePlatform ? 1.5f : 4f;
+                if (this.m_SleepingIdleTimer >= idleDelay)
+                {
+                    // A wedged fallen Bike can fail the strict side probes forever.
+                    // Once its Rigidbody is genuinely sleeping, Unity no longer
+                    // needs this per-FixedUpdate watcher. Interaction still parks
+                    // it explicitly, and a new collision wakes this watcher again.
+                    this.enabled = false;
+                    return;
+                }
+            }
+            else
+            {
+                this.m_SleepingIdleTimer = 0f;
+                if (this.m_Body != null) this.PreventGroundTunnelling();
+            }
             if (Vector3.Angle(transform.up, Vector3.up) >=
                 this.m_ReleaseWheelCollidersAtTilt)
             {
@@ -321,6 +341,22 @@ namespace FranklinGame.Vehicles
             float parkingProbeDelta = this.m_ParkingProbeAccumulator;
             this.m_ParkingProbeAccumulator = 0f;
             this.UpdateGroundedSideParking(parkingProbeDelta);
+        }
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (!this.IsRagdoll || this.m_Body == null ||
+                this.m_Body.isKinematic)
+            {
+                return;
+            }
+
+            // Unity sends collision messages to disabled MonoBehaviours. A new
+            // physical contact therefore reactivates ground safety/parking after
+            // the idle sleeping fast-path above without any polling component.
+            this.m_SleepingIdleTimer = 0f;
+            this.m_ParkingProbeAccumulator = 0f;
+            this.enabled = true;
         }
 
         private void ResolveReferences()
@@ -951,6 +987,7 @@ namespace FranklinGame.Vehicles
             this.m_StableGroundSide = this.m_ParkedGroundSide;
             this.m_StableGroundTimer = 0f;
             this.m_ParkingProbeAccumulator = 0f;
+            this.m_SleepingIdleTimer = 0f;
             this.SetWheelCollidersEnabled(false);
             this.m_Driver?.ParkGroundedRagdoll();
             if (this.m_Body != null && !this.m_Body.isKinematic)

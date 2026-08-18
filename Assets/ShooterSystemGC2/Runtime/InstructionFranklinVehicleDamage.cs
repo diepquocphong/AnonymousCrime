@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using FranklinGame.AirSystem;
 using FranklinGame.Vehicles;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.Common;
@@ -10,15 +11,15 @@ using UnityEngine;
 namespace FranklinGame.Shooter
 {
     /// <summary>
-    /// Applies Shooter damage to Franklin Bike/Car health and routes non-vehicle static
+    /// Applies Shooter damage to Franklin Bike/Car/Drone health and routes non-vehicle static
     /// ground/wall hits to the mobile bullet-decal batch.
     /// </summary>
-    [Version(1, 1, 0)]
+    [Version(1, 2, 0)]
     [Title("Damage Franklin Vehicle")]
     [Category("Shooter/Vehicles/Damage Franklin Vehicle")]
-    [Description("Damages hit Bikes/Cars and creates bullet marks on static ground/walls")]
+    [Description("Damages hit Bikes/Cars/Drones and creates bullet marks on static ground/walls")]
     [Parameter("Damage", "Health removed for this projectile or pellet")]
-    [Keywords("Bike", "Car", "Vehicle", "Health", "Damage", "Shooter")]
+    [Keywords("Bike", "Car", "Drone", "Vehicle", "Health", "Damage", "Shooter")]
     [Serializable]
     public sealed class InstructionFranklinVehicleDamage : Instruction
     {
@@ -68,6 +69,14 @@ namespace FranklinGame.Shooter
                 return DefaultResult;
             }
 
+            DroneHealth droneHealth = target.GetComponentInParent<DroneHealth>();
+            if (droneHealth != null)
+            {
+                droneHealth.ApplyDamage(this.m_Damage);
+                this.AddBulletMark(target);
+                return DefaultResult;
+            }
+
             this.AddSurfaceBulletMark(target);
             return DefaultResult;
         }
@@ -87,6 +96,7 @@ namespace FranklinGame.Shooter
                 hitObject,
                 ShotData.LastHitPosition,
                 ShotData.LastShooterDirection,
+                ShotData.LastHitNormal,
                 size
             );
         }
@@ -102,6 +112,7 @@ namespace FranklinGame.Shooter
                 hitObject,
                 ShotData.LastHitPosition,
                 ShotData.LastShooterDirection,
+                ShotData.LastHitNormal,
                 size
             );
         }

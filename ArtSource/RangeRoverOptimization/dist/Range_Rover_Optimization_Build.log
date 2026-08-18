@@ -1,0 +1,611 @@
+Unity Editor version:    6000.3.21f1 (c02631ffc030)
+Branch:                  6000.3/staging
+Build type:              Release
+Batch mode:              YES
+macOS version:           Version 26.4.1 (Build 25E253)
+Darwin version:          25.4.0
+Architecture:            arm64
+Running under Rosetta:   NO
+Available memory:        32768 MB
+Date:                    2026-08-17T06:51:11Z
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-diepquocphong" at "2026-08-17T06:51:11.067455Z"
+Launching external process: /Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/PackageManager/Server/UnityPackageManager
+
+COMMAND LINE ARGUMENTS:
+/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/MacOS/Unity
+-batchmode
+-nographics
+-quit
+-projectPath
+/tmp/franklin-range-rover-stage.Wi5GBQ
+-executeMethod
+RangeRoverOptimizationBuilder.BuildAndValidate
+-rangeRoverReport
+/Users/diepquocphong/Documents/Franklin Game/ArtSource/RangeRoverOptimization/dist/Range_Rover_Optimization_QA.json
+-logFile
+/Users/diepquocphong/Documents/Franklin Game/ArtSource/RangeRoverOptimization/dist/Range_Rover_Optimization_Build.log
+Successfully changed project path to: /tmp/franklin-range-rover-stage.Wi5GBQ
+/private/tmp/franklin-range-rover-stage.Wi5GBQ
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [8517392576]  Target information:
+
+Player connection [8517392576]  * "[IP] 192.168.2.1 [Port] 55505 [Flags] 2 [Guid] 3873181399 [EditorId] 3873181399 [Version] 1048832 [Id] OSXEditor(0,MacBookPro.lan) [Debug] 1 [PackageName] OSXEditor [ProjectName] Editor" 
+
+Player connection [8517392576]  * "[IP] 192.168.100.185 [Port] 55505 [Flags] 2 [Guid] 3873181399 [EditorId] 3873181399 [Version] 1048832 [Id] OSXEditor(0,MacBookPro.lan) [Debug] 1 [PackageName] OSXEditor [ProjectName] Editor" 
+
+Player connection [8517392576]  * "[IP] 192.168.3.1 [Port] 55505 [Flags] 2 [Guid] 3873181399 [EditorId] 3873181399 [Version] 1048832 [Id] OSXEditor(0,MacBookPro.lan) [Debug] 1 [PackageName] OSXEditor [ProjectName] Editor" 
+
+Player connection [8517392576] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [8517392576] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-84202" after 0.1 seconds.
+[Licensing::Module] Licensing is not yet initialized.
+[Licensing::Client] Error: HandshakeResponse reported an error:
+	ResponseCode: 505
+	ResponseStatus: Unsupported protocol version '1.18.1'.
+[Licensing::Module] Error: Failed to handshake to channel: "LicenseClient-diepquocphong"
+[Licensing::IpcConnector] LicenseClient-diepquocphong channel disconnected successfully.
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-diepquocphong-6000.3.21" at "2026-08-17T06:51:11.416042Z"
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.1+9fbee8e
+  Session Id:              4775f16827be48acb266d1b9934fd937
+  Correlation Id:          01c63dc3e0458cbb488a8bcdca7907cc
+  External correlation Id: 1907388599879699151
+  Machine Id:              islmrWih1ghNW7TWJRTHjE60RNw=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-diepquocphong-6000.3.21" (connect: 0.00s, validation: 0.00s, handshake: 0.33s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-diepquocphong-6000.3.21-notifications" at "2026-08-17T06:51:11.75304Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: 18966790666738-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.00
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Licensing Background thread has ended after 0.70s
+[Licensing::Module] Licensing is initialized (took 0.45s).
+[Licensing::Client] Successfully resolved entitlement details
+Library Redirect Path: Library/
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+Refreshing native plugins compatible for Editor in 0.08 ms, found 0 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.3.21f1 (c02631ffc030)
+[Subsystems] Discovering subsystems at path /Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path /private/tmp/franklin-range-rover-stage.Wi5GBQ/Assets
+Forcing GfxDevice: Null
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+NullGfxDevice:
+    Version:  NULL 1.0 [1.0]
+    Renderer: Null Device
+    Vendor:   Unity Technologies
+Initialize mono
+Mono path[0] = '/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/Managed'
+Mono path[1] = '/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/lib/mono/unityjit-macos'
+Mono config path = '/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56202
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: /Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/PlaybackEngines/MacStandaloneSupport/UnityEditor.OSXStandalone.Extensions.dll
+[Licensing::Client] Successfully resolved entitlement details
+Register platform support module: /Applications/Unity/Hub/Editor/6000.3.21f1/PlaybackEngines/AndroidPlayer/UnityEditor.Android.Extensions.dll
+[Licensing::Client] Successfully resolved entitlement details
+Register platform support module: /Applications/Unity/Hub/Editor/6000.3.21f1/PlaybackEngines/iOSSupport/UnityEditor.iOS.Extensions.dll
+Registered in 0.009797 seconds.
+- Loaded All Assemblies, in  0.350 seconds
+[usbmuxd] Start listen thread
+[usbmuxd] Listen thread started
+[usbmuxd] Send listen message
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+Package Manager log level set to [2]
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:False
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.347 seconds
+Domain Reload Profiling: 697ms
+	BeginReloadAssembly (119ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (9ms)
+	RebuildCommonClasses (37ms)
+	RebuildNativeTypeToScriptingClass (11ms)
+	initialDomainReloadingComplete (39ms)
+	LoadAllAssembliesAndSetupDomain (144ms)
+		LoadAssemblies (111ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (141ms)
+			TypeCache.Refresh (139ms)
+				TypeCache.ScanAssembly (126ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (0ms)
+	FinalizeReload (347ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (316ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (98ms)
+			SetLoadedEditorAssemblies (3ms)
+			BeforeProcessingInitializeOnLoad (61ms)
+			ProcessInitializeOnLoadAttributes (93ms)
+			ProcessInitializeOnLoadMethodAttributes (62ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 63 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.ai.navigation@2.0.14 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.ai.navigation@134dd6a3b97b)
+    com.unity.burst@1.8.30 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.burst@2f3d916873ea)
+    com.unity.cinemachine@3.1.5 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.cinemachine@5342685532bb)
+    com.unity.collab-proxy@2.12.4 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.collab-proxy@0b1559bcd34e)
+    com.unity.collections@2.6.8 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.collections@84e8eb3fc12e)
+    com.unity.formats.fbx@5.1.6 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.formats.fbx@9f10493e557a)
+    com.unity.ide.rider@3.0.40 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.ide.rider@e4950c6d131b)
+    com.unity.ide.visualstudio@2.0.26 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.ide.visualstudio@a99d56dec63f)
+    com.unity.inputsystem@1.20.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.inputsystem@7a4e1a2a8194)
+    com.unity.mathematics@1.3.3 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.mathematics@19a9377c4ffa)
+    com.unity.test-framework.performance@3.5.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.test-framework.performance@8b56083ec0f0)
+    com.unity.timeline@1.8.12 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.timeline@8cd8509afae5)
+    com.unity.visualscripting@1.9.12 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.visualscripting@4edfcc09512f)
+    com.autodesk.fbx@5.1.3 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.autodesk.fbx@90432ec06ab5)
+    com.unity.nuget.mono-cecil@1.11.6 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.splines@2.9.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.splines@e6e1d5900acc)
+    com.unity.searcher@4.9.4 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.searcher@d45a78918735)
+    com.unity.settings-manager@2.1.1 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.settings-manager@0b8638c5ce86)
+  Built-in packages:
+    com.unity.multiplayer.center@1.0.1 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.multiplayer.center@f01f4ba8d00a)
+    com.unity.render-pipelines.universal@17.3.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.render-pipelines.universal@8aa8d736cba6)
+    com.unity.test-framework@1.6.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.test-framework@bd7f943e9647)
+    com.unity.ugui@2.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.ugui@e20f1880fa04)
+    com.unity.modules.accessibility@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.accessibility)
+    com.unity.modules.adaptiveperformance@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.adaptiveperformance)
+    com.unity.modules.ai@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.physics2d)
+    com.unity.modules.screencapture@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.screencapture)
+    com.unity.modules.subsystems@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.subsystems)
+    com.unity.modules.terrain@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.terrainphysics)
+    com.unity.modules.tilemap@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.tilemap)
+    com.unity.modules.ui@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vectorgraphics@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.vectorgraphics)
+    com.unity.modules.vehicles@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.video)
+    com.unity.modules.vr@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.vr)
+    com.unity.modules.wind@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.xr)
+    com.unity.modules.hierarchycore@1.0.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.modules.hierarchycore)
+    com.unity.ext.nunit@2.0.5 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.ext.nunit@d8c07649098d)
+    com.unity.render-pipelines.core@17.3.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.render-pipelines.core@c67c01575725)
+    com.unity.shadergraph@17.3.0 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.shadergraph@aa8306cf39d6)
+    com.unity.render-pipelines.universal-config@17.0.3 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/com.unity.render-pipelines.universal-config@8dc1aab4af1d)
+  Git packages:
+    net.gree.unity-webview@https://github.com/gree/unity-webview.git?path=/dist/package-nofragment#356e9422e98af02d29771ccf622df7b785b16395 (location: /private/tmp/franklin-range-rover-stage.Wi5GBQ/Library/PackageCache/net.gree.unity-webview@3a56624b5178)
+[Subsystems] No new subsystems found in resolved package list.
+[Package Manager] Done registering packages in 0.01 seconds
+Assembly reference Packages/com.unity.cinemachine/Editor/Samples/ExposeHDRPInternals/HDRP-Editor-ref.asmref has no target assembly definition
+Assembly reference Packages/com.unity.cinemachine/Editor/Samples/ExposeHDRPInternals/HDRP-Editor-ref.asmref has no target assembly definition
+[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://unix:/tmp/ilpp.sock-f5d6ae7c44723d4f0010d8b8e92ea0e2
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Production
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Content root path: /private/tmp/franklin-range-rover-stage.Wi5GBQ/
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/Ping'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/Ping application/grpc - - 200 - application/grpc 28.8822ms
+Starting: /Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/BuildPipeline/bee_backend --ipc --defer-dag-verification --dagfile="Library/Bee/200b0aE.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: /private/tmp/franklin-range-rover-stage.Wi5GBQ
+DisplayProgressbar: Compiling Scripts
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly unityeditor.ios.extensions.xcode has duplicate hint path. Ignoring "/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/PlaybackEngines/MacStandaloneSupport/UnityEditor.iOS.Extensions.Xcode.dll" in favor of "/Applications/Unity/Hub/Editor/6000.3.21f1/PlaybackEngines/iOSSupport/UnityEditor.iOS.Extensions.Xcode.dll"
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.runtime.interopservices.windowsruntime has duplicate hint path. Ignoring "/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/UnityReferenceAssemblies/unity-4.8-api/Facades/System.Runtime.InteropServices.WindowsRuntime.dll" in favor of "/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/NetStandard/Extensions/2.0.0/System.Runtime.InteropServices.WindowsRuntime.dll"
+[40m[1m[33mwarn[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Assembly system.componentmodel.composition has duplicate hint path. Ignoring "/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/UnityReferenceAssemblies/unity-4.8-api/System.ComponentModel.Composition.dll" in favor of "/Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/NetStandard/compat/2.1.0/shims/netfx/System.ComponentModel.Composition.dll"
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Burst.Cecil, Version=0.11.6.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.burst@2f3d916873ea/Unity.Burst.CodeGen/Unity.Burst.Cecil.dll
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Mono.Cecil, Version=0.11.5.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.nuget.mono-cecil@ecb9724e46ff/Mono.Cecil.dll
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/ConfigurePostProcessors'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/ConfigurePostProcessors application/grpc - - 200 - application/grpc 20.7329ms
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[1]
+      Request starting HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc -
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[0]
+      Executing endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      Processing assembly Library/Bee/artifacts/200b0aE.dag/Assembly-CSharp-Editor.dll, with 132 defines and 351 references
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running Unity.Jobs.CodeGen.JobsILPostProcessor
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Collections, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null with Library/Bee/artifacts/200b0aE.dag/Unity.Collections.dll
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved UnityEditor.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null with /Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/Managed/UnityEngine/UnityEditor.CoreModule.dll
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved UnityEngine.CoreModule, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null with /Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Resources/Scripting/Managed/UnityEngine/UnityEngine.CoreModule.dll
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingPipeline[0]
+      running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      Resolved Unity.Burst.Cecil.Rocks, Version=0.11.6.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e with Library/PackageCache/com.unity.burst@2f3d916873ea/Unity.Burst.CodeGen/Unity.Burst.Cecil.Rocks.dll
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Routing.EndpointMiddleware[1]
+      Executed endpoint 'gRPC - /UnityILPP.PostProcessing/PostProcessAssembly'
+[40m[32minfo[39m[22m[49m: Microsoft.AspNetCore.Hosting.Diagnostics[2]
+      Request finished HTTP/2 POST http://ilpp/UnityILPP.PostProcessing/PostProcessAssembly application/grpc - - 200 - application/grpc 249.0504ms
+ExitCode: 0 Duration: 1s620ms
+[696/911    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+[907/911    1s] Csc Library/Bee/artifacts/200b0aE.dag/Assembly-CSharp-Editor.dll (+2 others)
+[908/911    0s] ILPostProcess Library/Bee/artifacts/200b0aE.dag/post-processed/Assembly-CSharp-Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/200b0aE.dag/Assembly-CSharp-Editor.dll, with 132 defines and 351 references
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[909/911    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-Editor.dll
+[910/911    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-Editor.pdb
+*** Tundra build success (1.60 seconds), 5 items updated, 911 evaluated
+AssetDatabase: script compilation time: 2.212015s
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in  0.736 seconds
+'Packages/com.unity.cinemachine/Editor/Editors/CinemachineVirtualCameraBaseEditor.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+'Packages/com.unity.cinemachine/Editor/Obsolete/CinemachineVirtualCameraBaseEditor.cs' contains partial class of Unity.Object, exactly 1 of the partial classes needs to be in a file with the same filename. This is to know the one that can be referenced from ie. GameObjects
+Refreshing native plugins compatible for Editor in 3.79 ms, found 4 plugins.
+PC_Renderer is missing RendererFeatures
+This could be due to missing scripts or compile error.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object,UnityEngine.Object)
+UnityEngine.Debug:LogError (object,UnityEngine.Object)
+UnityEngine.Rendering.Universal.ScriptableRendererData:ValidateRendererFeatures () (at ./Library/PackageCache/com.unity.render-pipelines.universal@8aa8d736cba6/Runtime/ScriptableRendererData.cs:193)
+UnityEngine.Rendering.Universal.ScriptableRendererData:OnValidate () (at ./Library/PackageCache/com.unity.render-pipelines.universal@8aa8d736cba6/Runtime/ScriptableRendererData.cs:81)
+
+(Filename: ./Library/PackageCache/com.unity.render-pipelines.universal@8aa8d736cba6/Runtime/ScriptableRendererData.cs Line: 193)
+
+Native extension for iOS target not found
+Native extension for Android target not found
+Native extension for OSXStandalone target not found
+Assembly reference Packages/com.unity.cinemachine/Editor/Samples/ExposeHDRPInternals/HDRP-Editor-ref.asmref has no target assembly definition
+Refreshing native plugins compatible for Editor in 1.09 ms, found 4 plugins.
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  2.355 seconds
+Domain Reload Profiling: 3096ms
+	BeginReloadAssembly (247ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (32ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (137ms)
+	RebuildCommonClasses (28ms)
+	RebuildNativeTypeToScriptingClass (11ms)
+	initialDomainReloadingComplete (16ms)
+	LoadAllAssembliesAndSetupDomain (439ms)
+		LoadAssemblies (278ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (205ms)
+			TypeCache.Refresh (150ms)
+				TypeCache.ScanAssembly (135ms)
+			BuildScriptInfoCaches (42ms)
+			ResolveRequiredComponents (9ms)
+	FinalizeReload (2356ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (2096ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (27ms)
+			SetLoadedEditorAssemblies (3ms)
+			BeforeProcessingInitializeOnLoad (114ms)
+			ProcessInitializeOnLoadAttributes (1898ms)
+			ProcessInitializeOnLoadMethodAttributes (48ms)
+			AfterProcessingInitializeOnLoad (4ms)
+			EditorAssembliesLoaded (2ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (32ms)
+Start importing Packages/com.unity.render-pipelines.core/Tests/Editor/UnifiedRayTracing/TraceRays.urtshader using Guid(1142bbad8b9e8c44c83a9775ff120d37) (ScriptedImporter)Launching external process: /Applications/Unity/Hub/Editor/6000.3.21f1/Unity.app/Contents/Helpers/UnityShaderCompiler
+Launched and connected shader compiler UnityShaderCompiler after 0.04 seconds
+ -> (artifact id: 'e2c20b031221760cfccaea201f3e8ec6') in 0.086237875 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Runtime/RendererFeatures/SurfaceCacheGI/SurfaceCacheCore/RisEstimation.urtshader using Guid(713f6141bd66a134383b787f2eaa7c11) (ScriptedImporter) -> (artifact id: '2c05f3acb68ddb2e8bef502f207153bd') in 0.013582333 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/ProbeVolume/RenderingLayerMask/TraceRenderingLayerMask.urtshader using Guid(94a070d33e408384bafc1dea4a565df9) (ScriptedImporter) -> (artifact id: 'bf40ba974becff09ff8c3f91ee9dfbf2') in 0.008010458 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Runtime/RendererFeatures/SurfaceCacheGI/SurfaceCacheCore/UniformEstimation.urtshader using Guid(94a39d12848d8d64ca962a72b74e7c50) (ScriptedImporter) -> (artifact id: 'cdaa4d9f216f730b10d2451630dd10dc') in 0.0276555 seconds
+Start importing Packages/com.unity.render-pipelines.core/Tests/Editor/UnifiedRayTracing/TraceTransparentRays.urtshader using Guid(6513c3b892e933c4f8d00c19d5c47532) (ScriptedImporter) -> (artifact id: '1332e5c32e0a2c27d0d3e4516facc387') in 0.003581916 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/ProbeVolume/DynamicGI/DynamicGISkyOcclusion.urtshader using Guid(5a2a534753fbdb44e96c3c78b5a6999d) (ScriptedImporter) -> (artifact id: '5705bd53237e118119b8223a4d7ca4af') in 0.007438625 seconds
+Start importing Packages/com.unity.render-pipelines.core/Tests/Editor/UnifiedRayTracing/TraceRaysAndFetchAttributes.urtshader using Guid(fbc59f55df2416344b008dc23753cae2) (ScriptedImporter) -> (artifact id: 'fb603cf8ac72cc1d220f963723bee0c7') in 0.07886075 seconds
+Start importing Packages/com.unity.render-pipelines.universal/Runtime/RendererFeatures/SurfaceCacheGI/SurfaceCacheCore/RestirCandidateTemporal.urtshader using Guid(ad3a9f9982f8c4f4a839a78955e78458) (ScriptedImporter) -> (artifact id: 'f09c516bdfabbd7f4d915a2c9503e0ce') in 0.004218334 seconds
+Start importing Packages/com.unity.render-pipelines.core/Editor/Lighting/ProbeVolume/VirtualOffset/TraceVirtualOffset.urtshader using Guid(ff2cbab5da58bf04d82c5f34037ed123) (ScriptedImporter) -> (artifact id: '0c10d0f89cf8e9fa83724f5eaf00f6ae') in 0.005012042 seconds
+Refreshing native plugins compatible for Editor in 1.21 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=9b184c8f618e3498d909addf03002927): Total: 6.693 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=9 (actual=9, local cache=0, cache server=0)
+		Asset DB Process Time: managed=96 ms, native=3393 ms
+		Asset DB Callback time: managed=184 ms, native=24 ms
+		Scripting: domain reloads=1, domain reload time=741 ms, compile time=2213 ms, other=40 ms
+		Project Asset Count: scripts=1411, non-scripts=2478
+		Asset File Changes: new=0, changed=1, moved=0, deleted=0
+		Scan Filter Count: 1
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 8.549ms
+	ApplyChangesToAssetFolders: 0.296ms
+	Scan: 587.896ms
+	OnSourceAssetsModified: 0.670ms
+	CategorizeAssetsWithTransientArtifact: 59.120ms
+	ProcessAssetsWithTransientArtifactChanges: 51.446ms
+	CategorizeAssets: 75.306ms
+	ImportOutOfDateAssets: 2609.289ms (150.859ms without children)
+		ImportManagerImport: 241.881ms (2.691ms without children)
+			ImportInProcess: 238.730ms
+			UpdateCategorizedAssets: 0.460ms
+		CompileScripts: 2213.040ms
+		ReloadNativeAssets: 0.044ms
+		UnloadImportedAssets: 1.539ms
+		ReloadImportedAssets: 0.979ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.553ms
+		InitializingProgressBar: 0.005ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.388ms
+	PostProcessAllAssets: 198.167ms
+	Hotreload: 3.014ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.000ms
+	UnloadStreamsBegin: 0.731ms
+	PersistCurrentRevisions: 0.290ms
+	UnloadStreamsEnd: 0.001ms
+	GenerateScriptTypeHashes: 2.181ms
+	Untracked: 3098.179ms
+
+Application.AssetDatabase Initial Refresh End
+Scanning for USB devices : 0.046ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-franklin-range-rover-stage.Wi5GBQ
+Unloading 63 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 7153 unused Assets / (7.1 MB). Loaded Objects now: 7900.
+Memory consumption went from 230.2 MB to 223.0 MB.
+Total: 10.933625 ms (FindLiveObjects: 0.334875 ms CreateObjectMapping: 0.210333 ms MarkObjects: 5.787083 ms  DeleteObjects: 4.601042 ms)
+
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Materials/M_RangeRover_BodyGloss.mat using Guid(c42cd5f188bdc4992b8e5b80ce915a4e) (NativeFormatImporter) -> (artifact id: 'ca54faed2b7c65d44777c698afdfebb7') in 0.001416584 seconds
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Materials/M_RangeRover_BlackGloss.mat using Guid(c5966926b4e6c4defac81dd0b47486c2) (NativeFormatImporter) -> (artifact id: 'ac7af55d8e8b91d9298029cc8e8a4669') in 0.000602333 seconds
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Materials/M_RangeRover_TailLightRed.mat using Guid(c5efe025447ed4f2f8a2c2531a0449ac) (NativeFormatImporter) -> (artifact id: '922621c22e84e3741f140f37b3af1583') in 0.000774792 seconds
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Materials/M_RangeRover_HeadlampGlass.mat using Guid(46e26216726ff41018f1e379a47d0038) (NativeFormatImporter) -> (artifact id: 'e4102486e1fee15a0e95bec13a819483') in 0.000824209 seconds
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Materials/M_RangeRover_WindowGlass.mat using Guid(472b364a43460403dbd7d90ad9a25483) (NativeFormatImporter) -> (artifact id: '1bd0f4a172692ae0058261c0aa64e379') in 0.000814959 seconds
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Materials/M_RangeRover_MirrorAlpha.mat using Guid(b7e71de45200040688a3860d984d3acc) (NativeFormatImporter) -> (artifact id: 'c9229f0c9790ee39a7bcb7315bd4f1c9') in 0.000661041 seconds
+Refreshing native plugins compatible for Editor in 0.89 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=5f97032377e704e21b87cd090989d884): Total: 0.053 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Textures/BlackLeather.jpg using Guid(54449d803d485beee9723906c40d56a4) (TextureImporter) -> (artifact id: '39dc25045aba8cd3a153dbb045a002bf') in 0.030083542 seconds
+Refreshing native plugins compatible for Editor in 1.19 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=d63858859a6d141a7a9191549bb93b46): Total: 0.043 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Textures/BrakeDisc.jpg using Guid(c3bd6987d540ccec136817478cb774e7) (TextureImporter) -> (artifact id: '2f6eee6e57017ceb1e70b00da4d26b03') in 0.008489458 seconds
+Refreshing native plugins compatible for Editor in 1.11 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=8053ac34a0888484da3f77b2e09532a2): Total: 0.018 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Curl error 35: Recv failure: Connection reset by peer
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Textures/Dashboard.png using Guid(87f9a6166f26527761c4c914f5cf4517) (TextureImporter) -> (artifact id: '68dbb58fc914b9f7449e6e114d6b15ba') in 0.016517792 seconds
+Refreshing native plugins compatible for Editor in 1.24 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=32bfec48978b04f02a4476543cb78f0f): Total: 0.028 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Textures/Lamp.png using Guid(70ca2159fad06d644b58ab54ec04848b) (TextureImporter) -> (artifact id: '07f0e855c6ec94e39355bd6227f3b1b9') in 0.003941792 seconds
+Refreshing native plugins compatible for Editor in 1.22 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=2cd81be5800fe4e5ebc96592db6aeeae): Total: 0.014 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Textures/LightLeather.jpg using Guid(cc57d4ef2b1851c503c83e91f2c8ee69) (TextureImporter) -> (artifact id: 'bb233720a2cc282bb0508453adcb7cc8') in 0.025599958 seconds
+Refreshing native plugins compatible for Editor in 1.16 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=b6f2a944870464cf4a78288cf2e6d0ca): Total: 0.035 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Textures/Wood.jpg using Guid(6a56ac5e5e640bfe60490d5755be795d) (TextureImporter) -> (artifact id: 'e980c68a69b5984cdaf9f02d213e4c42') in 0.026914334 seconds
+Refreshing native plugins compatible for Editor in 1.12 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=4f274407e6b22449796b203197570e6a): Total: 0.037 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Range_Rover_Model.obj using Guid(a251d847c755172979940381b74bd43d) (FBXImporter) -> (artifact id: '120c47464e832a530dfccd75f5a641a8') in 0.148095917 seconds
+Refreshing native plugins compatible for Editor in 1.11 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=b0f379716840c40559f1760fe21addf3): Total: 0.157 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Range_Rover_Model.obj using Guid(a251d847c755172979940381b74bd43d) (FBXImporter) -> (artifact id: 'e69f9a63d9cce93d3e99b92a884dbdc2') in 0.13353475 seconds
+Refreshing native plugins compatible for Editor in 1.20 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=b19bce027f1234bb0ab3c12f0377dbd4): Total: 0.162 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Asset Pipeline Refresh (id=1fbbfaea654bc43b6853bead7eb23992): Total: 0.004 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Range_Rover_Model.obj using Guid(a251d847c755172979940381b74bd43d) (FBXImporter) -> (artifact id: '120c47464e832a530dfccd75f5a641a8') in 0.133342583 seconds
+Refreshing native plugins compatible for Editor in 1.20 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=c0992a6bbcc504a1aab76eac6c672477): Total: 0.166 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Meshes_Optimized/RangeRover_Wheel_FR.asset using Guid(d06dfa803a3574d23b47f2c8a5d1d5ee) (NativeFormatImporter)Main Object Name 'Wheel_FR_Combined' does not match filename 'RangeRover_Wheel_FR'
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+RangeRoverOptimizationBuilder:Build () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:239)
+RangeRoverOptimizationBuilder:BuildAndValidate () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:166)
+
+[Assets/Editor/RangeRoverOptimizationBuilder.cs line 239]
+
+ -> (artifact id: 'aa3fd367ddb309a89b8f0bd37266b46b') in 0.001842291 seconds
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Meshes_Optimized/RangeRover_Wheel_RL.asset using Guid(018368e6dabac41508c4aa34373ac2d9) (NativeFormatImporter)Main Object Name 'Wheel_RL_Combined' does not match filename 'RangeRover_Wheel_RL'
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+RangeRoverOptimizationBuilder:Build () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:239)
+RangeRoverOptimizationBuilder:BuildAndValidate () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:166)
+
+[Assets/Editor/RangeRoverOptimizationBuilder.cs line 239]
+
+ -> (artifact id: '44003d35a89389f8ad0e6671ac58d809') in 0.0012545 seconds
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Meshes_Optimized/RangeRover_Wheel_FL.asset using Guid(3872d3512ebbd49fb8c1378a35ebf8a4) (NativeFormatImporter)Main Object Name 'Wheel_FL_Combined' does not match filename 'RangeRover_Wheel_FL'
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+RangeRoverOptimizationBuilder:Build () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:239)
+RangeRoverOptimizationBuilder:BuildAndValidate () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:166)
+
+[Assets/Editor/RangeRoverOptimizationBuilder.cs line 239]
+
+ -> (artifact id: '14258051641a3a14be11249ed2493a14') in 0.001213584 seconds
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Meshes_Optimized/RangeRover_Door_Right.asset using Guid(48c849ea2e58641be8f46b0043dae86f) (NativeFormatImporter)Main Object Name 'Door_Right_Combined' does not match filename 'RangeRover_Door_Right'
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+RangeRoverOptimizationBuilder:Build () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:239)
+RangeRoverOptimizationBuilder:BuildAndValidate () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:166)
+
+[Assets/Editor/RangeRoverOptimizationBuilder.cs line 239]
+
+ -> (artifact id: 'cbaf5761951db6e74ab5a693c3107862') in 0.001061917 seconds
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Meshes_Optimized/RangeRover_Door_Left.asset using Guid(6bdac576e125744c49b363ec75c7f6f3) (NativeFormatImporter)Main Object Name 'Door_Left_Combined' does not match filename 'RangeRover_Door_Left'
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+RangeRoverOptimizationBuilder:Build () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:239)
+RangeRoverOptimizationBuilder:BuildAndValidate () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:166)
+
+[Assets/Editor/RangeRoverOptimizationBuilder.cs line 239]
+
+ -> (artifact id: '07e78664a7358d024d4d9806db5c5183') in 0.001068625 seconds
+Start importing Assets/Ash Assets/VehicleCollection/Range_Rover_Material_Fixed/Meshes_Optimized/RangeRover_Wheel_RR.asset using Guid(8bb0bc1d7dcc74eb39e192105aadb4ae) (NativeFormatImporter)Main Object Name 'Wheel_RR_Combined' does not match filename 'RangeRover_Wheel_RR'
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+RangeRoverOptimizationBuilder:Build () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:239)
+RangeRoverOptimizationBuilder:BuildAndValidate () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:166)
+
+[Assets/Editor/RangeRoverOptimizationBuilder.cs line 239]
+
+ -> (artifact id: '27f35733c5570f27693f7281be9dbbf4') in 0.001038416 seconds
+Refreshing native plugins compatible for Editor in 1.08 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=e0f0eba44db1244709453c827a0dba0b): Total: 0.033 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+Asset Pipeline Refresh (id=4c2b0884911d9441981b2fee35b41c16): Total: 0.090 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+RANGE_ROVER_OPTIMIZATION_QA_SUCCESS renderers=37 meshes=37 tris=58699 center=(0.00, 0.00, 0.00) compression=Low
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace () (at /Users/bokken/build/output/unity/unity/Runtime/Export/Scripting/StackTrace.cs:35)
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+RangeRoverOptimizationBuilder:Build () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:244)
+RangeRoverOptimizationBuilder:BuildAndValidate () (at Assets/Editor/RangeRoverOptimizationBuilder.cs:166)
+
+(Filename: Assets/Editor/RangeRoverOptimizationBuilder.cs Line: 244)
+
+Batchmode quit successfully invoked - shutting down!
+Killing ADB server in 0.051129 seconds.
+Thread 0x16fdc7000 may have been prematurely finalized
+The command could not be loaded, possibly because:
+  * You intended to execute a .NET application:
+      The application 'build-server' does not exist.
+  * You intended to execute a .NET SDK command:
+      No .NET SDKs were found.
+
+Download a .NET SDK:
+https://aka.ms/dotnet-download
+
+Learn about SDK resolution:
+https://aka.ms/dotnet/sdk-not-found
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+[Physics::Module] Cleanup current backend.
+[Physics::Module] Id: 0xf2b8ea05
+[Licensing::IpcConnector] LicenseClient-diepquocphong-6000.3.21-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-diepquocphong-6000.3.21 channel disconnected successfully.
+Thread 0x170a5b000 may have been prematurely finalized
+Thread 0x170ae7000 may have been prematurely finalized
+Thread 0x170c8b000 may have been prematurely finalized
+Thread 0x170bff000 may have been prematurely finalized
+Thread 0x170d17000 may have been prematurely finalized
+Thread 0x170da3000 may have been prematurely finalized
+Thread 0x170b73000 may have been prematurely finalized
+Thread 0x170e2f000 may have been prematurely finalized
+Thread 0x170ebb000 may have been prematurely finalized
+AcceleratorClientConnectionCallback - disconnected - :0
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application is shutting down...
+Cleanup mono
+[40m[32minfo[39m[22m[49m: Unity.ILPP.Runner.PostProcessingAssemblyLoadContext[0]
+      ALC ILPP context 1 is unloading
+debugger-agent: Unable to listen on 44
+[usbmuxd] Stop listen thread
+[usbmuxd] Error: 
+[usbmuxd] Listen thread exiting
+Exiting batchmode successfully now!
+[Package Manager] Server process was shutdown

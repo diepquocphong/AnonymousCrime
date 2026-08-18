@@ -28554,7 +28554,7 @@ MonoBehaviour:
   m_HornClip: {fileID: 8300000, guid: c1ac14b560b44dcda830db94a6f55379, type: 3}
   m_HornSource: {fileID: 0}
   m_HornMaxVolume: 0.72
-  m_HornPitch: 1.18
+  m_HornPitch: 1
   m_HornFadeInSpeed: 18
   m_HornFadeOutSpeed: 14
   m_SlowThrottle: 0.35
@@ -28885,12 +28885,16 @@ MonoBehaviour:
   m_FollowGround: 1
   m_GroundLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 1921
   m_ProbeStartHeight: 0.5
   m_MaxGroundDistance: 5
   m_ProbeInterval: 0.1
   m_GroundOffset: 0.025
   m_MinGroundNormalY: 0.35
+  m_GroundNormalSharpness: 18
+  m_ReceiverAbove: 0.22
+  m_ReceiverBelow: 0.4
+  m_SeamAllowance: 0.1
   m_HideWhenGroundMissing: 1
   m_IgnoreRigidbodyReceivers: 1
   m_SuppressInsideShadowOwner: 1

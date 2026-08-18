@@ -57,6 +57,7 @@ namespace FranklinGame.Vehicles
         private float m_NextCrashTime;
         private int m_AsyncVersion;
         private bool m_MissingRagdollWasReported;
+        private FranklinBikeImpactAudio m_SubscribedImpactAudio;
 
         /// <summary>
         /// Raised only after GC2 has actually entered ragdoll for a seated rider.
@@ -82,11 +83,13 @@ namespace FranklinGame.Vehicles
             BikeEntry bikeEntry,
             Rigidbody bikeBody)
         {
+            this.UnsubscribeImpactAudio();
             this.m_ImpactAudio = impactAudio;
             this.m_Driver = driver;
             this.m_BikeRagdoll = bikeRagdoll;
             this.m_BikeEntry = bikeEntry;
             this.m_BikeBody = bikeBody;
+            if (this.isActiveAndEnabled) this.SubscribeImpactAudio();
         }
 
         public void UpgradeConfigurationIfNeeded()
@@ -105,18 +108,32 @@ namespace FranklinGame.Vehicles
         private void OnEnable()
         {
             this.ResolveReferences();
-            if (this.m_ImpactAudio != null)
-                this.m_ImpactAudio.EventHeavyImpact += this.OnHeavyImpact;
+            this.SubscribeImpactAudio();
         }
 
         private void OnDisable()
         {
-            if (this.m_ImpactAudio != null)
-                this.m_ImpactAudio.EventHeavyImpact -= this.OnHeavyImpact;
+            this.UnsubscribeImpactAudio();
 
             this.m_AsyncVersion++;
             this.m_IsHandlingCrash = false;
             this.m_BikeRagdoll?.SettleRagdoll();
+        }
+
+        private void SubscribeImpactAudio()
+        {
+            if (this.m_SubscribedImpactAudio == this.m_ImpactAudio) return;
+            this.UnsubscribeImpactAudio();
+            if (this.m_ImpactAudio == null) return;
+            this.m_ImpactAudio.EventHeavyImpact += this.OnHeavyImpact;
+            this.m_SubscribedImpactAudio = this.m_ImpactAudio;
+        }
+
+        private void UnsubscribeImpactAudio()
+        {
+            if (this.m_SubscribedImpactAudio == null) return;
+            this.m_SubscribedImpactAudio.EventHeavyImpact -= this.OnHeavyImpact;
+            this.m_SubscribedImpactAudio = null;
         }
 
         private void OnHeavyImpact(Collision collision, float severity)

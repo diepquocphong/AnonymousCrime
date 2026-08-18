@@ -10,7 +10,14 @@ namespace FranklinGame.Shooter
         private const int ARC_SEGMENTS = 18;
         private const float INNER_RADIUS_RATIO = 0.39f;
         private const float OUTER_RADIUS_RATIO = 0.965f;
-        private const float HALF_ANGLE = 20.5f;
+        [SerializeField, Range(8f, 45f)] private float m_HalfAngle = 20.5f;
+
+        public void SetSectorCount(int count)
+        {
+            float step = 360f / Mathf.Max(1, count);
+            this.m_HalfAngle = Mathf.Max(3f, step * 0.5f - 1.6f);
+            this.SetVerticesDirty();
+        }
 
         protected override void OnPopulateMesh(VertexHelper vertexHelper)
         {
@@ -25,7 +32,7 @@ namespace FranklinGame.Shooter
             for (int i = 0; i <= ARC_SEGMENTS; ++i)
             {
                 float t = i / (float) ARC_SEGMENTS;
-                float angle = Mathf.Lerp(90f - HALF_ANGLE, 90f + HALF_ANGLE, t) *
+                float angle = Mathf.Lerp(90f - this.m_HalfAngle, 90f + this.m_HalfAngle, t) *
                               Mathf.Deg2Rad;
                 Vector2 direction = new(Mathf.Cos(angle), Mathf.Sin(angle));
 

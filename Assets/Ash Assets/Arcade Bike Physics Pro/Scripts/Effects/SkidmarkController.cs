@@ -123,6 +123,18 @@ namespace ArcadeBP_Pro
             mf.sharedMesh = marksMesh;
         }
 
+        protected void OnDestroy()
+        {
+            // Meshes created with `new Mesh` are native Unity objects and are not
+            // owned by MeshFilter. Release them explicitly when the Bike-owned
+            // world-space skidmark object is destroyed.
+            if (mf != null && mf.sharedMesh == marksMesh) mf.sharedMesh = null;
+            if (marksMesh == null) return;
+            if (Application.isPlaying) Destroy(marksMesh);
+            else DestroyImmediate(marksMesh);
+            marksMesh = null;
+        }
+
         public int AddSkidMark(Vector3 pos, Vector3 normal, float opacity, int lastIndex)
         {
             if (opacity > 1) opacity = 1.0f;

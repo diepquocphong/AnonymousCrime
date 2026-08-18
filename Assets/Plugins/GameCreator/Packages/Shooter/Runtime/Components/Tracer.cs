@@ -90,7 +90,8 @@ namespace GameCreator.Runtime.Shooter
             this.m_MaxDistance = maxDistance;
             
             this.m_LineRenderer.enabled = true;
-            this.m_LineRenderer.material = material;
+            // Tracers only change per-renderer color/width; the material asset stays shared.
+            this.m_LineRenderer.sharedMaterial = material;
             this.m_LineRenderer.startColor = color;
             this.m_LineRenderer.endColor = color;
 

@@ -63,6 +63,7 @@ namespace FranklinGame.Vehicles
         private bool m_ApproachFinished;
         private bool m_ApproachSucceeded;
         private int m_ApproachVersion;
+        private Character m_ApproachCharacter;
         private CharacterPhysicsSnapshot m_PhysicsSnapshot;
         private readonly List<Collider> m_ColliderBuffer = new List<Collider>(12);
         private readonly List<Rigidbody> m_RigidbodyBuffer = new List<Rigidbody>(8);
@@ -154,7 +155,8 @@ namespace FranklinGame.Vehicles
 
         private bool CanEnter(Character character)
         {
-            return character != null && character.Motion != null && IsConfigured &&
+            return isActiveAndEnabled && character != null &&
+                   character.Motion != null && IsConfigured &&
                    !m_IsTransitioning && m_Passenger == null &&
                    character != m_BikeEntry?.SeatedCharacter &&
                    (!m_RequireDriver || m_BikeEntry?.SeatedCharacter != null) &&
@@ -165,6 +167,33 @@ namespace FranklinGame.Vehicles
         private void Awake()
         {
             ResolveReferences();
+        }
+
+        private void OnDisable()
+        {
+            // Task.Yield based entry/exit is independent from Unity's coroutine
+            // lifecycle. Cancel pooled/unloaded seat operations and release all
+            // Character event subscriptions immediately, otherwise every reuse
+            // can retain another stale passenger callback.
+            ++m_OperationVersion;
+            ++m_ApproachVersion;
+            m_ApproachFinished = true;
+            m_ApproachSucceeded = false;
+            m_IsTransitioning = false;
+
+            if (m_ApproachCharacter != null)
+            {
+                m_ApproachCharacter.Motion?.MoveToDirection(
+                    Vector3.zero,
+                    Space.World,
+                    m_MotionPriority
+                );
+                m_ApproachCharacter.Motion?.StopToDirection(m_MotionPriority);
+                m_ApproachCharacter = null;
+            }
+
+            Character character = m_Passenger ?? m_PhysicsSnapshot?.Character;
+            if (character != null) ReleasePassenger(character, true);
         }
 
         private void OnValidate()
@@ -334,6 +363,7 @@ namespace FranklinGame.Vehicles
             m_ApproachFinished = false;
             m_ApproachSucceeded = false;
             int approachVersion = ++m_ApproachVersion;
+            m_ApproachCharacter = character;
             Vector3 feet = point.position - Vector3.up * (character.Motion.Height * 0.5f);
             character.Motion.MoveToLocation(
                 new Location(feet, point.rotation),
@@ -362,9 +392,15 @@ namespace FranklinGame.Vehicles
             );
             bool closeEnough = horizontal.sqrMagnitude <=
                                Mathf.Pow(m_ApproachStopDistance + 0.08f, 2f);
-            if (!m_ApproachSucceeded && !closeEnough) return false;
+            if (!m_ApproachSucceeded && !closeEnough)
+            {
+                m_ApproachCharacter = null;
+                return false;
+            }
             await AlignCharacter(character, point.position, point.rotation, operationVersion);
-            return IsCurrent(operationVersion) && character != null;
+            bool completed = IsCurrent(operationVersion) && character != null;
+            if (completed) m_ApproachCharacter = null;
+            return completed;
         }
 
         private async Task AlignCharacter(

@@ -53,6 +53,18 @@ namespace FranklinGame.Vehicles
         [SerializeField, Min(0f)] private float m_ExitStopDeceleration = 14f;
         [SerializeField, Min(0f)] private float m_CoastingParkingSpeedKph = 2f;
 
+        [Header("Spawn Grounding")]
+        [Tooltip("Places a newly spawned or pool-reactivated Car on static drivable ground before it becomes interactive.")]
+        [SerializeField] private bool m_SnapToGroundOnSpawn = true;
+        [SerializeField] private LayerMask m_SpawnGroundLayers = 1409;
+        [SerializeField, Min(0.1f)] private float m_SpawnGroundProbeHeight = 2f;
+        [SerializeField, Min(1f)] private float m_SpawnGroundProbeDistance = 30f;
+        [SerializeField, Min(0f)] private float m_SpawnGroundClearance = 0.015f;
+        [SerializeField, Range(0.1f, 1f)] private float m_MinSpawnGroundNormal = 0.65f;
+        [SerializeField, Min(0.1f)] private float m_MaxSpawnGroundRise = 1.25f;
+        [SerializeField, Range(2, 4)] private int m_MinSpawnGroundWheelHits = 3;
+        [SerializeField] private bool m_AlignSpawnToGround = true;
+
         [Header("Steering Wheel Visual")]
         [SerializeField] private Transform m_SteeringWheel;
         [SerializeField, Min(0f)] private float m_SteeringWheelMaxAngle = 360f;
@@ -97,6 +109,14 @@ namespace FranklinGame.Vehicles
         [Header("Fuel")]
         [SerializeField] private SimcadeCarFuel m_Fuel;
 
+        [Header("Abandoned Engine Mobile Budget")]
+        [Tooltip("A fast bailout keeps the engine audible for at least this long.")]
+        [SerializeField, Min(5f)]
+        private float m_AbandonedEngineMinimumRunSeconds = 30f;
+        [Tooltip("After the grace time, a player farther than this lets the abandoned engine retire.")]
+        [SerializeField, Min(10f)]
+        private float m_AbandonedEngineRetireDistance = 60f;
+
         [Header("Lights")]
         [SerializeField] private VehicleLights m_VehicleLights;
 
@@ -127,11 +147,20 @@ namespace FranklinGame.Vehicles
         private bool m_IsInitialSettling;
         private float m_InitialSettleAvailableAt;
         private float m_InitialSettleDeadline;
+        private bool m_HasStarted;
+        private bool m_PendingSpawnGroundSnap;
+        private float m_PendingSpawnGroundSnapDeadline;
+        private bool m_HasWarnedSpawnGroundFailure;
+        private bool m_SpawnGroundNeedsSettlement;
+        private bool m_HasAuthoredVehicleBodyPose;
+        private Vector3 m_AuthoredVehicleBodyLocalPosition;
+        private Quaternion m_AuthoredVehicleBodyLocalRotation;
         private bool m_IsPassengerPresentation;
         private bool m_IsDestroyed;
         private bool m_HoldCameraDuringBailout;
         private bool m_HoldCameraDuringDestruction;
         private bool m_KeepEngineRunningAfterBailout;
+        private float m_AbandonedEngineRetireAvailableAt;
         private bool m_HasFuel = true;
         private bool m_HandbrakeInput;
         private float m_AccelerationInput;
@@ -178,6 +207,11 @@ namespace FranklinGame.Vehicles
         private Vector2 m_Gc2RearViewReturnRotation;
         private bool m_Gc2FirstPersonActive;
         private Coroutine m_DestructionCameraRoutine;
+
+        // All spawn placement runs on Unity's main thread. Sharing this bounded
+        // buffer avoids one managed allocation for every traffic Car instance.
+        private static readonly RaycastHit[] s_SpawnGroundHits =
+            new RaycastHit[16];
 
         private GameObject m_MobileCanvas;
         private UiButton_SVP m_SteerLeft;
@@ -276,19 +310,32 @@ namespace FranklinGame.Vehicles
                 this.m_SteeringWheelInitialRotation = this.m_SteeringWheel.localRotation;
                 this.CacheSteeringHandTargets();
             }
+
+            this.CaptureAuthoredVehicleBodyPose();
         }
 
         private void Start()
         {
-            // Prewarm all runtime-only presentation objects at scene start so
-            // the first mobile enter does not instantiate camera/UI objects in
-            // the same frame as the animation handoff.
-            this.EnsureCameraRig();
-            this.EnsureRuntimeCameraTarget();
-            this.ResolveUnityCamera();
-            if (this.ShouldShowMobileControls()) this.EnsureMobileControls();
-            this.BeginInitialSettlement();
+            // Camera targets, Cinemachine and fallback mobile UI are created only
+            // for a Car the Player actually requests. Traffic/parked Cars no
+            // longer prewarm three runtime objects each at scene start.
+            this.m_HasStarted = true;
+            this.m_PendingSpawnGroundSnap = false;
+            this.ApplySpawnGrounding(true);
             this.SetVehicleEnabled(false);
+        }
+
+        private void OnEnable()
+        {
+            // Start handles the first activation after every Awake. Pool owners
+            // commonly set the final position after SetActive(true), so defer
+            // subsequent snaps until LateUpdate (with FixedUpdate as fallback).
+            if (this.m_HasStarted && !this.m_IsDestroyed)
+            {
+                this.m_PendingSpawnGroundSnap = true;
+                this.m_PendingSpawnGroundSnapDeadline =
+                    Time.unscaledTime + 2f;
+            }
         }
 
         private void OnDisable()
@@ -296,6 +343,13 @@ namespace FranklinGame.Vehicles
             this.m_IsVehicleEnabled = false;
             this.m_IsPassengerPresentation = false;
             this.m_IsInitialSettling = false;
+            this.m_IsStoppingForExit = false;
+            this.m_IsCoastingAfterExit = false;
+            this.m_CoastingStopDeadline = 0f;
+            this.m_InitialSettleAvailableAt = 0f;
+            this.m_InitialSettleDeadline = 0f;
+            this.m_PendingSpawnGroundSnap = false;
+            this.m_PendingSpawnGroundSnapDeadline = 0f;
             this.m_HoldCameraDuringBailout = false;
             this.m_HoldCameraDuringDestruction = false;
             this.m_KeepEngineRunningAfterBailout = false;
@@ -327,6 +381,20 @@ namespace FranklinGame.Vehicles
                 this.m_FirstPersonCameraAnchor != null)
             {
                 Destroy(this.m_FirstPersonCameraAnchor.gameObject);
+            }
+            if (this.m_RuntimeCameraTarget != null)
+            {
+                // Destruction camera handoff can unparent this target from the
+                // Car. Destroy it explicitly so a terminal wreck cannot leave an
+                // orbit root in the scene.
+                Destroy(this.m_RuntimeCameraTarget.gameObject);
+                this.m_RuntimeCameraTarget = null;
+                this.m_RuntimeCameraOrbitTarget = null;
+            }
+            else if (this.m_RuntimeCameraOrbitTarget != null)
+            {
+                Destroy(this.m_RuntimeCameraOrbitTarget.gameObject);
+                this.m_RuntimeCameraOrbitTarget = null;
             }
             if (this.m_RuntimeCameraRig != null) Destroy(this.m_RuntimeCameraRig);
             if (this.m_MobileCanvas != null) Destroy(this.m_MobileCanvas);
@@ -391,6 +459,11 @@ namespace FranklinGame.Vehicles
 
         private void FixedUpdate()
         {
+            if (this.m_PendingSpawnGroundSnap)
+            {
+                this.ProcessPendingSpawnGrounding();
+            }
+
             if (!this.m_IsStoppingForExit && !this.m_IsCoastingAfterExit &&
                 !this.m_IsInitialSettling)
             {
@@ -419,13 +492,29 @@ namespace FranklinGame.Vehicles
                     this.m_InitialSettleAvailableAt;
                 bool deadlineReached = Time.unscaledTime >=
                     this.m_InitialSettleDeadline;
-                if ((grounded && stable && minimumElapsed) || deadlineReached)
+                if (grounded && stable && minimumElapsed)
                 {
                     this.m_IsInitialSettling = false;
-                    if (grounded && stable)
+                    this.FreezeParkedRigidbody();
+                    this.UpdateControllerExecutionState();
+                }
+                else if (deadlineReached)
+                {
+                    if (!this.m_SnapToGroundOnSpawn)
                     {
-                        this.FreezeParkedRigidbody();
+                        this.m_IsInitialSettling = false;
+                        this.UpdateControllerExecutionState();
+                        return;
                     }
+
+                    // Uneven ground can use the bounded suspension window first.
+                    // If it has support at the deadline, keep that physically
+                    // settled pose. Only retry the one-shot snap when support was
+                    // never established.
+                    bool snapped = grounded || this.TrySnapSpawnToGround();
+                    this.m_IsInitialSettling = false;
+                    this.FreezeParkedRigidbody();
+                    if (!snapped) this.WarnSpawnGroundFailureOnce();
                     this.UpdateControllerExecutionState();
                 }
                 return;
@@ -479,6 +568,10 @@ namespace FranklinGame.Vehicles
 
         private void LateUpdate()
         {
+            if (this.m_PendingSpawnGroundSnap)
+            {
+                this.ProcessPendingSpawnGrounding();
+            }
             if (!this.m_IsVehicleEnabled || this.m_SteeringWheel == null) return;
 
             float angle = -this.m_SteeringInput * this.m_SteeringWheelMaxAngle;
@@ -506,9 +599,61 @@ namespace FranklinGame.Vehicles
             this.SetVehicleEnabled(state, false);
         }
 
+        /// <summary>
+        /// Lazily prepares presentation during the walk/open-door phase. This
+        /// avoids a camera/UI allocation spike on the seated handoff without
+        /// allocating a complete camera rig for every parked traffic Car.
+        /// </summary>
+        public void PreparePresentationForEntry()
+        {
+            if (this.m_IsDestroyed) return;
+            this.PrepareGroundingForEntry();
+            this.EnsureCameraRig();
+            this.EnsureRuntimeCameraTarget();
+            this.ResolveUnityCamera();
+            if (this.ShouldShowMobileControls()) this.EnsureMobileControls();
+        }
+
+        /// <summary>
+        /// Resolves a pool activation before an entry/carjacking transition makes
+        /// the Rigidbody kinematic. This method does not allocate camera or UI.
+        /// </summary>
+        public void PrepareGroundingForEntry()
+        {
+            if (this.m_IsDestroyed) return;
+            if (this.m_PendingSpawnGroundSnap && this.m_Rigidbody != null &&
+                !this.m_Rigidbody.isKinematic &&
+                (this.m_CarEntry == null || !this.m_CarEntry.IsTransitioning))
+            {
+                this.m_PendingSpawnGroundSnap = false;
+                this.m_PendingSpawnGroundSnapDeadline = 0f;
+                this.ApplySpawnGrounding(true);
+            }
+        }
+
         public void SetVehicleEnabled(bool state, bool preserveMomentum)
         {
             if (state && this.m_IsDestroyed) return;
+            if (state && this.m_PendingSpawnGroundSnap)
+            {
+                // Entry can be requested before the pool's first FixedUpdate.
+                // Resolve the queued placement synchronously so the first
+                // throttle frame never starts from a stale pooled pose.
+                this.m_PendingSpawnGroundSnap = false;
+                this.m_PendingSpawnGroundSnapDeadline = 0f;
+                bool canGroundSafely = this.m_Rigidbody != null &&
+                    !this.m_Rigidbody.isKinematic &&
+                    (this.m_CarEntry == null ||
+                     !this.m_CarEntry.IsTransitioning);
+                if (canGroundSafely)
+                {
+                    this.ApplySpawnGrounding(true);
+                }
+                else
+                {
+                    this.WarnSpawnGroundFailureOnce();
+                }
+            }
             if (state || preserveMomentum)
             {
                 this.ReleaseParkedRigidbody(true);
@@ -540,7 +685,9 @@ namespace FranklinGame.Vehicles
             else
             {
                 this.ResetSteeringWheel();
-                if (!preserveMomentum) this.SetHeadlightEnabled(false);
+                // Preserve the engine sound after a fast bailout, not two GPU
+                // spotlights on an abandoned Car.
+                this.SetHeadlightEnabled(false);
             }
 
             if (this.m_Controller != null)
@@ -660,6 +807,48 @@ namespace FranklinGame.Vehicles
         {
             if (!this.m_IsVehicleEnabled) return;
             this.m_KeepEngineRunningAfterBailout = true;
+            this.m_AbandonedEngineRetireAvailableAt = Time.unscaledTime +
+                Mathf.Max(5f, this.m_AbandonedEngineMinimumRunSeconds);
+        }
+
+        /// <summary>
+        /// Called by the low-frequency fuel loop while a bailed-out Car idles.
+        /// Nearby audio is preserved; far abandoned Cars retire after a grace
+        /// period so audio voices and fuel coroutines cannot accumulate forever.
+        /// </summary>
+        public bool MaintainAbandonedEngineAfterBailout()
+        {
+            if (!this.m_KeepEngineRunningAfterBailout || this.m_IsDestroyed ||
+                !this.m_HasFuel)
+            {
+                return false;
+            }
+
+            if (this.m_IsVehicleEnabled ||
+                Time.unscaledTime < this.m_AbandonedEngineRetireAvailableAt)
+            {
+                return true;
+            }
+
+            Camera gameplayCamera = this.m_UnityCamera != null
+                ? this.m_UnityCamera
+                : Camera.main;
+            if (gameplayCamera == null) return true;
+
+            float retireDistance = Mathf.Max(
+                10f,
+                this.m_AbandonedEngineRetireDistance
+            );
+            if ((gameplayCamera.transform.position - this.transform.position)
+                .sqrMagnitude < retireDistance * retireDistance)
+            {
+                return true;
+            }
+
+            this.m_KeepEngineRunningAfterBailout = false;
+            this.SetAudioActive(false);
+            this.SetHeadlightEnabled(false);
+            return false;
         }
 
         public void EndBailoutCameraHold()
@@ -1122,9 +1311,19 @@ namespace FranklinGame.Vehicles
                 this.m_Rigidbody.WakeUp();
             }
 
+            bool grounded = this.m_SnapToGroundOnSpawn &&
+                this.TrySnapSpawnToGround();
+
             if (settleAsParked && !this.m_Rigidbody.isKinematic)
             {
-                this.BeginInitialSettlement();
+                if (grounded)
+                {
+                    this.FreezeParkedRigidbody();
+                }
+                else
+                {
+                    this.BeginInitialSettlement();
+                }
                 if (this.m_Controller != null)
                 {
                     this.m_Controller.CanDrive = false;
@@ -1259,6 +1458,328 @@ namespace FranklinGame.Vehicles
             this.SetWheelSkidRuntimeActive(
                 shouldRun && !this.m_IsInitialSettling
             );
+        }
+
+        /// <summary>
+        /// Public pool/spawner hook. Call after assigning the final world pose and
+        /// before making the Car interactive. Start and pooled OnEnable already use
+        /// the same path automatically.
+        /// </summary>
+        public bool SnapSpawnToGround()
+        {
+            if (this.m_IsDestroyed || this.m_IsVehicleEnabled ||
+                this.m_IsPassengerPresentation || this.m_IsStoppingForExit ||
+                this.m_IsCoastingAfterExit ||
+                (this.m_CarEntry != null && this.m_CarEntry.IsTransitioning))
+            {
+                return false;
+            }
+
+            this.m_PendingSpawnGroundSnap = false;
+            this.m_PendingSpawnGroundSnapDeadline = 0f;
+            return this.ApplySpawnGrounding(true);
+        }
+
+        private void ProcessPendingSpawnGrounding()
+        {
+            if (!this.m_PendingSpawnGroundSnap) return;
+            if (this.m_Rigidbody == null || this.m_Rigidbody.isKinematic ||
+                (this.m_CarEntry != null && this.m_CarEntry.IsTransitioning))
+            {
+                if (Time.unscaledTime >= this.m_PendingSpawnGroundSnapDeadline)
+                {
+                    this.m_PendingSpawnGroundSnap = false;
+                    this.m_PendingSpawnGroundSnapDeadline = 0f;
+                    this.WarnSpawnGroundFailureOnce();
+                }
+                return;
+            }
+
+            this.m_PendingSpawnGroundSnap = false;
+            this.m_PendingSpawnGroundSnapDeadline = 0f;
+            if (this.m_IsDestroyed || this.m_IsVehicleEnabled ||
+                this.m_IsPassengerPresentation || this.m_IsStoppingForExit ||
+                this.m_IsCoastingAfterExit)
+            {
+                return;
+            }
+
+            this.ApplySpawnGrounding(true);
+        }
+
+        private bool ApplySpawnGrounding(bool freezeWhenParked)
+        {
+            if (this.m_Rigidbody == null || this.m_Rigidbody.isKinematic)
+            {
+                return false;
+            }
+
+            this.m_IsInitialSettling = false;
+            bool snapped = this.m_SnapToGroundOnSpawn &&
+                this.TrySnapSpawnToGround();
+
+            if (this.m_Controller != null)
+            {
+                this.m_Controller.CanDrive = false;
+                this.m_Controller.CanAccelerate = false;
+                this.SendInputs(0f, 0f, true);
+            }
+
+            if (freezeWhenParked)
+            {
+                if (snapped && this.m_SpawnGroundNeedsSettlement)
+                {
+                    // A curb or lift can put the four support points at different
+                    // heights. Let suspension resolve that bounded difference
+                    // before sleeping instead of leaving the low side floating.
+                    this.BeginInitialSettlement();
+                }
+                else if (snapped || this.m_SnapToGroundOnSpawn)
+                {
+                    // A failed probe is an invalid spawn marker. Keep the Car at
+                    // its requested pose instead of letting it fall forever or
+                    // rest on the chassis; development builds log this once.
+                    this.FreezeParkedRigidbody();
+                }
+                else
+                {
+                    this.BeginInitialSettlement();
+                }
+            }
+
+            if (!snapped && this.m_SnapToGroundOnSpawn)
+            {
+                this.WarnSpawnGroundFailureOnce();
+            }
+            this.UpdateControllerExecutionState();
+            return snapped;
+        }
+
+        private bool TrySnapSpawnToGround()
+        {
+            if (this.m_Rigidbody == null || this.m_Rigidbody.isKinematic ||
+                this.m_Controller == null ||
+                this.m_Controller.AuthoredWheelCount < 4)
+            {
+                return false;
+            }
+
+            this.ReleaseParkedRigidbody(false);
+            this.RestoreAuthoredVehicleBodyPose();
+            this.m_Controller.ResetForGroundSettlement();
+            this.m_SpawnGroundNeedsSettlement = false;
+
+            Quaternion requestedRotation = this.transform.rotation;
+            Vector3 normalSum = Vector3.zero;
+            int supportCount = 0;
+            bool hasFrontSupport = false;
+            bool hasRearSupport = false;
+            for (int index = 0; index < 4; ++index)
+            {
+                if (!this.m_Controller.TryGetAuthoredWheelWorldPosition(
+                        index,
+                        out Vector3 wheelPosition) ||
+                    !this.TryFindSpawnGround(wheelPosition, out RaycastHit hit))
+                {
+                    continue;
+                }
+
+                ++supportCount;
+                hasFrontSupport |= index < 2;
+                hasRearSupport |= index >= 2;
+                normalSum += hit.normal;
+            }
+
+            if (supportCount < this.m_MinSpawnGroundWheelHits ||
+                !hasFrontSupport || !hasRearSupport)
+            {
+                return false;
+            }
+
+            if (this.m_AlignSpawnToGround && normalSum.sqrMagnitude > 0.001f)
+            {
+                Vector3 groundNormal = normalSum.normalized;
+                Vector3 forward = Vector3.ProjectOnPlane(
+                    requestedRotation * Vector3.forward,
+                    groundNormal
+                );
+                if (forward.sqrMagnitude < 0.001f)
+                {
+                    forward = Vector3.ProjectOnPlane(
+                        requestedRotation * Vector3.up,
+                        groundNormal
+                    );
+                }
+                if (forward.sqrMagnitude < 0.001f) forward = Vector3.forward;
+
+                Quaternion groundedRotation = Quaternion.LookRotation(
+                    forward.normalized,
+                    groundNormal
+                );
+                this.transform.rotation = groundedRotation;
+                this.m_Rigidbody.rotation = groundedRotation;
+            }
+
+            float maximumCorrection = float.NegativeInfinity;
+            float minimumCorrection = float.PositiveInfinity;
+            supportCount = 0;
+            hasFrontSupport = false;
+            hasRearSupport = false;
+            float rootVerticalScale = Mathf.Max(
+                0.001f,
+                Mathf.Abs(this.transform.lossyScale.y)
+            );
+            float worldWheelRadius = Mathf.Max(
+                0.01f,
+                this.m_Controller.wheelRadius * rootVerticalScale
+            );
+            for (int index = 0; index < 4; ++index)
+            {
+                if (!this.m_Controller.TryGetAuthoredWheelWorldPosition(
+                        index,
+                        out Vector3 wheelPosition) ||
+                    !this.TryFindSpawnGround(wheelPosition, out RaycastHit hit))
+                {
+                    continue;
+                }
+
+                ++supportCount;
+                hasFrontSupport |= index < 2;
+                hasRearSupport |= index >= 2;
+                float normalY = Mathf.Max(
+                    0.1f,
+                    Vector3.Dot(hit.normal, Vector3.up)
+                );
+                float verticalTyreClearance =
+                    (worldWheelRadius + this.m_SpawnGroundClearance) / normalY;
+                float correction = hit.point.y + verticalTyreClearance -
+                    wheelPosition.y;
+                maximumCorrection = Mathf.Max(maximumCorrection, correction);
+                minimumCorrection = Mathf.Min(minimumCorrection, correction);
+            }
+
+            if (supportCount < this.m_MinSpawnGroundWheelHits ||
+                !hasFrontSupport || !hasRearSupport ||
+                float.IsNegativeInfinity(maximumCorrection))
+            {
+                this.transform.rotation = requestedRotation;
+                this.m_Rigidbody.rotation = requestedRotation;
+                return false;
+            }
+
+            Vector3 groundedPosition = this.transform.position +
+                Vector3.up * maximumCorrection;
+            this.transform.position = groundedPosition;
+            this.m_Rigidbody.position = groundedPosition;
+            this.m_Rigidbody.linearVelocity = Vector3.zero;
+            this.m_Rigidbody.angularVelocity = Vector3.zero;
+            float suspensionDifference = maximumCorrection - minimumCorrection;
+            this.m_SpawnGroundNeedsSettlement = suspensionDifference >
+                Mathf.Max(0.04f, this.m_Controller.maxWheelTravel * 0.5f);
+            this.m_HasWarnedSpawnGroundFailure = false;
+            return true;
+        }
+
+        private bool TryFindSpawnGround(Vector3 samplePoint, out RaycastHit result)
+        {
+            result = default;
+            float probeHeight = Mathf.Max(0.1f, this.m_SpawnGroundProbeHeight);
+            float probeDistance = probeHeight +
+                Mathf.Max(1f, this.m_SpawnGroundProbeDistance);
+            int hitCount = Physics.RaycastNonAlloc(
+                samplePoint + Vector3.up * probeHeight,
+                Vector3.down,
+                s_SpawnGroundHits,
+                probeDistance,
+                this.m_SpawnGroundLayers.value,
+                QueryTriggerInteraction.Ignore
+            );
+
+            float closestDistance = float.PositiveInfinity;
+            bool found = false;
+            bool foundAtOrBelowWheel = false;
+            for (int index = 0; index < hitCount; ++index)
+            {
+                RaycastHit candidate = s_SpawnGroundHits[index];
+                Collider candidateCollider = candidate.collider;
+                if (candidateCollider == null) continue;
+
+                Transform candidateTransform = candidateCollider.transform;
+                Rigidbody candidateBody = candidateCollider.attachedRigidbody;
+                bool belongsToThisCar = candidateTransform == this.transform ||
+                    candidateTransform.IsChildOf(this.transform) ||
+                    candidateBody == this.m_Rigidbody;
+                bool dynamicSurface = candidateBody != null &&
+                    candidateBody != this.m_Rigidbody &&
+                    !candidateBody.isKinematic;
+                if (belongsToThisCar || dynamicSurface ||
+                    Vector3.Dot(candidate.normal, Vector3.up) <
+                        this.m_MinSpawnGroundNormal ||
+                    candidate.point.y - samplePoint.y >
+                        this.m_MaxSpawnGroundRise)
+                {
+                    continue;
+                }
+
+                // Prefer a surface already below the wheel center. This keeps a
+                // scene-placed Car at Y=1.6 from selecting a low garage ceiling
+                // between the elevated ray origin and the actual road. A surface
+                // above the wheel is only used when the spawn marker embedded the
+                // authored wheel below the floor.
+                bool atOrBelowWheel = candidate.point.y <= samplePoint.y +
+                    this.m_SpawnGroundClearance;
+                if (foundAtOrBelowWheel && !atOrBelowWheel) continue;
+                if (atOrBelowWheel && !foundAtOrBelowWheel)
+                {
+                    foundAtOrBelowWheel = true;
+                    closestDistance = float.PositiveInfinity;
+                }
+                if (candidate.distance >= closestDistance) continue;
+
+                closestDistance = candidate.distance;
+                result = candidate;
+                found = true;
+            }
+            return found;
+        }
+
+        private void CaptureAuthoredVehicleBodyPose()
+        {
+            Transform vehicleBody = this.VehicleBody;
+            if (vehicleBody == null || vehicleBody == this.transform) return;
+
+            this.m_AuthoredVehicleBodyLocalPosition = vehicleBody.localPosition;
+            this.m_AuthoredVehicleBodyLocalRotation = vehicleBody.localRotation;
+            this.m_HasAuthoredVehicleBodyPose = true;
+        }
+
+        private void RestoreAuthoredVehicleBodyPose()
+        {
+            Transform vehicleBody = this.VehicleBody;
+            if (!this.m_HasAuthoredVehicleBodyPose || vehicleBody == null ||
+                vehicleBody == this.transform)
+            {
+                return;
+            }
+
+            vehicleBody.localPosition = this.m_AuthoredVehicleBodyLocalPosition;
+            vehicleBody.localRotation = this.m_AuthoredVehicleBodyLocalRotation;
+        }
+
+        private void WarnSpawnGroundFailureOnce()
+        {
+            if (this.m_HasWarnedSpawnGroundFailure) return;
+            this.m_HasWarnedSpawnGroundFailure = true;
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            Debug.LogWarning(
+                $"{this.name}: spawn-ground placement could not resolve at " +
+                $"least {this.m_MinSpawnGroundWheelHits} supported wheels, or " +
+                "the pooled Car was still in a kinematic transition. The Car " +
+                "kept its fail-safe pose; check the spawn marker, lifecycle and " +
+                "Spawn Ground Layers.",
+                this
+            );
+#endif
         }
 
         private void BeginInitialSettlement()
@@ -2414,6 +2935,40 @@ namespace FranklinGame.Vehicles
                 15f,
                 140f
             );
+            this.m_AbandonedEngineMinimumRunSeconds = Mathf.Max(
+                5f,
+                this.m_AbandonedEngineMinimumRunSeconds
+            );
+            this.m_AbandonedEngineRetireDistance = Mathf.Max(
+                10f,
+                this.m_AbandonedEngineRetireDistance
+            );
+            this.m_SpawnGroundProbeHeight = Mathf.Max(
+                0.1f,
+                this.m_SpawnGroundProbeHeight
+            );
+            this.m_SpawnGroundProbeDistance = Mathf.Max(
+                1f,
+                this.m_SpawnGroundProbeDistance
+            );
+            this.m_SpawnGroundClearance = Mathf.Max(
+                0f,
+                this.m_SpawnGroundClearance
+            );
+            this.m_MinSpawnGroundNormal = Mathf.Clamp(
+                this.m_MinSpawnGroundNormal,
+                0.1f,
+                1f
+            );
+            this.m_MaxSpawnGroundRise = Mathf.Max(
+                0.1f,
+                this.m_MaxSpawnGroundRise
+            );
+            this.m_MinSpawnGroundWheelHits = Mathf.Clamp(
+                this.m_MinSpawnGroundWheelHits,
+                2,
+                4
+            );
         }
 
 #if UNITY_EDITOR
@@ -2441,6 +2996,15 @@ namespace FranklinGame.Vehicles
             this.m_MaxDamageSteeringBias = 0.16f;
             this.m_SlowModeMaxSpeedKph = 60f;
             this.m_SteeringHandsMaxAngle = 85f;
+            this.m_SnapToGroundOnSpawn = true;
+            this.m_SpawnGroundLayers = 1409;
+            this.m_SpawnGroundProbeHeight = 2f;
+            this.m_SpawnGroundProbeDistance = 30f;
+            this.m_SpawnGroundClearance = 0.015f;
+            this.m_MinSpawnGroundNormal = 0.65f;
+            this.m_MaxSpawnGroundRise = 1.25f;
+            this.m_MinSpawnGroundWheelHits = 3;
+            this.m_AlignSpawnToGround = true;
             this.m_SteeringHandTargetsCached = false;
         }
 #endif

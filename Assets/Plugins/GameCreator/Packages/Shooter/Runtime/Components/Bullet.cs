@@ -58,6 +58,12 @@ namespace GameCreator.Runtime.Shooter
         [NonSerialized] private GameObject m_TracerTarget;
         [NonSerialized] private Vector3 m_TracerDeviation;
         [NonSerialized] private LayerMask m_TracerLayerMask;
+
+        // Rigidbody projectiles are pooled. Restore owner collision pairs before an
+        // instance is reused by a different shooter.
+        [NonSerialized] private readonly List<Collider> m_ProjectileColliders = new(4);
+        [NonSerialized] private readonly List<Collider> m_OwnerColliders = new(16);
+        [NonSerialized] private readonly List<Collider> m_ColliderScratch = new(16);
         
         // PROPERTIES: ----------------------------------------------------------------------------
         
@@ -83,6 +89,7 @@ namespace GameCreator.Runtime.Shooter
             Vector3 deviation,
             LayerMask layerMask)
         {
+            this.RestoreOwnerCollisionPairs();
             this.m_ArgsWeapon.ChangeSelf(shotData.Source);
             this.m_ArgsWeapon.ChangeTarget(shotData.Prop);
             
@@ -124,6 +131,7 @@ namespace GameCreator.Runtime.Shooter
             bool isTimeout,
             float timeout)
         {
+            this.RestoreOwnerCollisionPairs();
             this.m_ArgsWeapon.ChangeSelf(shotData.Source);
             this.m_ArgsWeapon.ChangeTarget(shotData.Prop);
             
@@ -165,6 +173,8 @@ namespace GameCreator.Runtime.Shooter
             this.Distance = 0f;
             this.Pierces = 0;
             this.Hits.Clear();
+
+            this.IgnoreOwnerCollisionPairs(shotData.Source.gameObject, shotData.Prop);
             
             rigidBody.AddForce(force, this.m_RigidbodyImpulse);
 
@@ -186,6 +196,7 @@ namespace GameCreator.Runtime.Shooter
             int pierces,
             float timeout)
         {
+            this.RestoreOwnerCollisionPairs();
             this.m_ArgsWeapon.ChangeSelf(shotData.Source);
             this.m_ArgsWeapon.ChangeTarget(shotData.Prop);
             
@@ -242,7 +253,13 @@ namespace GameCreator.Runtime.Shooter
 
         private void OnDisable()
         {
+            this.RestoreOwnerCollisionPairs();
             this.m_Mode = Mode.None;
+        }
+
+        private void OnDestroy()
+        {
+            this.RestoreOwnerCollisionPairs();
         }
 
         // CYCLE METHODS: -------------------------------------------------------------------------
@@ -334,10 +351,16 @@ namespace GameCreator.Runtime.Shooter
             if (this.m_Mode == Mode.None) return;
 
             if (Time.time < this.StartTime + this.m_ShotData.Delay) return;
-            
-            Vector3 point = this.transform.position;
-            Vector3 normal = this.m_ShotData.ShootPosition - point;
-            float distance = normal.magnitude;
+
+            bool hasContact = hit.contactCount > 0;
+            ContactPoint contact = hasContact ? hit.GetContact(0) : default;
+            Vector3 point = hasContact
+                ? contact.point
+                : hit.collider.ClosestPoint(this.transform.position);
+            Vector3 normal = hasContact
+                ? contact.normal
+                : this.ResolveFallbackHitNormal(point);
+            float distance = Vector3.Distance(this.m_ShotData.ShootPosition, point);
             
             if (this.m_IsTimeout)
             {
@@ -355,12 +378,15 @@ namespace GameCreator.Runtime.Shooter
         private void OnTriggerEnter(Collider hit)
         {
             if (this.m_Mode == Mode.None) return;
+            // Physical projectiles follow the same solid-surface policy as Shooter raycasts.
+            // Invisible interaction/damage volumes must not detonate an RPG in mid-air.
+            if (hit == null || hit.isTrigger) return;
             
             if (Time.time < this.StartTime + this.m_ShotData.Delay) return;
             
-            Vector3 point = this.transform.position;
-            Vector3 normal = this.m_ShotData.ShootPosition - point;
-            float distance = normal.magnitude;
+            Vector3 point = hit.ClosestPoint(this.transform.position);
+            Vector3 normal = this.ResolveFallbackHitNormal(point);
+            float distance = Vector3.Distance(this.m_ShotData.ShootPosition, point);
 
             if (!this.m_IsTimeout)
             {
@@ -444,9 +470,16 @@ namespace GameCreator.Runtime.Shooter
                 for (int i = 0; i < numHits; ++i)
                 {
                     RaycastHit hit = RAYCAST_HITS[i];
-                    Vector3 normal = this.m_ShotData.ShootPosition - hit.point;
-                    float distance = normal.magnitude;
-                    this.ReportHit(hit.collider.gameObject, hit.point, normal, distance);
+                    float distance = Vector3.Distance(
+                        this.m_ShotData.ShootPosition,
+                        hit.point
+                    );
+                    this.ReportHit(
+                        hit.collider.gameObject,
+                        hit.point,
+                        hit.normal,
+                        distance
+                    );
                 }   
             }
             
@@ -490,9 +523,16 @@ namespace GameCreator.Runtime.Shooter
                 for (int i = 0; i < numHits; ++i)
                 {
                     RaycastHit hit = RAYCAST_HITS[i];
-                    Vector3 normal = this.m_ShotData.ShootPosition - hit.point;
-                    float distance = normal.magnitude;
-                    this.ReportHit(hit.collider.gameObject, hit.point, normal, distance);
+                    float distance = Vector3.Distance(
+                        this.m_ShotData.ShootPosition,
+                        hit.point
+                    );
+                    this.ReportHit(
+                        hit.collider.gameObject,
+                        hit.point,
+                        hit.normal,
+                        distance
+                    );
                 }   
             }
             
@@ -508,11 +548,20 @@ namespace GameCreator.Runtime.Shooter
 
         private void ReportHit(GameObject hit, Vector3 point, Vector3 normal, float distance)
         {
-            if (hit == this.m_ShotData.Source.gameObject) return;
+            if (this.IsOwnerHit(hit)) return;
             if (this.Hits.Contains(hit)) return;
             this.Hits.Add(hit);
-            
-            this.m_ShotData.UpdateHit(hit.gameObject, point, distance, this.Pierces);
+
+            Vector3 hitNormal = normal.sqrMagnitude > 0.000001f
+                ? normal.normalized
+                : this.ResolveFallbackHitNormal(point);
+            this.m_ShotData.UpdateHit(
+                hit.gameObject,
+                point,
+                hitNormal,
+                distance,
+                this.Pierces
+            );
             
             this.Pierces += 1;
             
@@ -526,7 +575,7 @@ namespace GameCreator.Runtime.Shooter
                 MaterialSounds.Play(
                     this.m_ArgsTarget,
                     point,
-                    normal,
+                    hitNormal,
                     hit,
                     this.m_ShotData.ImpactSound,
                     UnityEngine.Random.Range(-180f, 180f)
@@ -535,7 +584,7 @@ namespace GameCreator.Runtime.Shooter
                 this.m_ShotData.ImpactEffect?.Get(
                     this.m_ArgsTarget,
                     point,
-                    Quaternion.LookRotation(normal)
+                    Quaternion.LookRotation(hitNormal)
                 );
             }
 
@@ -543,6 +592,91 @@ namespace GameCreator.Runtime.Shooter
             {
                 this.gameObject.SetActive(false);
             }
+        }
+
+        private Vector3 ResolveFallbackHitNormal(Vector3 point)
+        {
+            Rigidbody body = this.Get<Rigidbody>();
+            Vector3 travel = body != null && body.linearVelocity.sqrMagnitude > 0.000001f
+                ? body.linearVelocity
+                : point - this.m_ShotData.ShootPosition;
+            if (travel.sqrMagnitude <= 0.000001f) travel = this.transform.forward;
+            return -travel.normalized;
+        }
+
+        private bool IsOwnerHit(GameObject hit)
+        {
+            if (hit == null) return false;
+
+            Transform hitTransform = hit.transform;
+            GameObject source = this.m_ShotData.Source != null
+                ? this.m_ShotData.Source.gameObject
+                : null;
+            if (source != null &&
+                (hit == source || hitTransform.IsChildOf(source.transform)))
+            {
+                return true;
+            }
+
+            GameObject prop = this.m_ShotData.Prop;
+            return prop != null &&
+                   (hit == prop || hitTransform.IsChildOf(prop.transform));
+        }
+
+        private void IgnoreOwnerCollisionPairs(GameObject source, GameObject prop)
+        {
+            this.m_ProjectileColliders.Clear();
+            this.GetComponentsInChildren(true, this.m_ProjectileColliders);
+            this.m_OwnerColliders.Clear();
+            this.AppendOwnerColliders(source);
+            this.AppendOwnerColliders(prop);
+
+            for (int i = 0; i < this.m_ProjectileColliders.Count; ++i)
+            {
+                Collider projectileCollider = this.m_ProjectileColliders[i];
+                if (projectileCollider == null) continue;
+
+                for (int j = 0; j < this.m_OwnerColliders.Count; ++j)
+                {
+                    Collider ownerCollider = this.m_OwnerColliders[j];
+                    if (ownerCollider == null || ownerCollider == projectileCollider) continue;
+                    Physics.IgnoreCollision(projectileCollider, ownerCollider, true);
+                }
+            }
+        }
+
+        private void AppendOwnerColliders(GameObject root)
+        {
+            if (root == null) return;
+
+            this.m_ColliderScratch.Clear();
+            root.GetComponentsInChildren(true, this.m_ColliderScratch);
+            for (int i = 0; i < this.m_ColliderScratch.Count; ++i)
+            {
+                Collider candidate = this.m_ColliderScratch[i];
+                if (candidate == null || this.m_OwnerColliders.Contains(candidate)) continue;
+                this.m_OwnerColliders.Add(candidate);
+            }
+        }
+
+        private void RestoreOwnerCollisionPairs()
+        {
+            for (int i = 0; i < this.m_ProjectileColliders.Count; ++i)
+            {
+                Collider projectileCollider = this.m_ProjectileColliders[i];
+                if (projectileCollider == null) continue;
+
+                for (int j = 0; j < this.m_OwnerColliders.Count; ++j)
+                {
+                    Collider ownerCollider = this.m_OwnerColliders[j];
+                    if (ownerCollider == null || ownerCollider == projectileCollider) continue;
+                    Physics.IgnoreCollision(projectileCollider, ownerCollider, false);
+                }
+            }
+
+            this.m_ProjectileColliders.Clear();
+            this.m_OwnerColliders.Clear();
+            this.m_ColliderScratch.Clear();
         }
         
         // PUBLIC STATIC METHODS: -----------------------------------------------------------------

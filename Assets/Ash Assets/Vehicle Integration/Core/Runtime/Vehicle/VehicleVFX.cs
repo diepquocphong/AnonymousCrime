@@ -36,7 +36,6 @@ public class VehicleVFX : MonoBehaviour
 
     private PhysicsCarController carController;
     private PhysicsBikeController bikeController;
-    private HoverVehicleController hoverController;
     private WheelCollider[] wheelColliders;
     private bool previousDrifting = false;
 
@@ -44,7 +43,6 @@ public class VehicleVFX : MonoBehaviour
     {
         carController = GetComponent<PhysicsCarController>();
         bikeController = GetComponent<PhysicsBikeController>();
-        hoverController = GetComponent<HoverVehicleController>();
 
         if (carController != null)
         {
@@ -61,10 +59,6 @@ public class VehicleVFX : MonoBehaviour
                 bikeController.frontWheelCollider,
                 bikeController.rearWheelCollider
             };
-        }
-        else if (hoverController != null)
-        {
-            wheelColliders = new WheelCollider[0];
         }
         else
         {
@@ -129,8 +123,6 @@ public class VehicleVFX : MonoBehaviour
             health = (float)carController.currentHealth.Get(gameObject);
         else if (bikeController != null)
             health = (float)bikeController.currentHealth.Get(gameObject);
-        else if (hoverController != null)
-            health = (float)hoverController.currentHealth.Get(gameObject);
 
         if (health <= 0)
         {
@@ -171,24 +163,18 @@ public class VehicleVFX : MonoBehaviour
             isEnabled = carController.isVehicleEnabled;
         else if (bikeController != null)
             isEnabled = bikeController.isVehicleEnabled;
-        else if (hoverController != null)
-            isEnabled = hoverController.isVehicleEnabled;
 
         float health = carController != null
             ? (float)carController.currentHealth.Get(gameObject)
             : bikeController != null
                 ? (float)bikeController.currentHealth.Get(gameObject)
-                : hoverController != null
-                    ? (float)hoverController.currentHealth.Get(gameObject)
-                    : 0f;
+                : 0f;
 
         float fuel = carController != null
             ? (float)carController.currentFuel.Get(gameObject)
             : bikeController != null
                 ? (float)bikeController.currentFuel.Get(gameObject)
-                : hoverController != null
-                    ? (float)hoverController.currentFuel.Get(gameObject)
-                    : 0f;
+                : 0f;
 
         if (isEnabled && health > 0 && fuel > 0)
         {
@@ -210,8 +196,6 @@ public class VehicleVFX : MonoBehaviour
 
     private void HandleSkidMarks()
     {
-        if (hoverController != null) return;
-
         bool isDrifting = false;
         if (carController != null)
             isDrifting = carController.isDrifting || carController.handbrakeInput;
@@ -276,8 +260,6 @@ public class VehicleVFX : MonoBehaviour
 
     private void HandleDriftSmoke()
     {
-        if (hoverController != null) return;
-
         bool isDrifting = false;
         if (carController != null)
             isDrifting = carController.isDrifting || carController.handbrakeInput;

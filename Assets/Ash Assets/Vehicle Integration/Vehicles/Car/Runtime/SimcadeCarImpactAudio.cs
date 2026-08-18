@@ -12,6 +12,12 @@ namespace FranklinGame.Vehicles
     [RequireComponent(typeof(Rigidbody))]
     public class SimcadeCarImpactAudio : MonoBehaviour
     {
+        /// <summary>
+        /// Synchronous, unthrottled contact emitted after the shared ignored-prop
+        /// filter but before audio/VFX configuration and cooldown. Subscribers
+        /// must consume Collision data inside the callback and never retain it.
+        /// </summary>
+        public event Action<Collision> EventCollisionContact;
         public event Action<bool, float> EventImpactAccepted;
         public event Action<Collision, bool, float> EventImpactContactAccepted;
 
@@ -51,13 +57,29 @@ namespace FranklinGame.Vehicles
         private float m_LastImpactSeverity;
         private Transform[] m_EffectRoots;
         private ParticleSystem[][] m_EffectSystems;
+        private SimcadeImpactEffectAutoSleep[] m_EffectSleepers;
+        private float[] m_EffectSleepDurations;
         private int m_NextEffectIndex;
+        private Collision m_DispatchedCollision;
+        private bool m_DispatchedCollisionConsumed;
 
         public bool IsConfigured =>
             m_AudioSource != null &&
             m_LightImpactClip != null &&
             m_HeavyImpactClip != null &&
             m_ImpactEffectPrefab != null;
+
+        /// <summary>
+        /// Consumes the collision currently being dispatched through
+        /// EventCollisionContact. Character-body reactions use this to prevent a
+        /// flesh contact from entering metal audio, spark, damage or deformation.
+        /// Calls outside that synchronous callback are ignored.
+        /// </summary>
+        public void ConsumeCurrentCollision(Collision collision)
+        {
+            if (collision != null && ReferenceEquals(m_DispatchedCollision, collision))
+                m_DispatchedCollisionConsumed = true;
+        }
 
         public void Configure(
             AudioSource audioSource,
@@ -120,7 +142,26 @@ namespace FranklinGame.Vehicles
 
         protected virtual void OnCollisionEnter(Collision collision)
         {
-            if (!IsConfigured || collision == null || IsIgnoredImpact(collision)) return;
+            if (collision == null || IsIgnoredImpact(collision)) return;
+
+            // Character reactions must not be lost because the audio source is
+            // unconfigured or another collision is inside the SFX cooldown.
+            // This remains the only OnCollisionEnter callback for the Car.
+            bool collisionConsumed;
+            m_DispatchedCollision = collision;
+            m_DispatchedCollisionConsumed = false;
+            try
+            {
+                EventCollisionContact?.Invoke(collision);
+            }
+            finally
+            {
+                collisionConsumed = m_DispatchedCollisionConsumed;
+                m_DispatchedCollision = null;
+                m_DispatchedCollisionConsumed = false;
+            }
+            if (collisionConsumed) return;
+            if (!IsConfigured) return;
 
             float contactSpeed = GetNormalContactSpeed(collision);
             float impulseSpeed = collision.impulse.magnitude /
@@ -225,6 +266,8 @@ namespace FranklinGame.Vehicles
                 : Mathf.Clamp(m_EffectPoolSize, 2, 4);
             m_EffectRoots = new Transform[poolSize];
             m_EffectSystems = new ParticleSystem[poolSize][];
+            m_EffectSleepers = new SimcadeImpactEffectAutoSleep[poolSize];
+            m_EffectSleepDurations = new float[poolSize];
 
             for (int index = 0; index < poolSize; index++)
             {
@@ -235,6 +278,7 @@ namespace FranklinGame.Vehicles
                 effectTransform.localRotation = Quaternion.identity;
 
                 ParticleSystem[] systems = instance.GetComponentsInChildren<ParticleSystem>(true);
+                float maximumParticleLifetime = 0f;
                 for (int systemIndex = 0; systemIndex < systems.Length; systemIndex++)
                 {
                     ParticleSystem system = systems[systemIndex];
@@ -244,6 +288,10 @@ namespace FranklinGame.Vehicles
                     main.stopAction = ParticleSystemStopAction.None;
                     main.simulationSpace = ParticleSystemSimulationSpace.World;
                     main.cullingMode = ParticleSystemCullingMode.Automatic;
+                    maximumParticleLifetime = Mathf.Max(
+                        maximumParticleLifetime,
+                        main.startLifetime.constantMax
+                    );
 
                     bool isSparkTrail = system.gameObject.name == "Sparks";
                     int requiredParticles = isSparkTrail
@@ -274,6 +322,14 @@ namespace FranklinGame.Vehicles
 
                 m_EffectRoots[index] = effectTransform;
                 m_EffectSystems[index] = systems;
+                m_EffectSleepers[index] =
+                    instance.AddComponent<SimcadeImpactEffectAutoSleep>();
+                m_EffectSleepDurations[index] = Mathf.Clamp(
+                    maximumParticleLifetime + 0.25f,
+                    0.35f,
+                    2.5f
+                );
+                instance.SetActive(false);
             }
         }
 
@@ -295,6 +351,8 @@ namespace FranklinGame.Vehicles
                         );
                     }
                 }
+                if (m_EffectSleepers != null && index < m_EffectSleepers.Length)
+                    m_EffectSleepers[index]?.SleepNow();
             }
         }
 
@@ -310,6 +368,7 @@ namespace FranklinGame.Vehicles
             Transform effectRoot = m_EffectRoots[index];
             ParticleSystem[] systems = m_EffectSystems[index];
             if (effectRoot == null || systems == null || systems.Length == 0) return;
+            if (!effectRoot.gameObject.activeSelf) effectRoot.gameObject.SetActive(true);
 
             Vector3 position = transform.position;
             Vector3 normal = transform.up;
@@ -344,6 +403,14 @@ namespace FranklinGame.Vehicles
                     : (isHeavy ? m_HeavyFlashCount : 1);
                 system.Emit(count);
             }
+            if (m_EffectSleepers != null && index < m_EffectSleepers.Length)
+            {
+                float duration = m_EffectSleepDurations != null &&
+                    index < m_EffectSleepDurations.Length
+                        ? m_EffectSleepDurations[index]
+                        : 1f;
+                m_EffectSleepers[index]?.Arm(duration);
+            }
         }
 
         protected virtual void OnValidate()
@@ -355,6 +422,39 @@ namespace FranklinGame.Vehicles
             m_EffectPoolSize = Mathf.Clamp(m_EffectPoolSize, 2, 4);
             m_LightMaxVolume = Mathf.Max(m_LightMinVolume, m_LightMaxVolume);
             m_HeavyMaxVolume = Mathf.Max(m_HeavyMinVolume, m_HeavyMaxVolume);
+        }
+    }
+
+    /// <summary>
+    /// Sleeps one pooled impact hierarchy after its short manual particle burst.
+    /// The helper itself only receives Update while the effect is visible.
+    /// </summary>
+    [DisallowMultipleComponent]
+    internal sealed class SimcadeImpactEffectAutoSleep : MonoBehaviour
+    {
+        private float m_SleepAt;
+
+        public void Arm(float duration)
+        {
+            m_SleepAt = Time.unscaledTime + Mathf.Max(0.05f, duration);
+            enabled = true;
+        }
+
+        public void SleepNow()
+        {
+            enabled = false;
+            if (gameObject.activeSelf) gameObject.SetActive(false);
+        }
+
+        private void Awake()
+        {
+            enabled = false;
+        }
+
+        private void Update()
+        {
+            if (Time.unscaledTime < m_SleepAt) return;
+            SleepNow();
         }
     }
 }

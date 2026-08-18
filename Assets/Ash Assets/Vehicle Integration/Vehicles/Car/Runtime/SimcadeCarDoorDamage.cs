@@ -4,8 +4,9 @@ namespace FranklinGame.Vehicles
 {
     /// <summary>
     /// Converts each authored Car door into a lightweight physical hinge after a
-    /// local heavy impact. A second, stronger impact can break that hinge while
-    /// the visual door remains as physical debris in the scene.
+    /// local heavy impact. Two-door profiles leave rear references null; four-door
+    /// profiles bind all slots. A second, stronger impact can break that hinge
+    /// while the visual door remains as physical debris in the scene.
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(Rigidbody))]
@@ -36,6 +37,15 @@ namespace FranklinGame.Vehicles
             public bool CreatedBody;
             public bool CreatedHinge;
             public bool CreatedLoosePart;
+            public Transform Window;
+            public Transform WindowParent;
+            public Vector3 WindowLocalPosition;
+            public Quaternion WindowLocalRotation;
+            public Vector3 WindowLocalScale;
+            public bool HasWindowAnchor;
+            public Vector3 RuntimeRelativePosition;
+            public Quaternion RuntimeRelativeRotation;
+            public bool HasRuntimeRelativePose;
         }
 
         [Header("Impact Thresholds")]
@@ -76,11 +86,21 @@ namespace FranklinGame.Vehicles
         private Rigidbody m_CarBody;
         private Collider[] m_CarColliders;
 
-        public bool HasCompleteWindowConfiguration =>
-            this.m_DriverWindow != null &&
-            this.m_PassengerWindow != null &&
-            this.m_RearLeftWindow != null &&
-            this.m_RearRightWindow != null;
+        public bool HasCompleteWindowConfiguration
+        {
+            get
+            {
+                CarEntry entry = this.m_Entry != null
+                    ? this.m_Entry
+                    : this.GetComponent<CarEntry>();
+                return this.m_DriverWindow != null &&
+                    this.m_PassengerWindow != null &&
+                    (entry == null || entry.rearLeftDoorTransform == null ||
+                     this.m_RearLeftWindow != null) &&
+                    (entry == null || entry.rearRightDoorTransform == null ||
+                     this.m_RearRightWindow != null);
+            }
+        }
 
         public int DamagedDoorCount
         {
@@ -100,6 +120,48 @@ namespace FranklinGame.Vehicles
         public bool HasDamagedDoors => this.DamagedDoorCount > 0;
 
         /// <summary>
+        /// Releases door pivots that were moved out of the Car hierarchy. This is
+        /// called only when a terminal wreck is already far away and off camera;
+        /// intact doors remain owned by the Car root and are destroyed with it.
+        /// </summary>
+        internal void CleanupRuntimeDoorsForTerminalWreck()
+        {
+            for (int i = 0; i < this.m_Doors.Length; ++i)
+            {
+                DoorSlot slot = this.m_Doors[i];
+                if (slot == null || slot.State == DoorDamageState.Intact) continue;
+
+                slot.LoosePart?.PrepareForTerminalCleanup();
+                if (slot.Hinge != null) slot.Hinge.connectedBody = null;
+                if (slot.Body != null)
+                {
+                    slot.Body.linearVelocity = Vector3.zero;
+                    slot.Body.angularVelocity = Vector3.zero;
+                    slot.Body.detectCollisions = false;
+                    slot.Body.isKinematic = true;
+                }
+                if (slot.Collider != null) slot.Collider.enabled = false;
+
+                Transform pivot = slot.Pivot;
+                if (pivot != null)
+                {
+                    // Disable immediately so no detached renderer or physics body
+                    // survives the frame in which the terminal Car is released.
+                    pivot.gameObject.SetActive(false);
+                    Destroy(pivot.gameObject);
+                }
+
+                slot.Pivot = null;
+                slot.Collider = null;
+                slot.Body = null;
+                slot.Hinge = null;
+                slot.LoosePart = null;
+                slot.Renderers = null;
+                slot.State = DoorDamageState.Detached;
+            }
+        }
+
+        /// <summary>
         /// Authoring API used by the existing Car installer. Reparenting keeps
         /// world-space placement, so the glass immediately becomes part of the
         /// matching door without duplicating a mesh or a Rigidbody.
@@ -116,6 +178,7 @@ namespace FranklinGame.Vehicles
             this.m_RearRightWindow = rearRightWindow;
             if (this.m_Entry == null) this.m_Entry = this.GetComponent<CarEntry>();
             this.BindWindowsToDoors();
+            this.RefreshWindowBindings();
         }
 
         public bool IsDoorMissing(CarEntrySideMode side)
@@ -185,12 +248,80 @@ namespace FranklinGame.Vehicles
 
             if (this.m_Impact != null)
                 this.m_Impact.EventImpactContactAccepted += this.OnImpactAccepted;
+            this.SetRuntimeDoorsActive(true);
         }
 
         private void OnDisable()
         {
             if (this.m_Impact != null)
                 this.m_Impact.EventImpactContactAccepted -= this.OnImpactAccepted;
+
+            // A loose door is a world-root object. Mirror the owner's hierarchy
+            // activity so pooled/streamed Cars cannot leave its physics running.
+            if (!this.gameObject.activeInHierarchy)
+                this.SetRuntimeDoorsActive(false);
+        }
+
+        private void OnDestroy()
+        {
+            // Covers despawn and scene teardown paths that do not pass through the
+            // normal terminal-wreck visibility cleanup.
+            this.CleanupRuntimeDoorsForTerminalWreck();
+        }
+
+        private void SetRuntimeDoorsActive(bool active)
+        {
+            for (int i = 0; i < this.m_Doors.Length; ++i)
+            {
+                DoorSlot slot = this.m_Doors[i];
+                if (slot == null || slot.State == DoorDamageState.Intact ||
+                    slot.Pivot == null)
+                {
+                    continue;
+                }
+
+                if (!active)
+                {
+                    slot.RuntimeRelativePosition = this.transform.InverseTransformPoint(
+                        slot.Pivot.position
+                    );
+                    slot.RuntimeRelativeRotation = Quaternion.Inverse(
+                        this.transform.rotation
+                    ) * slot.Pivot.rotation;
+                    slot.HasRuntimeRelativePose = true;
+                    if (slot.Body != null)
+                    {
+                        slot.Body.linearVelocity = Vector3.zero;
+                        slot.Body.angularVelocity = Vector3.zero;
+                    }
+
+                    if (slot.Pivot.gameObject.activeSelf)
+                        slot.Pivot.gameObject.SetActive(false);
+                    continue;
+                }
+
+                // Detached panels are terminal debris. Do not resurrect them at
+                // their stale world pose when a pooled Car is moved and enabled.
+                // Garage repair can still reactivate and restore the cached door.
+                if (slot.State == DoorDamageState.Detached) continue;
+
+                if (slot.HasRuntimeRelativePose)
+                {
+                    slot.Pivot.SetPositionAndRotation(
+                        this.transform.TransformPoint(slot.RuntimeRelativePosition),
+                        this.transform.rotation * slot.RuntimeRelativeRotation
+                    );
+                }
+                RestoreWindowAnchor(slot);
+                if (!slot.Pivot.gameObject.activeSelf)
+                    slot.Pivot.gameObject.SetActive(true);
+                if (slot.Body != null)
+                {
+                    slot.Body.linearVelocity = Vector3.zero;
+                    slot.Body.angularVelocity = Vector3.zero;
+                    slot.Body.WakeUp();
+                }
+            }
         }
 
         private void CacheDoors()
@@ -202,28 +333,33 @@ namespace FranklinGame.Vehicles
 
             this.SetDoor(
                 0, CarEntrySideMode.DriverDoor,
-                this.m_Entry.doorTransform
+                this.m_Entry.doorTransform,
+                this.m_DriverWindow
             );
             this.SetDoor(
                 1, CarEntrySideMode.PassengerDoor,
-                this.m_Entry.passengerDoorTransform
+                this.m_Entry.passengerDoorTransform,
+                this.m_PassengerWindow
             );
             this.SetDoor(
                 2, CarEntrySideMode.RearLeftDoor,
-                this.m_Entry.rearLeftDoorTransform
+                this.m_Entry.rearLeftDoorTransform,
+                this.m_RearLeftWindow
             );
             this.SetDoor(
                 3, CarEntrySideMode.RearRightDoor,
-                this.m_Entry.rearRightDoorTransform
+                this.m_Entry.rearRightDoorTransform,
+                this.m_RearRightWindow
             );
         }
 
         private void SetDoor(
             int index,
             CarEntrySideMode side,
-            Transform pivot)
+            Transform pivot,
+            Transform window)
         {
-            this.m_Doors[index] = new DoorSlot
+            DoorSlot slot = new DoorSlot
             {
                 Side = side,
                 Pivot = pivot,
@@ -242,6 +378,8 @@ namespace FranklinGame.Vehicles
                     ? pivot.GetComponentsInChildren<Renderer>(true)
                     : null
             };
+            CacheWindowAnchor(slot, window);
+            this.m_Doors[index] = slot;
         }
 
         private DoorSlot GetDoor(CarEntrySideMode side)
@@ -322,6 +460,7 @@ namespace FranklinGame.Vehicles
             Transform pivot = slot.Pivot;
             if (pivot == null || this.m_CarBody == null) return;
 
+            RestoreWindowAnchor(slot);
             Vector3 hingePosition = pivot.position;
             pivot.SetParent(null, true);
 
@@ -430,6 +569,7 @@ namespace FranklinGame.Vehicles
         {
             if (slot == null || slot.State == DoorDamageState.Detached) return;
 
+            RestoreWindowAnchor(slot);
             if (slot.Hinge != null)
             {
                 slot.Hinge.connectedBody = null;
@@ -466,6 +606,7 @@ namespace FranklinGame.Vehicles
             Transform pivot = slot.Pivot;
             if (pivot == null) return false;
 
+            if (!pivot.gameObject.activeSelf) pivot.gameObject.SetActive(true);
             if (slot.LoosePart != null) slot.LoosePart.enabled = false;
             if (slot.Hinge != null)
             {
@@ -484,6 +625,7 @@ namespace FranklinGame.Vehicles
             pivot.localPosition = slot.OriginalLocalPosition;
             pivot.localRotation = slot.OriginalLocalRotation;
             pivot.localScale = slot.OriginalLocalScale;
+            RestoreWindowAnchor(slot);
 
             if (slot.CreatedHinge && slot.Hinge != null) Destroy(slot.Hinge);
             if (slot.CreatedBody && slot.Body != null) Destroy(slot.Body);
@@ -498,6 +640,7 @@ namespace FranklinGame.Vehicles
             slot.CreatedBody = false;
             slot.CreatedHinge = false;
             slot.CreatedLoosePart = false;
+            slot.HasRuntimeRelativePose = false;
             slot.State = DoorDamageState.Intact;
             slot.Renderers = pivot.GetComponentsInChildren<Renderer>(true);
             return true;
@@ -572,9 +715,13 @@ namespace FranklinGame.Vehicles
 
             Transform[] transforms = this.GetComponentsInChildren<Transform>(true);
             if (this.m_DriverWindow == null)
-                this.m_DriverWindow = FindNamedTransform(transforms, "FLWin");
+                this.m_DriverWindow = FindNamedTransform(
+                    transforms, "WindowL", "FLWin"
+                );
             if (this.m_PassengerWindow == null)
-                this.m_PassengerWindow = FindNamedTransform(transforms, "FRWin");
+                this.m_PassengerWindow = FindNamedTransform(
+                    transforms, "WindowR", "FRWin"
+                );
             if (this.m_RearLeftWindow == null)
                 this.m_RearLeftWindow = FindNamedTransform(transforms, "RLWin");
             if (this.m_RearRightWindow == null)
@@ -599,7 +746,76 @@ namespace FranklinGame.Vehicles
             window.SetParent(door, true);
         }
 
-        private static Transform FindNamedTransform(Transform[] transforms, string targetName)
+        private void RefreshWindowBindings()
+        {
+            RefreshWindowBinding(
+                this.GetDoor(CarEntrySideMode.DriverDoor),
+                this.m_DriverWindow
+            );
+            RefreshWindowBinding(
+                this.GetDoor(CarEntrySideMode.PassengerDoor),
+                this.m_PassengerWindow
+            );
+            RefreshWindowBinding(
+                this.GetDoor(CarEntrySideMode.RearLeftDoor),
+                this.m_RearLeftWindow
+            );
+            RefreshWindowBinding(
+                this.GetDoor(CarEntrySideMode.RearRightDoor),
+                this.m_RearRightWindow
+            );
+        }
+
+        private static void RefreshWindowBinding(DoorSlot slot, Transform window)
+        {
+            if (slot == null) return;
+            CacheWindowAnchor(slot, window);
+            slot.Renderers = slot.Pivot != null
+                ? slot.Pivot.GetComponentsInChildren<Renderer>(true)
+                : null;
+        }
+
+        private static void CacheWindowAnchor(DoorSlot slot, Transform window)
+        {
+            slot.Window = window;
+            slot.HasWindowAnchor = false;
+            if (slot.Pivot == null || window == null || window == slot.Pivot) return;
+
+            if (!window.IsChildOf(slot.Pivot)) window.SetParent(slot.Pivot, true);
+            slot.WindowParent = window.parent;
+            slot.WindowLocalPosition = window.localPosition;
+            slot.WindowLocalRotation = window.localRotation;
+            slot.WindowLocalScale = window.localScale;
+            slot.HasWindowAnchor = true;
+        }
+
+        private static void RestoreWindowAnchor(DoorSlot slot)
+        {
+            if (slot == null || !slot.HasWindowAnchor || slot.Window == null ||
+                slot.Pivot == null)
+            {
+                return;
+            }
+
+            Transform parent = slot.WindowParent;
+            if (parent == null ||
+                (parent != slot.Pivot && !parent.IsChildOf(slot.Pivot)))
+            {
+                parent = slot.Pivot;
+            }
+
+            if (slot.Window.parent != parent) slot.Window.SetParent(parent, false);
+            slot.Window.SetLocalPositionAndRotation(
+                slot.WindowLocalPosition,
+                slot.WindowLocalRotation
+            );
+            slot.Window.localScale = slot.WindowLocalScale;
+        }
+
+        private static Transform FindNamedTransform(
+            Transform[] transforms,
+            string targetName,
+            string fallbackName = null)
         {
             if (transforms == null) return null;
 
@@ -607,6 +823,13 @@ namespace FranklinGame.Vehicles
             {
                 Transform candidate = transforms[i];
                 if (candidate != null && candidate.name == targetName) return candidate;
+            }
+
+            if (string.IsNullOrEmpty(fallbackName)) return null;
+            for (int i = 0; i < transforms.Length; ++i)
+            {
+                Transform candidate = transforms[i];
+                if (candidate != null && candidate.name == fallbackName) return candidate;
             }
 
             return null;
@@ -683,6 +906,14 @@ namespace FranklinGame.Vehicles
             this.m_Detached = true;
             this.m_DetachedAt = Time.unscaledTime;
             this.m_StillSince = 0f;
+        }
+
+        internal void PrepareForTerminalCleanup()
+        {
+            this.CancelInvoke();
+            this.m_Owner = null;
+            this.m_Body = null;
+            this.enabled = false;
         }
 
         private void OnCollisionEnter(Collision collision)

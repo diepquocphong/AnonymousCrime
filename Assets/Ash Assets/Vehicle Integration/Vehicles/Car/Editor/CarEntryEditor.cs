@@ -57,11 +57,27 @@ public class CarEntryEditor : Editor
         root.Add(MakeFoldout("Animation Settings", true, new[]
         {
             "entryAnimation",
-            "useMirroredEntryAnimation",
-            "mirroredEntryAnimation",
-            "mirrorDoorHandleHandWithEntry",
             "exitAnimation",
             "animationMask"
+        }));
+
+        root.Add(Spacer());
+        root.Add(MakeFoldout("Passenger Door Entry", true, new[]
+        {
+            "entrySideMode",
+            "mirroredEntryAnimation",
+            "passengerEntryStandingPoint",
+            "passengerEntryStepPoint",
+            "passengerEntryCabinPoint",
+            "passengerCabinNormalizedTime",
+            "passengerDoorTransform",
+            "passengerDoorOpenRotation",
+            "passengerDoorOpenLocalOffset",
+            "passengerDoorHandleTarget",
+            "passengerDoorAudioSource",
+            "occupiedDoorOpenGestureNormalizedTime",
+            "occupiedDoorReachLeadTime",
+            "passengerToDriverTransferDuration"
         }));
 
         root.Add(Spacer());
@@ -85,6 +101,7 @@ public class CarEntryEditor : Editor
             "rearLeftSeatParent",
             "rearLeftDoorTransform",
             "rearLeftDoorOpenRotation",
+            "rearLeftDoorOpenLocalOffset",
             "rearLeftDoorHandleTarget",
             "rearLeftDoorAudioSource",
             "rearRightEntryStandingPoint",
@@ -92,6 +109,7 @@ public class CarEntryEditor : Editor
             "rearRightSeatParent",
             "rearRightDoorTransform",
             "rearRightDoorOpenRotation",
+            "rearRightDoorOpenLocalOffset",
             "rearRightDoorHandleTarget",
             "rearRightDoorAudioSource",
             "rearLeftLapLeftHandTarget",
@@ -126,6 +144,7 @@ public class CarEntryEditor : Editor
         {
             "doorTransform",
             "doorOpenRotation",
+            "doorOpenLocalOffset",
             "doorRotationDuration",
             "doorRotationStartDelay",
             "doorResetDelay"

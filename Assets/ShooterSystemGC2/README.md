@@ -4,20 +4,37 @@ Hệ thống shooter mobile tích hợp với **Game Creator 2 Shooter** và dù
 **Weapons Low**. Toàn bộ code, UI ImageGen, catalog, weapon asset sinh tự động và model
 được dùng bởi hệ thống đều nằm trong `Assets/ShooterSystemGC2`.
 
+> **Ranh giới tích hợp:** `Assets/Plugins/GameCreator` là dependency **chỉ đọc**.
+> Không chỉnh sửa, patch, tạo, xóa hoặc ghi đè script, asset hay `.meta` trong thư mục
+> này. Mọi sửa lỗi và mở rộng phải nằm trong `Assets/ShooterSystemGC2`, sử dụng public
+> API, component, adapter/wrapper, event hoặc asset cục bộ. Nếu GC2 không cung cấp
+> extension point phù hợp thì phải dừng và báo trước, không sửa Core.
+
+> Cập nhật gần nhất: 2026-08-17 — weapon wheel hai trang, RGD-5, Smoke, Flash,
+> RPG rocket/Bazooka animation, explosion decal và destruction Bike/Car.
+
 ## Cách dùng
 
 - Vào Play Mode: Player mặc định ở chế độ melee, Shooter không tự trang bị súng.
   M1911 chỉ là ô được focus ban đầu trong weapon wheel; súng chỉ được equip sau khi tap.
 - Tap vào `Weapon Card` ở HUD góc phải trên để mở menu chọn súng.
-- Weapon menu dùng vòng 8 lát bán trong suốt kiểu GTA; nền ngoài và tâm rỗng để vẫn thấy gameplay.
+- Weapon menu dùng vòng 8 lát bán trong suốt kiểu GTA; nền ngoài và tâm rỗng để vẫn
+  thấy gameplay. Vòng luôn giữ đúng 8 sector theo artwork, không tăng sector khi catalog
+  có thêm weapon.
 - Súng đang chọn được đánh dấu bằng đúng một lát vành khăn xanh navy bão hòa, màu đặc
   không alpha; lát này bật/tắt trực tiếp để luôn render rõ và không dùng ô vuông.
-- Tap một trong 8 ô để equip: M1911, UZI, AK-74, M4, Benelli M4, M249, M107, RPG-7.
+- Trang `1 / 2` chứa 8 weapon: M1911, UZI, AK-74, M4, Benelli M4, M249, M107 và RPG-7.
+- Hai nút `PREV/NEXT` dưới vòng tròn chuyển trang nhưng không đóng menu. Trang `2 / 2`
+  chứa RGD-5, Smoke Grenade và Flash Grenade; các sector trống vẫn giữ menu mở. Khi mở
+  wheel, hệ thống tự về đúng trang của weapon đang cầm. Toàn bộ layout nằm trong Safe
+  Area và tự scale đồng nhất trên màn hình thấp/hẹp.
 - Nút cam: giữ để tự ngắm; hệ thống chỉ bóp cò sau khi pose bắn đã blend xong.
   Thả trước khi pose sẵn sàng sẽ hủy phát bắn, thả sau đó sẽ dừng bắn và thoát ngắm.
 - Fire button giữ quyền điều khiển từ `PointerDown` tới `PointerUp` của đúng ngón tay
-  đã chạm. Kéo ngón tay ra ngoài button trong khi orbit camera không nhả cò; ngón tay
-  orbit thứ hai cũng không làm gián đoạn trạng thái giữ Fire.
+  đã chạm. Giữ yên chỉ bắn; sau khi chính ngón Fire vượt drag threshold chuẩn của
+  EventSystem, ngón đó trở thành orbit owner và vẫn tiếp tục giữ cò kể cả khi kéo ra
+  ngoài button. Một ngón rảnh thứ hai ở vùng gameplay bên phải cũng có thể orbit mà
+  không làm gián đoạn trạng thái giữ Fire.
 - Với súng `Single`, tiếp tục giữ Fire sẽ tự nhả/kích hoạt cò lại theo đúng fire rate
   của từng súng. Vòng lặp dừng khi thả Fire hoặc hết băng; hết băng vẫn cần một lần
   nhấn Fire mới để bắt đầu reload.
@@ -25,9 +42,13 @@ Hệ thống shooter mobile tích hợp với **Game Creator 2 Shooter** và dù
   reset theo từng viên đạn thực tế; sau viên cuối 1 giây không bắn, wrapper chỉ tắt
   mode và khôi phục hướng trước đó, thông thường là `Pivot`. Không còn facing class
   riêng của Franklin Shooter.
-- Recoil camera theo cả trục ngang và dọc đã giảm 50% so với weapon template gốc.
-- Fire gesture của cả tám súng dùng `Franklin Shooter Upper Body` mask để phối hợp
-  với locomotion toàn thân ở layer dưới, đúng thứ tự animation của Shooter GC2.
+- Trong toàn bộ thời gian giữ Fire, runtime Franklin dùng public API
+  `ShotCamera.ShotType.Recoil.Run(0, Vector2.zero)` ở cả Update/LateUpdate để tâm ngắm
+  và Camera Shot không tự dâng lên hoặc cộng pitch vào touch-drag. Recoil xương tay/vai
+  và model súng của GC2 vẫn giữ nguyên, nên phát bắn vẫn có phản hồi hình thể.
+- Fire gesture của súng đạn thường dùng `Franklin Shooter Upper Body` mask để phối hợp
+  với locomotion toàn thân ở layer dưới. RPG và throwable dùng state/mask riêng được mô
+  tả ở phần bên dưới.
 - Khi bắt đầu giữ Fire trên mặt đất, Shooter giành quyền animation theo thứ tự cố định:
   đóng ngay Jog/Sprint layer `2` cùng run-start/run-stop Gesture, bật
   state `Shooter_Locomotion` gốc ở layer `7`, sau đó mới vào ADS layer `8`
@@ -111,10 +132,11 @@ Hệ thống shooter mobile tích hợp với **Game Creator 2 Shooter** và dù
 - Khi cầm súng, các idle variation của Player bị khóa để không ghi đè Shooter stance; chuyển về melee thì tự mở lại.
 - State `Shooter_Locomotion` chỉ chạy ở layer `7` trong lúc aim/bắn hoặc khi bật chế
   độ đi cẩn thận. Đây là bản sao nguyên trạng của asset GC2 gốc: full-body,
-  tám hướng và `Speed Override` của Shooter. Cả M1911, UZI, AK-74, M4, Benelli M4,
-  M249, M107 và RPG-7 đều liên kết trực tiếp tới cùng state này. Khi ngồi Bike, state
-  full-body không được bật để animation ghế lái/hành khách vẫn sở hữu pelvis và chân.
-- Tracer, muzzle flash, bullet impact và vụ nổ RPG dùng material
+  tám hướng và `Speed Override` của Shooter. Súng đạn thường dùng state này khi aim/bắn;
+  RPG chỉ bật pose Bazooka khi hold Fire, còn throwable giữ locomotion bình thường.
+  Khi ngồi Bike, state full-body không được bật để animation ghế lái/hành khách vẫn sở
+  hữu pelvis và chân.
+- Tracer, muzzle flash, bullet impact, throwable và vụ nổ RPG dùng material
   `Universal Render Pipeline/Particles/Unlit` cục bộ, không còn dùng shader Built-in
   gây màu hồng trong URP.
 - Ground, dốc và tường dùng chung một GPU-instanced bullet-decal batch với ring-buffer
@@ -134,7 +156,65 @@ Hệ thống shooter mobile tích hợp với **Game Creator 2 Shooter** và dù
   đang cầm. Sau khi animation cất điện thoại hoàn tất, hệ thống equip lại chính weapon
   và prop đó nên số đạn hiện tại được giữ nguyên. Nếu lúc restore Player đang lái Bike
   với súng nặng, cache điện thoại được chuyển sang cache Bike và chỉ restore khi xuống xe.
-- Keyboard debug: `Tab`, `Esc`, `R`, phím `1` đến `8`.
+- Keyboard debug: `Tab`, `Esc`, `R`, phím `1` đến `8`. RGD-5/Smoke/Flash được chọn
+  từ trang 2 của weapon wheel hoặc API `SelectWeaponById`.
+
+## Throwable và RPG-7
+
+### RGD-5, Smoke và Flash
+
+- Equip một throwable không tự đổi pose hoặc bone. Chỉ khi giữ Fire, Player mới bật
+  `Object Direction` gốc của GC2, vào Grenade Sight và blend pose chuẩn bị ném. Thả Fire
+  mới ném; thả trước khi pose sẵn sàng sẽ hủy yêu cầu.
+- Pose hold chỉ giải tay phải: bàn tay nằm cạnh/sau thái dương với elbow hint riêng;
+  tay trái tiếp tục theo locomotion và không bị IK kéo lên mặt. Head/Neck nhìn theo tâm
+  Camera Shot vì mobile không dùng cursor. Rotation tay phải do GC2 author vẫn được giữ,
+  nên hướng projectile không bị lệch trong lúc pose đang blend.
+- TPS camera khi hold blend mượt bằng GC2 `ShotSystemThirdPerson.Aim`: shoulder `+0.30`,
+  radius `-1.15`, smooth time `0.14s`. Nhả Fire trả đúng shoulder/radius cũ, không reset
+  orbit. Throwable không bật camera FPS.
+- Khi số lượng RGD-5/Smoke/Flash về `0`, model trên tay được ẩn ngay và Player tự trở về
+  melee; không còn giữ prop rỗng.
+- RGD-5: bán kính `4m`, `100` character damage, `18` vehicle damage, falloff theo khoảng
+  cách, ragdoll impulse và explosion/audio dùng pool.
+- Smoke: cloud bán kính `7.5m`, tồn tại `18s`, có loop hiss riêng. Pool cứng 2 slot,
+  tối đa 64 particle mỗi cloud; slot cũ được recycle thay vì tăng object theo thời gian.
+- Flash: bán kính `12m`, screen/world flash `0.9s`, có flash audio riêng. Pool cứng 2
+  slot, tối đa 12 particle mỗi burst; không tạo Light hoặc Post-processing Volume.
+
+### RPG-7
+
+- RPG dùng ba animation Humanoid cục bộ: Bazooka carry, Bazooka aim và Bazooka shoot.
+  Khi chỉ equip, launcher được vác bằng carry state nhưng **Biomechanics không chạy**.
+  Giữ Fire mới vào `aim-ads`, đặt RPG lên vai và bật GC2 Human Biomechanics; thả Fire
+  mới bắn rocket. Khoảng cách tối thiểu giữa hai phát là `2s`.
+- Projectile là rocket Rigidbody thực, không còn dùng Grenade projectile: vận tốc rời
+  nòng `42m/s`, không gravity/air resistance, tầm tối đa `150m`, collision continuous
+  và nổ khi impact. Rocket mesh trong ống được ẩn sau phát bắn và chỉ hiện khi còn rocket.
+- Khi hold aim, RPG dùng `AimCameraRaycast` gốc của GC2 với mask toàn bộ layer thay vì
+  hội tụ cố định ở `10m`. Đúng lúc nhả Fire, hướng bay được tính lại từ muzzle thật đến
+  điểm raycast giữa Camera Shot; vì vậy orbit/Biomechanics không còn để lại độ trễ hướng
+  bắn. Spread X/Y, motion/airborne accuracy và accuracy kick riêng của RPG đều bằng `0`,
+  nên cùng một tâm ngắm luôn cho cùng một đường bay. Rocket vẫn là vật thể thật và sẽ nổ
+  vào vật cản nằm giữa nòng với điểm ngắm, không xuyên tường để ép trúng mục tiêu phía sau.
+- Rocket có launch transient nghe tối đa `240m`, flight loop 3D nghe tối đa `260m` và
+  doppler nhẹ. Vụ nổ dùng near clip tối đa `110m` cùng distant tail tối đa `320m`.
+- Explosion RPG có bán kính `5m`: character damage `250`, vehicle splash damage `60`,
+  edge multiplier `0.3`, armor absorption `10%` và ragdoll velocity `3.8`.
+- Trúng **trực tiếp** Bike/Car bỏ falloff: health về `0`, hủy warning `1.35s` và chuyển
+  ngay sang terminal wreck/cháy. VFX/audio nổ cục bộ của xe không phát lần hai vì RPG
+  đã sở hữu pooled explosion. Xe chỉ nằm gần vụ nổ và Drone vẫn nhận splash damage,
+  không bị áp quy tắc one-hit này.
+- Khi direct hit vừa phá hủy Bike/Car, Rigidbody gốc nhận đúng một GC2-style
+  `ForceMode.Impulse` theo hướng rocket: delta vận tốc tiến `2.8m/s` và nâng thêm
+  `0.35m/s`. Lực được nhân theo mass nên Bike `200kg` và Car `1000kg` dịch chuyển tương
+  đương. Với Car, terminal wreck cưỡng chế bỏ `FreezeAll` và queue lực sang physics tick
+  kế tiếp, sau khi controller/occupants đã bàn giao xong, để lực không bị trạng thái đỗ xe
+  hoặc destruction frame ghi đè.
+- RPG tạo decal riêng cho hai nhóm bề mặt: wall/ground dùng scorch `2.4m`, Bike/Car/Drone
+  dùng scorch `1.6m` bám theo transform xe. Mỗi decal là một pass gồm crater lõi và vùng
+  cháy đen lớn, không chồng thêm quad. Hit point/normal lấy contact thật của collider nên
+  decal không còn nằm lơ lửng cách tường.
 
 ## Ngân sách hiệu năng mobile
 
@@ -146,8 +226,9 @@ Hệ thống shooter mobile tích hợp với **Game Creator 2 Shooter** và dù
   một ngón chưa capture thực sự bắt đầu di chuyển ở nửa phải màn hình.
 - Muzzle flash dùng pool 4 slot/0.2 giây; impact thường 8 slot/0.75 giây; vỏ đạn prewarm
   12 slot và trả pool sau 0.75 giây; raycast tracer tồn tại 0.1 giây. RPG impact dùng pool
-  2 slot/2.5 giây. Vì GC2 pool có thể nở khi mọi slot đều bận, thời gian sống ngắn là giới
-  hạn đồng thời chính và ngăn automatic weapon tích lũy hàng chục object lâu dài.
+  2 slot/5 giây để giữ tail explosion lâu hơn; RPG bị khóa nhịp 2 giây và projectile có
+  tầm tối đa nên số instance vẫn bị chặn. Smoke/Flash dùng pool cứng 2 slot và recycle
+  slot cũ thay vì nở pool.
 - AK-74, M4, UZI và M249 bắn 10 viên/giây chỉ giữ camera shake `0.1s` mỗi phát. Trước đó
   burst `0.5s` làm khoảng năm `ShakeSystem` cùng cập nhật và cộng rung liên tục.
 - Blood hit dùng pool cứng 6 slot, tối đa 2 splash mới mỗi frame và recycle slot cũ thay
@@ -167,14 +248,18 @@ Hệ thống shooter mobile tích hợp với **Game Creator 2 Shooter** và dù
 - Mỗi GC2 weapon có thêm `InstructionFranklinVehicleDamage` trong `On Hit`.
   Instruction tìm `FranklinBikeHealth` hoặc `SimcadeCarHealth` từ parent của collider
   trúng đạn, nên collider thân, bánh hoặc collider con đều trừ đúng health của xe.
-- Damage cho mỗi projectile/pellet: M1911 `12`, UZI `5`, AK-74 `8`, M4 `8`,
-  Benelli M4 `3` mỗi pellet, M249 `6`, M107 `35`, RPG-7 `50`.
+- Damage cho mỗi projectile/pellet: M1911 `4.8`, UZI `2`, AK-74 `3.2`, M4 `3.2`,
+  Benelli M4 `1.2` mỗi pellet, M249 `2.4`, M107 `14`. Các giá trị này không đẩy Rigidbody.
+- RGD-5 gây `18` vehicle splash damage trong bán kính `4m`. RPG gây `60` splash damage
+  trong bán kính `5m`; riêng direct hit Bike/Car là one-hit terminal destruction như phần
+  RPG bên trên. Smoke và Flash không gây vehicle damage.
 - Người bắn không thể tự làm mất máu Bike/Car mà mình đang ngồi; xe khác vẫn nhận
   damage bình thường khi bắn từ ghế lái hoặc ghế sau.
 - Collider của driver/passenger được nhận diện là Character hit và không bị quy đổi
   nhầm thành damage thân xe dù Character đang parent dưới seat của vehicle.
-- Tích hợp này chỉ nối Shooter hit vào health sẵn có. Nó không tạo hoặc gọi trực tiếp
-  deformation/destruction; hai hệ thống đó không nằm trong phạm vi thay đổi này.
+- Đạn thường chỉ nối Shooter hit vào health sẵn có và không tạo deformation. Khi health
+  xe về 0, damage-effects/destruction hiện có vẫn quản lý smoke/fire, charred wreck,
+  occupant và debris. RPG direct hit chủ động gọi đúng pipeline này ngay lập tức.
 - Installer luôn loại Instruction damage cũ rồi thêm lại đúng một bản, vì vậy chạy
   `Install or Repair` nhiều lần không làm một viên đạn bị tính damage lặp.
 
@@ -196,10 +281,12 @@ Hệ thống shooter mobile tích hợp với **Game Creator 2 Shooter** và dù
 | Benelli M4 | 14/pellet | x2 | 28/pellet | 70% |
 | M249 | 22 | x4.5 | 99 | 45% |
 | M107 | 100 | x2 | 200 | 20% |
-| RPG-7 | 100 | x2 | 200 | 10% |
+| RPG-7 explosion | 250 | — | — | 10% |
+| RGD-5 explosion | 100 | — | — | 25% |
 
-- Với mục tiêu có `100 hp`, M107/RPG-7 hạ bằng một hit thường; AK-74/M4 hạ bằng một
-  headshot. Benelli tính riêng từng pellet nên tổng damage phụ thuộc số pellet trúng.
+- Với mục tiêu có `100 hp`, M107 hạ bằng một body hit; RPG explosion và RGD-5 ở gần tâm
+  cũng có thể hạ bằng một vụ nổ. AK-74/M4 hạ bằng một headshot. Benelli tính riêng từng
+  pellet nên tổng damage phụ thuộc số pellet trúng.
 - `Player.prefab` đang liên kết đúng `Helmet_01.prefab`. Headshot đầu tiên khi Helmet
   đang nằm trên Head chỉ nhận `25%` headshot damage, sau đó nón tách khỏi Head, bật
   collider/Rigidbody, nhận lực theo hướng viên đạn và tự hủy sau 8 giây. Những phát
@@ -251,7 +338,8 @@ FranklinArmorAPI.RemoveArmor(character.gameObject);
   `AK_Aim`, nhưng tắt FreeHand trái và tạm bỏ rider spine offset hậu kỳ; thả Fire
   sẽ phục hồi pose lái nguyên bản. Những ô súng nặng bị khóa và làm mờ trong
   weapon wheel khi đang lái.
-- Người ngồi sau dùng được toàn bộ tám khẩu súng. IK hai tay được nhả cho Shooter,
+- Người ngồi sau dùng được toàn bộ weapon trong catalog, gồm súng đạn, RPG và throwable.
+  IK hai tay được nhả cho Shooter,
   `Shooter_Locomotion` chạy qua upper-body mask, còn IK hai chân và lower-body pose
   vẫn do ghế hành khách giữ.
 - Khi ngồi Bike, bắn không bật `Object Direction` vì Character root đang parent vào
@@ -278,16 +366,19 @@ FranklinArmorAPI.RemoveArmor(character.gameObject);
 
 Chạy `Tools > Franklin Game > Shooter System GC2 > Install or Repair`.
 Installer an toàn khi chạy lặp lại và không tạo file mới ra ngoài
-`Assets/ShooterSystemGC2`. Nó chỉ sửa các reference/material/Sight nguồn GC2 mà weapon
-runtime đang dùng để bảo đảm URP và giữ ổn định rig lúc bắn.
+`Assets/ShooterSystemGC2`. Installer chỉ đọc API/template GC2 và chỉ tạo hoặc cập nhật
+asset cục bộ trong `Assets/ShooterSystemGC2`; nó không ghi vào
+`Assets/Plugins/GameCreator`.
 
 ## Cấu trúc
 
-- `Runtime`: catalog, menu chọn súng, tap HUD, touch controls, manager FPS chung và
-  Instruction damage xe.
-- `Editor`: installer tạo catalog/GC2 weapon assets.
-- `Resources/FranklinShooter`: asset runtime, UI ImageGen, upper-body mask, Shooter
-  locomotion và bộ `Materials`/`Effects` URP cục bộ.
+- `Runtime`: catalog, weapon wheel hai trang, touch controls, manager FPS chung,
+  throwable pools, RPG flight/audio, explosion damage, ragdoll và decal batching.
+- `Editor`: installer đọc template GC2 và tạo/sửa catalog, weapon/Sight, RPG projectile
+  cùng asset URP cục bộ trong `Assets/ShooterSystemGC2`; không ghi vào plugin GameCreator.
+- `Resources/FranklinShooter`: weapon/ammo/Sight runtime, UI ImageGen, Bazooka animation,
+  upper-body mask, Shooter locomotion, projectile, audio và bộ `Materials`/`Effects`
+  URP cục bộ.
 - `WeaponsLow`: Models, Prefabs, material và texture gốc với `.meta` được giữ nguyên.
 
 Scene mẫu và lighting demo của Weapons Low đã bị loại bỏ vì không cần cho runtime. Toàn

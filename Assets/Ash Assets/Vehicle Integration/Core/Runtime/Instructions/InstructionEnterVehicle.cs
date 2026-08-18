@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using FranklinGame.Animations;
 using GameCreator.Runtime.Common;
 using GameCreator.Runtime.Characters;
 using GameCreator.Runtime.VisualScripting;
@@ -34,17 +35,35 @@ namespace GameCreator.Runtime.VisualScripting
             if (character == null) return;
 
             CarEntry carEntry = target.GetComponent<CarEntry>();
+            BikeEntry bikeEntry = carEntry == null
+                ? target.GetComponent<BikeEntry>()
+                : null;
+            Component vehicleEntry = carEntry != null
+                ? carEntry
+                : bikeEntry;
+            if (vehicleEntry == null) return;
+
+            if (character.IsPlayer)
+            {
+                FranklinVehicleInteractionManager manager =
+                    character.GetComponentInChildren<
+                        FranklinVehicleInteractionManager
+                    >(true);
+                if (manager != null)
+                {
+                    manager.RequestSpecificVehicleInteraction(vehicleEntry);
+                    await Task.Yield();
+                    return;
+                }
+            }
+
             if (carEntry != null)
             {
                 carEntry.EnterCar(character);
             }
-            else
+            else if (bikeEntry != null)
             {
-                BikeEntry bikeEntry = target.GetComponent<BikeEntry>();
-                if (bikeEntry != null)
-                {
-                    bikeEntry.EnterBike(character);
-                }
+                bikeEntry.EnterBike(character);
             }
 
             await Task.Delay(10);

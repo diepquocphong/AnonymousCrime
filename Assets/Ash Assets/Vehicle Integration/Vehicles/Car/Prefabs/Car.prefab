@@ -2278,7 +2278,7 @@ MeshRenderer:
   m_RendererPriority: 0
   m_Materials:
   - {fileID: 2100000, guid: 876693fb6e5ee8c44aa6ec24a88e3a6d, type: 2}
-  - {fileID: 2100000, guid: fef2bf68325c77a4da9da6e796de2382, type: 2}
+  - {fileID: 2100000, guid: 675cc324f59784b4a8701b98a84d5c5b, type: 2}
   - {fileID: 2100000, guid: 876693fb6e5ee8c44aa6ec24a88e3a6d, type: 2}
   - {fileID: 2100000, guid: a9e8f485a54137c4781965ad6d19cf2f, type: 2}
   - {fileID: 2100000, guid: 4817fcba8d508a748818304090d52520, type: 2}
@@ -2580,6 +2580,7 @@ GameObject:
   - component: {fileID: 3419928902034986279}
   - component: {fileID: 1948572191909641474}
   - component: {fileID: 7586191646433272289}
+  - component: {fileID: 7900000000000000101}
   - component: {fileID: 909900000000000001}
   - component: {fileID: 8618836756706307162}
   - component: {fileID: 7112345678901234567}
@@ -2819,6 +2820,7 @@ MonoBehaviour:
   passengerCabinNormalizedTime: 0.78
   passengerDoorTransform: {fileID: 6375510849869711429}
   passengerDoorOpenRotation: {x: 10.14, y: -57.21, z: -0}
+  passengerDoorOpenLocalOffset: {x: 0, y: 0, z: 0}
   passengerDoorHandleTarget: {fileID: 3889530871879185762}
   passengerDoorAudioSource: {fileID: 8939499269436931443}
   occupiedDoorOpenGestureNormalizedTime: 0.34
@@ -2830,6 +2832,7 @@ MonoBehaviour:
   rearLeftSeatParent: {fileID: 1627955645995012939}
   rearLeftDoorTransform: {fileID: 5655772114296958940}
   rearLeftDoorOpenRotation: {x: 10.14, y: 57.21, z: 0}
+  rearLeftDoorOpenLocalOffset: {x: 0, y: 0, z: 0}
   rearLeftDoorHandleTarget: {fileID: 6891440173084250228}
   rearLeftDoorAudioSource: {fileID: 8991068081315487090}
   rearRightEntryStandingPoint: {fileID: 1783948560103010491}
@@ -2837,6 +2840,7 @@ MonoBehaviour:
   rearRightSeatParent: {fileID: 5110062849025954394}
   rearRightDoorTransform: {fileID: 4406202013833572793}
   rearRightDoorOpenRotation: {x: 10.14, y: -57.21, z: -0}
+  rearRightDoorOpenLocalOffset: {x: 0, y: 0, z: 0}
   rearRightDoorHandleTarget: {fileID: 1320539254766248062}
   rearRightDoorAudioSource: {fileID: 1657727787264974575}
   rearLeftLapLeftHandTarget: {fileID: 3278924454412918555}
@@ -2921,6 +2925,7 @@ MonoBehaviour:
   movingExitDoorRemainingOpen: 0.15
   doorTransform: {fileID: 106341504346761971}
   doorOpenRotation: {x: 10.14, y: 57.21, z: 0}
+  doorOpenLocalOffset: {x: 0, y: 0, z: 0}
   doorRotationDuration: 0.32
   doorRotationStartDelay: 0.1
   doorResetDelay: 0.65
@@ -3044,6 +3049,17 @@ MonoBehaviour:
   entrySeatAlignmentSharpness: 14
   seatedPoseGuardLeadTime: 0.16
   seatedPoseGuardReleaseDelay: 0.18
+  autoFitSeatedModel: 0
+  driverSeatedCeilingAnchor: {fileID: 0}
+  passengerSeatedCeilingAnchor: {fileID: 0}
+  rearLeftSeatedCeilingAnchor: {fileID: 0}
+  rearRightSeatedCeilingAnchor: {fileID: 0}
+  seatedCabinCeilingRenderer: {fileID: 0}
+  seatedHeadTopOffset: 0.1
+  seatedHeadClearance: 0.025
+  seatedRoofLiningInset: 0.025
+  minimumSeatedModelScale: 0.9
+  maximumSeatedModelDownOffset: 0.16
   onEnter:
     m_Instructions: []
   onExit:
@@ -3390,6 +3406,17 @@ MonoBehaviour:
   m_SlowThrottleTaperStart: 0.65
   m_ExitStopDeceleration: 14
   m_CoastingParkingSpeedKph: 2
+  m_SnapToGroundOnSpawn: 1
+  m_SpawnGroundLayers:
+    serializedVersion: 2
+    m_Bits: 1409
+  m_SpawnGroundProbeHeight: 2
+  m_SpawnGroundProbeDistance: 30
+  m_SpawnGroundClearance: 0.015
+  m_MinSpawnGroundNormal: 0.65
+  m_MaxSpawnGroundRise: 1.25
+  m_MinSpawnGroundWheelHits: 3
+  m_AlignSpawnToGround: 1
   m_SteeringWheel: {fileID: 828204137598588610}
   m_SteeringWheelMaxAngle: 360
   m_SteeringWheelResponse: 15
@@ -3413,6 +3440,8 @@ MonoBehaviour:
   m_ShowMobileInputInEditor: 1
   m_Dashboard: {fileID: 967255811771476149}
   m_Fuel: {fileID: 7112345678901234567}
+  m_AbandonedEngineMinimumRunSeconds: 30
+  m_AbandonedEngineRetireDistance: 60
   m_VehicleLights: {fileID: 2053464713684727125}
   m_Horn: {fileID: 910300000000000003}
 --- !u!114 &1948572191909641474
@@ -3587,6 +3616,32 @@ MonoBehaviour:
   m_HeavyMinVolume: 0.9
   m_HeavyMaxVolume: 1
   m_HeavyPitch: 0.9
+--- !u!114 &7900000000000000101
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1012201392339528721}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e27e0fa54644e45953388ea3f11c39f, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Vehicles.SimcadeCarCharacterImpact
+  m_ImpactAudio: {fileID: 7586191646433272289}
+  m_CarBody: {fileID: 6853005902781517826}
+  m_CarCollider: {fileID: 2366635193457452804}
+  m_CarEntry: {fileID: 2869051609714795022}
+  m_Driver: {fileID: 3419928902034986279}
+  m_MinimumRagdollSpeed: 4.1667
+  m_FullResponseSpeed: 13.89
+  m_MinimumPushSpeed: 2.4
+  m_MaximumPushSpeed: 5.5
+  m_MinimumUpwardSpeed: 0.35
+  m_MaximumUpwardSpeed: 0.8
+  m_MaximumResultSpeed: 6
+  m_OwnedRagdollDuration: 2.25
+  m_PerCharacterCooldown: 0.8
 --- !u!114 &909900000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3725,6 +3780,7 @@ MonoBehaviour:
   m_ParticleWind: {fileID: 185025722756399394}
   m_LoopEffectsCullDistance: 55
   m_LoopEffectsLodInterval: 1
+  m_DestroyedFireLifetime: 25
   m_SmokeAudioSource: {fileID: 4377532577439156087}
   m_SmokeLoopClip: {fileID: 8300000, guid: 4409c2ca779a140c0b0093066f813b7a, type: 3}
   m_FireAudioSource: {fileID: 8659518485869937604}
@@ -3755,10 +3811,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Vehicles.SimcadeCarDestruction
   m_Driver: {fileID: 3419928902034986279}
   m_CarEntry: {fileID: 2869051609714795022}
+  m_DoorDamage: {fileID: 807587882220604204}
   m_Controller: {fileID: 4596240358959118080}
   m_CarBody: {fileID: 6853005902781517826}
   m_CharredCarColor: {r: 0.018, g: 0.015, b: 0.012, a: 1}
   m_CharredPlayerColor: {r: 0.028, g: 0.022, b: 0.018, a: 1}
+  m_BodyUpwardVelocityChange: 1.4
+  m_BodyPitchVelocityChange: 0.16
+  m_BodyRollVelocityChange: 0.22
   m_WheelRadialSpeed: 5.5
   m_WheelUpwardSpeed: 3.2
   m_WheelSpinSpeed: 18
@@ -3769,7 +3829,7 @@ MonoBehaviour:
   m_WheelSinkDistance: 0.48
   m_WreckMinimumVisibleDuration: 15
   m_WreckHideDistance: 35
-  m_WreckVisibilityCheckInterval: 0.5
+  m_WreckVisibilityCheckInterval: 1
   m_OccupantSideClearance: 1.35
   m_OccupantRadialSpeed: 1.8
   m_OccupantUpwardSpeed: 0.75
@@ -3898,12 +3958,16 @@ MonoBehaviour:
   m_FollowGround: 1
   m_GroundLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 1921
   m_ProbeStartHeight: 0.5
   m_MaxGroundDistance: 6
   m_ProbeInterval: 0.1
   m_GroundOffset: 0.025
   m_MinGroundNormalY: 0.35
+  m_GroundNormalSharpness: 18
+  m_ReceiverAbove: 0.22
+  m_ReceiverBelow: 0.4
+  m_SeamAllowance: 0.1
   m_HideWhenGroundMissing: 1
   m_IgnoreRigidbodyReceivers: 1
   m_SuppressInsideShadowOwner: 1
@@ -4140,7 +4204,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: fef2bf68325c77a4da9da6e796de2382, type: 2}
+  - {fileID: 2100000, guid: 675cc324f59784b4a8701b98a84d5c5b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -7161,7 +7225,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: fef2bf68325c77a4da9da6e796de2382, type: 2}
+  - {fileID: 2100000, guid: 675cc324f59784b4a8701b98a84d5c5b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -14458,7 +14522,7 @@ ParticleSystem:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-  moveWithTransform: 1
+  moveWithTransform: 0
   moveWithCustomTransform: {fileID: 0}
   scalingMode: 0
   randomSeed: 0
@@ -20566,7 +20630,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: fef2bf68325c77a4da9da6e796de2382, type: 2}
+  - {fileID: 2100000, guid: 675cc324f59784b4a8701b98a84d5c5b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -20748,7 +20812,7 @@ MeshRenderer:
   m_Materials:
   - {fileID: 2100000, guid: 876693fb6e5ee8c44aa6ec24a88e3a6d, type: 2}
   - {fileID: 2100000, guid: 571ceeac760d51e49980e6b89b26f5dc, type: 2}
-  - {fileID: 2100000, guid: fef2bf68325c77a4da9da6e796de2382, type: 2}
+  - {fileID: 2100000, guid: 675cc324f59784b4a8701b98a84d5c5b, type: 2}
   - {fileID: 2100000, guid: a9e8f485a54137c4781965ad6d19cf2f, type: 2}
   - {fileID: 2100000, guid: 876693fb6e5ee8c44aa6ec24a88e3a6d, type: 2}
   - {fileID: 2100000, guid: 4817fcba8d508a748818304090d52520, type: 2}
@@ -21466,7 +21530,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: fef2bf68325c77a4da9da6e796de2382, type: 2}
+  - {fileID: 2100000, guid: 675cc324f59784b4a8701b98a84d5c5b, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -21647,7 +21711,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: fef2bf68325c77a4da9da6e796de2382, type: 2}
+  - {fileID: 2100000, guid: 675cc324f59784b4a8701b98a84d5c5b, type: 2}
   - {fileID: 2100000, guid: 571ceeac760d51e49980e6b89b26f5dc, type: 2}
   - {fileID: 2100000, guid: 876693fb6e5ee8c44aa6ec24a88e3a6d, type: 2}
   m_StaticBatchInfo:
@@ -22364,7 +22428,7 @@ MeshRenderer:
   m_RendererPriority: 0
   m_Materials:
   - {fileID: 2100000, guid: 876693fb6e5ee8c44aa6ec24a88e3a6d, type: 2}
-  - {fileID: 2100000, guid: fef2bf68325c77a4da9da6e796de2382, type: 2}
+  - {fileID: 2100000, guid: 675cc324f59784b4a8701b98a84d5c5b, type: 2}
   - {fileID: 2100000, guid: 01b1bcaba17d7fe4c9a7efb62a82b605, type: 2}
   - {fileID: 2100000, guid: a4b9166a46fc30641aed7288463096a2, type: 2}
   - {fileID: 2100000, guid: b0eed5cf070c38843b947f9ccf226758, type: 2}
@@ -22789,7 +22853,7 @@ ParticleSystem:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-  moveWithTransform: 1
+  moveWithTransform: 0
   moveWithCustomTransform: {fileID: 0}
   scalingMode: 0
   randomSeed: 0
@@ -39150,7 +39214,7 @@ MeshRenderer:
   m_Materials:
   - {fileID: 2100000, guid: 876693fb6e5ee8c44aa6ec24a88e3a6d, type: 2}
   - {fileID: 2100000, guid: 6a1bfb2d7a1709f4781b2e548e1019e4, type: 2}
-  - {fileID: 2100000, guid: fef2bf68325c77a4da9da6e796de2382, type: 2}
+  - {fileID: 2100000, guid: 675cc324f59784b4a8701b98a84d5c5b, type: 2}
   - {fileID: 2100000, guid: 571ceeac760d51e49980e6b89b26f5dc, type: 2}
   - {fileID: 2100000, guid: a9e8f485a54137c4781965ad6d19cf2f, type: 2}
   m_StaticBatchInfo:
@@ -39282,7 +39346,7 @@ ParticleSystem:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-  moveWithTransform: 1
+  moveWithTransform: 0
   moveWithCustomTransform: {fileID: 0}
   scalingMode: 0
   randomSeed: 0
