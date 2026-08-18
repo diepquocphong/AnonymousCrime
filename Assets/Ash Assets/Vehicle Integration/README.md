@@ -1066,6 +1066,28 @@ thân xe bật mipmap, Default/Android/iOS giới hạn `1024px`; mobile dùng A
 `Cyclone.FBX` phải giữ Read/Write vì deformation tạo runtime render mesh khi có
 impact, nhưng không runtime-cook collider.
 
+### Quy chuẩn độ bóng sơn thân Car
+
+Toàn bộ 17 prefab production (`Car`, `Cyclone` và 15 profile AllStar) phải dùng
+material sơn riêng dạng `<Name>BodyGlossy.mat`. Material nằm trong
+[`Vehicles/Car/Materials/Vehicle/`](Vehicles/Car/Materials/Vehicle/); mỗi profile
+giữ nguyên shader, `BaseMap`/texture và `BaseColor` của màu sơn nguồn, không dùng
+material của model khác để tránh đổi màu hoặc UV.
+
+- Giá trị hiệu dụng bắt buộc là `Smoothness = 0.88` và `Metallic = 0.12`.
+  URP Lit dùng `_Smoothness`/`_Metallic`; Shader Graph của `Car` phải ghi đúng hai
+  exposed property tương ứng thay vì chỉ sửa property compatibility không được
+  graph sử dụng. Mọi color variant đưa vào production phải giữ cùng profile này.
+- Chỉ renderer sơn ngoại thất được phép nhận material bóng: thân chính, cửa,
+  fender/nắp xăng/nắp sau, vỏ gương cùng panel khoang hàng có cùng màu thân.
+  Không gắn lên wheel/lốp, kính, lens/đèn, chrome, cao su, cabin, Steering hoặc VFX.
+- `Clear Coat` mặc định giữ `0`; specular highlight và environment reflection được
+  bật. Profile bóng không thêm shader keyword/clear-coat pass riêng trên mobile.
+- Mỗi prefab dùng một shared material asset cho các panel sơn; không gọi
+  `Renderer.material`, không clone material runtime và không tạo một material cho
+  từng door. Hiệu ứng cháy đen vẫn dùng `MaterialPropertyBlock`, không sửa asset
+  `*BodyGlossy.mat` hay làm đổi màu các xe khác.
+
 ### AllStar — 15 profile Car dùng chung
 
 Mười lăm profile dưới đây dùng cùng runtime stack với `Car.prefab` và
@@ -1184,6 +1206,11 @@ Character root, capsule, thân xe, bánh, collider và toàn bộ kính giữ ng
     được parent vào seat dưới một Car/Bike có FBS, FBS Character tắt tự động để không
     double với vehicle. Khi detach do exit, carjack, eject hoặc crash, FBS bật lại bằng
     callback `OnTransformParentChanged`; không quét parent hierarchy mỗi frame.
+25. Mọi Car production phải tuân thủ mục **Quy chuẩn độ bóng sơn thân Car**:
+    `Smoothness 0.88`, `Metallic 0.12`, một `*BodyGlossy.mat` riêng theo profile và
+    không để material sơn lọt sang wheel/lốp/kính/đèn/cabin. Khi tích hợp model mới,
+    validator phải kiểm material asset tồn tại, GUID resolve, body/cửa dùng đúng asset
+    và toàn bộ wheel renderer không tham chiếu material này.
 
 ## QA tối thiểu
 
@@ -1196,6 +1223,7 @@ Character root, capsule, thân xe, bánh, collider và toàn bộ kính giữ ng
 | Ghế sau trái/phải | Cửa gần nhất được chọn; hai tay giữ trên đùi, không giơ lên trần. |
 | Exit dừng → park → enter lại | Lặp 10 lần với mọi cửa đã cấu hình: root Y trước/sau lệch không quá 1 cm, bánh không lún, hotspot vẫn chọn được. Khi park, Rigidbody giữ `FreezeAll` và controller nghỉ; khi enter, constraints gốc/controller phải được phục hồi. Kiểm tra thêm exit sau auto-stop dưới 50 km/h và trên mặt dốc. |
 | Spawn/Pool Car + Cyclone + AllStar | Spawn ở marker mặt đất, cao `0.5m/3m/10m` và thấp `0.2m`, yaw khác nhau, mặt phẳng/dốc; cả hai axle phải bám ground, chassis không xuyên và không nghỉ trên BoxCollider. Disable → đổi pose → enable 20 lần phải snap trước frame render kế tiếp, zero stale velocity, giữ đúng một Rigidbody/BoxCollider và sau đó controller/skid nghỉ hoàn toàn. Marker không có ground trong `30m` phải chỉ cảnh báo một lần, không polling vô hạn. |
+| Sơn bóng body toàn bộ Car | Kiểm lần lượt `Car`, `Cyclone` và 15 profile AllStar dưới directional light + reflection probe: thân/cửa/panel sơn phải dùng đúng `<Name>BodyGlossy.mat`, giữ màu/texture nguồn và có giá trị hiệu dụng `Smoothness 0.88`, `Metallic 0.12`. Wheel/lốp, kính, lens/đèn, chrome, cao su và cabin không được tham chiếu material này. Cửa mở/rơi, deformation, garage repair và cháy đen không được tạo material instance hoặc làm mất profile bóng sau khi phục hồi. |
 | Cyclone cấu trúc | Không Missing MonoBehaviour/legacy motor; 0 `MeshCollider`/`WheelCollider`; đúng 1 root `Rigidbody` + `BoxCollider`; bốn wheel/hardpoint theo thứ tự `FL,FR,RL,RR`; không có Hotspot rear. Chỉ 4 light emitter và Steering từ template Car được phép render; không còn cockpit/body/pedal/gauge/wiper sedan bay ngoài Cyclone. |
 | Cyclone enter hai cửa | Đứng từng bên chọn đúng cửa gần nhất và Player đi tới anchor, không teleport; lặp enter/exit 10 lần không nhô lên nóc/lệch ghế. Kiểm tra Head nằm dưới `Front Seat Cabin Ceiling`, Hips không đổi vị trí và model/capsule trở về đúng scale sau exit, bailout/ragdoll rồi enter Car/Bike khác. Có NPC: cửa trái kéo NPC, cửa phải vào ghế phụ rồi đẩy NPC sang trái. |
 | Cyclone shared HUD/camera | Chuyển `Car → Cyclone → Car`: Hierarchy chỉ có một shared dashboard, telemetry/radio bind đúng active vehicle; TPS/FPS/orbit/rear-view centered và không tạo Canvas/camera Cyclone riêng. |
