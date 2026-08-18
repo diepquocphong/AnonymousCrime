@@ -17,51 +17,51 @@ MonoBehaviour:
       m_String: adbea023-0ae5-4d01-8147-4d33c39ba2c0
   m_Title:
     m_Property:
-      rid: 9185873604902126019
+      rid: 9185873604902126277
   m_Description:
     m_Property:
-      rid: 9185873604902126020
+      rid: 9185873604902126278
   m_Icon:
     m_Property:
-      rid: 9185873604902126021
+      rid: 9185873604902126279
   m_Color:
     m_Property:
       rid: 9185873578294772575
   m_Infinite: 0
   m_Value:
     m_Property:
-      rid: 9185873604902126022
+      rid: 9185873604902126280
   references:
     version: 2
     RefIds:
     - rid: 9185873578294772575
       type: {class: GetColorColorsWhite, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 9185873604902126019
+    - rid: 9185873604902126277
       type: {class: GetStringString, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: Smoke Grenade
-    - rid: 9185873604902126020
+    - rid: 9185873604902126278
       type: {class: GetStringString, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: Smoke Grenade reserve
-    - rid: 9185873604902126021
+    - rid: 9185873604902126279
       type: {class: GetSpriteInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Sprite: {fileID: 21300000, guid: ad9335856607745cab8b9616be461c71, type: 3}
-    - rid: 9185873604902126022
+    - rid: 9185873604902126280
       type: {class: SetNumberMunition, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
       data:
         m_Character:
           m_Property:
-            rid: 9185873604902126023
+            rid: 9185873604902126281
         m_Weapon:
           m_Property:
-            rid: 9185873604902126024
-    - rid: 9185873604902126023
+            rid: 9185873604902126282
+    - rid: 9185873604902126281
       type: {class: GetGameObjectSelf, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 9185873604902126024
+    - rid: 9185873604902126282
       type: {class: GetWeaponShooterInstance, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
       data:
         m_Weapon: {fileID: 11400000, guid: 596005c1a49484ac1bad77c2526c9f6b, type: 2}

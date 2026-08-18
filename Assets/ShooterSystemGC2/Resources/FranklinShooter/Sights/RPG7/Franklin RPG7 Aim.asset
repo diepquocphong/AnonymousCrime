@@ -25,13 +25,13 @@ MonoBehaviour:
     m_StateType: 0
     m_AnimationClip:
       m_Property:
-        rid: 9185873604902125775
+        rid: 9185873604902126033
     m_RuntimeController: {fileID: 0}
     m_State: {fileID: 0}
     m_AvatarMask: {fileID: 31900000, guid: 2a8cb37e09784b409c16ee39c544f0be, type: 2}
   m_Layer:
     m_Property:
-      rid: 9185873604902125776
+      rid: 9185873604902126034
   m_OnEnter:
     m_Instructions:
       m_Instructions: []
@@ -41,16 +41,16 @@ MonoBehaviour:
   m_Aim:
     m_MinAccuracy:
       m_Property:
-        rid: 9185873604902125777
+        rid: 9185873604902126035
     m_Aim:
-      rid: 9185873604902125778
+      rid: 9185873604902126036
   m_Biomechanics:
     m_Value:
       rid: 3428531543345202062
   m_Trajectory:
     m_UseTrajectory:
       m_Property:
-        rid: 9185873604902125779
+        rid: 9185873604902126037
     m_UseRaycast:
       m_IsEnabled: 1
       m_Value:
@@ -423,32 +423,32 @@ MonoBehaviour:
       type: {class: GetDecimalDecimal, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 0.004999999888241291
-    - rid: 9185873604902125775
+    - rid: 9185873604902126033
       type: {class: GetAnimationInstance, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: {fileID: 7707001963717277441, guid: ddf34426cfa54eb43b42782c3b6523c3, type: 3}
-    - rid: 9185873604902125776
+    - rid: 9185873604902126034
       type: {class: GetDecimalInteger, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 8
-    - rid: 9185873604902125777
+    - rid: 9185873604902126035
       type: {class: GetDecimalConstantZero, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data: 
-    - rid: 9185873604902125778
+    - rid: 9185873604902126036
       type: {class: AimCameraRaycast, ns: GameCreator.Runtime.Shooter, asm: GameCreator.Runtime.Shooter}
       data:
         m_Breakpoint: 0
         m_IsEnabled: 1
         m_Camera:
           m_Property:
-            rid: 9185873604902125780
+            rid: 9185873604902126038
         m_LayerMask:
           serializedVersion: 2
           m_Bits: 4294967295
-    - rid: 9185873604902125779
+    - rid: 9185873604902126037
       type: {class: GetBoolValue, ns: GameCreator.Runtime.Common, asm: GameCreator.Runtime.Core}
       data:
         m_Value: 0
-    - rid: 9185873604902125780
+    - rid: 9185873604902126038
       type: {class: GetGameObjectCameraMain, ns: GameCreator.Runtime.Cameras, asm: GameCreator.Runtime.Core}
       data: 

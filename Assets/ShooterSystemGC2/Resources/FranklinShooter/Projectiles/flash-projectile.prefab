@@ -32,7 +32,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7763963830867324027}
+  - {fileID: 4430962840529345872}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!54 &5542067082270374898
@@ -95,7 +95,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e72b041ec6f14593a2675c7f9b37d32d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: GameCreator.Runtime.Shooter::GameCreator.Runtime.Shooter.Bullet
---- !u!1 &6935258010047382089
+--- !u!1 &1668138887661924251
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -103,8 +103,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 7763963830867324027}
-  - component: {fileID: 2060850685327694295}
+  - component: {fileID: 4430962840529345872}
+  - component: {fileID: 1075479358131719926}
   m_Layer: 0
   m_Name: Visual
   m_TagString: Untagged
@@ -112,42 +112,42 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &7763963830867324027
+--- !u!4 &4430962840529345872
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6935258010047382089}
+  m_GameObject: {fileID: 1668138887661924251}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7568487118245708490}
+  - {fileID: 6006294724804078932}
   m_Father: {fileID: 5459285505660272432}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2060850685327694295
+--- !u!114 &1075479358131719926
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6935258010047382089}
+  m_GameObject: {fileID: 1668138887661924251}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ba292b77155ce4ed78ee5ce4dcbaca1c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FranklinGame.Shooter.FranklinThrowableVisualSpin
   m_DegreesPerSecond: {x: 410, y: 255, z: 175}
---- !u!1001 &7568021769222728314
+--- !u!1001 &6004719311684994532
 PrefabInstance:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Modification:
     serializedVersion: 3
-    m_TransformParent: {fileID: 7763963830867324027}
+    m_TransformParent: {fileID: 4430962840529345872}
     m_Modifications:
     - target: {fileID: 1516097666562846, guid: c0f110e4459b675489b7db1e686d5bc3, type: 3}
       propertyPath: m_Name
@@ -230,8 +230,8 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: c0f110e4459b675489b7db1e686d5bc3, type: 3}
---- !u!4 &7568487118245708490 stripped
+--- !u!4 &6006294724804078932 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 4408339615606960, guid: c0f110e4459b675489b7db1e686d5bc3, type: 3}
-  m_PrefabInstance: {fileID: 7568021769222728314}
+  m_PrefabInstance: {fileID: 6004719311684994532}
   m_PrefabAsset: {fileID: 0}
